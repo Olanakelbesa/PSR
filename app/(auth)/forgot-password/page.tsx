@@ -41,101 +41,94 @@ export default function ForgotPasswordPage() {
 
   if (isSubmitted) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-center">
-          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <CheckCircle2 className="h-8 w-8 text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+        <div className="mx-auto w-full max-w-md text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
+            <CheckCircle2 className="h-8 w-8" />
           </div>
-        </div>
-
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Check your email</h1>
-          <p className="text-muted-foreground">
-            {"We've sent a password reset link to"}
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Check your email</h1>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            {"We've sent a password reset link to"}<br />
+            <span className="font-semibold text-foreground">{submittedEmail}</span>
           </p>
-          <p className="font-medium">{submittedEmail}</p>
-        </div>
 
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground text-center">
-            {"Didn't receive the email? Check your spam folder or"}
-          </p>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              setIsSubmitted(false)
-              form.reset()
-            }}
-          >
-            Try another email
-          </Button>
-        </div>
-
-        <div className="text-center">
-          <Link
-            href="/login"
-            className="inline-flex items-center text-sm text-primary hover:underline"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to login
-          </Link>
+          <div className="mt-10 space-y-4">
+            <Button
+              variant="outline"
+              className="h-12 w-full text-base font-medium transition-all hover:bg-muted"
+              onClick={() => {
+                setIsSubmitted(false)
+                form.reset()
+              }}
+            >
+              Try another email
+            </Button>
+            <Link
+              href="/login"
+              className="group flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+              Back to login
+            </Link>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-center">
-        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-          <Mail className="h-8 w-8 text-primary" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="mx-auto w-full max-w-md">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
+            <Mail className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Forgot password?</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            No worries, we will send you reset instructions.
+          </p>
         </div>
-      </div>
 
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Forgot your password?</h1>
-        <p className="text-muted-foreground">
-          {"No worries, we'll send you reset instructions."}
-        </p>
-      </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-foreground/80">Email address</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="name@example.com"
+                      className="h-12 bg-muted/50 border-muted focus:bg-background transition-all"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    autoComplete="email"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <Button type="submit" className="h-12 w-full text-base font-semibold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                'Send reset link'
+              )}
+            </Button>
+          </form>
+        </Form>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send reset link
-          </Button>
-        </form>
-      </Form>
-
-      <div className="text-center">
-        <Link
-          href="/login"
-          className="inline-flex items-center text-sm text-primary hover:underline"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to login
-        </Link>
+        <div className="mt-8 text-center">
+          <Link
+            href="/login"
+            className="group inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Back to login
+          </Link>
+        </div>
       </div>
     </div>
   )

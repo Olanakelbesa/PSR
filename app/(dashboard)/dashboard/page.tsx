@@ -255,7 +255,7 @@ function WorkflowOverview() {
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-2xl font-bold">{total}</span>
-              <span className="text-xs text-muted-foreground">Total Workflows</span>
+              <span className="text-xs text-muted-foreground text-center">Total</span>
             </div>
           </div>
           <div className="flex-1 space-y-1.5">
@@ -469,14 +469,14 @@ export default function DashboardPage() {
             {"Here's what's happening with policy and research management today."}
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
+        {/* <Button variant="outline" className="gap-2">
           <Settings2 className="h-4 w-4" />
           Customize
-        </Button>
+        </Button> */}
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {statsData.map((stat) => (
           <StatCard key={stat.title} stat={stat} />
         ))}

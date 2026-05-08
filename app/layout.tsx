@@ -11,24 +11,7 @@ export const metadata: Metadata = {
     default: 'PSR Platform',
     template: '%s | PSR Platform',
   },
-  description: 'Policy & System Reform Platform for the Ethiopian Ministry of Health. Manage policy documents, research proposals, and institutional partnerships.',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
+  description: 'Policy & Research Platform. Manage policy documents, research proposals, and academic partnerships.'
 }
 
 export default function RootLayout({

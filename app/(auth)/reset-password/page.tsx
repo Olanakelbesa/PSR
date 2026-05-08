@@ -53,149 +53,155 @@ export default function ResetPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-center">
-          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <CheckCircle2 className="h-8 w-8 text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+        <div className="mx-auto w-full max-w-md text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
+            <CheckCircle2 className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Success!</h1>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            Your password has been successfully reset. You can now sign in with your new credentials.
+          </p>
+
+          <div className="mt-10">
+            <Button 
+              className="h-12 w-full text-base font-semibold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]" 
+              onClick={() => router.push('/login')}
+            >
+              Continue to Login
+            </Button>
           </div>
         </div>
-
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Password reset successful</h1>
-          <p className="text-muted-foreground">
-            Your password has been successfully reset. You can now sign in with your new password.
-          </p>
-        </div>
-
-        <Button className="w-full" onClick={() => router.push('/login')}>
-          Continue to login
-        </Button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-center">
-        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-          <Lock className="h-8 w-8 text-primary" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="mx-auto w-full max-w-md">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
+            <Lock className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Set new password</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Please choose a strong password that you haven't used before.
+          </p>
         </div>
-      </div>
 
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Set new password</h1>
-        <p className="text-muted-foreground">
-          Your new password must be different from previous passwords.
-        </p>
-      </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-foreground/80">New Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        className="h-12 bg-muted/50 border-muted focus:bg-background transition-all pr-12"
+                        {...field}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>New Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter new password"
-                      {...field}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+            {/* Password strength indicators */}
+            {password && (
+              <div className="rounded-xl bg-muted/30 p-4 border border-muted/50">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Security Requirements</p>
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                  <div className={cn('flex items-center gap-2 transition-colors', hasMinLength ? 'text-primary' : 'text-muted-foreground')}>
+                    <div className={cn('h-1.5 w-1.5 rounded-full', hasMinLength ? 'bg-primary' : 'bg-muted-foreground')} />
+                    8+ characters
                   </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Password strength indicators */}
-          {password && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Password must contain:</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className={cn('flex items-center gap-2', hasMinLength ? 'text-primary' : 'text-muted-foreground')}>
-                  <div className={cn('h-1.5 w-1.5 rounded-full', hasMinLength ? 'bg-primary' : 'bg-muted-foreground')} />
-                  8+ characters
-                </div>
-                <div className={cn('flex items-center gap-2', hasUppercase ? 'text-primary' : 'text-muted-foreground')}>
-                  <div className={cn('h-1.5 w-1.5 rounded-full', hasUppercase ? 'bg-primary' : 'bg-muted-foreground')} />
-                  Uppercase letter
-                </div>
-                <div className={cn('flex items-center gap-2', hasLowercase ? 'text-primary' : 'text-muted-foreground')}>
-                  <div className={cn('h-1.5 w-1.5 rounded-full', hasLowercase ? 'bg-primary' : 'bg-muted-foreground')} />
-                  Lowercase letter
-                </div>
-                <div className={cn('flex items-center gap-2', hasNumber ? 'text-primary' : 'text-muted-foreground')}>
-                  <div className={cn('h-1.5 w-1.5 rounded-full', hasNumber ? 'bg-primary' : 'bg-muted-foreground')} />
-                  Number
+                  <div className={cn('flex items-center gap-2 transition-colors', hasUppercase ? 'text-primary' : 'text-muted-foreground')}>
+                    <div className={cn('h-1.5 w-1.5 rounded-full', hasUppercase ? 'bg-primary' : 'bg-muted-foreground')} />
+                    Uppercase letter
+                  </div>
+                  <div className={cn('flex items-center gap-2 transition-colors', hasLowercase ? 'text-primary' : 'text-muted-foreground')}>
+                    <div className={cn('h-1.5 w-1.5 rounded-full', hasLowercase ? 'bg-primary' : 'bg-muted-foreground')} />
+                    Lowercase letter
+                  </div>
+                  <div className={cn('flex items-center gap-2 transition-colors', hasNumber ? 'text-primary' : 'text-muted-foreground')}>
+                    <div className={cn('h-1.5 w-1.5 rounded-full', hasNumber ? 'bg-primary' : 'bg-muted-foreground')} />
+                    At least one number
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Confirm Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder="Confirm new password"
-                      {...field}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
             )}
-          />
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Reset password
-          </Button>
-        </form>
-      </Form>
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-foreground/80">Confirm Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        className="h-12 bg-muted/50 border-muted focus:bg-background transition-all pr-12"
+                        {...field}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      <div className="text-center">
-        <Link
-          href="/login"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Back to login
-        </Link>
+            <Button type="submit" className="h-12 w-full text-base font-semibold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                'Update Password'
+              )}
+            </Button>
+          </form>
+        </Form>
+
+        <div className="mt-8 text-center">
+          <Link
+            href="/login"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Back to login
+          </Link>
+        </div>
       </div>
     </div>
   )

@@ -110,79 +110,109 @@ export default function VerifyOTPPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight">Verify your identity</h1>
-        <p className="text-muted-foreground">
-          {"We've sent a 6-digit code to"}{' '}
-          <span className="font-medium text-foreground">{otpEmail}</span>
-        </p>
-      </div>
-
-      {error && (
-        <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md text-center">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <div className="flex justify-center gap-2">
-          {otp.map((digit, index) => (
-            <Input
-              key={index}
-              ref={(el) => {
-                inputRefs.current[index] = el
-              }}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handleChange(index, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              onPaste={handlePaste}
-              className="w-12 h-14 text-center text-2xl font-bold"
-              disabled={isLoading}
-            />
-          ))}
-        </div>
-
-        <Button
-          onClick={() => handleSubmit()}
-          className="w-full"
-          disabled={isLoading || otp.some((digit) => !digit)}
-        >
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Verify
-        </Button>
-      </div>
-
-      <div className="text-center space-y-4">
-        <p className="text-sm text-muted-foreground">
-          {"Didn't receive the code?"}{' '}
-          {resendTimer > 0 ? (
-            <span>Resend in {resendTimer}s</span>
-          ) : (
-            <button
-              onClick={handleResend}
-              className="text-primary hover:underline font-medium"
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="mx-auto w-full max-w-md">
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
+            <svg
+              className="h-8 w-8"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              Resend code
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Verify your identity</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {"We've sent a 6-digit security code to"}{' '}
+            <span className="font-semibold text-foreground">{otpEmail}</span>
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 bg-destructive/10 text-destructive text-sm p-4 rounded-xl border border-destructive/20 flex items-center justify-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-destructive" />
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-8">
+          <div className="flex justify-between gap-2 sm:gap-4">
+            {otp.map((digit, index) => (
+              <Input
+                key={index}
+                ref={(el) => {
+                  inputRefs.current[index] = el
+                }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                onPaste={handlePaste}
+                className="h-14 w-full border-muted bg-muted/50 text-center text-2xl font-bold transition-all focus:bg-background focus:ring-2 focus:ring-primary/20 sm:h-16"
+                disabled={isLoading}
+              />
+            ))}
+          </div>
+
+          <Button
+            onClick={() => handleSubmit()}
+            className="h-12 w-full text-base font-semibold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            disabled={isLoading || otp.some((digit) => !digit)}
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              'Verify Account'
+            )}
+          </Button>
+
+          <div className="space-y-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {"Didn't receive the code?"}{' '}
+              {resendTimer > 0 ? (
+                <span className="font-medium text-foreground">Resend in {resendTimer}s</span>
+              ) : (
+                <button
+                  onClick={handleResend}
+                  className="font-semibold text-primary hover:text-primary/80 transition-colors"
+                >
+                  Resend code
+                </button>
+              )}
+            </p>
+
+            <button
+              onClick={handleBack}
+              className="group flex items-center justify-center gap-2 mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg
+                className="h-4 w-4 transition-transform group-hover:-translate-x-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to login
             </button>
-          )}
-        </p>
+          </div>
+        </div>
 
-        <button
-          onClick={handleBack}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Back to login
-        </button>
-      </div>
-
-      <div className="bg-muted/50 rounded-lg p-4 text-center">
-        <p className="text-sm text-muted-foreground">
-          Demo OTP: <span className="font-mono font-medium text-foreground">123456</span>
-        </p>
+        {/* <div className="mt-12 rounded-2xl bg-muted/30 p-4 text-center border border-muted/50">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Demo Access</p>
+          <p className="text-sm text-muted-foreground">
+            Use OTP: <span className="font-mono font-bold text-foreground bg-background px-2 py-0.5 rounded">123456</span>
+          </p>
+        </div> */}
       </div>
     </div>
   )

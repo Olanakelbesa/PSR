@@ -300,12 +300,12 @@ export default function TaxonomyPage() {
             <CardContent>
               <TaxonomyTable 
                 items={[
-                  { value: 'moh', label: 'Ministry of Health', isActive: true, itemCount: 45 },
-                  { value: 'who', label: 'World Health Organization', isActive: true, itemCount: 23 },
+                  { value: 'moe', label: 'Ministry of Education', isActive: true, itemCount: 45 },
+                  { value: 'unesco', label: 'UNESCO', isActive: true, itemCount: 23 },
                   { value: 'unicef', label: 'UNICEF', isActive: true, itemCount: 18 },
                   { value: 'usaid', label: 'USAID', isActive: true, itemCount: 31 },
                   { value: 'aau', label: 'Addis Ababa University', isActive: true, itemCount: 56 },
-                  { value: 'ephi', label: 'Ethiopian Public Health Institute', isActive: true, itemCount: 42 },
+                  { value: 'neaea', label: 'National Educational Assessment agency', isActive: true, itemCount: 42 },
                 ]} 
                 onEdit={handleEdit} 
                 onDelete={handleDelete} 

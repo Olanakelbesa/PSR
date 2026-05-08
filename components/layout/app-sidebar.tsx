@@ -70,7 +70,7 @@ const navigationGroups: NavGroup[] = [
   {
     label: 'POLICY MANAGEMENT',
     items: [
-      { title: 'Policies', href: '/policies/repository', icon: FileText },
+      // { title: 'Policies', href: '/policies/repository', icon: FileText },
       { title: 'Concept Notes', href: '/policies/concept-notes', icon: FileEdit },
       { title: 'Drafts', href: '/policies/drafts', icon: FileClock },
       { title: 'Reviews', href: '/policies/reviews', icon: FileCheck },
@@ -119,8 +119,8 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="hover:bg-sidebar-accent">
               <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-amber-500/20 ring-2 ring-amber-500/50">
-                  <div className="flex items-center justify-center size-8 rounded-full bg-amber-500">
+                <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/50">
+                  <div className="flex items-center justify-center size-8 rounded-full bg-primary">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -136,7 +136,7 @@ export function AppSidebar() {
                 </div>
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-bold text-base">PSR Platform</span>
-                  <span className="truncate text-xs text-sidebar-foreground/70">Policy & System Reform</span>
+                  <span className="truncate text-xs text-sidebar-foreground/70">Policy & Research Platform</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -150,7 +150,7 @@ export function AppSidebar() {
           if (filteredItems.length === 0) return null
 
           return (
-            <SidebarGroup key={groupIndex} className={group.label ? 'mt-4' : ''}>
+            <SidebarGroup key={groupIndex}>
               {group.label && (
                 <SidebarGroupLabel className="text-[10px] font-semibold tracking-wider text-sidebar-foreground/50 px-3 mb-1">
                   {group.label}
