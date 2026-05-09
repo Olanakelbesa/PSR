@@ -72,8 +72,8 @@ const navigationGroups: NavGroup[] = [
     items: [
       // { title: 'Policies', href: '/policies/repository', icon: FileText },
       { title: 'Concept Notes', href: '/policies/concept-notes', icon: FileEdit },
-      { title: 'Reviews', href: '/policies/reviews', icon: FileCheck },
       { title: 'Drafts', href: '/policies/drafts', icon: FileClock },
+      { title: 'Reviews', href: '/policies/reviews', icon: FileCheck },
       { title: 'Repository', href: '/policies/library', icon: Library },
     ],
   },

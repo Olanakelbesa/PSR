@@ -59,6 +59,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Badge } from "@/components/ui/badge";
 
 const columns: ColumnDef<ConceptNote>[] = [
   {
@@ -135,6 +136,27 @@ const columns: ColumnDef<ConceptNote>[] = [
         <div className="flex items-center">
           <StatusBadge type="policy" status={status} />
         </div>
+      );
+    },
+  },
+    {
+    accessorKey: "version",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className=" h-8 font-semibold hover:bg-transparent"
+      >
+        Version
+        <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const version = row.getValue("version") as string;
+      return (
+        <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20">
+          {version ? `v${version}` : "v1.0.0"}
+        </Badge>
       );
     },
   },
