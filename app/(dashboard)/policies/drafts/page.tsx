@@ -243,9 +243,14 @@ const columns: ColumnDef<PolicyDocument>[] = [
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-muted/50" />
-              <DropdownMenuItem className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10">
-                <Users className="h-4 w-4 mr-2" />
-                Assign Experts
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/policies/drafts/${policy.id}/assign`}
+                  className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Assign Experts
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10">
                 <FileText className="h-4 w-4 mr-2" />
