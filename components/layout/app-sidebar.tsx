@@ -74,7 +74,7 @@ const navigationGroups: NavGroup[] = [
       { title: 'Concept Notes', href: '/policies/concept-notes', icon: FileEdit },
       { title: 'Drafts', href: '/policies/drafts', icon: FileClock },
       { title: 'Reviews', href: '/policies/reviews', icon: FileCheck },
-      { title: 'Repository', href: '/policies/library', icon: Library },
+      { title: 'Repository', href: '/policies/repository', icon: Library },
     ],
   },
   {
