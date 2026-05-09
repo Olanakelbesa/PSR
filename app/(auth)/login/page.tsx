@@ -116,7 +116,8 @@ export default function LoginPage() {
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="name@moe.gov.et"                        className="h-12 bg-muted/50 border-muted focus:bg-background transition-all"
+                        placeholder="Enter your email"
+                        className="h-12 bg-muted/50 border-muted focus:bg-background transition-all"
                         {...field}
                       />
                     </FormControl>
@@ -143,7 +144,7 @@ export default function LoginPage() {
                       <div className="relative">
                         <Input
                           type={showPassword ? 'text' : 'password'}
-                          placeholder="••••••••"
+                          placeholder="Enter your password"
                           className="h-12 bg-muted/50 border-muted focus:bg-background transition-all pr-12"
                           {...field}
                         />

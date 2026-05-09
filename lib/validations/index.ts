@@ -117,41 +117,55 @@ export type UserFormData = z.infer<typeof userSchema>;
 // Concept Note Schemas
 // ============================================================================
 
-export const conceptNoteSchema = z.object({
-  title: z
-    .string()
-    .min(1, "Title is required")
-    .max(500, "Title must be less than 500 characters"),
-  executiveSummary: z
-    .string()
-    .min(1, "Executive summary is required")
-    .max(1500, "Executive summary must not exceed 250 words"),
-  documentType: z.string().min(1, "Document type is required"),
-  thematicAreas: z
-    .array(z.string())
-    .min(1, "At least one thematic area is required"),
-  file: z
-    .instanceof(File)
-    .refine(
-      (file) => file.size <= 10 * 1024 * 1024,
-      "File size must be less than 10MB",
-    )
-    .refine(
-      (file) =>
-        [
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "text/plain",
-        ].includes(file.type),
-      "File must be a PDF, DOC, DOCX, or TXT file",
-    ),
-  documentCategory: z.enum(["new", "revision"], {
-    errorMap: () => ({
-      message: "Document category must be either new or revision",
+export const conceptNoteSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, "Title is required")
+      .max(500, "Title must be less than 500 characters"),
+    executiveSummary: z
+      .string()
+      .min(1, "Executive summary is required")
+      .max(1500, "Executive summary must not exceed 250 words"),
+    documentType: z.string().min(1, "Document type is required"),
+    organization: z
+      .array(z.string())
+      .min(1, "Select at least one organization"),
+    universities: z.array(z.string()).optional(),
+    thematicAreas: z
+      .array(z.string())
+      .min(1, "At least one thematic area is required"),
+    file: z
+      .instanceof(File)
+      .refine(
+        (file) => file.size <= 10 * 1024 * 1024,
+        "File size must be less than 10MB",
+      )
+      .refine(
+        (file) =>
+          [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+          ].includes(file.type),
+        "File must be a PDF, DOC, DOCX, or TXT file",
+      ),
+    documentCategory: z.enum(["new", "revision"], {
+      errorMap: () => ({
+        message: "Document category must be either new or revision",
+      }),
     }),
-  }),
-});
+  })
+  .refine(
+    (data) =>
+      !data.organization.includes("University") ||
+      (data.universities?.length || 0) > 0,
+    {
+      message: "Select at least one university when University is chosen",
+      path: ["universities"],
+    },
+  );
 
 export type ConceptNoteFormData = z.infer<typeof conceptNoteSchema>;
 

@@ -15,6 +15,7 @@ export type UserRole =
 export type UserStatus = 'active' | 'inactive' | 'pending'
 
 export interface User {
+  image: string | Blob | undefined
   id: string
   email: string
   phone?: string

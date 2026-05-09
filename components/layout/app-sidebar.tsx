@@ -72,8 +72,8 @@ const navigationGroups: NavGroup[] = [
     items: [
       // { title: 'Policies', href: '/policies/repository', icon: FileText },
       { title: 'Concept Notes', href: '/policies/concept-notes', icon: FileEdit },
-      { title: 'Drafts', href: '/policies/drafts', icon: FileClock },
       { title: 'Reviews', href: '/policies/reviews', icon: FileCheck },
+      { title: 'Drafts', href: '/policies/drafts', icon: FileClock },
       { title: 'Repository', href: '/policies/library', icon: Library },
     ],
   },
@@ -113,7 +113,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0">
+    <Sidebar collapsible="icon" className="border-r-0 ">
       <SidebarHeader className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -201,7 +201,7 @@ export function AppSidebar() {
                   className="h-14 px-3 rounded-lg hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent"
                 >
                   <Avatar className="h-9 w-9 rounded-full ring-2 ring-sidebar-accent">
-                    <AvatarFallback className="rounded-full bg-emerald-600 text-white text-sm font-medium">
+                    <AvatarFallback className="rounded-full text-white text-sm font-medium">
                       {getInitials(user?.firstName, user?.lastName)}
                     </AvatarFallback>
                   </Avatar>
