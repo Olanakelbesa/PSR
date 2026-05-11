@@ -493,7 +493,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 ">
         <div>
           <h1 className="text-3xl font-black text-foreground tracking-tight">
-            {greeting}, {user.firstName} <span className="inline-block animate-bounce origin-bottom">👋</span>
+            {greeting}, {user.firstName} <span className="inline-block origin-bottom">👋</span>
           </h1>
           <p className="text-muted-foreground font-medium mt-1">
             Policy & Research Dashboard — Monitoring Policy and Research Outcomes.
