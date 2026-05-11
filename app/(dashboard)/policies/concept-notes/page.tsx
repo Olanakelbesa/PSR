@@ -63,6 +63,7 @@ import { Badge } from "@/components/ui/badge";
 
 const columns: ColumnDef<ConceptNote>[] = [
   {
+    id: "title",
     accessorKey: "title",
     header: ({ column }) => (
       <Button
@@ -77,7 +78,7 @@ const columns: ColumnDef<ConceptNote>[] = [
     cell: ({ row }) => {
       const note = row.original;
       return (
-        <div className="flex flex-col gap-1 py-2 min-w-[300px]">
+        <div className="flex flex-col gap-1 py-2 min-w-[100px]">
           <Link
             href={`/policies/concept-notes/${note.id}`}
             className="font-bold text-[15px] leading-tight text-foreground hover:text-primary transition-colors line-clamp-1"
@@ -85,14 +86,15 @@ const columns: ColumnDef<ConceptNote>[] = [
           >
             {note.title}
           </Link>
-          <p className="text-xs text-muted-foreground max-w-[450px] leading-relaxed line-clamp-2">
-            {note.background}
-          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line break-words min-w-[100px]">
+  {note.background}
+</p>
         </div>
       );
     },
   },
   {
+    id: "policy_type",
     accessorKey: "policyType",
     header: ({ column }) => (
       <Button
@@ -119,6 +121,55 @@ const columns: ColumnDef<ConceptNote>[] = [
     },
   },
   {
+    id: "organization",
+    accessorKey: "createdBy.institution",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className=" h-8 font-semibold hover:bg-transparent"
+      >
+        Organization
+        <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const organization = row.original.createdBy?.institution;
+      return (
+        <div className="flex items-center">
+          <span className="text-[13px] font-medium text-foreground">
+            {organization || "—"}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    id: "unit",
+    accessorKey: "createdBy.department",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className=" h-8 font-semibold hover:bg-transparent"
+      >
+        Unit
+        <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const unit = row.original.createdBy?.department;
+      return (
+        <div className="flex items-center">
+          <span className="text-[13px] font-medium text-foreground">
+            {unit || "—"}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    id: "status",
     accessorKey: "status",
     header: ({ column }) => (
       <Button
@@ -139,7 +190,8 @@ const columns: ColumnDef<ConceptNote>[] = [
       );
     },
   },
-    {
+  {
+    id: "version",
     accessorKey: "version",
     header: ({ column }) => (
       <Button
@@ -154,17 +206,19 @@ const columns: ColumnDef<ConceptNote>[] = [
     cell: ({ row }) => {
       const version = row.getValue("version") as string;
       return (
-        <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20">
+        <Badge
+          variant="outline"
+          className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20"
+        >
           {version ? `v${version}` : "v1.0.0"}
         </Badge>
       );
     },
   },
   {
+    id: "submitted_by",
     accessorKey: "createdBy",
-    header: () => (
-      <span className="ml-4">Author</span>
-    ),
+    header: () => <span className="ml-4">Submitted by</span>,
     cell: ({ row }) => {
       const author = row.original.createdBy;
       const initials =
@@ -190,6 +244,7 @@ const columns: ColumnDef<ConceptNote>[] = [
     },
   },
   {
+    id: "created_at",
     accessorKey: "createdAt",
     header: ({ column }) => (
       <Button
@@ -417,7 +472,7 @@ export default function ConceptNotesPage() {
         </Card>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 w-full max-w-full overflow-hidden">
         {isLoading ? (
           <div className="rounded-xl border p-6 space-y-6 bg-card">
             <div className="flex items-center justify-between">
@@ -446,18 +501,22 @@ export default function ConceptNotesPage() {
               {
                 key: "policyType",
                 label: "Type",
-                options: Object.entries(POLICY_TYPES).map(([value, { label }]) => ({
-                  value,
-                  label,
-                })),
+                options: Object.entries(POLICY_TYPES).map(
+                  ([value, { label }]) => ({
+                    value,
+                    label,
+                  }),
+                ),
               },
               {
                 key: "status",
                 label: "Status",
-                options: Object.entries(POLICY_STATUSES).map(([value, { label }]) => ({
-                  value,
-                  label,
-                })),
+                options: Object.entries(POLICY_STATUSES).map(
+                  ([value, { label }]) => ({
+                    value,
+                    label,
+                  }),
+                ),
               },
             ]}
           />

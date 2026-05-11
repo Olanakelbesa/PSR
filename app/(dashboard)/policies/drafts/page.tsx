@@ -11,12 +11,12 @@ import {
   Calendar,
   Users,
   CheckCircle2,
-  Clock,
-  Activity,
-  AlertCircle,
   Eye,
   FileEdit,
   ClipboardCheck,
+  Plus,
+  Activity,
+  AlertCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -312,6 +312,16 @@ export default function PolicyDraftsPage() {
     <PageContainer
       title="Policy Drafts"
       description="Manage comprehensive policy drafts, assign expert reviewers, and monitor checklist scoring."
+      actions={
+        <div className="flex items-center gap-2">
+          <Button asChild className="shadow-sm">
+            <Link href="/policies/drafts/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Draft
+            </Link>
+          </Button>
+        </div>
+      }
     >
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-primary/10 shadow-sm">

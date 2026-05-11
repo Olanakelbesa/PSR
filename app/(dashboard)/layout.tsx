@@ -34,7 +34,7 @@ export default function DashboardLayout({
       <AppSidebar />
       <SidebarInset>
         <AppHeader />
-        <main className="flex-1 flex flex-col">{children}</main>
+        <main className="flex-1 flex flex-col min-w-0">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   )

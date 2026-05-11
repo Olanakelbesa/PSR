@@ -103,7 +103,7 @@ export function DataTable<TData, TValue>({
   const selectedRows = table.getFilteredSelectedRowModel().rows;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full max-w-full overflow-hidden">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {searchKey && (
@@ -202,8 +202,8 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <div className="relative w-full overflow-auto">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden w-full max-w-full">
+        <div className="relative w-full overflow-x-auto">
           <Table>
             <TableHeader className="bg-muted/50 border-b">
               {table.getHeaderGroups().map((headerGroup) => (

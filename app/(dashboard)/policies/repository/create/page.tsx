@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -39,33 +39,13 @@ import {
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const THEMATIC_AREAS = [
-  "Basic Education",
-  "Higher Education",
-  "TVET",
-  "Teacher Development",
-  "Digital Learning",
-  "Early Childhood",
-  "Special Needs Education",
-  "Curriculum Development",
-  "Quality Assurance",
-  "Environmental Education",
-];
-
-const DOC_TYPES = ["Policy", "Strategy", "Guideline", "Framework", "Blueprint", "Roadmap"];
-
-const ACCESS_OPTIONS = [
-  { value: "public", label: "Public", icon: Globe, description: "Visible to all users and the general public", className: "border-green-200 bg-green-50/50 hover:bg-green-50" },
-  { value: "internal", label: "Internal", icon: Shield, description: "Visible to registered ministry staff only", className: "border-blue-200 bg-blue-50/50 hover:bg-blue-50" },
-  { value: "restricted", label: "Restricted", icon: Lock, description: "Visible to authorized administrators only", className: "border-red-200 bg-red-50/50 hover:bg-red-50" },
-];
+import { policyApi } from "@/lib/api/client";
+import { PolicyDocument } from "@/lib/types";
 
 const READINESS = [
-  { key: "title", label: "Policy title entered" },
-  { key: "type", label: "Document type selected" },
-  { key: "serial", label: "Serial number provided" },
-  { key: "org", label: "Organization specified" },
+  { key: "title", label: "Policy title selected" },
+  { key: "type", label: "Document type identified" },
+  { key: "org", label: "Organization identified" },
   { key: "effectiveDate", label: "Effective date set" },
   { key: "accessLevel", label: "Access level chosen" },
 ];
@@ -77,8 +57,6 @@ export default function CreateRepositoryEntryPage() {
   const [form, setForm] = useState({
     title: "",
     type: "",
-    serialNumber: "",
-    versionCode: "",
     organization: "",
     sourceDraft: "",
     approvalDate: "",
@@ -87,27 +65,47 @@ export default function CreateRepositoryEntryPage() {
     operationalPeriod: "",
     accessLevel: "",
     description: "",
-    thematicAreas: [] as string[],
     publishNow: false,
   });
+
+  const [approvedDrafts, setApprovedDrafts] = useState<PolicyDocument[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(true);
+
+  useEffect(() => {
+    async function loadApprovedDrafts() {
+      try {
+        const response = await policyApi.getPolicies({ status: "approved" }, { page: 1, pageSize: 100 });
+        setApprovedDrafts(response.data);
+      } catch (error) {
+        console.error("Failed to load approved drafts:", error);
+      } finally {
+        setIsLoadingDrafts(false);
+      }
+    }
+    loadApprovedDrafts();
+  }, []);
+
+  const handleDraftSelect = (draftId: string) => {
+    const draft = approvedDrafts.find((d) => d.id === draftId);
+    if (draft) {
+      setForm((prev) => ({
+        ...prev,
+        title: draft.title,
+        type: draft.type,
+        organization: draft.createdBy?.institution || "Ministry of Education",
+        sourceDraft: draft.id,
+        description: draft.description,
+      }));
+    }
+  };
 
   function set(field: string, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function toggleThematic(area: string) {
-    setForm((prev) => ({
-      ...prev,
-      thematicAreas: prev.thematicAreas.includes(area)
-        ? prev.thematicAreas.filter((a) => a !== area)
-        : [...prev.thematicAreas, area],
-    }));
-  }
-
   const readinessMap: Record<string, boolean> = {
     title: !!form.title.trim(),
     type: !!form.type,
-    serial: !!form.serialNumber.trim(),
     org: !!form.organization.trim(),
     effectiveDate: !!form.effectiveDate,
     accessLevel: !!form.accessLevel,
@@ -134,8 +132,8 @@ export default function CreateRepositoryEntryPage() {
 
   return (
     <PageContainer
-      title="Register Policy Manually"
-      description="Add a policy document directly to the repository without going through the full workflow"
+      title="Register Approved Policy"
+      description="Select an approved policy draft to finalize its entry into the official repository."
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
@@ -159,102 +157,66 @@ export default function CreateRepositoryEntryPage() {
         <div className="space-y-6">
 
           {/* Core Identity */}
-          <Card className="shadow-sm border-primary/10">
+          <Card className="shadow-sm border-primary/10 overflow-hidden">
             <CardHeader className="border-b bg-muted/30 pb-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Policy Identity</CardTitle>
+                <CardTitle className="text-base">Policy Identity Selection</CardTitle>
               </div>
-              <CardDescription>Primary identification and classification of the policy document</CardDescription>
+              <CardDescription>Select an approved draft to import its core identification details</CardDescription>
             </CardHeader>
             <CardContent className="pt-5 space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="title">Policy Title <span className="text-destructive">*</span></Label>
-                <Input
-                  id="title"
-                  placeholder="e.g. Education Sector Development Programme VI"
-                  value={form.title}
-                  onChange={(e) => set("title", e.target.value)}
-                />
+                <Label htmlFor="draft">Select Approved Draft <span className="text-destructive">*</span></Label>
+                <Select value={form.sourceDraft} onValueChange={handleDraftSelect}>
+                  <SelectTrigger id="draft" className="h-11 shadow-sm focus:ring-primary/20">
+                    <SelectValue placeholder={isLoadingDrafts ? "Loading approved drafts..." : "Choose an approved policy draft..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {approvedDrafts.length > 0 ? (
+                      approvedDrafts.map((draft) => (
+                        <SelectItem key={draft.id} value={draft.id}>
+                          <div className="flex flex-col py-1">
+                            <span className="font-bold">{draft.title}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase">{draft.id} · {draft.type}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-xs text-muted-foreground">No approved drafts found in the system.</div>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Document Type <span className="text-destructive">*</span></Label>
-                  <Select value={form.type} onValueChange={(v) => set("type", v)}>
-                    <SelectTrigger id="type"><SelectValue placeholder="Select type..." /></SelectTrigger>
-                    <SelectContent>
-                      {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              {form.title && (
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Selected Title</p>
+                       <p className="text-sm font-black text-foreground">{form.title}</p>
+                    </div>
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Document Type</p>
+                       <Badge variant="outline" className="bg-background">{form.type.toUpperCase()}</Badge>
+                    </div>
+                    <div className="space-y-1 col-span-full">
+                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Submitting Organization</p>
+                       <p className="text-sm font-medium">{form.organization}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="org">Organization <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="org"
-                    placeholder="e.g. Ministry of Education"
-                    value={form.organization}
-                    onChange={(e) => set("organization", e.target.value)}
-                  />
-                </div>
-              </div>
+              )}
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Executive Summary / Description</Label>
                 <Textarea
                   id="description"
                   placeholder="Provide a brief overview of what this policy document covers..."
-                  className="resize-none min-h-[100px]"
+                  className="resize-none min-h-[100px] shadow-sm"
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
                 />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Registry Codes */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <div className="flex items-center gap-2">
-                <Hash className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Registry Codes</CardTitle>
-              </div>
-              <CardDescription>Unique identifiers used to track and version this policy in the registry</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-5 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="serial">Serial Number <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="serial"
-                    placeholder="e.g. ET_MoE_EDU_001"
-                    className="font-mono"
-                    value={form.serialNumber}
-                    onChange={(e) => set("serialNumber", e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">Format: ET_[ORG]_[AREA]_[NUM]</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="versionCode">Version Code</Label>
-                  <Input
-                    id="versionCode"
-                    placeholder="e.g. ET_MoE_EDU_001_v1"
-                    className="font-mono"
-                    value={form.versionCode}
-                    onChange={(e) => set("versionCode", e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sourceDraft">Source Draft ID (optional)</Label>
-                <Input
-                  id="sourceDraft"
-                  placeholder="e.g. PDD-2024-0081"
-                  className="font-mono"
-                  value={form.sourceDraft}
-                  onChange={(e) => set("sourceDraft", e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Link this record back to a policy draft that was approved through the full workflow.</p>
               </div>
             </CardContent>
           </Card>
@@ -303,7 +265,11 @@ export default function CreateRepositoryEntryPage() {
               <CardDescription>Control who can view this policy in the repository</CardDescription>
             </CardHeader>
             <CardContent className="pt-5 grid gap-3 sm:grid-cols-3">
-              {ACCESS_OPTIONS.map((opt) => {
+              {[
+                { value: "public", label: "Public", icon: Globe, description: "Visible to all users and the general public", className: "border-green-200 bg-green-50/50 hover:bg-green-50" },
+                { value: "internal", label: "Internal", icon: Shield, description: "Visible to registered ministry staff only", className: "border-blue-200 bg-blue-50/50 hover:bg-blue-50" },
+                { value: "restricted", label: "Restricted", icon: Lock, description: "Visible to authorized administrators only", className: "border-red-200 bg-red-50/50 hover:bg-red-50" },
+              ].map((opt) => {
                 const Icon = opt.icon;
                 const selected = form.accessLevel === opt.value;
                 return (
@@ -323,37 +289,6 @@ export default function CreateRepositoryEntryPage() {
                       {selected && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">{opt.description}</p>
-                  </button>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Thematic Areas */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Thematic Areas</CardTitle>
-              </div>
-              <CardDescription>Tag this policy with relevant thematic classifications</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-5 flex flex-wrap gap-2">
-              {THEMATIC_AREAS.map((area) => {
-                const selected = form.thematicAreas.includes(area);
-                return (
-                  <button
-                    key={area}
-                    type="button"
-                    onClick={() => toggleThematic(area)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-sm border transition-all",
-                      selected
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-background border-border hover:bg-muted/50 text-muted-foreground"
-                    )}
-                  >
-                    {area}
                   </button>
                 );
               })}

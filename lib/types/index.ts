@@ -110,6 +110,11 @@ export interface Review {
   reviewer: User
   comments: string
   recommendation: 'approve' | 'revise' | 'reject'
+  decision?: 'Accepted' | 'Partially Accepted' | 'Rejected'
+  supportingDocument?: {
+    name: string
+    url: string
+  }
   score?: number
   criteria?: ReviewCriteria[]
   createdAt: string

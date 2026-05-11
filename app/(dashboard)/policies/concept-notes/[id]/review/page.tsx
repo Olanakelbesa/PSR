@@ -176,7 +176,7 @@ export default function ConceptNoteReviewPage() {
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-green-500 peer-data-[state=checked]:bg-green-50 [&:has([data-state=checked])]:border-green-500 cursor-pointer transition-all"
                   >
                     <CheckCircle2 className="mb-3 h-6 w-6 text-green-500" />
-                    <span className="font-semibold text-green-700">Approve</span>
+                    <span className="font-semibold text-green-700">Accepted</span>
                   </Label>
                 </div>
                 <div>
@@ -186,7 +186,7 @@ export default function ConceptNoteReviewPage() {
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-50 [&:has([data-state=checked])]:border-orange-500 cursor-pointer transition-all"
                   >
                     <AlertCircle className="mb-3 h-6 w-6 text-orange-500" />
-                    <span className="font-semibold text-orange-700">Request Changes</span>
+                    <span className="font-semibold text-orange-700">Partial Acceptance</span>
                   </Label>
                 </div>
                 <div>
@@ -207,7 +207,7 @@ export default function ConceptNoteReviewPage() {
                 disabled={isSubmitting} 
                 className="w-full h-12 text-md font-semibold bg-primary hover:bg-primary/90"
               >
-                {isSubmitting ? "Recording Review..." : "Submit Formal Review"}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </Button>
             </CardFooter>
           </Card>

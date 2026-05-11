@@ -72,7 +72,9 @@ const navigationGroups: NavGroup[] = [
     items: [
       // { title: 'Policies', href: '/policies/repository', icon: FileText },
       { title: 'Concept Notes', href: '/policies/concept-notes', icon: FileEdit },
+      { title: 'Concept Note Approval', href: '/policies/approval/concept-note', icon: FileCheck, roles: ['psr_officer', 'system_admin'] },
       { title: 'Drafts', href: '/policies/drafts', icon: FileClock },
+      { title: 'Draft Approval', href: '/policies/approval/draft', icon: ClipboardCheck, roles: ['psr_officer', 'system_admin'] },
       { title: 'Reviews', href: '/policies/reviews', icon: FileCheck },
       { title: 'Repository', href: '/policies/repository', icon: Library },
     ],
