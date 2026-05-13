@@ -96,7 +96,7 @@ export default function NewPolicyDraftPage() {
     async function loadApprovedConcepts() {
       try {
         const response = await conceptNoteApi.getConceptNotes({ status: "approved" });
-        const apiConcepts = response.success && response.data ? response.data : [];
+        const apiConcepts = response?.data || [];
         setApprovedConcepts([...apiConcepts, ...MOCK_CONCEPTS]);
       } catch (error) {
         console.error("Failed to load approved concepts:", error);

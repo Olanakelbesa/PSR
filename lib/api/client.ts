@@ -267,7 +267,7 @@ export const policyApi = {
 // ============================================================================
 // Call for Proposals API
 // ============================================================================
-export const callApi = {
+export const callsApi = {
   async getCalls(
     filters: FilterOptions = {},
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
@@ -284,6 +284,10 @@ export const callApi = {
       return { success: false, message: 'Call not found' }
     }
     return { success: true, data: call }
+  },
+
+  async getById(id: string): Promise<ApiResponse<CallForProposal>> {
+    return this.getCall(id)
   },
 
   async createCall(data: Partial<CallForProposal>): Promise<ApiResponse<CallForProposal>> {
@@ -325,7 +329,7 @@ export const callApi = {
 // ============================================================================
 // Proposal API
 // ============================================================================
-export const proposalApi = {
+export const proposalsApi = {
   async getProposals(
     filters: FilterOptions = {},
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
@@ -342,6 +346,21 @@ export const proposalApi = {
       return { success: false, message: 'Proposal not found' }
     }
     return { success: true, data: proposal }
+  },
+
+  async getById(id: string): Promise<ApiResponse<ResearchProposal>> {
+    return this.getProposal(id)
+  },
+
+  async submitReview(id: string, data: any): Promise<ApiResponse<void>> {
+    await delay()
+    const index = mockProposals.findIndex(p => p.id === id)
+    if (index === -1) {
+      return { success: false, message: 'Proposal not found' }
+    }
+    // In mock, we just update the status or append the review
+    mockProposals[index].status = data.recommendation === 'approve' ? 'approved' : 'rejected'
+    return { success: true }
   },
 
   async createProposal(data: Partial<ResearchProposal>): Promise<ApiResponse<ResearchProposal>> {
@@ -391,7 +410,7 @@ export const proposalApi = {
 // ============================================================================
 // Project API
 // ============================================================================
-export const projectApi = {
+export const monitoringApi = {
   async getProjects(
     filters: FilterOptions = {},
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
@@ -401,7 +420,7 @@ export const projectApi = {
     return paginate(filtered, pagination)
   },
 
-  async getProject(id: string): Promise<ApiResponse<ResearchProject>> {
+  async getProjectById(id: string): Promise<ApiResponse<ResearchProject>> {
     await delay()
     const project = mockProjects.find(p => p.id === id)
     if (!project) {

@@ -27,6 +27,7 @@ import {
   Building2,
   GitBranch,
   ExternalLink,
+  Check,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -195,33 +196,17 @@ export default function ConceptNoteDetailPage() {
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild className="shadow-sm">
-            <Link href="/policies/concept-notes">
+            <Link href="/policies/concept-notes/review-concept-note">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Link>
           </Button>
-          {note.status === "draft" && (
-            <Button variant="outline" asChild className="shadow-sm border-primary/20 text-primary hover:bg-primary/5">
-              <Link href={`/policies/concept-notes/${note.id}/edit`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </Link>
-            </Button>
-          )}
-          {(note.status === "submitted" || note.status === "under_review") && (
-            <Button variant="outline" asChild className="shadow-sm border-primary/20 text-primary hover:bg-primary/5">
-              <Link href={`/policies/concept-notes/${note.id}/review`}>
-                <ClipboardCheck className="mr-2 h-4 w-4" />
-                Review
-              </Link>
-            </Button>
-          )}
-          {note.status === "draft" && (
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="shadow-sm">
-              <Send className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Submitting..." : "Submit for Review"}
-            </Button>
-          )}
+           <Button className="shadow-sm">
+            <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`} className="flex items-center px-2 py-2 text-sm font-semibold rounded-md focus:bg-primary/10 focus:text-primary">
+              <Check className="mr-2 h-4 w-4" />
+              Review
+            </Link>
+          </Button>
         </div>
       }
     >

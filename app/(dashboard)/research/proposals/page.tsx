@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -15,47 +15,68 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-} from 'lucide-react'
-import { ColumnDef } from '@tanstack/react-table'
+} from "lucide-react";
+import { ColumnDef } from "@tanstack/react-table";
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/components/shared/data-table'
-import { proposalsApi } from '@/lib/api/client'
-import type { Proposal } from '@/lib/types'
-import { PROPOSAL_STATUS, THEMATIC_AREAS } from '@/lib/constants'
+} from "@/components/ui/dropdown-menu";
+import { PageContainer } from "@/components/layout";
+import { DataTable } from "@/components/shared/data-table";
+import { proposalsApi } from "@/lib/api/client";
+import { mockProposals } from "@/lib/api/mock-data";
+import type { ResearchProposal } from "@/lib/types";
+import { PROPOSAL_STATUSES, THEMATIC_AREAS } from "@/lib/constants";
 
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof FileText }> = {
-  draft: { label: 'Draft', variant: 'secondary', icon: FileText },
-  submitted: { label: 'Submitted', variant: 'default', icon: Clock },
-  under_review: { label: 'Under Review', variant: 'outline', icon: Clock },
-  approved: { label: 'Approved', variant: 'default', icon: CheckCircle2 },
-  rejected: { label: 'Rejected', variant: 'destructive', icon: XCircle },
-  revision_requested: { label: 'Revision Requested', variant: 'outline', icon: Edit },
-}
+type ProposalRow = ResearchProposal & {
+  referenceNumber: string;
+  thematicArea: string;
+};
 
-const columns: ColumnDef<Proposal>[] = [
+const statusConfig: Record<
+  string,
   {
-    accessorKey: 'referenceNumber',
-    header: 'Reference #',
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+    icon: typeof FileText;
+  }
+> = {
+  draft: { label: "Draft", variant: "secondary", icon: FileText },
+  submitted: { label: "Submitted", variant: "default", icon: Clock },
+  under_review: { label: "Under Review", variant: "outline", icon: Clock },
+  approved: { label: "Approved", variant: "default", icon: CheckCircle2 },
+  rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
+  contracted: { label: "Contracted", variant: "default", icon: CheckCircle2 },
+  in_progress: { label: "In Progress", variant: "outline", icon: Clock },
+  completed: { label: "Completed", variant: "default", icon: CheckCircle2 },
+  terminated: { label: "Terminated", variant: "destructive", icon: XCircle },
+  revision_requested: {
+    label: "Revision Requested",
+    variant: "outline",
+    icon: Edit,
+  },
+};
+
+const columns: ColumnDef<ProposalRow>[] = [
+  {
+    accessorKey: "referenceNumber",
+    header: "Reference #",
     cell: ({ row }) => (
-      <Link 
+      <Link
         href={`/research/proposals/${row.original.id}`}
         className="font-medium text-primary hover:underline"
       >
@@ -64,57 +85,59 @@ const columns: ColumnDef<Proposal>[] = [
     ),
   },
   {
-    accessorKey: 'title',
-    header: 'Title',
+    accessorKey: "title",
+    header: "Title",
     cell: ({ row }) => (
       <div className="max-w-xs">
         <p className="font-medium truncate">{row.original.title}</p>
         <p className="text-xs text-muted-foreground truncate">
-          {row.original.principalInvestigator?.firstName} {row.original.principalInvestigator?.lastName}
+          {row.original.principalInvestigator?.firstName}{" "}
+          {row.original.principalInvestigator?.lastName}
         </p>
       </div>
     ),
   },
   {
-    accessorKey: 'thematicArea',
-    header: 'Thematic Area',
+    accessorKey: "thematicArea",
+    header: "Thematic Area",
     cell: ({ row }) => {
-      const area = THEMATIC_AREAS.find(t => t.value === row.original.thematicArea)
+      const area = THEMATIC_AREAS.find(
+        (t) => t.value === row.original.thematicArea,
+      );
       return (
         <Badge variant="outline" className="text-xs">
           {area?.label || row.original.thematicArea}
         </Badge>
-      )
+      );
     },
   },
   {
-    accessorKey: 'status',
-    header: 'Status',
+    accessorKey: "status",
+    header: "Status",
     cell: ({ row }) => {
-      const config = statusConfig[row.original.status] || statusConfig.draft
-      const Icon = config.icon
+      const config = statusConfig[row.original.status] || statusConfig.draft;
+      const Icon = config.icon;
       return (
         <Badge variant={config.variant} className="gap-1">
           <Icon className="h-3 w-3" />
           {config.label}
         </Badge>
-      )
+      );
     },
   },
   {
-    accessorKey: 'submittedAt',
-    header: 'Submitted',
+    accessorKey: "submittedAt",
+    header: "Submitted",
     cell: ({ row }) => (
       <span className="text-sm text-muted-foreground">
-        {row.original.submittedAt 
+        {row.original.submittedAt
           ? new Date(row.original.submittedAt).toLocaleDateString()
-          : '-'
-        }
+          : "-"}
       </span>
     ),
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -130,7 +153,7 @@ const columns: ColumnDef<Proposal>[] = [
               View Details
             </Link>
           </DropdownMenuItem>
-          {row.original.status === 'draft' && (
+          {row.original.status === "draft" && (
             <>
               <DropdownMenuItem asChild>
                 <Link href={`/research/proposals/${row.original.id}/edit`}>
@@ -153,35 +176,53 @@ const columns: ColumnDef<Proposal>[] = [
       </DropdownMenu>
     ),
   },
-]
+];
 
 export default function ProposalsPage() {
-  const [proposals, setProposals] = useState<Proposal[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [proposals, setProposals] = useState<ProposalRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const mapToProposalRow = (proposal: ResearchProposal): ProposalRow => ({
+    ...proposal,
+    referenceNumber: proposal.id.replace("prop-", "PRP-").toUpperCase(),
+    thematicArea: proposal.researchArea,
+  });
 
   useEffect(() => {
     async function loadProposals() {
       try {
-        const response = await proposalsApi.getAll()
-        if (response.success && response.data) {
-          setProposals(response.data)
+        const response = await proposalsApi.getProposals(
+          {},
+          { page: 1, pageSize: 100 },
+        );
+
+        if (response.data.length > 0) {
+          setProposals(response.data.map(mapToProposalRow));
+        } else {
+          setProposals(mockProposals.map(mapToProposalRow));
         }
       } catch (error) {
-        console.error('Failed to load proposals:', error)
+        console.error("Failed to load proposals:", error);
+        setProposals(mockProposals.map(mapToProposalRow));
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
-    loadProposals()
-  }, [])
+    loadProposals();
+  }, []);
 
-  const filteredProposals = proposals.filter(proposal => {
-    if (statusFilter !== 'all' && proposal.status !== statusFilter) return false
-    if (searchQuery && !proposal.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    return true
-  })
+  const filteredProposals = proposals.filter((proposal) => {
+    if (statusFilter !== "all" && proposal.status !== statusFilter)
+      return false;
+    if (
+      searchQuery &&
+      !proposal.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+      return false;
+    return true;
+  });
 
   return (
     <PageContainer
@@ -215,8 +256,10 @@ export default function ProposalsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              {Object.entries(PROPOSAL_STATUS).map(([key, value]) => (
-                <SelectItem key={key} value={key}>{value.label}</SelectItem>
+              {Object.entries(PROPOSAL_STATUSES).map(([key, value]) => (
+                <SelectItem key={key} value={key}>
+                  {value.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -232,5 +275,5 @@ export default function ProposalsPage() {
         />
       </div>
     </PageContainer>
-  )
+  );
 }

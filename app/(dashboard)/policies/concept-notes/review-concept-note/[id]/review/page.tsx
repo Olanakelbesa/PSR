@@ -106,7 +106,7 @@ export default function ConceptNoteReviewPage() {
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild className="shadow-sm">
-            <Link href={`/policies/concept-notes/${note.id}`}>
+            <Link href={`/policies/concept-notes/review-concept-note/${note.id}`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Cancel Review
             </Link>
