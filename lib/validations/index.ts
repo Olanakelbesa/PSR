@@ -229,6 +229,28 @@ export const callForProposalSchema = z
     budgetMax: z.number().min(0, "Maximum budget must be positive"),
     submissionDeadline: z.string().min(1, "Submission deadline is required"),
     reviewDeadline: z.string().optional(),
+    banner: z
+      .instanceof(File)
+      .optional()
+      .refine(
+        (file) => !file || file.type.startsWith("image/"),
+        "Banner must be an image file"
+      )
+      .refine(
+        (file) => !file || file.size <= 5 * 1024 * 1024,
+        "Banner must be less than 5MB"
+      ),
+    poster: z
+      .instanceof(File)
+      .optional()
+      .refine(
+        (file) => !file || file.type.startsWith("image/") || file.type === "application/pdf",
+        "Poster must be an image or PDF file"
+      )
+      .refine(
+        (file) => !file || file.size <= 10 * 1024 * 1024,
+        "Poster must be less than 10MB"
+      ),
   })
   .refine((data) => data.budgetMax >= data.budgetMin, {
     message: "Maximum budget must be greater than or equal to minimum budget",

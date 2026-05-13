@@ -23,6 +23,11 @@ import {
   Building2,
   LogOut,
   User,
+  FileCheck2,
+  Settings2Icon,
+  Dot,
+  DollarSign,
+  Globe,
 } from "lucide-react";
 
 import {
@@ -82,41 +87,43 @@ const navigationGroups: NavGroup[] = [
     items: [
       {
         label: "Concept Notes",
+        icon: FileEdit,
         subItems: [
           {
             label: "My Concept Note",
             href: "/policies/concept-notes/my-concept-note",
-            icon: FileEdit,
+            icon: Dot,
           },
           {
             label: "Manage Concept Notes",
             href: "/policies/concept-notes/manage-concept-notes",
-            icon: FileText,
+            icon: Dot,
           },
           {
             label: "Review Concept Note",
             href: "/policies/concept-notes/review-concept-note",
-            icon: FileCheck,
+            icon: Dot,
           },
         ],
       },
       {
         label: "Drafts",
+        icon: FileClock,
         subItems: [
           {
             label: "My Drafts",
             href: "/policies/drafts/my-drafts",
-            icon: FileEdit,
+            icon: Dot,
           },
           {
             label: "Manage Drafts",
             href: "/policies/drafts/manage-drafts",
-            icon: FileText,
+            icon: Dot,
           },
           {
             label: "Review Draft",
             href: "/policies/drafts/review-draft",
-            icon: FileCheck,
+            icon: Dot,
           },
         ],
       },
@@ -127,18 +134,58 @@ const navigationGroups: NavGroup[] = [
     label: "RESEARCH MANAGEMENT",
     items: [
       {
-        label: "Calls for Proposals",
-        href: "/research/calls",
+        label: "Grant Calls",
+        href: "/research/grant-calls",
         icon: Megaphone,
       },
-      { label: "Proposals", href: "/research/proposals", icon: FileStack },
       {
-        label: "Evaluations",
-        href: "/research/evaluations",
-        icon: ClipboardCheck,
-        roles: ["roc_reviewer", "psr_officer", "system_admin"],
+        label: "Manage Grants",
+        href: "/research/manage-grants",
+        icon: Settings2Icon,
+      },
+      { label: "Proposals", icon: FileText, subItems: [
+        {
+          label: "My Proposals",
+          href: "/research/my-proposals",
+          icon: Dot,
+        },
+        {
+          label: "Screening Reviews",
+          href: "/research/screening-reviews",
+          icon: Dot,
+        },
+        {
+          label: "Technical Reviews",
+          href: "/research/technical-reviews",
+          icon: Dot,
+        }
+      ]},
+      {
+        label: "Ready for Funding",
+        href: "/research/ready-for-funding",
+        icon: DollarSign,
+      },
+      {
+        label: "Ethical Clearance",
+        href: "/research/ethical-clearance",
+        icon: FileCheck2,
       },
       { label: "Monitoring", href: "/research/monitoring", icon: Activity },
+      {
+        label: "Final Report",
+        href: "/research/reports",
+        icon: BarChart3,
+      },
+      {
+        label: "Research Repository",
+        href: "/research/repository",
+        icon: Library,
+      },
+      {
+        label: "External Research ",
+        href: "/research/external-research",
+        icon: Globe,
+      }
     ],
   },
   {

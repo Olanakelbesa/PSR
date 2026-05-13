@@ -1,7 +1,8 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import {
   Calendar,
   Clock,
@@ -10,31 +11,67 @@ import {
   Search,
   Filter,
   ExternalLink,
-} from 'lucide-react'
+  Pencil,
+  Edit,
+} from "lucide-react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { PageContainer } from '@/components/layout'
-import { callsApi } from '@/lib/api/client'
-import type { CallForProposal } from '@/lib/types'
-import { THEMATIC_AREAS } from '@/lib/constants'
+} from "@/components/ui/select";
+import { PageContainer } from "@/components/layout";
+import { mockCalls } from "@/lib/api/mock-data";
+import type { CallForProposal } from "@/lib/types";
+import { PRIORITY_AREAS } from "@/lib/constants";
+import { useAuthStore } from "@/stores/auth-store";
+
+const statusConfig: Record<
+  CallForProposal["status"],
+  { label: string; variant: "default" | "secondary" | "outline" }
+> = {
+  draft: { label: "Draft", variant: "secondary" },
+  open: { label: "Open", variant: "default" },
+  closing_soon: { label: "Closing Soon", variant: "default" },
+  closed: { label: "Closed", variant: "outline" },
+  cancelled: { label: "Cancelled", variant: "secondary" },
+};
 
 function CallCard({ call }: { call: CallForProposal }) {
-  const isOpen = call.status === 'open'
-  const deadline = new Date(call.deadline)
-  const daysRemaining = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  const { user } = useAuthStore();
+  const isOpen = call.status === "open";
+  const isPi = user?.role === "researcher";
+  const isAdmin = user?.role === "system_admin";
+  const deadline = new Date(call.submissionDeadline);
+  const daysRemaining = Math.ceil(
+    (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+  const status = statusConfig[call.status];
+  const budgetLabel = `ETB ${call.budgetRange.min.toLocaleString()} - ${call.budgetRange.max.toLocaleString()}`;
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow border-border/60 h-full flex flex-col overflow-hidden">
+      <div className="relative h-60 w-full bg-muted">
+        <Image
+          src="/grant-call.png"
+          alt={call.title}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
+      </div>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
@@ -45,48 +82,54 @@ function CallCard({ call }: { call: CallForProposal }) {
               {call.description}
             </CardDescription>
           </div>
-          <Badge variant={isOpen ? 'default' : 'secondary'}>
-            {isOpen ? 'Open' : call.status.charAt(0).toUpperCase() + call.status.slice(1)}
-          </Badge>
+          <Badge variant={status.variant}>{status.label}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 flex flex-1 flex-col">
         <div className="flex flex-wrap gap-2 mb-4">
-          {call.thematicAreas.slice(0, 3).map((area) => (
+          {call.priorityAreas.slice(0, 3).map((area: string) => (
             <Badge key={area} variant="outline" className="text-xs">
-              {THEMATIC_AREAS.find(t => t.value === area)?.label || area}
+              {PRIORITY_AREAS.includes(area) ? area : area}
             </Badge>
           ))}
-          {call.thematicAreas.length > 3 && (
+          {call.priorityAreas.length > 3 && (
             <Badge variant="outline" className="text-xs">
-              +{call.thematicAreas.length - 3} more
+              +{call.priorityAreas.length - 3} more
             </Badge>
           )}
         </div>
+
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+          {call.eligibilityCriteria}
+        </p>
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-4 w-4" />
             <span>Deadline: {deadline.toLocaleDateString()}</span>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <FileText className="h-4 w-4" />
-            <span>{call.submissionsCount || 0} submissions</span>
-          </div>
         </div>
 
         {isOpen && daysRemaining > 0 && (
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <Clock className={`h-4 w-4 ${daysRemaining <= 7 ? 'text-amber-500' : 'text-muted-foreground'}`} />
-            <span className={daysRemaining <= 7 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}>
+            <Clock
+              className={`h-4 w-4 ${daysRemaining <= 7 ? "text-amber-500" : "text-muted-foreground"}`}
+            />
+            <span
+              className={
+                daysRemaining <= 7
+                  ? "text-amber-500 font-medium"
+                  : "text-muted-foreground"
+              }
+            >
               {daysRemaining} days remaining
             </span>
           </div>
         )}
 
-        <div className="flex gap-2 mt-4">
+        <div className="mt-auto flex items-end gap-2 pt-4">
           <Button variant="outline" className="flex-1" asChild>
-            <Link href={`/research/calls/${call.id}`}>
+            <Link href={`/research/grant-calls/${call.id}`}>
               View Details
               <ExternalLink className="h-4 w-4 ml-2" />
             </Link>
@@ -101,52 +144,37 @@ function CallCard({ call }: { call: CallForProposal }) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export default function CallsForProposalsPage() {
-  const [calls, setCalls] = useState<CallForProposal[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [calls] = useState<CallForProposal[]>(mockCalls);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    async function loadCalls() {
-      try {
-        const response = await callsApi.getAll()
-        if (response.success && response.data) {
-          setCalls(response.data)
-        }
-      } catch (error) {
-        console.error('Failed to load calls:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadCalls()
-  }, [])
+  const filteredCalls = calls.filter((call) => {
+    if (statusFilter !== "all" && call.status !== statusFilter) return false;
+    const query = searchQuery.toLowerCase();
+    if (
+      query &&
+      ![
+        call.title,
+        call.description,
+        call.eligibilityCriteria,
+        ...call.priorityAreas,
+      ].some((value) => value.toLowerCase().includes(query))
+    )
+      return false;
+    return true;
+  });
 
-  const filteredCalls = calls.filter(call => {
-    if (statusFilter !== 'all' && call.status !== statusFilter) return false
-    if (searchQuery && !call.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    return true
-  })
-
-  const openCalls = calls.filter(c => c.status === 'open').length
-  const closedCalls = calls.filter(c => c.status === 'closed').length
+  const openCalls = calls.filter((c) => c.status === "open").length;
+  const closedCalls = calls.filter((c) => c.status === "closed").length;
 
   return (
     <PageContainer
       title="Calls for Proposals"
       description="Browse and apply to open research funding opportunities"
-      actions={
-        <Button asChild>
-          <Link href="/research/calls/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Call
-          </Link>
-        </Button>
-      }
     >
       <div className="space-y-6">
         {/* Stats */}
@@ -212,21 +240,7 @@ export default function CallsForProposalsPage() {
         </div>
 
         {/* Calls Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader className="pb-3">
-                  <div className="h-5 bg-muted rounded w-3/4" />
-                  <div className="h-4 bg-muted rounded w-full mt-2" />
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 bg-muted rounded w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredCalls.length > 0 ? (
+        {filteredCalls.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCalls.map((call) => (
               <CallCard key={call.id} call={call} />
@@ -238,14 +252,14 @@ export default function CallsForProposalsPage() {
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No calls found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchQuery || statusFilter !== 'all'
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'There are no calls for proposals at this time'}
+                {searchQuery || statusFilter !== "all"
+                  ? "Try adjusting your search or filter criteria"
+                  : "There are no calls for proposals at this time"}
               </p>
             </CardContent>
           </Card>
         )}
       </div>
     </PageContainer>
-  )
+  );
 }

@@ -1,8 +1,8 @@
 interface PageContainerProps {
-  title: string
-  description?: string
-  actions?: React.ReactNode
-  children: React.ReactNode
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export function PageContainer({
@@ -12,7 +12,7 @@ export function PageContainer({
   children,
 }: PageContainerProps) {
   return (
-    <div className="flex flex-col gap-6 p-6 w-full max-w-full overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col gap-6 p-6 w-full max-w-full overflow-y-auto">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
@@ -24,5 +24,5 @@ export function PageContainer({
       </div>
       {children}
     </div>
-  )
+  );
 }
