@@ -162,7 +162,7 @@ export default function NewPolicyDraftPage() {
       description="Formalize your policy proposal into a comprehensive draft for expert evaluation."
       actions={
         <Button variant="outline" asChild className="shadow-sm">
-          <Link href="/policies/drafts">
+          <Link href="/policies/drafts/my-drafts">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Link>

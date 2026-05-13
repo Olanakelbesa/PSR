@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   FileText,
+  UploadCloud,
   Building2,
   Calendar,
   Globe,
@@ -15,6 +16,7 @@ import {
   Tag,
   CheckCircle2,
   AlertCircle,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -48,11 +50,13 @@ const READINESS = [
   { key: "org", label: "Organization identified" },
   { key: "effectiveDate", label: "Effective date set" },
   { key: "accessLevel", label: "Access level chosen" },
+  { key: "document", label: "Document uploaded" },
 ];
 
 export default function CreateRepositoryEntryPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -74,7 +78,10 @@ export default function CreateRepositoryEntryPage() {
   useEffect(() => {
     async function loadApprovedDrafts() {
       try {
-        const response = await policyApi.getPolicies({ status: "approved" }, { page: 1, pageSize: 100 });
+        const response = await policyApi.getPolicies(
+          { status: "approved" },
+          { page: 1, pageSize: 100 },
+        );
         setApprovedDrafts(response.data);
       } catch (error) {
         console.error("Failed to load approved drafts:", error);
@@ -103,25 +110,35 @@ export default function CreateRepositoryEntryPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+  };
+
   const readinessMap: Record<string, boolean> = {
     title: !!form.title.trim(),
     type: !!form.type,
     org: !!form.organization.trim(),
     effectiveDate: !!form.effectiveDate,
     accessLevel: !!form.accessLevel,
+    document: !!selectedFile,
   };
   const completedCount = Object.values(readinessMap).filter(Boolean).length;
   const isReady = completedCount === READINESS.length;
 
   async function handleSubmit() {
     if (!isReady) {
-      toast.error("Please fill in all required fields before registering the policy.");
+      toast.error(
+        "Please fill in all required fields before registering the policy.",
+      );
       return;
     }
     setIsSubmitting(true);
     try {
       await new Promise((r) => setTimeout(r, 1400));
-      toast.success(`Policy "${form.title}" has been registered in the repository.`);
+      toast.success(
+        `Policy "${form.title}" has been registered in the repository.`,
+      );
       router.push("/policies/repository");
     } catch {
       toast.error("Failed to register policy. Please try again.");
@@ -155,22 +172,41 @@ export default function CreateRepositoryEntryPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         {/* Form */}
         <div className="space-y-6">
-
           {/* Core Identity */}
           <Card className="shadow-sm border-primary/10 overflow-hidden">
             <CardHeader className="border-b bg-muted/30 pb-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Policy Identity Selection</CardTitle>
+                <CardTitle className="text-base">
+                  Policy Identity Selection
+                </CardTitle>
               </div>
-              <CardDescription>Select an approved draft to import its core identification details</CardDescription>
+              <CardDescription>
+                Select an approved draft to import its core identification
+                details
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-5 space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="draft">Select Approved Draft <span className="text-destructive">*</span></Label>
-                <Select value={form.sourceDraft} onValueChange={handleDraftSelect}>
-                  <SelectTrigger id="draft" className="h-11 shadow-sm focus:ring-primary/20">
-                    <SelectValue placeholder={isLoadingDrafts ? "Loading approved drafts..." : "Choose an approved policy draft..."} />
+                <Label htmlFor="draft">
+                  Select Approved Draft{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.sourceDraft}
+                  onValueChange={handleDraftSelect}
+                >
+                  <SelectTrigger
+                    id="draft"
+                    className="h-11 shadow-sm focus:ring-primary/20"
+                  >
+                    <SelectValue
+                      placeholder={
+                        isLoadingDrafts
+                          ? "Loading approved drafts..."
+                          : "Choose an approved policy draft..."
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {approvedDrafts.length > 0 ? (
@@ -178,12 +214,16 @@ export default function CreateRepositoryEntryPage() {
                         <SelectItem key={draft.id} value={draft.id}>
                           <div className="flex flex-col py-1">
                             <span className="font-bold">{draft.title}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase">{draft.id} · {draft.type}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase">
+                              {draft.id} · {draft.type}
+                            </span>
                           </div>
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="p-4 text-center text-xs text-muted-foreground">No approved drafts found in the system.</div>
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        No approved drafts found in the system.
+                      </div>
                     )}
                   </SelectContent>
                 </Select>
@@ -193,31 +233,113 @@ export default function CreateRepositoryEntryPage() {
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1">
-                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Selected Title</p>
-                       <p className="text-sm font-black text-foreground">{form.title}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        Selected Title
+                      </p>
+                      <p className="text-sm font-black text-foreground">
+                        {form.title}
+                      </p>
                     </div>
                     <div className="space-y-1">
-                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Document Type</p>
-                       <Badge variant="outline" className="bg-background">{form.type.toUpperCase()}</Badge>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        Document Type
+                      </p>
+                      <Badge variant="outline" className="bg-background">
+                        {form.type.toUpperCase()}
+                      </Badge>
                     </div>
                     <div className="space-y-1 col-span-full">
-                       <p className="text-[10px] font-bold uppercase text-muted-foreground">Submitting Organization</p>
-                       <p className="text-sm font-medium">{form.organization}</p>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        Submitting Organization
+                      </p>
+                      <p className="text-sm font-medium">{form.organization}</p>
                     </div>
                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="description">Executive Summary / Description</Label>
+                <Label htmlFor="description">
+                  Executive Summary / Description
+                </Label>
                 <Textarea
                   id="description"
                   placeholder="Provide a brief overview of what this policy document covers..."
-                  className="resize-none min-h-[100px] shadow-sm"
+                  className="resize-none min-h-25 shadow-sm"
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-primary/10 overflow-hidden">
+            <CardHeader className="border-b bg-muted/30 pb-4">
+              <div className="flex items-center gap-2">
+                <UploadCloud className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base">Document Upload</CardTitle>
+              </div>
+              <CardDescription>
+                Upload the final policy document to store in the repository.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5 p-6 text-center transition-colors hover:border-primary/40 hover:bg-muted/10">
+                <Input
+                  id="policy-document"
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  className="sr-only"
+                  onChange={handleFileChange}
+                />
+                <label
+                  htmlFor="policy-document"
+                  className="flex cursor-pointer flex-col items-center gap-3"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                    <UploadCloud className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      Click to upload the policy document
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, DOC, or DOCX up to 20MB
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {selectedFile ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-emerald-50/30 border-emerald-200 p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-emerald-900">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-emerald-700">
+                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                    onClick={() => setSelectedFile(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  A document is required before registering the policy.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -231,10 +353,27 @@ export default function CreateRepositoryEntryPage() {
             </CardHeader>
             <CardContent className="pt-5 grid gap-4 sm:grid-cols-2">
               {[
-                { id: "approvalDate", label: "Approval Date", field: "approvalDate" },
-                { id: "effectiveDate", label: "Effective Date *", field: "effectiveDate" },
-                { id: "nextReviewDate", label: "Next Review Date", field: "nextReviewDate" },
-                { id: "operationalPeriod", label: "Operational Period", field: "operationalPeriod", placeholder: "e.g. 2 years" },
+                {
+                  id: "approvalDate",
+                  label: "Approval Date",
+                  field: "approvalDate",
+                },
+                {
+                  id: "effectiveDate",
+                  label: "Effective Date *",
+                  field: "effectiveDate",
+                },
+                {
+                  id: "nextReviewDate",
+                  label: "Next Review Date",
+                  field: "nextReviewDate",
+                },
+                {
+                  id: "operationalPeriod",
+                  label: "Operational Period",
+                  field: "operationalPeriod",
+                  placeholder: "e.g. 2 years",
+                },
               ].map((item) => (
                 <div key={item.id} className="space-y-2">
                   <Label htmlFor={item.id}>{item.label}</Label>
@@ -261,14 +400,38 @@ export default function CreateRepositoryEntryPage() {
           {/* Access Level */}
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="border-b bg-muted/30 pb-4">
-              <CardTitle className="text-base">Access Level <span className="text-destructive text-sm font-normal">*</span></CardTitle>
-              <CardDescription>Control who can view this policy in the repository</CardDescription>
+              <CardTitle className="text-base">
+                Access Level{" "}
+                <span className="text-destructive text-sm font-normal">*</span>
+              </CardTitle>
+              <CardDescription>
+                Control who can view this policy in the repository
+              </CardDescription>
             </CardHeader>
             <CardContent className="pt-5 grid gap-3 sm:grid-cols-3">
               {[
-                { value: "public", label: "Public", icon: Globe, description: "Visible to all users and the general public", className: "border-green-200 bg-green-50/50 hover:bg-green-50" },
-                { value: "internal", label: "Internal", icon: Shield, description: "Visible to registered ministry staff only", className: "border-blue-200 bg-blue-50/50 hover:bg-blue-50" },
-                { value: "restricted", label: "Restricted", icon: Lock, description: "Visible to authorized administrators only", className: "border-red-200 bg-red-50/50 hover:bg-red-50" },
+                {
+                  value: "public",
+                  label: "Public",
+                  icon: Globe,
+                  description: "Visible to all users and the general public",
+                  className:
+                    "border-green-200 bg-green-50/50 hover:bg-green-50",
+                },
+                {
+                  value: "internal",
+                  label: "Internal",
+                  icon: Shield,
+                  description: "Visible to registered ministry staff only",
+                  className: "border-blue-200 bg-blue-50/50 hover:bg-blue-50",
+                },
+                {
+                  value: "restricted",
+                  label: "Restricted",
+                  icon: Lock,
+                  description: "Visible to authorized administrators only",
+                  className: "border-red-200 bg-red-50/50 hover:bg-red-50",
+                },
               ].map((opt) => {
                 const Icon = opt.icon;
                 const selected = form.accessLevel === opt.value;
@@ -280,15 +443,21 @@ export default function CreateRepositoryEntryPage() {
                     className={cn(
                       "flex flex-col items-start gap-2 rounded-lg border-2 p-4 text-left transition-all",
                       opt.className,
-                      selected ? "border-primary ring-2 ring-primary/20" : "border-border"
+                      selected
+                        ? "border-primary ring-2 ring-primary/20"
+                        : "border-border",
                     )}
                   >
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4" />
                       <span className="text-sm font-semibold">{opt.label}</span>
-                      {selected && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                      {selected && (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{opt.description}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {opt.description}
+                    </p>
                   </button>
                 );
               })}
@@ -298,7 +467,12 @@ export default function CreateRepositoryEntryPage() {
 
         {/* Sidebar: Readiness */}
         <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-          <Card className={cn("shadow-sm border", isReady ? "border-green-200 bg-green-50/30" : "border-primary/20")}>
+          <Card
+            className={cn(
+              "shadow-sm border",
+              isReady ? "border-green-200 bg-green-50/30" : "border-primary/20",
+            )}
+          >
             <CardHeader className="pb-3 border-b">
               <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">
                 Registration Readiness
@@ -309,12 +483,24 @@ export default function CreateRepositoryEntryPage() {
               <div className="flex items-center justify-center py-2">
                 <div className="relative">
                   <svg className="w-20 h-20 -rotate-90">
-                    <circle cx="40" cy="40" r="34" strokeWidth="7" stroke="currentColor" fill="transparent" className="text-muted/20" />
                     <circle
-                      cx="40" cy="40" r="34"
+                      cx="40"
+                      cy="40"
+                      r="34"
+                      strokeWidth="7"
+                      stroke="currentColor"
+                      fill="transparent"
+                      className="text-muted/20"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="34"
                       strokeWidth="7"
                       strokeDasharray={213.6}
-                      strokeDashoffset={213.6 - (213.6 * completedCount) / READINESS.length}
+                      strokeDashoffset={
+                        213.6 - (213.6 * completedCount) / READINESS.length
+                      }
                       strokeLinecap="round"
                       stroke="currentColor"
                       fill="transparent"
@@ -323,20 +509,31 @@ export default function CreateRepositoryEntryPage() {
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-black">{completedCount}/{READINESS.length}</span>
+                    <span className="text-lg font-black">
+                      {completedCount}/{READINESS.length}
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
                 {READINESS.map((item) => (
-                  <div key={item.key} className="flex items-center gap-2 text-xs">
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-2 text-xs"
+                  >
                     {readinessMap[item.key] ? (
                       <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                     ) : (
                       <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
                     )}
-                    <span className={readinessMap[item.key] ? "text-foreground" : "text-muted-foreground"}>
+                    <span
+                      className={
+                        readinessMap[item.key]
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                      }
+                    >
                       {item.label}
                     </span>
                   </div>
@@ -351,11 +548,20 @@ export default function CreateRepositoryEntryPage() {
               )}
 
               <Button
-                className={cn("w-full mt-2", isReady ? "bg-green-600 hover:bg-green-700" : "bg-primary hover:bg-primary/90")}
+                className={cn(
+                  "w-full mt-2",
+                  isReady
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-primary hover:bg-primary/90",
+                )}
                 onClick={handleSubmit}
                 disabled={isSubmitting || !isReady}
               >
-                {isSubmitting ? "Registering..." : isReady ? "Register Policy" : "Complete Form First"}
+                {isSubmitting
+                  ? "Registering..."
+                  : isReady
+                    ? "Register Policy"
+                    : "Complete Form First"}
               </Button>
             </CardContent>
           </Card>
@@ -365,7 +571,10 @@ export default function CreateRepositoryEntryPage() {
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Manual registration is for policies that originated outside the standard workflow. For policies going through the full PSR approval cycle, use the <strong>Concept Note → Draft → Review</strong> workflow.
+                  Manual registration is for policies that originated outside
+                  the standard workflow. For policies going through the full PSR
+                  approval cycle, use the{" "}
+                  <strong>Concept Note → Draft → Review</strong> workflow.
                 </p>
               </div>
             </CardContent>
