@@ -338,6 +338,41 @@ export type TeamMemberFormData = z.infer<typeof teamMemberSchema>;
 export type BudgetFormData = z.infer<typeof budgetSchema>;
 export type TimelineItemFormData = z.infer<typeof timelineItemSchema>;
 
+export const proposalSchema = z.object({
+  title: z
+    .string()
+    .min(1, "Title is required")
+    .min(10, "Title must be at least 10 characters")
+    .max(300, "Title must be less than 300 characters"),
+  abstract: z
+    .string()
+    .min(1, "Abstract is required")
+    .max(2000, "Abstract is too long"),
+  background: z
+    .string()
+    .min(1, "Background is required")
+    .min(100, "Background must be at least 100 characters"),
+  objectives: z
+    .string()
+    .min(1, "Objectives are required")
+    .min(50, "Objectives must be at least 50 characters"),
+  methodology: z
+    .string()
+    .min(1, "Methodology is required")
+    .min(100, "Methodology must be at least 100 characters"),
+  expectedOutcomes: z
+    .string()
+    .min(1, "Expected outcomes are required")
+    .min(50, "Expected outcomes must be at least 50 characters"),
+  thematicArea: z.string().min(1, "Thematic area is required"),
+  studyType: z.string().min(1, "Study type is required"),
+  studyRegions: z.array(z.string()).optional(),
+  budget: z.number().min(0, "Budget must be a positive number"),
+  duration: z.number().min(1, "Duration must be at least 1 month"),
+});
+
+export type ProposalFormData = z.infer<typeof proposalSchema>;
+
 // ============================================================================
 // Review Schemas
 // ============================================================================
@@ -355,6 +390,14 @@ export const proposalReviewSchema = z.object({
 });
 
 export type ProposalReviewFormData = z.infer<typeof proposalReviewSchema>;
+
+export const proposalScreeningSchema = z.object({
+  comments: z.string().min(1, "Comments are required").min(10),
+  recommendation: z.enum(["approve", "revise", "reject"]),
+  assignedReviewers: z.array(z.string()).optional(),
+});
+
+export type ProposalScreeningFormData = z.infer<typeof proposalScreeningSchema>;
 
 export const conceptNoteReviewSchema = z.object({
   comments: z.string().min(1, "Comments are required").min(50),

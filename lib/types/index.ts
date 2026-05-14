@@ -182,6 +182,9 @@ export interface ResearchProposal {
   coInvestigators: TeamMember[];
   institution: string;
   researchArea: string;
+  studyType?: string;
+  studyRegions?: string[];
+  duration?: number;
   budget: Budget;
   timeline: TimelineItem[];
   status: ProposalStatus;
@@ -246,7 +249,7 @@ export interface ResearchProject {
   contractNumber: string;
   startDate: string;
   endDate: string;
-  status: "active" | "completed" | "suspended" | "terminated";
+  status: "active" | "on_track" | "at_risk" | "delayed" | "completed" | "suspended" | "terminated";
   milestones: Milestone[];
   progressReports: ProgressReport[];
   budgetUtilization: BudgetUtilization;

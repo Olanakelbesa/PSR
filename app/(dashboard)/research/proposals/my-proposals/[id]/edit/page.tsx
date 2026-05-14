@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Save, Send, ArrowLeft, Upload, X, Plus } from 'lucide-react'
+import { Save, Send, ArrowLeft, Upload, X, Plus, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,17 +30,17 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { PageContainer } from '@/components/layout'
 import { proposalSchema, type ProposalFormData } from '@/lib/validations'
-import { proposalsApi, callsApi } from '@/lib/api/client'
-import { THEMATIC_AREAS, STUDY_TYPES, REGIONS } from '@/lib/constants'
-import type { CallForProposal } from '@/lib/types'
+import { proposalsApi } from '@/lib/api/client'
+import { THEMATIC_AREAS, STUDY_TYPES } from '@/lib/constants'
+import type { ResearchProposal } from '@/lib/types'
+import { toast } from 'sonner'
 
-export default function NewProposalPage() {
+export default function EditProposalPage() {
+  const { id } = useParams()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const callId = searchParams.get('callId')
   
-  const [isLoading, setIsLoading] = useState(false)
-  const [call, setCall] = useState<CallForProposal | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [coInvestigators, setCoInvestigators] = useState<string[]>([])
   const [newCoInvestigator, setNewCoInvestigator] = useState('')
 
@@ -62,16 +62,41 @@ export default function NewProposalPage() {
   })
 
   useEffect(() => {
-    async function loadCall() {
-      if (callId) {
-        const response = await callsApi.getById(callId)
+    async function loadProposal() {
+      if (!id) return
+      
+      setIsLoading(true)
+      try {
+        const response = await proposalsApi.getById(id as string)
         if (response.success && response.data) {
-          setCall(response.data)
+          const proposal = response.data
+          form.reset({
+            title: proposal.title,
+            abstract: proposal.abstract,
+            background: proposal.background,
+            objectives: proposal.objectives,
+            methodology: proposal.methodology,
+            expectedOutcomes: proposal.expectedOutcomes,
+            thematicArea: proposal.researchArea,
+            studyType: proposal.studyType || '',
+            studyRegions: proposal.studyRegions || [],
+            budget: proposal.budget.total || 0,
+            duration: proposal.duration || 12,
+          })
+          setCoInvestigators(proposal.coInvestigators.map(ci => ci.email))
+        } else {
+          toast.error('Proposal not found')
+          router.push('/research/proposals/my-proposals')
         }
+      } catch (error) {
+        console.error('Failed to load proposal:', error)
+        toast.error('Failed to load proposal data')
+      } finally {
+        setIsLoading(false)
       }
     }
-    loadCall()
-  }, [callId])
+    loadProposal()
+  }, [id, form, router])
 
   const addCoInvestigator = () => {
     if (newCoInvestigator.trim() && !coInvestigators.includes(newCoInvestigator.trim())) {
@@ -85,28 +110,58 @@ export default function NewProposalPage() {
   }
 
   const onSubmit = async (data: ProposalFormData, submitType: 'draft' | 'submit') => {
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
-      const response = await proposalsApi.create({
+      const response = await proposalsApi.updateProposal(id as string, {
         ...data,
-        callId: callId || undefined,
+        researchArea: data.thematicArea,
         status: submitType === 'submit' ? 'submitted' : 'draft',
+        budget: {
+          total: data.budget,
+          personnel: 0,
+          equipment: 0,
+          consumables: 0,
+          travel: 0,
+          other: 0,
+        },
+        coInvestigators: coInvestigators.map(email => ({
+          email,
+          name: email.split('@')[0], // Mock name
+          role: 'researcher',
+          institution: 'Unknown',
+          expertise: 'Unknown'
+        })) as any
       })
       
       if (response.success) {
-        router.push('/research/proposals')
+        toast.success(submitType === 'submit' ? 'Proposal submitted successfully' : 'Draft saved successfully')
+        router.push('/research/proposals/my-proposals')
+      } else {
+        toast.error(response.message || 'Failed to update proposal')
       }
     } catch (error) {
-      console.error('Failed to create proposal:', error)
+      console.error('Failed to update proposal:', error)
+      toast.error('An unexpected error occurred')
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <PageContainer title="Edit Proposal" description="Loading proposal data...">
+        <div className="h-96 flex flex-col items-center justify-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading proposal details...</p>
+        </div>
+      </PageContainer>
+    )
   }
 
   return (
     <PageContainer
-      title="New Research Proposal"
-      description={call ? `Applying to: ${call.title}` : 'Create a new research proposal'}
+      title="Edit Research Proposal"
+      description="Update your research proposal details"
       actions={
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -146,7 +201,7 @@ export default function NewProposalPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Thematic Area *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select thematic area" />
@@ -171,7 +226,7 @@ export default function NewProposalPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Study Type *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select study type" />
@@ -199,7 +254,7 @@ export default function NewProposalPage() {
                     <FormLabel>Abstract *</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Provide a brief summary of your research proposal (max 300 words)"
+                        placeholder="Provide a brief summary of your research proposal"
                         className="min-h-32"
                         {...field} 
                       />
@@ -413,15 +468,15 @@ export default function NewProposalPage() {
             <Button 
               variant="outline" 
               type="button"
-              disabled={isLoading}
+              disabled={isSubmitting}
               onClick={form.handleSubmit((data) => onSubmit(data, 'draft'))}
             >
               <Save className="h-4 w-4 mr-2" />
-              Save as Draft
+              Update Draft
             </Button>
             <Button 
               type="button"
-              disabled={isLoading}
+              disabled={isSubmitting}
               onClick={form.handleSubmit((data) => onSubmit(data, 'submit'))}
             >
               <Send className="h-4 w-4 mr-2" />

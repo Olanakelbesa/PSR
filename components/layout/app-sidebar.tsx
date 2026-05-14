@@ -146,29 +146,29 @@ const navigationGroups: NavGroup[] = [
       { label: "Proposals", icon: FileText, subItems: [
         {
           label: "My Proposals",
-          href: "/research/my-proposals",
+          href: "/research/proposals/my-proposals",
           icon: Dot,
         },
         {
           label: "Screening Reviews",
-          href: "/research/screening-reviews",
+          href: "/research/proposals/screening-reviews",
           icon: Dot,
         },
         {
           label: "Technical Reviews",
-          href: "/research/technical-reviews",
+          href: "/research/proposals/technical-reviews",
           icon: Dot,
         }
       ]},
       {
-        label: "Ready for Funding",
-        href: "/research/ready-for-funding",
-        icon: DollarSign,
-      },
-      {
         label: "Ethical Clearance",
         href: "/research/ethical-clearance",
         icon: FileCheck2,
+      },
+      {
+        label: "Ready for Funding",
+        href: "/research/ready-for-funding",
+        icon: DollarSign,
       },
       { label: "Monitoring", href: "/research/monitoring", icon: Activity },
       {

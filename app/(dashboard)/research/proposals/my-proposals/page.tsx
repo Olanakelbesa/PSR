@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -41,6 +42,9 @@ import { proposalsApi } from "@/lib/api/client";
 import { mockProposals } from "@/lib/api/mock-data";
 import type { ResearchProposal } from "@/lib/types";
 import { PROPOSAL_STATUSES, THEMATIC_AREAS } from "@/lib/constants";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type ProposalRow = ResearchProposal & {
   referenceNumber: string;
@@ -148,7 +152,7 @@ const columns: ColumnDef<ProposalRow>[] = [
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link href={`/research/proposals/${row.original.id}`}>
+            <Link href={`/research/proposals/my-proposals/${row.original.id}`}>
               <Eye className="h-4 w-4 mr-2" />
               View Details
             </Link>
@@ -156,7 +160,9 @@ const columns: ColumnDef<ProposalRow>[] = [
           {row.original.status === "draft" && (
             <>
               <DropdownMenuItem asChild>
-                <Link href={`/research/proposals/${row.original.id}/edit`}>
+                <Link
+                  href={`/research/proposals/my-proposals/${row.original.id}/edit`}
+                >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Link>
@@ -179,10 +185,9 @@ const columns: ColumnDef<ProposalRow>[] = [
 ];
 
 export default function ProposalsPage() {
+  const router = useRouter();
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
 
   const mapToProposalRow = (proposal: ResearchProposal): ProposalRow => ({
     ...proposal,
@@ -192,6 +197,7 @@ export default function ProposalsPage() {
 
   useEffect(() => {
     async function loadProposals() {
+      setIsLoading(true);
       try {
         const response = await proposalsApi.getProposals(
           {},
@@ -213,65 +219,125 @@ export default function ProposalsPage() {
     loadProposals();
   }, []);
 
-  const filteredProposals = proposals.filter((proposal) => {
-    if (statusFilter !== "all" && proposal.status !== statusFilter)
-      return false;
-    if (
-      searchQuery &&
-      !proposal.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-      return false;
-    return true;
-  });
+  const stats = [
+    {
+      label: "Total Proposals",
+      value: proposals.length,
+      icon: FileText,
+      color: "text-blue-600",
+      bg: "bg-blue-50/50",
+    },
+    {
+      label: "Approved",
+      value: proposals.filter((p) => p.status === "approved").length,
+      icon: CheckCircle2,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50/50",
+    },
+    {
+      label: "Under Review",
+      value: proposals.filter(
+        (p) => p.status === "under_review" || p.status === "submitted",
+      ).length,
+      icon: Clock,
+      color: "text-amber-600",
+      bg: "bg-amber-50/50",
+    },
+    {
+      label: "Drafts",
+      value: proposals.filter((p) => p.status === "draft").length,
+      icon: Edit,
+      color: "text-slate-600",
+      bg: "bg-slate-50/50",
+    },
+  ];
+
+  const statusOptions = Object.entries(PROPOSAL_STATUSES).map(
+    ([key, value]) => ({
+      value: key,
+      label: value.label,
+    }),
+  );
 
   return (
     <PageContainer
       title="My Proposals"
       description="Manage your research proposals and submissions"
       actions={
-        <Button asChild>
-          <Link href="/research/proposals/new">
+        <Button asChild className="shadow-sm">
+          <Link href="/research/proposals/my-proposals/new">
             <Plus className="h-4 w-4 mr-2" />
             New Proposal
           </Link>
         </Button>
       }
     >
-      <div className="space-y-4">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search proposals..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {Object.entries(PROPOSAL_STATUSES).map(([key, value]) => (
-                <SelectItem key={key} value={key}>
-                  {value.label}
-                </SelectItem>
+      <div className="space-y-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden border-none shadow-md">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-8 w-12" />
+                  </CardContent>
+                </Card>
+              ))
+            : stats.map((stat, i) => (
+                <Card
+                  key={i}
+                  className="group relative overflow-hidden border-none shadow-md transition-all hover:shadow-lg"
+                >
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 w-1 transition-all group-hover:w-1.5",
+                      stat.bg.replace("/50", ""),
+                    )}
+                  />
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {stat.label}
+                    </CardTitle>
+                    <stat.icon className={cn("h-4 w-4", stat.color)} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                  </CardContent>
+                </Card>
               ))}
-            </SelectContent>
-          </Select>
         </div>
 
-        {/* Table */}
-        <DataTable
-          columns={columns}
-          data={filteredProposals}
-          emptyMessage="No proposals found"
-          emptyDescription="Create your first proposal to get started"
-        />
+        <div className="space-y-4">
+          {/* Table */}
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-[400px] w-full rounded-xl" />
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={proposals}
+              searchKey="title"
+              onRowClick={(row) => {
+                router.push(`/research/proposals/my-proposals/${row.id}`);
+              }}
+              searchPlaceholder="Search proposals by title..."
+              filterOptions={[
+                {
+                  key: "status",
+                  label: "Status",
+                  options: statusOptions,
+                },
+              ]}
+              emptyMessage="No proposals found"
+              emptyDescription="Try adjusting your filters or create a new proposal"
+            />
+          )}
+        </div>
       </div>
     </PageContainer>
   );

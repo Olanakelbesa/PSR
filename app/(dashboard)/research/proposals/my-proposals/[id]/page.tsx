@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   BarChart3,
   Users,
-  Wallet
+  Wallet,
+  Edit
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -79,9 +80,9 @@ export default function ProposalDetailPage() {
             Back
           </Button>
           <Button asChild className="bg-primary hover:bg-primary/90">
-             <Link href={`/research/proposals/${id}/review`}>
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Submit Evaluation
+             <Link href={`/research/proposals/my-proposals/${id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
              </Link>
           </Button>
         </div>

@@ -22,6 +22,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Settings2,
+  Filter,
 } from "lucide-react";
 
 import {
@@ -64,6 +65,8 @@ interface DataTableProps<TData, TValue> {
   }[];
   onRowClick?: (data: TData) => void;
   selectedActions?: React.ReactNode;
+  emptyMessage?: string;
+  emptyDescription?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -74,6 +77,8 @@ export function DataTable<TData, TValue>({
   filterOptions = [],
   onRowClick,
   selectedActions,
+  emptyMessage = "No matching results found.",
+  emptyDescription,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -104,11 +109,11 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4 w-full max-w-full overflow-hidden">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
+        <div className="flex flex-1 flex-wrap items-center gap-2 w-full">
           {searchKey && (
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder={searchPlaceholder}
                 value={
@@ -117,46 +122,56 @@ export function DataTable<TData, TValue>({
                 onChange={(event) =>
                   table.getColumn(searchKey)?.setFilterValue(event.target.value)
                 }
-                className="pl-9 h-9 border-muted-foreground/20 focus-visible:ring-primary/20"
+                className="pl-9 h-10 bg-muted/20 border-muted-foreground/20 focus-visible:ring-primary/20"
               />
             </div>
           )}
-          {filterOptions.map((filter) => (
-            <Select
-              key={filter.key}
-              value={
-                (table.getColumn(filter.key)?.getFilterValue() as string) ?? ""
-              }
-              onValueChange={(value) =>
-                table
-                  .getColumn(filter.key)
-                  ?.setFilterValue(value === "all" ? "" : value)
-              }
-            >
-              <SelectTrigger className="w-[160px] h-9 border-muted-foreground/20">
-                <SelectValue placeholder={filter.label} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All {filter.label}</SelectItem>
-                {filter.options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ))}
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setColumnFilters([])}
-              className="h-9 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
-            >
-              <X className="mr-2 h-4 w-4" />
-              Clear filters
-            </Button>
-          )}
+          <div className="flex items-center gap-2 ml-auto">
+            {filterOptions.length > 0 && (
+              <span className="text-sm text-muted-foreground whitespace-nowrap hidden md:inline-block">
+                Filter by:
+              </span>
+            )}
+            {filterOptions.map((filter) => (
+              <Select
+                key={filter.key}
+                value={
+                  (table.getColumn(filter.key)?.getFilterValue() as string) ?? ""
+                }
+                onValueChange={(value) =>
+                  table
+                    .getColumn(filter.key)
+                    ?.setFilterValue(value === "all" ? "" : value)
+                }
+              >
+                <SelectTrigger className="w-[160px] h-10 bg-muted/20 border-muted-foreground/20">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <SelectValue placeholder={filter.label} />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All {filter.label}</SelectItem>
+                  {filter.options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ))}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setColumnFilters([])}
+                className="h-10 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {selectedRows.length > 0 && selectedActions && (
@@ -256,9 +271,18 @@ export function DataTable<TData, TValue>({
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
-                    className="h-32 text-center text-muted-foreground italic"
+                    className="h-32 text-center"
                   >
-                    No matching results found.
+                    <div className="flex flex-col items-center justify-center space-y-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {emptyMessage}
+                      </p>
+                      {emptyDescription && (
+                        <p className="text-xs text-muted-foreground">
+                          {emptyDescription}
+                        </p>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

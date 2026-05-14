@@ -1,314 +1,202 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import {
-  Plus,
-  Search,
-  Filter,
-  Building2,
-  Users,
-  MapPin,
-  Mail,
-  Phone,
-  Globe,
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { 
+  Building2, 
+  Search, 
+  Plus, 
+  MapPin, 
+  Globe, 
+  Users, 
+  ChevronRight, 
+  ExternalLink,
+  Layers,
+  LayoutGrid,
+  Info,
+  Calendar,
   MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-} from 'lucide-react'
+  Mail,
+  GraduationCap,
+  Gavel,
+  Network
+} from "lucide-react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { PageContainer } from '@/components/layout'
+import { PageContainer } from "@/components/layout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-interface Organization {
-  id: string
-  name: string
-  type: 'government' | 'academic' | 'ngo' | 'international' | 'private'
-  email: string
-  phone?: string
-  website?: string
-  location: string
-  membersCount: number
-  projectsCount: number
-  isActive: boolean
-}
-
-const mockOrganizations: Organization[] = [
+// Mock data based on Organization & Unit models
+const mockOrgs = [
   {
-    id: '1',
-    name: 'Ethiopian Ministry of Education',
-    type: 'government',
-    email: 'info@moe.gov.et',
-    phone: '+251-11-155-3133',
-    website: 'https://moe.gov.et',
-    location: 'Addis Ababa, Ethiopia',
-    membersCount: 156,
-    projectsCount: 45,
-    isActive: true,
+    id: "org-1",
+    name: "Ministry of Health",
+    type: "Government / Regulatory",
+    typeCode: "moh",
+    description: "The primary regulatory body for healthcare and research in Ethiopia.",
+    unitsCount: 14,
+    usersCount: 450,
+    established: "1948",
+    status: "active",
+    units: ["Epidemiology Directorate", "Resource Mobilization", "Policy & Planning"]
   },
   {
-    id: '2',
-    name: 'Addis Ababa University',
-    type: 'academic',
-    email: 'info@aau.edu.et',
-    website: 'https://aau.edu.et',
-    location: 'Addis Ababa, Ethiopia',
-    membersCount: 89,
-    projectsCount: 67,
-    isActive: true,
+    id: "org-2",
+    name: "Addis Ababa University",
+    type: "Academic / Research",
+    typeCode: "univ",
+    description: "Leading national institution for health sciences and clinical research.",
+    unitsCount: 8,
+    usersCount: 210,
+    established: "1950",
+    status: "active",
+    units: ["College of Health Sciences", "Tikur Anbessa Hospital", "School of Public Health"]
   },
   {
-    id: '3',
-    name: 'UNESCO - Ethiopia Office',
-    type: 'international',
-    email: 'addis@unesco.org',
-    website: 'https://unesco.org/fieldoffice/addisababa',
-    location: 'Addis Ababa, Ethiopia',
-    membersCount: 34,
-    projectsCount: 28,
-    isActive: true,
+    id: "org-3",
+    name: "Armauer Hansen Research Institute",
+    type: "Research Agency",
+    typeCode: "agency",
+    description: "Specialized laboratory and clinical research hub.",
+    unitsCount: 6,
+    usersCount: 180,
+    established: "1970",
+    status: "active",
+    units: ["TB Research Unit", "Immunology Lab", "Clinical Trials"]
   },
-  {
-    id: '4',
-    name: 'National Educational Assessment and Examinations Agency',
-    type: 'government',
-    email: 'info@neaea.gov.et',
-    website: 'https://neaea.gov.et',
-    location: 'Addis Ababa, Ethiopia',
-    membersCount: 78,
-    projectsCount: 52,
-    isActive: true,
-  },
-  {
-    id: '5',
-    name: 'USAID Ethiopia',
-    type: 'international',
-    email: 'ethiopia@usaid.gov',
-    website: 'https://usaid.gov/ethiopia',
-    location: 'Addis Ababa, Ethiopia',
-    membersCount: 45,
-    projectsCount: 31,
-    isActive: true,
-  },
-  {
-    id: '6',
-    name: 'Jimma University',
-    type: 'academic',
-    email: 'info@ju.edu.et',
-    website: 'https://ju.edu.et',
-    location: 'Jimma, Ethiopia',
-    membersCount: 56,
-    projectsCount: 38,
-    isActive: true,
-  },
-]
+];
 
-const typeConfig: Record<string, { label: string; color: string }> = {
-  government: { label: 'Government', color: 'bg-blue-500' },
-  academic: { label: 'Academic', color: 'bg-purple-500' },
-  ngo: { label: 'NGO', color: 'bg-green-500' },
-  international: { label: 'International', color: 'bg-amber-500' },
-  private: { label: 'Private', color: 'bg-slate-500' },
-}
-
-function OrganizationCard({ org }: { org: Organization }) {
-  const typeInfo = typeConfig[org.type] || typeConfig.private
-
-  return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12">
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                {org.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-base leading-tight line-clamp-1">
-                {org.name}
-              </CardTitle>
-              <Badge variant="outline" className="mt-1 text-xs">
-                <div className={`w-2 h-2 rounded-full ${typeInfo.color} mr-1.5`} />
-                {typeInfo.label}
-              </Badge>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <Eye className="h-4 w-4 mr-2" />
-                View Details
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0 space-y-4">
-        {/* Contact Info */}
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <MapPin className="h-4 w-4 shrink-0" />
-            <span className="truncate">{org.location}</span>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Mail className="h-4 w-4 shrink-0" />
-            <span className="truncate">{org.email}</span>
-          </div>
-          {org.website && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Globe className="h-4 w-4 shrink-0" />
-              <a 
-                href={org.website} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="truncate hover:text-primary hover:underline"
-              >
-                {org.website.replace('https://', '')}
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="p-3 bg-muted/50 rounded-lg text-center">
-            <Users className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <p className="text-lg font-bold">{org.membersCount}</p>
-            <p className="text-xs text-muted-foreground">Members</p>
-          </div>
-          <div className="p-3 bg-muted/50 rounded-lg text-center">
-            <Building2 className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <p className="text-lg font-bold">{org.projectsCount}</p>
-            <p className="text-xs text-muted-foreground">Projects</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+const orgTypes = [
+  { label: "Government", icon: Gavel, color: "text-blue-600", bg: "bg-blue-50" },
+  { label: "Academic", icon: GraduationCap, color: "text-indigo-600", bg: "bg-indigo-50" },
+  { label: "NGO / Agency", icon: Network, color: "text-amber-600", bg: "bg-amber-50" },
+  { label: "International", icon: Globe, color: "text-emerald-600", bg: "bg-emerald-50" },
+];
 
 export default function OrganizationsPage() {
-  const [organizations] = useState<Organization[]>(mockOrganizations)
-  const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOrgs = organizations.filter(org => {
-    if (typeFilter !== 'all' && org.type !== typeFilter) return false
-    if (searchQuery && !org.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    return true
-  })
+  const filteredOrgs = mockOrgs.filter(org => 
+    org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    org.typeCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <PageContainer
-      title="Organizations"
-      description="Manage partner organizations and institutions"
+      title="Partner Organizations"
+      description="Manage institutional affiliations, research units, and regulatory partners."
       actions={
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Organization
+        <Button 
+          className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 h-10 px-4"
+          onClick={() => router.push("/organizations/add")}
+        >
+           <Plus className="h-4 w-4 mr-2" /> Register Organization
         </Button>
       }
     >
-      <div className="space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold">{organizations.length}</p>
-              <p className="text-sm text-muted-foreground">Total</p>
-            </CardContent>
-          </Card>
-          {Object.entries(typeConfig).map(([key, config]) => {
-            const count = organizations.filter(o => o.type === key).length
-            return (
-              <Card key={key}>
-                <CardContent className="p-4 text-center">
-                  <p className="text-2xl font-bold">{count}</p>
-                  <p className="text-sm text-muted-foreground">{config.label}</p>
+      <div className="space-y-8">
+        
+        {/* Type Distribution */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+           {orgTypes.map((type, i) => (
+             <Card key={i} className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer group bg-white">
+                <CardContent className="p-6">
+                   <div className={cn("h-10 w-10 rounded-xl mb-4 flex items-center justify-center transition-transform group-hover:scale-110", type.bg)}>
+                      <type.icon className={cn("h-5 w-5", type.color)} />
+                   </div>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{type.label}</p>
+                   <p className="text-xl font-black mt-1">12 <span className="text-[10px] text-muted-foreground font-bold lowercase">Entities</span></p>
                 </CardContent>
-              </Card>
-            )
-          })}
+             </Card>
+           ))}
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search organizations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-40">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {Object.entries(typeConfig).map(([key, config]) => (
-                <SelectItem key={key} value={key}>{config.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Search & Layout Toggle */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+           <div className="relative w-full md:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search organizations..." 
+                className="pl-10 h-11 rounded-xl border-muted bg-white shadow-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+           </div>
+           <div className="flex gap-2">
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-white border-muted shadow-sm"><LayoutGrid className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-white border-muted shadow-sm text-muted-foreground"><Layers className="h-4 w-4" /></Button>
+           </div>
         </div>
 
         {/* Organizations Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredOrgs.map((org) => (
-            <OrganizationCard key={org.id} org={org} />
-          ))}
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+           {filteredOrgs.map((org) => (
+             <Card key={org.id} className="group border-none shadow-sm hover:shadow-xl transition-all duration-500 bg-white overflow-hidden rounded-[1.5rem]">
+                <CardHeader className="p-8 pb-0">
+                   <div className="flex justify-between items-start">
+                      <div className="h-14 w-14 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-primary/10">
+                         <Building2 className="h-7 w-7 text-primary" />
+                      </div>
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-widest">{org.typeCode}</Badge>
+                   </div>
+                   <div className="pt-6">
+                      <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{org.name}</h3>
+                      <p className="text-[11px] text-muted-foreground font-medium mt-2 line-clamp-2 leading-relaxed">
+                         {org.description}
+                      </p>
+                   </div>
+                </CardHeader>
+                
+                <CardContent className="p-8 space-y-6">
+                   <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
+                      <div className="space-y-1">
+                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                            <Layers className="h-3 w-3" /> Units
+                         </p>
+                         <p className="text-sm font-black">{org.unitsCount} <span className="text-[10px] text-muted-foreground font-medium">Internal</span></p>
+                      </div>
+                      <div className="space-y-1">
+                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                            <Users className="h-3 w-3" /> Users
+                         </p>
+                         <p className="text-sm font-black">{org.usersCount} <span className="text-[10px] text-muted-foreground font-medium">Linked</span></p>
+                      </div>
+                   </div>
 
-        {filteredOrgs.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">No organizations found</h3>
-              <p className="text-muted-foreground">
-                {searchQuery || typeFilter !== 'all'
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'Add your first organization to get started'}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+                   <div className="space-y-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Primary Research Units</p>
+                      <div className="flex flex-wrap gap-1.5">
+                         {org.units.map((unit, i) => (
+                            <Badge key={i} variant="outline" className="bg-slate-50 text-slate-500 border-slate-100 text-[9px] font-bold px-2 py-0.5">
+                               {unit}
+                            </Badge>
+                         ))}
+                      </div>
+                   </div>
+
+                   <div className="pt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                         <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">EST. {org.established}</span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 group/btn"
+                        onClick={() => router.push(`/organizations/${org.id}`)}
+                      >
+                         Manage Org <ChevronRight className="ml-1.5 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                      </Button>
+                   </div>
+                </CardContent>
+             </Card>
+           ))}
+        </div>
       </div>
     </PageContainer>
-  )
+  );
 }

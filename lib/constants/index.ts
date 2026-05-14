@@ -291,3 +291,33 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export const DATE_FORMAT = "MMM dd, yyyy";
 export const DATE_TIME_FORMAT = "MMM dd, yyyy HH:mm";
 export const API_DATE_FORMAT = "yyyy-MM-dd";
+
+// Research Study Types
+export const STUDY_TYPES = [
+  { value: "clinical-trial", label: "Clinical Trial" },
+  { value: "observational", label: "Observational Study" },
+  { value: "case-control", label: "Case-Control Study" },
+  { value: "cohort", label: "Cohort Study" },
+  { value: "cross-sectional", label: "Cross-Sectional Study" },
+  { value: "experimental", label: "Experimental Study" },
+  { value: "systematic-review", label: "Systematic Review" },
+  { value: "meta-analysis", label: "Meta-Analysis" },
+];
+
+// Regions of Ethiopia
+export const REGIONS = [
+  { value: "addis-ababa", label: "Addis Ababa" },
+  { value: "afar", label: "Afar" },
+  { value: "amhara", label: "Amhara" },
+  { value: "benishangul-gumuz", label: "Benishangul-Gumuz" },
+  { value: "dire-dawa", label: "Dire Dawa" },
+  { value: "gambela", label: "Gambela" },
+  { value: "harari", label: "Harari" },
+  { value: "oromia", label: "Oromia" },
+  { value: "sidama", label: "Sidama" },
+  { value: "somali", label: "Somali" },
+  { value: "south-ethiopia", label: "South Ethiopia" },
+  { value: "central-ethiopia", label: "Central Ethiopia" },
+  { value: "southwest-ethiopia", label: "Southwest Ethiopia" },
+  { value: "tigray", label: "Tigray" },
+];
