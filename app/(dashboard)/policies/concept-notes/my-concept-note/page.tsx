@@ -87,14 +87,14 @@ const columns: ColumnDef<ConceptNote>[] = [
             {note.title}
           </Link>
           <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line break-words min-w-[100px]">
-  {note.background}
-</p>
+            {note.background}
+          </p>
         </div>
       );
     },
   },
   {
-    id: "policy_type",
+    id: "policyType",
     accessorKey: "policyType",
     header: ({ column }) => (
       <Button
@@ -244,7 +244,7 @@ const columns: ColumnDef<ConceptNote>[] = [
     },
   },
   {
-    id: "created_at",
+    id: "createdAt",
     accessorKey: "createdAt",
     header: ({ column }) => (
       <Button

@@ -136,7 +136,7 @@ function CallCard({ call }: { call: CallForProposal }) {
           </Button>
           {isOpen && (
             <Button className="flex-1" asChild>
-              <Link href={`/research/proposals/new?callId=${call.id}`}>
+              <Link href={`/research/proposals/my-proposals/new?callId=${call.id}`}>
                 Apply Now
               </Link>
             </Button>

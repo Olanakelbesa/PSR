@@ -133,7 +133,7 @@ export default function FinalApprovalPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Ref ID</p>
-                  <p className="text-sm font-bold">{id.replace("PROJ", "APP")}</p>
+                  <p className="text-sm font-bold">{(id as string).replace("PROJ", "APP")}</p>
                 </div>
              </div>
           </CardContent>

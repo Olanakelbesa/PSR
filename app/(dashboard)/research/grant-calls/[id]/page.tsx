@@ -84,7 +84,7 @@ export default function CallDetailPage() {
             size="lg"
             disabled={!isOpen}
             onClick={() => {
-              router.push(`/research/proposals/new?callId=${call.id}`);
+              router.push(`/research/proposals/my-proposals/new?callId=${call.id}`);
             }}
             className={
               isOpen

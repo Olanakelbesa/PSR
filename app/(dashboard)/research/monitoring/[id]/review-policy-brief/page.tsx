@@ -17,7 +17,8 @@ import {
   ClipboardCheck,
   ShieldCheck,
   XCircle,
-  ChevronRight
+  ChevronRight,
+  Download
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -135,7 +136,7 @@ export default function ReviewPolicyBriefPage() {
             <CardContent className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-6">
               <div>
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Submission Ref</p>
-                <p className="text-xs font-bold">{id.replace("PROJ", "SUB")}</p>
+                <p className="text-xs font-bold">{(id as string).replace("PROJ", "SUB")}</p>
               </div>
               <div>
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Author (PI)</p>

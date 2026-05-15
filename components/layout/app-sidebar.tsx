@@ -248,8 +248,8 @@ export function AppSidebar() {
   });
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 ">
-      <SidebarHeader className="p-4">
+    <Sidebar collapsible="icon" className="border-r-0">
+      <SidebarHeader className="group-data-[collapsible=icon]:p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -258,12 +258,12 @@ export function AppSidebar() {
               className="hover:bg-sidebar-accent"
             >
               <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/50">
-                  <div className="flex items-center justify-center size-8 rounded-full bg-primary">
+                <div className="flex aspect-square size-11 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/50">
+                  <div className="flex items-center justify-center size-9 rounded-full bg-primary">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
-                      className="size-5 text-sidebar"
+                      className="size-6 text-sidebar"
                       stroke="currentColor"
                       strokeWidth="2"
                     >
@@ -273,7 +273,7 @@ export function AppSidebar() {
                     </svg>
                   </div>
                 </div>
-                <div className="grid flex-1 text-left leading-tight">
+                <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-bold text-base">
                     PSR Platform
                   </span>
@@ -333,10 +333,10 @@ export function AppSidebar() {
                               }
                             `}
                           >
-                            {Icon && <Icon className="size-4.5" />}
-                            <span className="text-sm">{item.label}</span>
+                            {Icon && <Icon className="size-5" />}
+                            <span className="text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
                             <svg
-                              className={`ml-auto transition-transform ${openMap[item.label] || parentActive ? "rotate-180" : ""}`}
+                              className={`ml-auto transition-transform group-data-[collapsible=icon]:hidden ${openMap[item.label] || parentActive ? "rotate-180" : ""}`}
                               width="16"
                               height="16"
                               viewBox="0 0 24 24"
@@ -367,10 +367,10 @@ export function AppSidebar() {
                                         className="flex w-full min-w-0 items-start gap-2 text-left [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
                                       >
                                         {SubIcon && (
-                                          <SubIcon className="mt-0.5 size-4 shrink-0" />
+                                          <SubIcon className="mt-0.5 size-4.5 shrink-0" />
                                         )}
 
-                                        <span className="min-w-0 flex-1 whitespace-normal text-sm leading-snug">
+                                        <span className="min-w-0 flex-1 whitespace-normal text-sm leading-snug group-data-[collapsible=icon]:hidden">
                                           {sub.label}
                                         </span>
                                       </Link>
@@ -408,8 +408,8 @@ export function AppSidebar() {
                             href={item.href || "#"}
                             className="flex items-center gap-3"
                           >
-                            {Icon && <Icon className="size-4.5" />}
-                            <span className="text-sm">{item.label}</span>
+                            {Icon && <Icon className="size-5" />}
+                            <span className="text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -422,7 +422,7 @@ export function AppSidebar() {
         })}
       </SidebarContent>
 
-      <SidebarFooter className="p-3 border-t border-sidebar-border">
+      <SidebarFooter className="p-3 group-data-[collapsible=icon]:p-2 border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -436,7 +436,7 @@ export function AppSidebar() {
                       {getInitials(user?.firstName, user?.lastName)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left leading-tight">
+                  <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                     <span className="truncate font-semibold text-sm text-sidebar-foreground">
                       {user?.firstName} {user?.lastName}
                     </span>
