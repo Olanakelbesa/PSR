@@ -1,2 +1,4 @@
 export { DataTable } from './data-table'
 export { StatusBadge } from './status-badge'
+export { PdfViewer } from './pdf-viewer'
+export { PdfViewerDialog } from './pdf-viewer-dialog'

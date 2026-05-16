@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,8 +35,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const PdfViewerDialog = dynamic(
-  () => import("@/components/shared/pdf-viewer-dialog").then((mod) => mod.PdfViewerDialog),
-  { ssr: false }
+  () =>
+    import("@/components/shared/pdf-viewer-dialog").then(
+      (mod) => mod.PdfViewerDialog,
+    ),
+  { ssr: false },
 );
 import {
   Dialog,
@@ -56,8 +60,7 @@ type ReviewSummary = {
     institution: string;
     image?: string;
   };
-  recommendation: "approve" | "revise" | "reject";
-  score: number;
+  recommendation?: "approve" | "revise" | "reject";
   feedback: string;
   document?: {
     name: string;
@@ -76,7 +79,6 @@ const mockReviews: ReviewSummary[] = [
       institution: "Ministry of Education",
     },
     recommendation: "approve",
-    score: 92,
     feedback:
       "The concept note is exceptionally well-structured. The alignment with national education goals is clear, and the proposed implementation timeline is realistic. I suggest highlighting the budgetary requirements more explicitly in the full draft.",
     document: {
@@ -93,8 +95,6 @@ const mockReviews: ReviewSummary[] = [
       position: "Technical Specialist",
       institution: "PSR Technical Committee",
     },
-    recommendation: "revise",
-    score: 88,
     feedback:
       "The background section needs more data on existing gaps. While the policy direction is sound, the stakeholder engagement plan feels generic. Please specify the target groups for the consultation phase.",
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
@@ -112,7 +112,10 @@ export default function ApproveConceptNotePage() {
   const [decisionNotes, setDecisionNotes] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [reviews] = useState(mockReviews);
-  const [viewerDocument, setViewerDocument] = useState<{ url: string; title: string } | null>(null);
+  const [viewerDocument, setViewerDocument] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 350);
@@ -135,8 +138,8 @@ export default function ApproveConceptNotePage() {
   };
 
   const handleSubmitDecision = async () => {
-    if (!decision || !decisionNotes.trim()) {
-      toast.error("Please provide feedback for your decision.");
+    if (!decision) {
+      toast.error("Please select a decision.");
       return;
     }
 
@@ -176,9 +179,6 @@ export default function ApproveConceptNotePage() {
   const rejectCount = reviews.filter(
     (r) => r.recommendation === "reject",
   ).length;
-  const averageScore = Math.round(
-    reviews.reduce((sum, r) => sum + r.score, 0) / reviews.length,
-  );
 
   return (
     <PageContainer
@@ -195,10 +195,87 @@ export default function ApproveConceptNotePage() {
         </Button>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Review Summary */}
+      <div className="grid gap-6 lg:grid-cols-12 items-start">
+        {/* Left Sidebar: Decision Actions */}
+        <div className="lg:col-span-4 space-y-6 sticky top-6">
+          <Card className="shadow-sm border-primary/10">
+            <CardHeader className="border-b bg-muted/30 pb-4">
+              <CardTitle className="text-lg">Your Decision</CardTitle>
+              <CardDescription>
+                Make the final decision on this concept note based on the reviewer feedback
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleApprove}
+                  className={cn(
+                    "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
+                    decision === "approve"
+                      ? "border-primary/50 bg-primary/10 shadow-sm ring-1 ring-primary/50 dark:bg-primary/10"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                    decision === "approve" ? "bg-primary text-white" : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
+                  )}>
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div className="ml-3">
+                    <span className="block text-sm font-semibold text-foreground">Approve Concept Note</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">Ready for the next evaluation phase.</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleRequestChanges}
+                  className={cn(
+                    "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
+                    decision === "request-changes"
+                      ? "border-yellow-500 bg-yellow-50/80 shadow-sm ring-1 ring-yellow-500 dark:bg-yellow-500/10"
+                      : "border-border hover:border-yellow-500/50 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                    decision === "request-changes" ? "bg-yellow-500 text-white" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-500/30"
+                  )}>
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div className="ml-3">
+                    <span className="block text-sm font-semibold text-foreground">Request Changes</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">Needs revision before approval.</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleReject}
+                  className={cn(
+                    "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
+                    decision === "reject"
+                      ? "border-red-500 bg-red-50/80 shadow-sm ring-1 ring-red-500 dark:bg-red-500/10"
+                      : "border-border hover:border-red-500/50 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                    decision === "reject" ? "bg-red-500 text-white" : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 group-hover:bg-red-200 dark:group-hover:bg-red-500/30"
+                  )}>
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div className="ml-3">
+                    <span className="block text-sm font-semibold text-foreground">Reject Concept Note</span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">Does not meet the criteria.</span>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content: Reviewer Assessments */}
+        <div className="lg:col-span-8 space-y-6">
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="border-b bg-muted/30 pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -206,11 +283,11 @@ export default function ApproveConceptNotePage() {
                 Reviewer Assessments
               </CardTitle>
               <CardDescription>
-                Detailed feedback from technical reviewers
+                Detailed feedback and recommendations from the technical committee
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <CardContent className="pt-6">
+              <div className="space-y-6 pr-2">
                 {reviews.map((review) => (
                   <div
                     key={review.id}
@@ -228,79 +305,65 @@ export default function ApproveConceptNotePage() {
                           </Avatar>
                           <div className="min-w-0 flex-1">
                             <p className="font-black text-sm text-foreground">
-                              {review.reviewer.firstName}{" "}
-                              {review.reviewer.lastName}
+                              {review.reviewer.firstName} {review.reviewer.lastName}
                             </p>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
-                              {review.reviewer.position} ·{" "}
-                              {review.reviewer.institution}
+                              {review.reviewer.position} · {review.reviewer.institution}
                             </p>
                           </div>
                         </div>
 
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="font-mono text-[10px] bg-background border-primary/20"
-                            >
-                              {review.score}/100
-                            </Badge>
                             {review.recommendation === "approve" ? (
-                              <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20">
-                                <ThumbsUp className="mr-1 h-3 w-3" />
-                                APPROVE
+                              <Badge className="bg-primary/10 text-primary border-primary/20">
+                                <CheckCircle2 className="mr-1 h-3 w-3" /> Approve
                               </Badge>
                             ) : review.recommendation === "revise" ? (
-                              <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/20 hover:bg-amber-500/20">
-                                <Clock className="mr-1 h-3 w-3" />
-                                REVISE
+                              <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20">
+                                <Clock className="mr-1 h-3 w-3" /> Revise
                               </Badge>
                             ) : (
-                              <Badge className="bg-rose-500/10 text-rose-700 border-rose-500/20 hover:bg-rose-500/20">
-                                <ThumbsDown className="mr-1 h-3 w-3" />
-                                REJECT
+                              <Badge className="bg-red-500/10 text-red-700 border-red-500/20">
+                                <AlertCircle className="mr-1 h-3 w-3" /> Reject
                               </Badge>
                             )}
                           </div>
-                          <span className="text-[10px] text-muted-foreground font-medium uppercase">
-                            Submitted{" "}
-                            {new Date(review.createdAt).toLocaleDateString()}
-                          </span>
+                          <p className="text-[10px] text-muted-foreground font-medium">
+                            {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}
+                          </p>
                         </div>
                       </div>
 
                       {/* Feedback Section */}
                       <div className="relative pl-4 border-l-2 border-primary/10">
-                        <MessageSquare className="absolute -left-[9px] top-0 h-4 w-4 text-primary/40 bg-background" />
-                        <p className="text-sm text-foreground/80 leading-relaxed italic italic-feedback">
+                        <MessageSquare className="absolute -left-2.25 top-0 h-4 w-4 text-primary/40 bg-background" />
+                        <p className="text-sm text-foreground/80 leading-relaxed italic">
                           "{review.feedback}"
                         </p>
                       </div>
 
                       {/* Supporting Document */}
                       {review.document && (
-                        <div className="flex items-center justify-between gap-4 p-3 rounded-lg bg-blue-50/50 border border-blue-100/50 group/doc hover:bg-blue-50 transition-colors">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded bg-blue-100 text-blue-600">
-                              <FileText className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold truncate text-blue-900">
-                                {review.document.name}
-                              </p>
-                              <p className="text-[10px] text-blue-600 font-medium">
-                                Supporting Document
-                              </p>
-                            </div>
+                        <div className="pt-3 mt-1 border-t border-border/50 flex items-center justify-between bg-muted/20 p-3 rounded-lg">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                            <span className="text-xs font-medium truncate">
+                              {review.document.name}
+                            </span>
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50"
-                            onClick={() => setViewerDocument({ url: review.document!.url, title: review.document!.name })}
+                            className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50 shrink-0 ml-2"
+                            onClick={() =>
+                              setViewerDocument({
+                                url: review.document!.url,
+                                title: review.document!.name,
+                              })
+                            }
                           >
-                            VIEW
+                            VIEW PDF
                           </Button>
                         </div>
                       )}
@@ -310,146 +373,84 @@ export default function ApproveConceptNotePage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Decision Actions */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <CardTitle className="text-lg">Your Decision</CardTitle>
-              <CardDescription>
-                Make the final decision on this concept note
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  onClick={handleApprove}
-                  variant={decision === "approve" ? "default" : "outline"}
-                  className={cn(
-                    decision === "approve" && "bg-green-600 hover:bg-green-700",
-                  )}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Approve
-                </Button>
-                <Button
-                  onClick={handleRequestChanges}
-                  variant={
-                    decision === "request-changes" ? "default" : "outline"
-                  }
-                  className={cn(
-                    decision === "request-changes" &&
-                      "bg-yellow-600 hover:bg-yellow-700",
-                  )}
-                >
-                  <Clock className="mr-2 h-4 w-4" />
-                  Request Changes
-                </Button>
-                <Button
-                  onClick={handleReject}
-                  variant={decision === "reject" ? "destructive" : "outline"}
-                >
-                  <AlertCircle className="mr-2 h-4 w-4" />
-                  Reject
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6 lg:col-span-1">
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <CardTitle className="text-base">Reviewer Details</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  <span>Total reviewers: {reviews.length}</span>
-                </div>
-                <div className="flex items-center gap-2 text-green-600">
-                  <ThumbsUp className="h-4 w-4" />
-                  <span>Recommend approve: {approveCount}</span>
-                </div>
-                <div className="flex items-center gap-2 text-yellow-600">
-                  <Clock className="h-4 w-4" />
-                  <span>Request revision: {reviseCount}</span>
-                </div>
-                <div className="flex items-center gap-2 text-red-600">
-                  <ThumbsDown className="h-4 w-4" />
-                  <span>Recommend reject: {rejectCount}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm border-blue-200/50 bg-blue-50/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-blue-600" />
-                Note
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-muted-foreground">
-              Your decision will be communicated to the submission team. Please
-              provide clear feedback for transparency.
-            </CardContent>
-          </Card>
         </div>
       </div>
 
       {/* Decision Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Your Decision</DialogTitle>
-            <DialogDescription>
-              {decision === "approve" &&
-                "You are about to approve this concept note."}
-              {decision === "request-changes" &&
-                "You are requesting changes to this concept note."}
-              {decision === "reject" && "You are rejecting this concept note."}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden gap-0">
+          <div className={cn(
+            "p-6 pb-4 border-b",
+            decision === "approve" && "bg-primary/10 dark:bg-primary/10 border-primary/10 dark:border-primary/20",
+            decision === "request-changes" && "bg-yellow-50/50 dark:bg-yellow-500/10 border-yellow-100 dark:border-yellow-500/20",
+            decision === "reject" && "bg-red-50/50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20"
+          )}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                {decision === "approve" && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                {decision === "request-changes" && <Clock className="h-5 w-5 text-yellow-600" />}
+                {decision === "reject" && <AlertCircle className="h-5 w-5 text-red-600" />}
+                Confirm Decision
+              </DialogTitle>
+              <DialogDescription className="pt-2 text-foreground/80 leading-relaxed">
+                {decision === "approve" && "You are about to officially approve this concept note. It will proceed to the next stage."}
+                {decision === "request-changes" && "You are requesting further revisions. The author will be notified to update the document."}
+                {decision === "reject" && "You are rejecting this concept note. It will be archived and the author will be notified."}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Feedback / Comments
-              </label>
+          <div className="p-6 space-y-4 bg-background">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-foreground">
+                  Feedback / Comments
+                </label>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded-full">Optional</span>
+              </div>
               <Textarea
-                placeholder="Provide detailed feedback for your decision..."
+                placeholder="Add any additional context or rationale for your decision..."
                 value={decisionNotes}
                 onChange={(e) => setDecisionNotes(e.target.value)}
-                className="min-h-30 resize-none"
+                className="min-h-[120px] resize-none focus-visible:ring-primary/50 shadow-sm"
               />
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <DialogFooter className="p-4 border-t gap-2 sm:gap-0 bg-muted/10">
+            <Button variant="ghost" onClick={() => setShowDialog(false)} className="hover:bg-muted/50 font-medium">
               Cancel
             </Button>
             <Button
               onClick={handleSubmitDecision}
               disabled={isSubmitting}
               className={cn(
-                decision === "approve" && "bg-green-600 hover:bg-green-700",
-                decision === "request-changes" &&
-                  "bg-yellow-600 hover:bg-yellow-700",
+                "shadow-sm font-semibold",
+                decision === "approve" && "bg-primary hover:bg-primary/80 text-white",
+                decision === "request-changes" && "bg-yellow-600 hover:bg-yellow-700 text-white",
+                decision === "reject" && "bg-red-600 hover:bg-red-700 text-white"
               )}
             >
-              <Send className="mr-2 h-4 w-4" />
-              {isSubmitting ? "Submitting..." : "Submit Decision"}
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                  Submitting...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Send className="h-4 w-4" />
+                  Confirm {decision === 'approve' ? 'Approval' : decision === 'reject' ? 'Rejection' : 'Changes'}
+                </div>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <PdfViewerDialog 
+      <PdfViewerDialog
         isOpen={!!viewerDocument}
         onOpenChange={(open) => !open && setViewerDocument(null)}
         url={viewerDocument?.url || ""}
+        title={viewerDocument?.title}
       />
     </PageContainer>
   );

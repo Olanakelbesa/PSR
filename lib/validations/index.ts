@@ -187,10 +187,7 @@ export const policyDocumentSchema = z.object({
     .string()
     .min(1, "Title is required")
     .min(10, "Title must be at least 10 characters"),
-  description: z
-    .string()
-    .min(1, "Description is required")
-    .min(50, "Description must be at least 50 characters"),
+  description: z.string().optional(),
   type: z.enum([
     "policy",
     "strategy",

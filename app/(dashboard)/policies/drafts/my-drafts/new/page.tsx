@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -91,6 +91,8 @@ export default function NewPolicyDraftPage() {
 
   const [approvedConcepts, setApprovedConcepts] = useState<ConceptNote[]>([]);
   const [isLoadingConcepts, setIsLoadingConcepts] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadApprovedConcepts() {
@@ -113,18 +115,41 @@ export default function NewPolicyDraftPage() {
     if (concept) {
       form.setValue("title", concept.title);
       form.setValue("type", concept.policyType);
-      // form.setValue("category", concept.category); // If concept has category
     }
   };
 
   async function onSubmit(data: PolicyDocumentFormData, submitForReview = false) {
     if (!user) return;
+    
+    if (!selectedFile) {
+      toast.error("Please upload a draft document before submitting.");
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // In mock, we include attachment info
+      const attachments = selectedFile ? [{
+        id: `att-${Date.now()}`,
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type,
+        url: URL.createObjectURL(selectedFile),
+        createdAt: new Date().toISOString()
+      }] : [];
+
       const response = await policyApi.createPolicy({
         ...data,
         status: submitForReview ? "under_review" : "draft",
-        // In a real app, we'd handle the file upload separately or as part of a FormData
+        attachments: attachments as any,
+        createdBy: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          institution: user.institution || "",
+          image: user.image
+        } as any
       });
       
       if (response.success) {
@@ -133,7 +158,7 @@ export default function NewPolicyDraftPage() {
             ? "Policy draft submitted for expert review"
             : "Policy draft saved successfully"
         );
-        router.push("/policies/drafts");
+        router.push("/policies/drafts/my-drafts");
       } else {
         toast.error(response.message || "Failed to create policy draft");
       }
@@ -148,11 +173,43 @@ export default function NewPolicyDraftPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 20 * 1024 * 1024) {
-        toast.error("File size must be less than 20MB");
-        return;
-      }
-      setSelectedFile(file);
+      validateAndSetFile(file);
+    }
+  };
+
+  const validateAndSetFile = (file: File) => {
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("File size must be less than 20MB");
+      return;
+    }
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Invalid file type. Please upload PDF or DOCX.");
+      return;
+    }
+    setSelectedFile(file);
+    toast.success(`File "${file.name}" ready for upload`);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      validateAndSetFile(file);
     }
   };
 
@@ -229,34 +286,7 @@ export default function NewPolicyDraftPage() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm overflow-hidden border-primary/10">
-              <CardHeader className="bg-muted/30 border-b">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Description & Scope
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-bold">Detailed Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Summarize the core problem this policy addresses and the proposed solutions..."
-                          className="min-h-[160px] leading-relaxed shadow-sm focus-visible:ring-primary/20"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>At least 50 characters describing the intent of this draft.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+
 
             <Card className="shadow-sm overflow-hidden border-primary/10">
               <CardHeader className="bg-muted/30 border-b">
@@ -267,38 +297,92 @@ export default function NewPolicyDraftPage() {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                   <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl py-12 px-6 bg-muted/5 border-muted-foreground/20 hover:border-primary/50 transition-colors cursor-pointer relative">
-                      <Input
-                        type="file"
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        accept=".pdf,.doc,.docx"
-                        onChange={handleFileChange}
-                      />
-                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                        <UploadCloud className="h-6 w-6 text-primary" />
-                      </div>
-                      <h3 className="text-sm font-bold text-foreground">Click or drag to upload the full draft</h3>
-                      <p className="text-[11px] text-muted-foreground mt-1">PDF, DOCX up to 20MB</p>
-                   </div>
-
-                   {selectedFile && (
-                     <div className="flex items-center justify-between p-3 rounded-lg border bg-emerald-50/30 border-emerald-200">
-                        <div className="flex items-center gap-3">
-                           <FileText className="h-5 w-5 text-emerald-600" />
-                           <div className="flex flex-col">
-                              <span className="text-xs font-bold text-emerald-900 line-clamp-1">{selectedFile.name}</span>
-                              <span className="text-[10px] text-emerald-700">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                   {!selectedFile ? (
+                     <div 
+                       className={cn(
+                         "flex flex-col items-center justify-center border-2 border-dashed rounded-xl py-12 px-6 bg-muted/5 transition-all cursor-pointer relative",
+                         isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-muted-foreground/20 hover:border-primary/50"
+                       )}
+                       onDragOver={handleDragOver}
+                       onDragLeave={handleDragLeave}
+                       onDrop={handleDrop}
+                       onClick={() => fileInputRef.current?.click()}
+                     >
+                        <Input
+                          ref={fileInputRef}
+                          type="file"
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          accept=".pdf,.doc,.docx"
+                          onChange={handleFileChange}
+                        />
+                        <div className={cn(
+                          "h-12 w-12 rounded-full flex items-center justify-center mb-4 transition-transform duration-300",
+                          isDragging ? "bg-primary text-primary-foreground scale-110" : "bg-primary/10 text-primary"
+                        )}>
+                          <UploadCloud className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-sm font-bold text-foreground">
+                          {isDragging ? "Drop the file here" : "Click or drag to upload the full draft"}
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-1">PDF, DOCX up to 20MB</p>
+                     </div>
+                   ) : (
+                     <div className="p-6 rounded-xl border-2 border-primary/20 bg-primary/[0.02] relative group overflow-hidden">
+                        {/* Hidden input for re-uploading */}
+                        <Input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx"
+                          onChange={handleFileChange}
+                        />
+                        
+                        <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-4">
+                              <div className="h-14 w-14 rounded-lg bg-primary/10 flex items-center justify-center shadow-sm">
+                                 <FileText className="h-7 w-7 text-primary" />
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                 <span className="text-sm font-bold text-foreground line-clamp-1">{selectedFile.name}</span>
+                                 <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-[10px] bg-background font-mono px-1.5 py-0">
+                                       {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                                    </Badge>
+                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                       {selectedFile.type.split('/').pop()?.toUpperCase()}
+                                    </span>
+                                 </div>
+                              </div>
+                           </div>
+                           
+                           <div className="flex items-center gap-2">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                className="h-9 px-4 border-primary/20 text-primary hover:bg-primary/5 font-bold text-xs"
+                                onClick={() => fileInputRef.current?.click()}
+                              >
+                                 <UploadCloud className="mr-2 h-3.5 w-3.5" />
+                                 Re-upload
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-9 px-4 text-destructive hover:text-destructive hover:bg-destructive/5 font-bold text-xs"
+                                onClick={() => setSelectedFile(null)}
+                              >
+                                 <X className="mr-2 h-3.5 w-3.5" />
+                                 Remove
+                              </Button>
                            </div>
                         </div>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
-                          onClick={() => setSelectedFile(null)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+
+                        {/* Background Decoration */}
+                        <div className="absolute -right-4 -bottom-4 opacity-[0.03] rotate-12">
+                           <FileText className="h-24 w-24" />
+                        </div>
                      </div>
                    )}
                 </div>
@@ -306,8 +390,8 @@ export default function NewPolicyDraftPage() {
             </Card>
           </div>
 
-          <aside className="space-y-4">
-            <Card className="shadow-md border-primary/10 overflow-hidden xl:sticky xl:top-20 xl:self-start">
+          <aside className="space-y-4 xl:sticky xl:top-10 xl:h-fit ">
+            <Card className="shadow-md border-primary/10 overflow-hidden">
                <CardHeader className="bg-primary text-primary-foreground py-4">
                   <CardTitle className="text-sm font-bold uppercase tracking-wider">Submission Actions</CardTitle>
                </CardHeader>
@@ -344,12 +428,7 @@ export default function NewPolicyDraftPage() {
                           </div>
                           Title (Min 10 chars)
                        </li>
-                       <li className="flex items-center gap-2 text-xs text-slate-600">
-                          <div className={cn("h-4 w-4 rounded-full flex items-center justify-center", form.watch("description").length >= 50 ? "bg-green-100 text-green-600" : "bg-muted text-muted-foreground")}>
-                            {form.watch("description").length >= 50 ? <Plus className="h-3 w-3" /> : <div className="h-1 w-1 bg-current rounded-full" />}
-                          </div>
-                          Description (Min 50 chars)
-                       </li>
+
                        <li className="flex items-center gap-2 text-xs text-slate-600">
                           <div className={cn("h-4 w-4 rounded-full flex items-center justify-center", selectedFile ? "bg-green-100 text-green-600" : "bg-muted text-muted-foreground")}>
                             {selectedFile ? <Plus className="h-3 w-3" /> : <div className="h-1 w-1 bg-current rounded-full" />}

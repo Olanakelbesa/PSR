@@ -87,8 +87,8 @@ const columns: ColumnDef<ConceptNote>[] = [
             {note.title}
           </Link>
           <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line break-words min-w-[100px]">
-  {note.background}
-</p>
+            {note.background}
+          </p>
         </div>
       );
     },
@@ -483,7 +483,9 @@ export default function ConceptNotesPage() {
             searchKey="title"
             searchPlaceholder="Search concept notes..."
             onRowClick={(note) =>
-              router.push(`/policies/concept-notes/manage-concept-notes/${note.id}`)
+              router.push(
+                `/policies/concept-notes/manage-concept-notes/${note.id}`,
+              )
             }
             filterOptions={[
               {
