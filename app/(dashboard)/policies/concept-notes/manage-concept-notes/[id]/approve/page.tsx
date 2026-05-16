@@ -29,8 +29,14 @@ import {
 } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout";
 import { StatusBadge } from "@/components/shared";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const PdfViewerDialog = dynamic(
+  () => import("@/components/shared/pdf-viewer-dialog").then((mod) => mod.PdfViewerDialog),
+  { ssr: false }
+);
 import {
   Dialog,
   DialogContent,
@@ -48,9 +54,15 @@ type ReviewSummary = {
     lastName: string;
     position: string;
     institution: string;
+    image?: string;
   };
   recommendation: "approve" | "revise" | "reject";
   score: number;
+  feedback: string;
+  document?: {
+    name: string;
+    url: string;
+  };
   createdAt: string;
 };
 
@@ -65,6 +77,12 @@ const mockReviews: ReviewSummary[] = [
     },
     recommendation: "approve",
     score: 92,
+    feedback:
+      "The concept note is exceptionally well-structured. The alignment with national education goals is clear, and the proposed implementation timeline is realistic. I suggest highlighting the budgetary requirements more explicitly in the full draft.",
+    document: {
+      name: "PSR_FRS_v1.pdf",
+      url: "/doc/PSR_FRS_v1.pdf",
+    },
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   },
   {
@@ -77,6 +95,8 @@ const mockReviews: ReviewSummary[] = [
     },
     recommendation: "revise",
     score: 88,
+    feedback:
+      "The background section needs more data on existing gaps. While the policy direction is sound, the stakeholder engagement plan feels generic. Please specify the target groups for the consultation phase.",
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
@@ -92,6 +112,7 @@ export default function ApproveConceptNotePage() {
   const [decisionNotes, setDecisionNotes] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [reviews] = useState(mockReviews);
+  const [viewerDocument, setViewerDocument] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 350);
@@ -182,99 +203,107 @@ export default function ApproveConceptNotePage() {
             <CardHeader className="border-b bg-muted/30 pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                Review Summary
+                Reviewer Assessments
               </CardTitle>
               <CardDescription>
-                Consolidated feedback from all reviewers
+                Detailed feedback from technical reviewers
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-4 gap-4 mb-8">
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-primary">
-                    {averageScore}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Avg Score
-                  </div>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-green-600">
-                    {approveCount}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Approve
-                  </div>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-yellow-600">
-                    {reviseCount}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Revise
-                  </div>
-                </div>
-                <div className="rounded-lg border p-4 text-center">
-                  <div className="text-3xl font-bold text-red-600">
-                    {rejectCount}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Reject
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+            <CardContent>
+              <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                 {reviews.map((review) => (
-                  <div key={review.id} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <Avatar className="h-10 w-10 shrink-0">
-                          <AvatarFallback className="text-sm font-bold">
-                            {review.reviewer.firstName[0]}
-                            {review.reviewer.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-sm">
-                            {review.reviewer.firstName}{" "}
-                            {review.reviewer.lastName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {review.reviewer.position}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {review.reviewer.institution}
-                          </p>
+                  <div
+                    key={review.id}
+                    className="group relative border rounded-xl p-5 hover:border-primary/30 hover:bg-muted/5 transition-all duration-300"
+                  >
+                    <div className="flex flex-col gap-4">
+                      {/* Header: Reviewer & Recommendation */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <Avatar className="h-10 w-10 shrink-0 border-2 border-background shadow-sm ring-1 ring-border/50">
+                            <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
+                              {review.reviewer.firstName[0]}
+                              {review.reviewer.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-black text-sm text-foreground">
+                              {review.reviewer.firstName}{" "}
+                              {review.reviewer.lastName}
+                            </p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
+                              {review.reviewer.position} ·{" "}
+                              {review.reviewer.institution}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-[10px] bg-background border-primary/20"
+                            >
+                              {review.score}/100
+                            </Badge>
+                            {review.recommendation === "approve" ? (
+                              <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20">
+                                <ThumbsUp className="mr-1 h-3 w-3" />
+                                APPROVE
+                              </Badge>
+                            ) : review.recommendation === "revise" ? (
+                              <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/20 hover:bg-amber-500/20">
+                                <Clock className="mr-1 h-3 w-3" />
+                                REVISE
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-rose-500/10 text-rose-700 border-rose-500/20 hover:bg-rose-500/20">
+                                <ThumbsDown className="mr-1 h-3 w-3" />
+                                REJECT
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-medium uppercase">
+                            Submitted{" "}
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge className="font-bold">{review.score}</Badge>
-                        {review.recommendation === "approve" && (
-                          <Badge
-                            variant="default"
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <ThumbsUp className="mr-1 h-3 w-3" />
-                            Approve
-                          </Badge>
-                        )}
-                        {review.recommendation === "revise" && (
-                          <Badge
-                            variant="secondary"
-                            className="bg-yellow-100 text-yellow-800"
-                          >
-                            <Clock className="mr-1 h-3 w-3" />
-                            Revise
-                          </Badge>
-                        )}
-                        {review.recommendation === "reject" && (
-                          <Badge variant="destructive">
-                            <ThumbsDown className="mr-1 h-3 w-3" />
-                            Reject
-                          </Badge>
-                        )}
+
+                      {/* Feedback Section */}
+                      <div className="relative pl-4 border-l-2 border-primary/10">
+                        <MessageSquare className="absolute -left-[9px] top-0 h-4 w-4 text-primary/40 bg-background" />
+                        <p className="text-sm text-foreground/80 leading-relaxed italic italic-feedback">
+                          "{review.feedback}"
+                        </p>
                       </div>
+
+                      {/* Supporting Document */}
+                      {review.document && (
+                        <div className="flex items-center justify-between gap-4 p-3 rounded-lg bg-blue-50/50 border border-blue-100/50 group/doc hover:bg-blue-50 transition-colors">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded bg-blue-100 text-blue-600">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold truncate text-blue-900">
+                                {review.document.name}
+                              </p>
+                              <p className="text-[10px] text-blue-600 font-medium">
+                                Supporting Document
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50"
+                            onClick={() => setViewerDocument({ url: review.document!.url, title: review.document!.name })}
+                          >
+                            VIEW
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -417,6 +446,11 @@ export default function ApproveConceptNotePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <PdfViewerDialog 
+        isOpen={!!viewerDocument}
+        onOpenChange={(open) => !open && setViewerDocument(null)}
+        url={viewerDocument?.url || ""}
+      />
     </PageContainer>
   );
 }

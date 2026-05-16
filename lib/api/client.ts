@@ -405,6 +405,34 @@ export const proposalsApi = {
   async submitProposal(id: string): Promise<ApiResponse<ResearchProposal>> {
     return this.updateProposal(id, { status: 'submitted', submittedAt: new Date().toISOString() })
   },
+
+  async assignReviewers(id: string, reviewerIds: string[]): Promise<ApiResponse<void>> {
+    await delay()
+    const index = mockProposals.findIndex(p => p.id === id)
+    if (index === -1) {
+      return { success: false, message: 'Proposal not found' }
+    }
+
+    // Get the actual reviewer objects
+    const reviewers = mockUsers.filter(u => reviewerIds.includes(u.id))
+
+    // Create review entries
+    const reviews = reviewers.map(reviewer => ({
+      id: `rev-${Math.random().toString(36).substr(2, 9)}`,
+      proposalId: id,
+      reviewerId: reviewer.id,
+      reviewer: reviewer,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+    }))
+
+    // In a real app, this would append to the reviews table/collection
+    // For mock, we'll update the proposal's reviews array
+    mockProposals[index].reviews = [...(mockProposals[index].reviews || []), ...reviews as any]
+    mockProposals[index].status = 'under_review'
+
+    return { success: true }
+  },
 }
 
 // ============================================================================

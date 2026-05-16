@@ -458,7 +458,7 @@ export default function ConceptNotesPage() {
         </Card>
       </div>
 
-      <div className="mt-8 w-full max-w-full overflow-hidden">
+      <div className="mt-8 w-full max-w-full">
         {isLoading ? (
           <div className="rounded-xl border p-6 space-y-6 bg-card">
             <div className="flex items-center justify-between">

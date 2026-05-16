@@ -201,7 +201,7 @@ export default function ConceptNoteDetailPage() {
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild className="shadow-sm">
-            <Link href="/policies/concept-notes">
+            <Link href="/policies/concept-notes/manage-concept-notes">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Link>

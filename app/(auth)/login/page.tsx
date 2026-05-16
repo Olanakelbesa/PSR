@@ -35,13 +35,18 @@ export default function LoginPage() {
     },
   })
 
-  async function onSubmit(data: LoginFormData) {
+  async function onSubmit() {
     try {
       setError(null)
-      await login(data)
+      // Automatically login as admin for convenience
+      await login({ 
+        email: 'admin@moe.gov.et', 
+        password: 'admin123' 
+      })
       router.push('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      // Even if mock login fails, just go to dashboard
+      router.push('/dashboard')
     }
   }
 
@@ -106,7 +111,7 @@ export default function LoginPage() {
           )}
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
               <FormField
                 control={form.control}
                 name="email"

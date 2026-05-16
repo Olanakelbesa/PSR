@@ -405,36 +405,6 @@ export default function RepositoryDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Upcoming Reviews */}
-        <Card className="shadow-sm border-amber-200 bg-amber-50/30">
-          <CardHeader className="border-b border-amber-200/50 pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-600" />
-                <CardTitle className="text-base">Upcoming Policy Reviews</CardTitle>
-              </div>
-              <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
-                {MOCK_POLICIES.filter(p => p.nextReviewDate <= "2028-01-01").length} due within 2 years
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-3">
-              {MOCK_POLICIES.slice(0, 3).map((policy) => (
-                <div key={policy.id} className="flex items-center justify-between p-3 bg-background rounded-lg border shadow-sm">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{policy.title}</p>
-                    <p className="text-xs text-muted-foreground">{policy.serialNumber}</p>
-                  </div>
-                  <div className="text-right shrink-0 ml-4">
-                    <p className="text-xs font-semibold text-amber-700">Review due</p>
-                    <p className="text-xs text-muted-foreground">{policy.nextReviewDate}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </PageContainer>
   );

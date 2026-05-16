@@ -14,13 +14,14 @@ export default function DashboardLayout({
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
 
+  // Auth check disabled as per user request
+  /*
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Show nothing while checking auth
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -28,6 +29,7 @@ export default function DashboardLayout({
       </div>
     );
   }
+  */
 
   return (
     <SidebarProvider>

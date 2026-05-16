@@ -67,6 +67,7 @@ interface DataTableProps<TData, TValue> {
   selectedActions?: React.ReactNode;
   emptyMessage?: string;
   emptyDescription?: string;
+  toolbar?: React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -79,6 +80,7 @@ export function DataTable<TData, TValue>({
   selectedActions,
   emptyMessage = "No matching results found.",
   emptyDescription,
+  toolbar,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -108,114 +110,122 @@ export function DataTable<TData, TValue>({
   const selectedRows = table.getFilteredSelectedRowModel().rows;
 
   return (
-    <div className="space-y-4 w-full max-w-full overflow-hidden">
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
-        <div className="flex flex-1 flex-wrap items-center gap-2 w-full">
-          {searchKey && (
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={searchPlaceholder}
-                value={
-                  (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
-                }
-                onChange={(event) =>
-                  table.getColumn(searchKey)?.setFilterValue(event.target.value)
-                }
-                className="pl-9 h-10 bg-muted/20 border-muted-foreground/20 focus-visible:ring-primary/20"
-              />
+    <div className="space-y-4 w-full max-w-full">
+      {toolbar ? (
+        toolbar
+      ) : (
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
+          <div className="flex flex-1 flex-wrap items-center gap-2 w-full">
+            {searchKey && (
+              <div className="relative w-full max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={searchPlaceholder}
+                  value={
+                    (table.getColumn(searchKey)?.getFilterValue() as string) ??
+                    ""
+                  }
+                  onChange={(event) =>
+                    table
+                      .getColumn(searchKey)
+                      ?.setFilterValue(event.target.value)
+                  }
+                  className="pl-9 h-10 bg-muted/20 border-muted-foreground/20 focus-visible:ring-primary/20"
+                />
+              </div>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              {filterOptions.length > 0 && (
+                <span className="text-sm text-muted-foreground whitespace-nowrap hidden md:inline-block">
+                  Filter by:
+                </span>
+              )}
+              {filterOptions.map((filter) => (
+                <Select
+                  key={filter.key}
+                  value={
+                    (table.getColumn(filter.key)?.getFilterValue() as string) ??
+                    ""
+                  }
+                  onValueChange={(value) =>
+                    table
+                      .getColumn(filter.key)
+                      ?.setFilterValue(value === "all" ? "" : value)
+                  }
+                >
+                  <SelectTrigger className="w-[160px] h-10 bg-muted/20 border-muted-foreground/20">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      <SelectValue placeholder={filter.label} />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All {filter.label}</SelectItem>
+                    {filter.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ))}
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setColumnFilters([])}
+                  className="h-10 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Clear
+                </Button>
+              )}
             </div>
-          )}
-          <div className="flex items-center gap-2 ml-auto">
-            {filterOptions.length > 0 && (
-              <span className="text-sm text-muted-foreground whitespace-nowrap hidden md:inline-block">
-                Filter by:
-              </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedRows.length > 0 && selectedActions && (
+              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-1">
+                {selectedActions}
+                <Separator orientation="vertical" className="h-6 mx-1" />
+              </div>
             )}
-            {filterOptions.map((filter) => (
-              <Select
-                key={filter.key}
-                value={
-                  (table.getColumn(filter.key)?.getFilterValue() as string) ?? ""
-                }
-                onValueChange={(value) =>
-                  table
-                    .getColumn(filter.key)
-                    ?.setFilterValue(value === "all" ? "" : value)
-                }
-              >
-                <SelectTrigger className="w-[160px] h-10 bg-muted/20 border-muted-foreground/20">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    <SelectValue placeholder={filter.label} />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All {filter.label}</SelectItem>
-                  {filter.options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ))}
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setColumnFilters([])}
-                className="h-10 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
-              >
-                <X className="mr-2 h-4 w-4" />
-                Clear
-              </Button>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 border-muted-foreground/20 ml-auto"
+                >
+                  <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                  View{" "}
+                  <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[180px]">
+                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {column.id.replace(/_/g, " ")}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {selectedRows.length > 0 && selectedActions && (
-            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-1">
-              {selectedActions}
-              <Separator orientation="vertical" className="h-6 mx-1" />
-            </div>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 border-muted-foreground/20 ml-auto"
-              >
-                <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                View{" "}
-                <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
-              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id.replace(/_/g, " ")}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      )}
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden w-full max-w-full">
         <div className="relative w-full overflow-x-auto">

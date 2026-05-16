@@ -150,8 +150,13 @@ const navigationGroups: NavGroup[] = [
           icon: Dot,
         },
         {
-          label: "Screening Reviews",
+          label: "Screening",
           href: "/research/proposals/screening-reviews",
+          icon: Dot,
+        },
+        {
+          label: "Assign Reviewers",
+          href: "/research/proposals/assign-reviewers",
           icon: Dot,
         },
         {
@@ -161,14 +166,14 @@ const navigationGroups: NavGroup[] = [
         }
       ]},
       {
-        label: "Ethical Clearance",
-        href: "/research/ethical-clearance",
-        icon: FileCheck2,
-      },
-      {
         label: "Ready for Funding",
         href: "/research/ready-for-funding",
         icon: DollarSign,
+      },
+      {
+        label: "Ethical Clearance",
+        href: "/research/ethical-clearance",
+        icon: FileCheck2,
       },
       { label: "Monitoring", href: "/research/monitoring", icon: Activity },
       {

@@ -201,7 +201,7 @@ export default function NewConceptNotePage() {
       }
     >
       <Form {...form}>
-        <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] ">
           <div className="space-y-6">
             <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/30">

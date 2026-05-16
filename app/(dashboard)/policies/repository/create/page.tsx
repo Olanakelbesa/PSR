@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   FileText,
   UploadCloud,
-  Building2,
   Calendar,
   Globe,
   Shield,
   Lock,
-  Hash,
-  Tag,
   CheckCircle2,
   AlertCircle,
   X,
@@ -30,7 +27,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -55,8 +51,10 @@ const READINESS = [
 
 export default function CreateRepositoryEntryPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentSource, setDocumentSource] = useState<'draft' | 'upload'>('draft');
 
   const [form, setForm] = useState({
     title: "",
@@ -121,8 +119,9 @@ export default function CreateRepositoryEntryPage() {
     org: !!form.organization.trim(),
     effectiveDate: !!form.effectiveDate,
     accessLevel: !!form.accessLevel,
-    document: !!selectedFile,
+    document: documentSource === 'draft' ? !!form.sourceDraft : !!selectedFile,
   };
+
   const completedCount = Object.values(readinessMap).filter(Boolean).length;
   const isReady = completedCount === READINESS.length;
 
@@ -257,87 +256,166 @@ export default function CreateRepositoryEntryPage() {
                   </div>
                 </div>
               )}
-
-              <div className="space-y-2">
-                <Label htmlFor="description">
-                  Executive Summary / Description
-                </Label>
-                <Textarea
-                  id="description"
-                  placeholder="Provide a brief overview of what this policy document covers..."
-                  className="resize-none min-h-25 shadow-sm"
-                  value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                />
-              </div>
             </CardContent>
           </Card>
 
+          {/* Document Source Selection */}
           <Card className="shadow-sm border-primary/10 overflow-hidden">
             <CardHeader className="border-b bg-muted/30 pb-4">
               <div className="flex items-center gap-2">
                 <UploadCloud className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Document Upload</CardTitle>
+                <CardTitle className="text-base">Policy Document Source</CardTitle>
               </div>
               <CardDescription>
-                Upload the final policy document to store in the repository.
+                Choose whether to use the document from the draft or upload a final version.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-5 space-y-4">
-              <div className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5 p-6 text-center transition-colors hover:border-primary/40 hover:bg-muted/10">
-                <Input
-                  id="policy-document"
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  className="sr-only"
-                  onChange={handleFileChange}
-                />
-                <label
-                  htmlFor="policy-document"
-                  className="flex cursor-pointer flex-col items-center gap-3"
+            <CardContent className="pt-5 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setDocumentSource('draft')}
+                  className={cn(
+                    "flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all duration-300 group",
+                    documentSource === 'draft'
+                      ? "border-primary bg-primary/5 shadow-md"
+                      : "border-muted hover:border-primary/40 hover:bg-muted/5"
+                  )}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                    <UploadCloud className="h-6 w-6 text-primary" />
+                  <div className={cn(
+                    "h-12 w-12 rounded-full flex items-center justify-center transition-colors",
+                    documentSource === 'draft' ? "bg-primary text-white" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                  )}>
+                    <FileText className="h-6 w-6" />
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">
-                      Click to upload the policy document
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      PDF, DOC, or DOCX up to 20MB
-                    </p>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-foreground">Use Draft Document</p>
+                    <p className="text-xs text-muted-foreground mt-1">Take the existing document from the selected draft</p>
                   </div>
-                </label>
+                  {documentSource === 'draft' && (
+                    <CheckCircle2 className="h-5 w-5 text-primary animate-in zoom-in-50 duration-300" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDocumentSource('upload')}
+                  className={cn(
+                    "flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all duration-300 group",
+                    documentSource === 'upload'
+                      ? "border-primary bg-primary/5 shadow-md"
+                      : "border-muted hover:border-primary/40 hover:bg-muted/5"
+                  )}
+                >
+                  <div className={cn(
+                    "h-12 w-12 rounded-full flex items-center justify-center transition-colors",
+                    documentSource === 'upload' ? "bg-primary text-white" : "bg-muted text-muted-foreground group-hover:bg-primary/20 group-hover:text-primary"
+                  )}>
+                    <UploadCloud className="h-6 w-6" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-foreground">Upload Final Version</p>
+                    <p className="text-xs text-muted-foreground mt-1">Upload a new PDF or Word document for the repository</p>
+                  </div>
+                  {documentSource === 'upload' && (
+                    <CheckCircle2 className="h-5 w-5 text-primary animate-in zoom-in-50 duration-300" />
+                  )}
+                </button>
               </div>
 
-              {selectedFile ? (
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-emerald-50/30 border-emerald-200 p-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
-                      <FileText className="h-5 w-5" />
+              {documentSource === 'upload' && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-4">
+                  <Input
+                    ref={fileInputRef}
+                    id="policy-document"
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    className="sr-only"
+                    onChange={handleFileChange}
+                  />
+
+                  {!selectedFile ? (
+                    <div 
+                      className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5 p-8 text-center transition-colors hover:border-primary/40 hover:bg-muted/10 relative cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 mb-2">
+                          <UploadCloud className="h-8 w-8 text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-base font-bold text-foreground">
+                            Click to upload final document
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            PDF, DOC, or DOCX up to 20MB
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-emerald-900">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-xs text-emerald-700">
-                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                      </p>
+                  ) : (
+                    <div className="flex items-center justify-between gap-4 rounded-xl border-2 bg-emerald-50/50 border-emerald-200 p-4 animate-in zoom-in-95 duration-300">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                          <FileText className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-emerald-900">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-xs font-medium text-emerald-700 uppercase tracking-tighter mt-0.5">
+                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB · READY FOR STORAGE
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-bold bg-white hover:bg-emerald-100 border-emerald-200 text-emerald-700"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Re-upload
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0 text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-full h-8 w-8"
+                          onClick={() => setSelectedFile(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!selectedFile && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100 text-[11px] text-amber-800 font-medium animate-pulse">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      Manual upload requires a document to finalize registration.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {documentSource === 'draft' && (
+                <div className="p-5 rounded-xl border-2 border-primary/20 bg-primary/5 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Draft Document Selected</p>
+                      <p className="text-xs text-muted-foreground">The repository will use the document from the approved draft workflow.</p>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
-                    onClick={() => setSelectedFile(null)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  A document is required before registering the policy.
+                  {!form.sourceDraft && (
+                    <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 animate-pulse">
+                      Draft Selection Required
+                    </Badge>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -408,7 +486,7 @@ export default function CreateRepositoryEntryPage() {
                 Control who can view this policy in the repository
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-5 grid gap-3 sm:grid-cols-3">
+            <CardContent className="pt-5 grid gap-3 sm:grid-cols-2">
               {[
                 {
                   value: "public",
@@ -417,13 +495,6 @@ export default function CreateRepositoryEntryPage() {
                   description: "Visible to all users and the general public",
                   className:
                     "border-green-200 bg-green-50/50 hover:bg-green-50",
-                },
-                {
-                  value: "internal",
-                  label: "Internal",
-                  icon: Shield,
-                  description: "Visible to registered ministry staff only",
-                  className: "border-blue-200 bg-blue-50/50 hover:bg-blue-50",
                 },
                 {
                   value: "restricted",
