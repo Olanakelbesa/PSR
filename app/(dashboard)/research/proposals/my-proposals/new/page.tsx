@@ -34,7 +34,9 @@ import { proposalsApi, callsApi } from '@/lib/api/client'
 import { THEMATIC_AREAS, STUDY_TYPES, REGIONS } from '@/lib/constants'
 import type { CallForProposal } from '@/lib/types'
 
-export default function NewProposalPage() {
+import { Suspense } from 'react'
+
+function NewProposalContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callId = searchParams.get('callId')
@@ -447,5 +449,23 @@ export default function NewProposalPage() {
         </form>
       </Form>
     </PageContainer>
+  )
+}
+
+export default function NewProposalPage() {
+  return (
+    <Suspense fallback={
+      <PageContainer title="Loading..." description="Preparing proposal form...">
+        <div className="space-y-6">
+          <div className="h-32 bg-muted animate-pulse rounded-xl" />
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 h-96 bg-muted animate-pulse rounded-xl" />
+            <div className="h-96 bg-muted animate-pulse rounded-xl" />
+          </div>
+        </div>
+      </PageContainer>
+    }>
+      <NewProposalContent />
+    </Suspense>
   )
 }
