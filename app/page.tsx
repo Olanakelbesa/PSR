@@ -246,6 +246,24 @@ export default function LandingPage() {
                     className="object-cover group-hover:scale-105 transition-transform duration-[20s] ease-linear"
                     priority
                   />
+
+                  {/* Floating Glass UI */}
+                  <div className="absolute bottom-6 left-6 right-6 z-20 flex items-end justify-between">
+                    <div className="p-5 rounded-2xl bg-background/40 backdrop-blur-xl border border-white/20 shadow-xl space-y-2 max-w-xs animate-in slide-in-from-left-10 duration-700 delay-500">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-primary shadow-md shadow-primary/20 flex items-center justify-center">
+                          <PieChart className="h-4 w-4 text-primary-foreground" />
+                        </div>
+                        <span className="font-bold text-sm tracking-tight">
+                          Real-time Metrics
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium opacity-90 leading-snug">
+                        Tracking over 1,200 research nodes in a unified
+                        dashboard.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </RevealOnScroll>
@@ -253,7 +271,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features / Modules Section */}
-        <section id="modules" className="p-24 bg-background relative">
+        <section id="modules" className="p-24 bg-background relative border-t">
           <div className="container mx-auto px-4">
             <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
               <Badge variant="secondary" className="rounded-full px-4 py-1 text-[10px] font-bold tracking-widest uppercase">
