@@ -130,6 +130,26 @@
   body {
     @apply bg-background text-foreground overflow-x-hidden;
   }
+
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .animate-gradient {
+    animation: gradient 15s ease infinite;
+    background-size: 300% 300%;
+  }
+
+  @keyframes bounce-slow {
+    0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+    50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+  }
+
+  .animate-bounce-slow {
+    animation: bounce-slow 4s infinite;
+  }
 }
 
 /* react-phone-number-input custom styles */
