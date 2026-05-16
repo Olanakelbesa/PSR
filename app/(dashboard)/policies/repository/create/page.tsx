@@ -158,13 +158,6 @@ export default function CreateRepositoryEntryPage() {
               Cancel
             </Link>
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !isReady}
-            className="bg-primary hover:bg-primary/90"
-          >
-            {isSubmitting ? "Registering..." : "Register Policy"}
-          </Button>
         </div>
       }
     >
@@ -537,11 +530,11 @@ export default function CreateRepositoryEntryPage() {
         </div>
 
         {/* Sidebar: Readiness */}
-        <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
+        <aside className="space-y-4 xl:sticky xl:top-5 xl:h-fit">
           <Card
             className={cn(
               "shadow-sm border",
-              isReady ? "border-green-200 bg-green-50/30" : "border-primary/20",
+              isReady ? "border-primary/10 " : "border-primary/20",
             )}
           >
             <CardHeader className="pb-3 border-b">
@@ -575,7 +568,7 @@ export default function CreateRepositoryEntryPage() {
                       strokeLinecap="round"
                       stroke="currentColor"
                       fill="transparent"
-                      className={isReady ? "text-green-500" : "text-primary"}
+                      className={isReady ? "text-primary" : "text-primary"}
                       style={{ transition: "stroke-dashoffset 0.4s ease" }}
                     />
                   </svg>
@@ -594,7 +587,7 @@ export default function CreateRepositoryEntryPage() {
                     className="flex items-center gap-2 text-xs"
                   >
                     {readinessMap[item.key] ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                     ) : (
                       <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
                     )}
@@ -622,7 +615,7 @@ export default function CreateRepositoryEntryPage() {
                 className={cn(
                   "w-full mt-2",
                   isReady
-                    ? "bg-green-600 hover:bg-green-700"
+                    ? "bg-primary hover:bg-primary/90"
                     : "bg-primary hover:bg-primary/90",
                 )}
                 onClick={handleSubmit}

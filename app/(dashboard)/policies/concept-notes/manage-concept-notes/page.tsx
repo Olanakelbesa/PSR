@@ -80,7 +80,7 @@ const columns: ColumnDef<ConceptNote>[] = [
       return (
         <div className="flex flex-col gap-1 py-2 min-w-[100px]">
           <Link
-            href={`/policies/concept-notes/${note.id}`}
+            href={`/policies/concept-notes/manage-concept-notes/${note.id}`}
             className="font-bold text-[15px] leading-tight text-foreground hover:text-primary transition-colors line-clamp-1"
             onClick={(e) => e.stopPropagation()}
           >
