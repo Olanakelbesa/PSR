@@ -26,6 +26,7 @@ export interface ProposalFormInput {
   stakeholders?: unknown[];
   technicalProposal?: unknown;
   budgetFile?: unknown;
+  signature?: unknown;
   keywords?: string;
   submissionType?: "on_site" | "document_upload";
   hasStakeholder?: boolean;

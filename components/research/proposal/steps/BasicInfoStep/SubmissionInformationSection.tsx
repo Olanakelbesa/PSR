@@ -43,7 +43,8 @@ export function SubmissionInformationSection() {
   // Wrapper hooks with frontend filtering for SearchableSelect
   const useSubmissionLevelOptions = useCallback(
     (params?: { search?: string }) => {
-      const allData = proposalOptionsData?.data?.submission_levels || [];
+      const allData = (proposalOptionsData?.submission_levels ??
+        []) as ProposalOption[];
 
       // Apply frontend search filter
       const filteredData =
@@ -65,7 +66,7 @@ export function SubmissionInformationSection() {
   // Wrapper hook for offices with frontend filtering
   const useOfficeSubmitOptions = useCallback(
     (params?: { search?: string }) => {
-      const allData = officeOptionsData?.data?.offices || [];
+      const allData = (officeOptionsData?.offices ?? []) as OfficeOption[];
 
       // Apply frontend search filter
       const filteredData =
@@ -100,7 +101,8 @@ export function SubmissionInformationSection() {
   const officesLengthRef = React.useRef(0);
 
   useEffect(() => {
-    const submissionLevels = proposalOptionsData?.data?.submission_levels || [];
+    const submissionLevels = (proposalOptionsData?.submission_levels ??
+      []) as ProposalOption[];
     const currentLength = submissionLevels.length;
     const lengthChanged = currentLength !== submissionLevelsLengthRef.current;
 
@@ -138,10 +140,10 @@ export function SubmissionInformationSection() {
       submissionLevelsLengthRef.current = currentLength;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposalOptionsData?.data?.submission_levels?.length]);
+  }, [proposalOptionsData?.submission_levels?.length]);
 
   useEffect(() => {
-    const offices = officeOptionsData?.data?.offices || [];
+    const offices = (officeOptionsData?.offices ?? []) as OfficeOption[];
     const currentLength = offices.length;
     const lengthChanged = currentLength !== officesLengthRef.current;
 
@@ -175,7 +177,7 @@ export function SubmissionInformationSection() {
       officesLengthRef.current = currentLength;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officeOptionsData?.data?.offices?.length]);
+  }, [officeOptionsData?.offices?.length]);
 
   // Reset office refs when submission level changes (to allow re-setting office)
   useEffect(() => {
@@ -195,7 +197,7 @@ export function SubmissionInformationSection() {
               Submission Information
             </CardTitle>
             <CardDescription className="mt-1">
-              Select the submission level and the office where you will submit
+              Select the organization and unit where you will submit
             </CardDescription>
           </div>
         </div>
@@ -207,18 +209,18 @@ export function SubmissionInformationSection() {
             name="submissionLevel"
             render={({ field, fieldState }) => (
               <FormItem>
-                <FormLabel>Submission Level *</FormLabel>
+                <FormLabel>Organization *</FormLabel>
                 <FormControl>
                   <SearchableSelect<ProposalOption>
-                    key={`submission-level-${proposalOptionsData?.data?.submission_levels?.length || 0}`}
+                    key={`submission-level-${proposalOptionsData?.submission_levels?.length || 0}`}
                     value={field.value}
                     onValueChange={handleSubmissionLevelChange}
                     useQueryHook={useSubmissionLevelOptions}
                     getOptionValue={(level) => String(level.id)}
                     getOptionLabel={(level) => level.name}
-                    placeholder="Select Submission Level"
-                    searchPlaceholder="Search submission levels..."
-                    emptyMessage="No submission levels found"
+                    placeholder="Select Organization"
+                    searchPlaceholder="Search organizations..."
+                    emptyMessage="No organizations found"
                     className={cn(
                       fieldState.error &&
                         "border-destructive focus:border-destructive focus:ring-destructive",
@@ -235,10 +237,10 @@ export function SubmissionInformationSection() {
             name="officeToSubmit"
             render={({ field, fieldState }) => (
               <FormItem>
-                <FormLabel>Office To Submit *</FormLabel>
+                <FormLabel>Unit *</FormLabel>
                 <FormControl>
                   <SearchableSelect<OfficeOption>
-                    key={`office-${officeOptionsData?.data?.offices?.length || 0}-${submissionLevel || ""}`}
+                    key={`office-${officeOptionsData?.offices?.length || 0}-${submissionLevel || ""}`}
                     value={field.value || ""}
                     onValueChange={field.onChange}
                     useQueryHook={useOfficeSubmitOptions}
@@ -246,11 +248,11 @@ export function SubmissionInformationSection() {
                     getOptionLabel={(office) => office.name}
                     placeholder={
                       submissionLevel
-                        ? "Select Office"
-                        : "Select Submission Level first"
+                        ? "Select Unit"
+                        : "Select Organization first"
                     }
-                    searchPlaceholder="Search offices..."
-                    emptyMessage="No offices found"
+                    searchPlaceholder="Search units..."
+                    emptyMessage="No units found"
                     className={cn(
                       fieldState.error &&
                         "border-destructive focus:border-destructive focus:ring-destructive",

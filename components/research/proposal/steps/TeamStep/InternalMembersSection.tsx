@@ -37,6 +37,15 @@ import type { TeamMemberRole } from "@/types/team-member-role";
 import type { College, Department } from "@/types/reference-data";
 import { cn } from "@/lib/utils";
 
+type TeamMemberFormValue = {
+  userId: string;
+  role: string;
+};
+
+type ProposalTeamFormInput = {
+  teamMembers: TeamMemberFormValue[];
+};
+
 /** Context so the team-member SearchableSelect hook can use college/department filters for server-side requests */
 const MemberFilterContext = createContext<{
   selectedCollege: string;
@@ -74,14 +83,17 @@ function TeamMemberUserIdField({
   selectedOrdering: string;
   setSelectedOrdering: (v: string) => void;
 }) {
-  const form = useFormContext<ProposalFormInput>();
+  const form = useFormContext<ProposalTeamFormInput>();
   const watchedUserId = useWatch({
     control: form.control,
-    name: `teamMembers.${index}.userId`,
+    name: `teamMembers.${index}.userId` as const,
     defaultValue: "",
   });
-  const { data: selectedUser, isLoading: isLoadingSelected } =
-    useInternalUserById(watchedUserId ? String(watchedUserId) : null);
+  const selectedUserResult = useInternalUserById(
+    watchedUserId ? String(watchedUserId) : null,
+  );
+  const selectedUser = selectedUserResult.data as InternalUser | undefined;
+  const isLoadingSelected = selectedUserResult.isLoading;
   const additionalOptions = useMemo<InternalUser[]>(
     () => (selectedUser ? [selectedUser] : []),
     [selectedUser],
@@ -141,8 +153,12 @@ function TeamMemberUserIdField({
 }
 
 export function InternalMembersSection() {
-  const form = useFormContext<ProposalFormInput>();
-  const { fields, append, remove } = useFieldArray({
+  const form = useFormContext<ProposalTeamFormInput>();
+  const { fields, append, remove } = useFieldArray<
+    ProposalTeamFormInput,
+    "teamMembers",
+    "id"
+  >({
     control: form.control,
     name: "teamMembers",
   });
@@ -241,13 +257,13 @@ export function InternalMembersSection() {
               <div className="flex gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <FormLabel className="text-sm font-semibold">
-                  Filter Members
+                  Organization / Unit Filters
                 </FormLabel>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel className="text-xs text-muted-foreground">
-                    College
+                    Organization
                   </FormLabel>
                   <SearchableSelect<College>
                     value={selectedCollege}
@@ -267,17 +283,17 @@ export function InternalMembersSection() {
                     }}
                     getOptionValue={(college) => String(college.id)}
                     getOptionLabel={(college) => college.name}
-                    placeholder="All Colleges"
-                    searchPlaceholder="Search colleges..."
-                    emptyMessage="No colleges available"
-                    noResultsMessage="No colleges found"
-                    loadingMessage="Loading colleges..."
+                    placeholder="All Organizations"
+                    searchPlaceholder="Search organizations..."
+                    emptyMessage="No organizations available"
+                    noResultsMessage="No organizations found"
+                    loadingMessage="Loading organizations..."
                   />
                 </div>
 
                 <div className="space-y-2">
                   <FormLabel className="text-xs text-muted-foreground">
-                    Department
+                    Unit
                   </FormLabel>
                   <SearchableSelect<Department>
                     value={selectedDepartment}
@@ -297,11 +313,11 @@ export function InternalMembersSection() {
                     }}
                     getOptionValue={(dept) => String(dept.id)}
                     getOptionLabel={(dept) => dept.name}
-                    placeholder="All Departments"
-                    searchPlaceholder="Search departments..."
-                    emptyMessage="No departments available"
-                    noResultsMessage="No departments found"
-                    loadingMessage="Loading departments..."
+                    placeholder="All Units"
+                    searchPlaceholder="Search units..."
+                    emptyMessage="No units available"
+                    noResultsMessage="No units found"
+                    loadingMessage="Loading units..."
                     limit={5}
                   />
                 </div>

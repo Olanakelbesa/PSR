@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
   Building2,
@@ -21,6 +23,30 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -36,12 +62,29 @@ import type { ResearchProposal } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { THEMATIC_AREAS } from "@/lib/constants";
+import {
+  proposalScreeningSchema,
+  type ProposalScreeningFormData,
+} from "@/lib/validations";
 
 export default function ScreeningDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [proposal, setProposal] = useState<ResearchProposal | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<ProposalScreeningFormData>({
+    resolver: zodResolver(proposalScreeningSchema),
+    defaultValues: {
+      comments: "",
+      recommendation: "approve",
+      assignedReviewers: [],
+    },
+  });
+
+  const recommendation = form.watch("recommendation");
 
   useEffect(() => {
     async function loadProposal() {
@@ -62,6 +105,31 @@ export default function ScreeningDetailPage() {
     }
     loadProposal();
   }, [id, router]);
+
+  async function onSubmit(data: ProposalScreeningFormData) {
+    setIsSubmitting(true);
+    try {
+      const response = await proposalsApi.submitReview(id as string, data);
+
+      if (response.success) {
+        toast.success("Screening submitted successfully");
+        setIsReviewOpen(false);
+        form.reset({
+          comments: "",
+          recommendation: "approve",
+          assignedReviewers: [],
+        });
+        router.push("/research/proposals/screening-reviews");
+      } else {
+        toast.error(response.message || "Failed to submit screening review");
+      }
+    } catch (error) {
+      console.error("Error submitting screening review:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -104,14 +172,10 @@ export default function ScreeningDetailPage() {
           {proposal.status === "submitted" && (
             <Button
               className="bg-primary hover:bg-primary/90"
-              onClick={() =>
-                router.push(
-                  `/research/proposals/screening-reviews/${id}/review`,
-                )
-              }
+              onClick={() => setIsReviewOpen(true)}
             >
               <ClipboardCheck className="mr-2 h-4 w-4" />
-               Review
+              Review
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           )}
@@ -431,7 +495,7 @@ export default function ScreeningDetailPage() {
                   <div className="flex items-center gap-3">
                     <FileText className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform" />
                     <div className="text-left">
-                      <p className="text-xs font-bold truncate max-w-[140px]">
+                      <p className="text-xs font-bold truncate max-w-35">
                         {file.name}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
@@ -446,6 +510,88 @@ export default function ScreeningDetailPage() {
           </Card>
         </aside>
       </div>
+
+      <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Screening Review</DialogTitle>
+            <DialogDescription>
+              Add your comment and choose a decision for this proposal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <FormField
+                control={form.control}
+                name="comments"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Comment</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Write your screening notes here..."
+                        className="min-h-35 resize-none"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="recommendation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Decision</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a decision" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="approve">Approve</SelectItem>
+                        <SelectItem value="revise">Request Revision</SelectItem>
+                        <SelectItem value="reject">Reject</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                {recommendation === "approve"
+                  ? "Approving will move this proposal to the approved state."
+                  : recommendation === "revise"
+                    ? "Requesting revision will mark the proposal for changes."
+                    : "Rejecting will close this proposal from screening."}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsReviewOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Submit Review
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }

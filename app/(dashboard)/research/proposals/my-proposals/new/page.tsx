@@ -8,7 +8,7 @@ export default async function CreateProposalPage({
   const params = await searchParams;
 
   return (
-    <div className="space-y-8 rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur sm:p-8">
+    <div className="space-y-8 p-6 shadow-sm backdrop-blur sm:p-8">
       <div className="space-y-2 border-b border-border/60 pb-6">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           {params.edit ? "Edit Proposal" : "New Proposal"}

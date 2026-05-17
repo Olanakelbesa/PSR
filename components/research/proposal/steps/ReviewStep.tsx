@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FormField, FormItem, FormMessage } from "@/components/ui/form";
 import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
-import { CheckCircle2, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { HtmlContentRenderer } from "./HtmlContentRenderer";
 import { toast } from "sonner";
+import SignaturePad from "@/components/signature-pad";
 import { useProposalTemplateSections } from "@/lib/queries/proposal-template-section";
 import { useGrantCall } from "@/lib/queries/grant-calls";
 import { useProposalType } from "@/lib/queries/proposal-type";
@@ -17,6 +18,7 @@ import { useOffice } from "@/lib/queries/office";
 import { useThematicArea } from "@/lib/queries/thematic-area";
 import { useInternalUsers } from "@/lib/queries/internal-users";
 import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
+import { CheckCircle2, Send, ChevronDown, ChevronUp } from "lucide-react";
 
 // Helper function to format dates
 const formatDate = (date: Date | undefined | null): string => {
@@ -49,6 +51,27 @@ interface ProposalReviewStepProps {
   isDraft?: boolean;
 }
 
+type TeamMemberValue = {
+  userId?: string;
+  role?: string;
+};
+
+type StakeholderValue = {
+  stakeholderName?: string;
+  position?: string;
+  organizationName?: string;
+  email?: string;
+  phoneNumber?: string;
+  role?: string;
+};
+
+type ProposalTemplateSection = {
+  id: string | number;
+  order: number;
+  title?: string;
+  label?: string;
+};
+
 export function ProposalReviewStep({
   onSubmit,
   isSubmitting = false,
@@ -57,78 +80,74 @@ export function ProposalReviewStep({
   isDraft = false,
 }: ProposalReviewStepProps) {
   const form = useFormContext<ProposalFormInput>();
-  const values = form.watch();
+  const values = form.watch() as ProposalFormInput;
 
   // Get all form values including unregistered fields
   const allFormValues = form.getValues();
 
   // Fetch sections filtered by proposal type (same source as ContentRenderer)
-  const { data: allSections = [], isLoading: isLoadingSections } =
+  const { data: sectionsData = [], isLoading: isLoadingSections } =
     useProposalTemplateSections({
       proposal_type: values.proposalType
         ? Number(values.proposalType)
         : undefined,
     });
+  const allSections = sectionsData as ProposalTemplateSection[];
 
   // Fetch selected data from backend
   const { data: grantCallData } = useGrantCall(values.grantCallId || "");
   const selectedGrantCall = grantCallData;
 
   const { data: proposalTypeData } = useProposalType(values.proposalType || "");
-
-  const selectedCallType = Array.isArray(proposalTypeData?.data)
-    ? proposalTypeData.data[0]
-    : proposalTypeData?.data;
+  const selectedCallType = proposalTypeData;
 
   const { data: subCallTypeData } = useSubCallType(
     values.subProposalTypeId || "",
   );
-  // Detail endpoint might return array or single object - handle both
-  const selectedSubCallType = Array.isArray(subCallTypeData?.data)
-    ? subCallTypeData.data[0]
-    : subCallTypeData?.data;
+  const selectedSubCallType = subCallTypeData;
 
   const { data: officeLevelData } = useOfficeLevel(
     values.submissionLevel || "",
   );
-  // Detail endpoint might return array or single object - handle both
-  const selectedOfficeLevel = Array.isArray(officeLevelData?.data)
-    ? officeLevelData.data[0]
-    : officeLevelData?.data;
+  const selectedOfficeLevel = officeLevelData;
 
   const { data: officeData } = useOffice(values.officeToSubmit || "");
-
-  const selectedOffice = Array.isArray(officeData?.data)
-    ? officeData.data[0]
-    : officeData?.data;
+  const selectedOffice = officeData;
 
   const { data: thematicAreaData } = useThematicArea(values.thematicArea || "");
-  const selectedThematicArea = thematicAreaData?.data;
+  const selectedThematicArea = thematicAreaData;
 
   // Fetch all users and roles for team members display
   const { data: allUsersData } = useInternalUsers({ limit: 1000 });
   const { data: allRolesData } = useTeamMemberRoles({ limit: 100 });
 
-  // Create lookup maps for users and roles
-  const usersMap = useMemo(() => {
-    const map = new Map<string, string>();
-    // Handle both 'results' (standard API) and 'data' (legacy) response structures
-    const users = allUsersData?.results || allUsersData?.data || [];
-    users.forEach((user) => {
-      map.set(String(user.id), user.full_name);
-    });
-    return map;
-  }, [allUsersData]);
+  const users = (allUsersData?.results ?? []) as Array<{
+    id: string | number;
+    full_name?: string;
+  }>;
+  const roles = (allRolesData?.data ?? []) as Array<{
+    id: string | number;
+    name?: string;
+  }>;
 
-  const rolesMap = useMemo(() => {
-    const map = new Map<string, string>();
-    // TeamMemberRoleResponse uses 'data' property, not 'results'
-    const roles = allRolesData?.data || [];
-    roles.forEach((role) => {
-      map.set(String(role.id), role.name);
-    });
-    return map;
-  }, [allRolesData]);
+  const getUserDisplayName = (userId?: string) => {
+    const matchedUser = users.find(
+      (user) => String(user.id) === String(userId || ""),
+    );
+    return matchedUser?.full_name || userId || "Unknown User";
+  };
+
+  const getRoleDisplayName = (roleId?: string) => {
+    const matchedRole = roles.find(
+      (role) => String(role.id) === String(roleId || ""),
+    );
+    return matchedRole?.name || roleId || "Unknown Role";
+  };
+
+  const teamMembers = (values.teamMembers ?? []) as TeamMemberValue[];
+  const stakeholders = (values.stakeholders ?? []) as StakeholderValue[];
+  const hasTechnicalProposal = Boolean(values.technicalProposal);
+  const hasBudgetFile = Boolean(values.budgetFile);
 
   // State to track expanded/collapsed sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -277,7 +296,7 @@ export function ProposalReviewStep({
                 Budget Requested
               </label>
               <p className="text-sm font-medium text-primary">
-                {values.budgetRequested}{" "}ETB
+                {values.budgetRequested} ETB
               </p>
             </div>
           </div>
@@ -293,14 +312,14 @@ export function ProposalReviewStep({
             {/* Internal Members Column */}
             <div>
               <h4 className="text-sm font-semibold mb-3">Internal Members</h4>
-              {values.teamMembers && values.teamMembers.length > 0 ? (
+              {teamMembers.length > 0 ? (
                 <ul className="space-y-2">
-                  {values.teamMembers.map((member, index) => (
+                  {teamMembers.map((member, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 text-green-500" />
                       <span>
-                        {usersMap.get(member.userId) || member.userId} -{" "}
-                        {rolesMap.get(member.role) || member.role}
+                        {getUserDisplayName(member.userId)} -{" "}
+                        {getRoleDisplayName(member.role)}
                       </span>
                     </li>
                   ))}
@@ -317,21 +336,24 @@ export function ProposalReviewStep({
               <h4 className="text-sm font-semibold mb-3">
                 External Stakeholders
               </h4>
-              {values.stakeholders && values.stakeholders.length > 0 ? (
+              {stakeholders.length > 0 ? (
                 <ul className="space-y-3">
-                  {values.stakeholders.map((stakeholder, index) => (
+                  {stakeholders.map((stakeholder, index) => (
                     <li
                       key={index}
                       className="text-sm space-y-1 border-l-2 pl-3"
                     >
                       <p className="font-medium">
-                        {stakeholder.stakeholderName}
+                        {stakeholder.stakeholderName || "Unknown Stakeholder"}
                       </p>
                       <p className="text-muted-foreground">
-                        {stakeholder.position} at {stakeholder.organizationName}
+                        {stakeholder.position || "Position not provided"} at{" "}
+                        {stakeholder.organizationName ||
+                          "Organization not provided"}
                       </p>
                       <p className="text-muted-foreground">
-                        {stakeholder.email} | {stakeholder.phoneNumber}
+                        {stakeholder.email || "Email not provided"} |{" "}
+                        {stakeholder.phoneNumber || "Phone not provided"}
                       </p>
                       {stakeholder.role && (
                         <p className="text-muted-foreground">
@@ -416,7 +438,9 @@ export function ProposalReviewStep({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <h3 className="text-base font-semibold">
-                                {section.title}
+                                {section.title ||
+                                  section.label ||
+                                  "Untitled Section"}
                               </h3>
                               {!hasContent && (
                                 <span className="text-xs text-muted-foreground italic">
@@ -459,13 +483,13 @@ export function ProposalReviewStep({
         </Card>
       )}
 
-      {(values.technicalProposal || values.budgetFile) && (
+      {(hasTechnicalProposal || hasBudgetFile) && (
         <Card>
           <CardHeader>
             <CardTitle>Files</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {values.technicalProposal && (
+            {hasTechnicalProposal && (
               <div className="border rounded-md p-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -484,7 +508,7 @@ export function ProposalReviewStep({
                 </p>
               </div>
             )}
-            {values.budgetFile && (
+            {hasBudgetFile && (
               <div className="border rounded-md p-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -502,6 +526,58 @@ export function ProposalReviewStep({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Signature</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FormField
+            control={form.control}
+            name="signature"
+            render={({ field }) => {
+              const signatureFile =
+                field.value instanceof File ? field.value : null;
+              return (
+                <FormItem>
+                  <div className="space-y-3 ">
+                    <p className="text-sm text-muted-foreground">
+                      Draw your signature below, then click Save Signature.
+                    </p>
+                 
+                      <SignaturePad
+                        onSave={(file) => {
+                          field.onChange(file);
+                          form.setValue("signature", file, {
+                            shouldValidate: true,
+                          });
+                        }}
+                        onClear={() => {
+                          field.onChange(undefined);
+                          form.setValue("signature", undefined, {
+                            shouldValidate: true,
+                          });
+                        }}
+                      />
+
+
+                    {signatureFile && (
+                      <div className="border rounded-md p-3">
+                        <p className="font-medium text-sm">Saved Signature</p>
+                        <p className="text-xs text-muted-foreground">
+                          {signatureFile.name} (
+                          {(signatureFile.size / 1024).toFixed(1)} KB)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
+        </CardContent>
+      </Card>
 
       {/* Action Buttons Section */}
       <div className="flex justify-between items-center pt-6 border-t">

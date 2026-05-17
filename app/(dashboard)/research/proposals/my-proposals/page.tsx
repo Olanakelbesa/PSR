@@ -92,9 +92,9 @@ const columns: ColumnDef<ProposalRow>[] = [
     accessorKey: "title",
     header: "Title",
     cell: ({ row }) => (
-      <div className="max-w-xs">
-        <p className="font-medium truncate">{row.original.title}</p>
-        <p className="text-xs text-muted-foreground truncate">
+      <div className="max-w-xs w-[250px]">
+        <p className="font-medium whitespace-normal break-words">{row.original.title}</p>
+        <p className="text-xs text-muted-foreground truncate ">
           {row.original.principalInvestigator?.firstName}{" "}
           {row.original.principalInvestigator?.lastName}
         </p>

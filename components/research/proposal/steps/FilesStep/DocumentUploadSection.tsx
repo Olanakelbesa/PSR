@@ -154,16 +154,18 @@ export function DocumentUploadSection() {
                             <FileText className="h-8 w-8 text-primary" />
                           </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-sm truncate">
-                              {file?.name || "File"}
+                        <div className="flex justify-between items-center min-w-0 w-full">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-semibold text-sm truncate">
+                                {file?.name || "File"}
+                              </p>
+                              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              {((file?.size || 0) / 1024 / 1024).toFixed(2)} MB
                             </p>
-                            <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                           </div>
-                          <p className="text-xs text-muted-foreground mb-3">
-                            {((file?.size || 0) / 1024 / 1024).toFixed(2)} MB
-                          </p>
                           <div className="flex gap-2">
                             <Button
                               type="button"

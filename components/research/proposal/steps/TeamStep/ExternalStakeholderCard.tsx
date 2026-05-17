@@ -73,33 +73,6 @@ export function ExternalStakeholderCard({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name={`stakeholders.${index}.organizationName`}
-            render={({ field, fieldState }) => (
-              <FormItem>
-                <FormLabel className="flex items-center gap-2">
-                  Organization Name
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Enter organization name"
-                    value={field.value || ""}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    ref={field.ref}
-                    className={cn(
-                      fieldState.error &&
-                        "border-destructive focus:border-destructive focus:ring-destructive",
-                    )}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
             name={`stakeholders.${index}.stakeholderName`}
             render={({ field, fieldState }) => (
               <FormItem>
@@ -124,7 +97,32 @@ export function ExternalStakeholderCard({
               </FormItem>
             )}
           />
-
+          <FormField
+            control={form.control}
+            name={`stakeholders.${index}.organizationName`}
+            render={({ field, fieldState }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2">
+                  Organization Name
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter organization name"
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    className={cn(
+                      fieldState.error &&
+                        "border-destructive focus:border-destructive focus:ring-destructive",
+                    )}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name={`stakeholders.${index}.position`}

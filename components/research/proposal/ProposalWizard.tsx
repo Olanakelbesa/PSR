@@ -40,6 +40,19 @@ interface ProposalWizardProps {
   proposalId?: string;
 }
 
+type ExistingProposalTeamMember = {
+  member_type?: "internal" | "external" | string;
+  internal_member_user_id?: string | number | null;
+  member_details?: { id?: string | number | null } | null;
+  member?: string | number | { id?: string | number | null } | null;
+  role?: string | number | { id?: string | number | null } | null;
+  organization_name?: string | null;
+  stakeholder_name?: string | null;
+  position?: string | null;
+  phone_number?: string | null;
+  email?: string | null;
+};
+
 const steps = [
   { id: 1, label: "Basic Info" },
   { id: 2, label: "Team Members" },
@@ -266,9 +279,14 @@ export function ProposalWizard({
         existingProposal.team_members &&
         existingProposal.team_members.length > 0
       ) {
+        const teamMembers =
+          existingProposal.team_members as ExistingProposalTeamMember[];
+
         const internalMembers = existingProposal.team_members
-          .filter((tm) => tm.member_type === "internal")
-          .map((tm) => ({
+          .filter(
+            (tm: ExistingProposalTeamMember) => tm.member_type === "internal",
+          )
+          .map((tm: ExistingProposalTeamMember) => ({
             userId: tm.internal_member_user_id
               ? String(tm.internal_member_user_id)
               : tm.member_details?.id
@@ -286,9 +304,11 @@ export function ProposalWizard({
                   : "",
           }));
 
-        const externalMembers = existingProposal.team_members
-          .filter((tm) => tm.member_type === "external")
-          .map((tm) => ({
+        const externalMembers = teamMembers
+          .filter(
+            (tm: ExistingProposalTeamMember) => tm.member_type === "external",
+          )
+          .map((tm: ExistingProposalTeamMember) => ({
             role:
               tm.role && typeof tm.role === "object"
                 ? String(tm.role.id)
@@ -351,6 +371,8 @@ export function ProposalWizard({
         sectionResponses &&
         sectionResponses.length > 0
       ) {
+        const typedSections = sectionsData as Section[];
+
         sectionResponses.forEach((response: any) => {
           // 1. Try to get template section ID directly from response
           let templateSectionId =
@@ -362,10 +384,10 @@ export function ProposalWizard({
           if (
             !templateSectionId &&
             response.title &&
-            sectionsData &&
-            sectionsData.length > 0
+            typedSections &&
+            typedSections.length > 0
           ) {
-            const matchedSection = sectionsData.find(
+            const matchedSection = typedSections.find(
               (s: any) => s.title === response.title,
             );
             if (matchedSection) {
@@ -578,7 +600,7 @@ export function ProposalWizard({
   const initializedSectionsRef = useRef<Set<string>>(new Set());
 
   const handleNext = async () => {
-    let fieldsToValidate: (keyof ProposalFormInput)[] = [];
+    let fieldsToValidate: string[] = [];
 
     switch (currentStep) {
       case 1:
@@ -652,6 +674,9 @@ export function ProposalWizard({
       if (!(cleanedFormValues.budgetFile instanceof File)) {
         delete cleanedFormValues.budgetFile;
       }
+      if (!(cleanedFormValues.signature instanceof File)) {
+        delete cleanedFormValues.signature;
+      }
 
       // Fetch sections if submission type is on_site
       let sectionsData: any[] = [];
@@ -672,7 +697,8 @@ export function ProposalWizard({
                   },
                 },
               );
-              return response.data.data || [];
+              return ((response.data as { data?: Section[] }).data ||
+                []) as Section[];
             },
           });
           sectionsData = sectionsQuery || [];
@@ -688,6 +714,9 @@ export function ProposalWizard({
       if (!(cleanedData.budgetFile instanceof File)) {
         delete cleanedData.budgetFile;
       }
+      if (!(cleanedData.signature instanceof File)) {
+        delete cleanedData.signature;
+      }
 
       // Clean file objects - only send File instances, remove metadata objects
       // If file is an object with metadata (from existing proposal), only send if it's a new File
@@ -699,6 +728,9 @@ export function ProposalWizard({
 
       const cleanBudgetFile =
         data.budgetFile instanceof File ? data.budgetFile : undefined; // Don't send file metadata objects, only new File instances
+
+      const cleanSignature =
+        data.signature instanceof File ? data.signature : undefined;
 
       // Merge validated data with cleaned form values to include section content
       // IMPORTANT: Use cleanedData (not data) to prevent metadata objects from being included
@@ -717,6 +749,7 @@ export function ProposalWizard({
         // Replace file objects with clean File instances only (or undefined if not changed)
         technicalProposal: cleanTechnicalProposal,
         budgetFile: cleanBudgetFile,
+        signature: cleanSignature,
       };
 
       // Use update mutation if in edit mode, otherwise create
@@ -836,7 +869,7 @@ export function ProposalWizard({
                 // Prevent auto-submission - only allow explicit button clicks
               }}
             >
-              <Card elegant>
+              <Card>
                 <CardHeader>
                   <CardTitle>
                     Step {currentStep}: {steps[currentStep - 1].label}
