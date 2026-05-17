@@ -403,7 +403,7 @@ export default function NewPolicyDraftPage() {
                     onClick={form.handleSubmit((data) => onSubmit(data, true))}
                   >
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Submit for Expert Review
+                    Submit
                   </Button>
                   
                   <Button 
