@@ -68,6 +68,7 @@ interface DataTableProps<TData, TValue> {
   emptyMessage?: string;
   emptyDescription?: string;
   toolbar?: React.ReactNode;
+  initialColumnVisibility?: VisibilityState;
 }
 
 export function DataTable<TData, TValue>({
@@ -81,10 +82,11 @@ export function DataTable<TData, TValue>({
   emptyMessage = "No matching results found.",
   emptyDescription,
   toolbar,
+  initialColumnVisibility = {},
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
   const [rowSelection, setRowSelection] = useState({});
 
   const table = useReactTable({
@@ -106,6 +108,10 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  const getSafeColumn = (columnId: string) => {
+    return table.getAllColumns().find((col) => col.id === columnId);
+  };
+
   const hasActiveFilters = columnFilters.length > 0;
   const selectedRows = table.getFilteredSelectedRowModel().rows;
 
@@ -122,12 +128,11 @@ export function DataTable<TData, TValue>({
                 <Input
                   placeholder={searchPlaceholder}
                   value={
-                    (table.getColumn(searchKey)?.getFilterValue() as string) ??
+                    (getSafeColumn(searchKey)?.getFilterValue() as string) ??
                     ""
                   }
                   onChange={(event) =>
-                    table
-                      .getColumn(searchKey)
+                    getSafeColumn(searchKey)
                       ?.setFilterValue(event.target.value)
                   }
                   className="pl-9 h-10 bg-muted/20 border-muted-foreground/20 focus-visible:ring-primary/20"
@@ -144,12 +149,11 @@ export function DataTable<TData, TValue>({
                 <Select
                   key={filter.key}
                   value={
-                    (table.getColumn(filter.key)?.getFilterValue() as string) ??
+                    (getSafeColumn(filter.key)?.getFilterValue() as string) ??
                     ""
                   }
                   onValueChange={(value) =>
-                    table
-                      .getColumn(filter.key)
+                    getSafeColumn(filter.key)
                       ?.setFilterValue(value === "all" ? "" : value)
                   }
                 >

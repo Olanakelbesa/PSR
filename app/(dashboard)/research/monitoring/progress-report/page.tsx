@@ -164,7 +164,7 @@ export default function MonitoringPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 shadow-xl border-primary/10">
             <DropdownMenuItem asChild>
-              <Link href={`/research/monitoring/${row.original.id}`} className="cursor-pointer">
+              <Link href={`/research/monitoring/progress-report/${row.original.id}`} className="cursor-pointer">
                 <Eye className="h-4 w-4 mr-2 text-muted-foreground" />
                 View Full Details
               </Link>
@@ -176,7 +176,7 @@ export default function MonitoringPage() {
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer">
               <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-              Update Milestones
+              Submit Final Report
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

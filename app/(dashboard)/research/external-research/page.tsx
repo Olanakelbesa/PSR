@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageContainer } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,18 +17,25 @@ import {
   ArrowUpRight,
   Search,
   Users,
-  Layers,
   Plus,
-  Scale,
   Calendar,
   CheckCircle2,
   XCircle,
-  Download
+  Download,
+  MoreHorizontal,
+  Eye,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DataTable } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
 
-const mockExternalResearch = [
+export const mockExternalResearch = [
   {
     id: "EXT-2024-001",
     title: "Global Trends in Antimicrobial Resistance: Implications for Sub-Saharan Africa",
@@ -36,7 +44,10 @@ const mockExternalResearch = [
     year: "2024",
     type: "Review Article",
     grade: "good",
-    keywords: ["AMR", "Policy", "Global Health"]
+    keywords: ["AMR", "Policy", "Global Health"],
+    abstract: "A macro-level policy review mapping global pharmaceutical tracking and clinical stewardship interventions addressing drug-resistant tuberculosis and sepsis within developing countries. Focuses on governance structures, resource distribution caps, and training programs.",
+    methodology: "Systematic literature search across clinical trial registries (2018-2023) extracting operational stewardship compliance indices.",
+    citation: "Smith, A., et al. (2024). Global Trends in Antimicrobial Resistance: Implications for Sub-Saharan Africa. WHO Policy Journal, 12(1), 34-48.",
   },
   {
     id: "EXT-2023-089",
@@ -46,7 +57,10 @@ const mockExternalResearch = [
     year: "2023",
     type: "Study Report",
     grade: "good",
-    keywords: ["NCD", "Urban Health", "Prevention"]
+    keywords: ["NCD", "Urban Health", "Prevention"],
+    abstract: "Investigating shifting dietary, metabolic, and spatial habits of urbanizing regional districts. Explores correlation markers between municipal walkability indices, public green coverage, and clinical hypertension reports.",
+    methodology: "Prospective spatial demographic modeling matched with localized health facility intake surveys.",
+    citation: "Chen, J., & Patel, R. (2023). Impact of Urbanization on NCD Prevalence in Rapidly Developing Cities. Global Urban Health, 5(3), 190-205.",
   },
   {
     id: "EXT-2022-045",
@@ -55,14 +69,16 @@ const mockExternalResearch = [
     institution: "Regional Agricultural Board",
     year: "2022",
     type: "Field Report",
-    grade: "bad",
-    keywords: ["Nutrition", "Agriculture"]
+    grade: "poor",
+    keywords: ["Nutrition", "Agriculture"],
+    abstract: "Assessing regional agricultural distributions of specialized micronutrient seed stocks to local cooperative farms. Inconclusive tracking methodologies and highly localized attrition rates led to variable compliance models.",
+    methodology: "Retrospective community self-assessment questionnaires without baseline clinical validation.",
+    citation: "Anonymous. (2022). Evaluation of Small-Scale Agricultural Interventions on Nutritional Outcomes. Regional Ag Board Field Reports, 44(2), 89-94.",
   }
 ];
 
 export default function ExternalResearchPage() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
 
   const categories = [
     {
@@ -83,6 +99,98 @@ export default function ExternalResearchPage() {
     }
   ];
 
+  const columns = [
+    {
+      accessorKey: "id",
+      header: "Reference ID",
+      cell: ({ row }: any) => (
+        <span className="font-mono text-[10px] font-bold tracking-widest text-primary/70">
+          {row.original.id}
+        </span>
+      ),
+    },
+    {
+      id: "projectTitle",
+      accessorKey: "title",
+      header: "Research Title / Institution",
+      cell: ({ row }: any) => (
+        <div className="max-w-[280px] lg:max-w-[380px]">
+          <div className="font-bold text-sm leading-tight text-slate-800 truncate">
+            {row.original.title}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1 font-medium">
+            Authors: {row.original.authors} | Publisher: {row.original.institution}
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "year",
+      header: "Year",
+      cell: ({ row }: any) => (
+        <span className="text-xs font-semibold text-slate-600">
+          {row.original.year}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "type",
+      header: "Type",
+      cell: ({ row }: any) => (
+        <Badge variant="outline" className="bg-slate-50 border-slate-200 text-slate-700 text-[9px] font-bold py-0.5 px-2">
+          {row.original.type}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "grade",
+      header: "Evidence Grade",
+      cell: ({ row }: any) => (
+        <div className="flex items-center gap-1.5">
+          {row.original.grade === "good" ? (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200/50 text-[9px] font-bold py-0.5 px-2">
+              <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600 shrink-0" />
+              Verified Good
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200/50 text-[9px] font-bold py-0.5 px-2">
+              <XCircle className="h-3 w-3 mr-1 text-rose-600 shrink-0" />
+              Poor Grade
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }: any) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 shadow-xl border-primary/10">
+            <DropdownMenuItem asChild>
+              <Link
+                href={`/research/external-research/${row.original.id}`}
+                className="cursor-pointer font-bold text-primary"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Full Entry
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer">
+              <Download className="h-4 w-4 mr-2 text-muted-foreground" />
+              Download Document
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
     <PageContainer
       title="External Research"
@@ -95,101 +203,16 @@ export default function ExternalResearchPage() {
       }
     >
       <div className="space-y-8">
-        {/* Search and Quick Filters */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search title, authors or keywords..." 
-              className="pl-10 h-10 border-primary/10 shadow-sm focus-visible:ring-primary/20"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-             <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/10 cursor-pointer">Step 12 Graded</Badge>
-          </div>
-        </div>
+        
+        {/* Table list replacing grid */}
 
-        {/* Manually Ingested External Research List */}
-        <div className="space-y-4">
-           <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-4">Ingested Research Findings</h3>
-           {mockExternalResearch.map((item) => (
-             <Card key={item.id} className="border-none shadow-sm hover:shadow-md transition-all overflow-hidden bg-white">
-                <CardContent className="p-0">
-                   <div className="flex flex-col md:flex-row items-stretch">
-                      <div className={cn("w-1.5", item.grade === 'good' ? "bg-emerald-500" : "bg-rose-500")} />
-                      <div className="flex-1 p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                         <div className="space-y-2 flex-1">
-                            <div className="flex items-center gap-3">
-                               <Badge variant="outline" className="text-[9px] font-black tracking-tighter uppercase px-1.5 py-0">{item.type}</Badge>
-                               <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.year}</span>
-                            </div>
-                            <h4 className="text-sm font-black leading-tight text-slate-800">{item.title}</h4>
-                            <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase">
-                               <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {item.authors}</span>
-                               <span className="flex items-center gap-1"><Building2 className="h-3 w-3" /> {item.institution}</span>
-                            </div>
-                         </div>
-
-                         <div className="flex items-center gap-6 shrink-0">
-                            <div className="flex flex-col items-center gap-1 min-w-[100px]">
-                               {item.grade === 'good' ? (
-                                 <>
-                                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                   <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Evidence: Good</span>
-                                 </>
-                               ) : (
-                                 <>
-                                   <XCircle className="h-4 w-4 text-rose-500" />
-                                   <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Evidence: Poor</span>
-                                 </>
-                               )}
-                            </div>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-primary/5 text-primary">
-                               <Download className="h-4 w-4" />
-                            </Button>
-                         </div>
-                      </div>
-                   </div>
-                </CardContent>
-             </Card>
-           ))}
-        </div>
-
-        {/* Global Repositories Grid */}
-        <div className="pt-8">
-          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">Global & National Partners</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {categories.map((category, idx) => (
-              <Card key={idx} className="border-none shadow-sm hover:shadow-md transition-all duration-300 group overflow-hidden bg-white">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    {idx === 0 ? <Globe className="h-5 w-5 text-blue-600" /> : <Building2 className="h-5 w-5 text-amber-600" />}
-                    {category.title}
-                  </CardTitle>
-                  <CardDescription className="text-xs">{category.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {category.resources.map((resource, rIdx) => (
-                    <a 
-                      key={rIdx} 
-                      href={resource.url}
-                      target="_blank"
-                      className="flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-primary/10 hover:bg-primary/5 transition-all group/item"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold group-hover/item:text-primary transition-colors">{resource.name}</span>
-                        <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest mt-0.5">{resource.type}</span>
-                      </div>
-                      <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 group-hover/item:text-primary transition-all" />
-                    </a>
-                  ))}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+           <DataTable 
+             columns={columns} 
+             data={mockExternalResearch} 
+             searchKey="projectTitle" 
+             searchPlaceholder="Search title, keywords or publishers..."
+             emptyMessage="No external research findings found"
+           />
       </div>
     </PageContainer>
   );

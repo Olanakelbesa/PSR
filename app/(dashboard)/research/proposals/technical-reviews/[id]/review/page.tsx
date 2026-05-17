@@ -178,8 +178,8 @@ export default function TechnicalReviewPage() {
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div>
-                      <p className="text-[10px] tracking-widest text-muted-foreground mb-1">Proposal Title</p>
-                      <h3 className="text-lg font-black leading-tight text-primary">{proposal?.title}</h3>
+                      <p className="text-xs tracking-widest text-muted-foreground mb-1">Proposal Title</p>
+                      <h3 className="text-lg font-bold leading-tight text-primary">{proposal?.title}</h3>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-4 border-t border-primary/5">
                       <div>
@@ -198,32 +198,6 @@ export default function TechnicalReviewPage() {
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Reviewer Details */}
-              <Card className="shadow-sm border-primary/10">
-                <CardHeader className="bg-muted/30 border-b pb-4">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">Reviewer Information</CardTitle>
-                  </div>
-                  <CardDescription>Verify your reviewer credentials before submitting the assessment</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <FormField
-                    control={form.control}
-                    name="reviewerName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-bold">Reviewer Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your full name" className="h-11 shadow-sm border-primary/20" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </CardContent>
               </Card>
 
@@ -310,26 +284,56 @@ export default function TechnicalReviewPage() {
                   <CardDescription>Optional — attach annotated proposal or supporting documentation</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-xl p-8 cursor-pointer hover:border-primary/30 hover:bg-primary/[0.02] transition-all group">
-                    <Paperclip className="h-8 w-8 text-muted-foreground/40 group-hover:text-primary/50 mb-3 transition-colors" />
-                    {reviewerFile ? (
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-primary">{reviewerFile.name}</p>
-                        <p className="text-xs text-muted-foreground">{(reviewerFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  {reviewerFile ? (
+                    <div className="flex  items-center justify-between border-2 border border-primary/30 bg-primary/[0.02] rounded-xl p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-primary/10 rounded-full">
+                          <Paperclip className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-primary line-clamp-1">{reviewerFile.name}</p>
+                          <p className="text-xs text-muted-foreground">{(reviewerFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                        </div>
                       </div>
-                    ) : (
+                      <div className="flex items-center gap-2">
+                        <label className="cursor-pointer">
+                          <div className="flex items-center justify-center h-9 px-4 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md transition-colors">
+                            Replace
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            onChange={(e) => setReviewerFile(e.target.files?.[0] || null)}
+                          />
+                        </label>
+                        <Button 
+                          type="button"
+                          variant="destructive" 
+                          size="sm" 
+                          className="h-9 text-xs"
+                          onClick={() => setReviewerFile(null)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-xl p-8 cursor-pointer hover:border-primary/30 hover:bg-primary/[0.02] transition-all group">
+                      <Paperclip className="h-8 w-8 text-muted-foreground/40 group-hover:text-primary/50 mb-3 transition-colors" />
                       <div className="text-center">
                         <p className="text-sm font-medium text-muted-foreground">Click to upload file</p>
                         <p className="text-xs text-muted-foreground/60 mt-1">PDF, DOCX, or images — max 10MB</p>
                       </div>
-                    )}
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      onChange={(e) => setReviewerFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={(e) => setReviewerFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -340,7 +344,7 @@ export default function TechnicalReviewPage() {
             <aside className="space-y-4 xl:sticky xl:top-2 xl:h-fit ">
               <Card className="shadow-sm border-primary/10 overflow-hidden">
                 <CardHeader className="bg-primary text-primary-foreground py-6 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1 opacity-80">Decision</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] mb-1 opacity-80">Decision</p>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
                   <FormField
@@ -348,6 +352,7 @@ export default function TechnicalReviewPage() {
                     name="comments"
                     render={({ field }) => (
                       <FormItem>
+                        <FormLabel className="font-bold">Comments</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Enter your technical comment or feedback..."

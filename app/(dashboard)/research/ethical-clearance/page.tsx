@@ -232,6 +232,10 @@ export default function EthicalClearancePage() {
 
   const columns: ColumnDef<EthicalClearance>[] = [
     {
+      accessorKey: "type",
+      header: "Type",
+    },
+    {
       accessorKey: "proposalReference",
       header: "Proposal Ref.",
       cell: ({ row }) => (
@@ -396,6 +400,7 @@ export default function EthicalClearancePage() {
           data={clearances}
           searchKey="proposalTitle"
           searchPlaceholder="Search by proposal title, reference, or organization..."
+          initialColumnVisibility={{ type: false }}
           filterOptions={[
             {
               key: "status",

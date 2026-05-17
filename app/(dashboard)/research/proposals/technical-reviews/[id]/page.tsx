@@ -18,12 +18,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/layout";
@@ -97,7 +92,7 @@ export default function TechnicalReviewDetailPage() {
             Back to List
           </Button>
 
-          {(proposal.status === "under_review") && (
+          {proposal.status === "under_review" && (
             <Button
               className="bg-primary hover:bg-primary/90"
               onClick={() =>
@@ -107,7 +102,7 @@ export default function TechnicalReviewDetailPage() {
               }
             >
               <ClipboardList className="mr-2 h-4 w-4" />
-              Start Technical Review
+              Review
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           )}
@@ -155,12 +150,20 @@ export default function TechnicalReviewDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <h4 className="text-sm font-bold text-foreground mb-2">Technical Abstract</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{proposal.abstract}</p>
+                    <h4 className="text-sm font-bold text-foreground mb-2">
+                      Technical Abstract
+                    </h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {proposal.abstract}
+                    </p>
                   </div>
                   <div className="pt-4 border-t border-dashed">
-                    <h4 className="text-sm font-bold text-foreground mb-2">Research Background & Rationale</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{proposal.background}</p>
+                    <h4 className="text-sm font-bold text-foreground mb-2">
+                      Research Background & Rationale
+                    </h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {proposal.background}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -190,10 +193,14 @@ export default function TechnicalReviewDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{proposal.methodology}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {proposal.methodology}
+                    </p>
                   </div>
                   <div className="pt-6 border-t border-dashed">
-                    <h4 className="text-sm font-bold text-foreground mb-2">Ethical Considerations</h4>
+                    <h4 className="text-sm font-bold text-foreground mb-2">
+                      Ethical Considerations
+                    </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed italic">
                       "{proposal.ethicalConsiderations}"
                     </p>
@@ -214,22 +221,43 @@ export default function TechnicalReviewDetailPage() {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       {[
-                        { label: "Personnel", value: proposal.budget.personnel },
-                        { label: "Equipment", value: proposal.budget.equipment },
-                        { label: "Travel & Fieldwork", value: proposal.budget.travel },
-                        { label: "Consumables", value: proposal.budget.consumables },
-                        { label: "Other / Institutional", value: proposal.budget.other },
+                        {
+                          label: "Personnel",
+                          value: proposal.budget.personnel,
+                        },
+                        {
+                          label: "Equipment",
+                          value: proposal.budget.equipment,
+                        },
+                        {
+                          label: "Travel & Fieldwork",
+                          value: proposal.budget.travel,
+                        },
+                        {
+                          label: "Consumables",
+                          value: proposal.budget.consumables,
+                        },
+                        {
+                          label: "Other / Institutional",
+                          value: proposal.budget.other,
+                        },
                       ].map((item) => (
                         <div
                           key={item.label}
                           className="flex justify-between items-center py-2 border-b border-muted/30 last:border-0"
                         >
-                          <span className="text-sm text-muted-foreground">{item.label}</span>
-                          <span className="text-sm font-bold">ETB {item.value.toLocaleString()}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {item.label}
+                          </span>
+                          <span className="text-sm font-bold">
+                            ETB {item.value.toLocaleString()}
+                          </span>
                         </div>
                       ))}
                       <div className="flex justify-between items-center py-3 mt-2 bg-primary/5 rounded-lg px-3 border border-primary/10">
-                        <span className="text-sm font-black text-primary uppercase">Total Requested</span>
+                        <span className="text-sm font-black text-primary uppercase">
+                          Total Requested
+                        </span>
                         <span className="text-base font-black text-primary">
                           ETB {proposal.budget.total.toLocaleString()}
                         </span>
@@ -272,9 +300,14 @@ export default function TechnicalReviewDetailPage() {
                         >
                           <div>
                             <p className="text-sm font-medium">{member.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{member.institution}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {member.institution}
+                            </p>
                           </div>
-                          <Badge variant="secondary" className="text-[9px] uppercase">
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] uppercase"
+                          >
                             {member.role.replace("_", " ")}
                           </Badge>
                         </div>
@@ -293,12 +326,20 @@ export default function TechnicalReviewDetailPage() {
                       <CardContent className="p-5">
                         <div className="flex items-start justify-between mb-4">
                           <div>
-                            <p className="text-sm font-bold">ROC Reviewer {idx + 1}</p>
-                            <p className="text-[10px] text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</p>
+                            <p className="text-sm font-bold">
+                              ROC Reviewer {idx + 1}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xl font-black text-primary">{review.overallScore}/100</p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Overall Score</p>
+                            <p className="text-xl font-black text-primary">
+                              {review.overallScore}/100
+                            </p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              Overall Score
+                            </p>
                           </div>
                         </div>
                         <div className="space-y-3">
@@ -306,13 +347,17 @@ export default function TechnicalReviewDetailPage() {
                             <h4 className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mb-1">
                               <CheckCircle2 className="h-3 w-3" /> Strengths
                             </h4>
-                            <p className="text-xs text-muted-foreground">{review.strengths}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {review.strengths}
+                            </p>
                           </div>
                           <div>
                             <h4 className="text-[10px] font-bold text-rose-700 uppercase flex items-center gap-1 mb-1">
                               <AlertCircle className="h-3 w-3" /> Weaknesses
                             </h4>
-                            <p className="text-xs text-muted-foreground">{review.weaknesses}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {review.weaknesses}
+                            </p>
                           </div>
                         </div>
                       </CardContent>
@@ -322,9 +367,12 @@ export default function TechnicalReviewDetailPage() {
               ) : (
                 <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
                   <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <h3 className="font-bold text-muted-foreground">No Reviews Yet</h3>
+                  <h3 className="font-bold text-muted-foreground">
+                    No Reviews Yet
+                  </h3>
                   <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    No technical evaluations have been submitted for this proposal yet.
+                    No technical evaluations have been submitted for this
+                    proposal yet.
                   </p>
                 </div>
               )}
@@ -343,23 +391,36 @@ export default function TechnicalReviewDetailPage() {
             <CardContent className="pt-5 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Status</span>
-                <Badge className={cn("px-3 py-1 border shadow-none uppercase text-[10px] font-bold", statusColors[proposal.status])}>
+                <Badge
+                  className={cn(
+                    "px-3 py-1 border shadow-none uppercase text-[10px] font-bold",
+                    statusColors[proposal.status],
+                  )}
+                >
                   {proposal.status.replace("_", " ")}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Thematic Area</span>
-                <Badge variant="outline" className="font-bold border-primary/20">
-                  {THEMATIC_AREAS.find((a) => a.value === proposal.researchArea)?.label || proposal.researchArea}
+                <Badge
+                  variant="outline"
+                  className="font-bold border-primary/20"
+                >
+                  {THEMATIC_AREAS.find((a) => a.value === proposal.researchArea)
+                    ?.label || proposal.researchArea}
                 </Badge>
               </div>
               <div className="pt-4 border-t">
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <Clock className="h-4 w-4" />
                   <div className="text-xs">
-                    <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">Submitted Date</p>
+                    <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
+                      Submitted Date
+                    </p>
                     <p className="font-medium">
-                      {new Date(proposal.submittedAt || proposal.createdAt).toLocaleDateString("en-GB", {
+                      {new Date(
+                        proposal.submittedAt || proposal.createdAt,
+                      ).toLocaleDateString("en-GB", {
                         day: "numeric",
                         month: "long",
                         year: "numeric",
@@ -381,8 +442,12 @@ export default function TechnicalReviewDetailPage() {
               <div className="flex items-start gap-3">
                 <Building2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold leading-tight">{proposal.institution}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Lead Research Institution</p>
+                  <p className="text-sm font-bold leading-tight">
+                    {proposal.institution}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Lead Research Institution
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -403,15 +468,21 @@ export default function TechnicalReviewDetailPage() {
                   <div className="flex items-center gap-3">
                     <FileText className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform" />
                     <div className="text-left">
-                      <p className="text-xs font-bold truncate max-w-[140px]">{file.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
+                      <p className="text-xs font-bold truncate max-w-[140px]">
+                        {file.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {(file.size / (1024 * 1024)).toFixed(1)} MB
+                      </p>
                     </div>
                   </div>
                   <Download className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                 </button>
               ))}
               {proposal.attachments.length === 0 && (
-                <div className="p-8 text-center text-xs text-muted-foreground italic">No files attached</div>
+                <div className="p-8 text-center text-xs text-muted-foreground italic">
+                  No files attached
+                </div>
               )}
             </CardContent>
           </Card>

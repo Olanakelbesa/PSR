@@ -22,14 +22,31 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
 // Shared types & mock data (in real app, import from shared module)
 // ---------------------------------------------------------------------------
-type ClearanceStatus = "pending" | "approved" | "rejected" | "expired" | "under_review";
-type ClearanceType = "full_board" | "expedited" | "exempt" | "informed_consent_waiver";
+type ClearanceStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired"
+  | "under_review";
+type ClearanceType =
+  | "full_board"
+  | "expedited"
+  | "exempt"
+  | "informed_consent_waiver";
 
 interface EthicalClearance {
   id: string;
@@ -46,26 +63,112 @@ interface EthicalClearance {
 }
 
 const mockClearances: EthicalClearance[] = [
-  { id: "ec-001", proposalReference: "PRP-008", proposalTitle: "Task Shifting to CHWs for Hypertension Management", requestingFile: "Ethics_Application_CHW_HTN.pdf", type: "full_board", clearanceFile: "EPHI_Clearance_EC-2024-001.pdf", status: "approved", organization: "EPHI IRB", dateOfApplication: "2024-01-25T00:00:00Z", approvalDate: "2024-02-15T00:00:00Z", expiryDate: "2026-02-14T00:00:00Z" },
-  { id: "ec-002", proposalReference: "PRP-009", proposalTitle: "Kangaroo Mother Care Scale-Up in Secondary Hospitals", requestingFile: "Ethics_Application_KMC.pdf", type: "expedited", clearanceFile: "MOH_IRB_Clearance_EC-2024-002.pdf", status: "approved", organization: "MOH IRB", dateOfApplication: "2024-01-20T00:00:00Z", approvalDate: "2024-02-05T00:00:00Z", expiryDate: "2026-02-04T00:00:00Z" },
-  { id: "ec-003", proposalReference: "PRP-010", proposalTitle: "mHealth App for Maternal Danger Sign Reporting", requestingFile: "Ethics_Application_mHealth.pdf", type: "full_board", status: "under_review", organization: "AAU IRB", dateOfApplication: "2024-03-01T00:00:00Z" },
-  { id: "ec-004", proposalReference: "PRP-005", proposalTitle: "Evaluation of Maternal Waiting Homes", requestingFile: "Ethics_Application_MWH.pdf", type: "full_board", status: "pending", organization: "MOH IRB", dateOfApplication: "2024-03-18T00:00:00Z" },
-  { id: "ec-005", proposalReference: "PRP-006", proposalTitle: "Integration of Mental Health into Primary Health Care", requestingFile: "Ethics_Application_MH_PHC.pdf", type: "full_board", status: "pending", organization: "Jimma University IRB", dateOfApplication: "2024-03-22T00:00:00Z" },
-  { id: "ec-006", proposalReference: "PRP-003", proposalTitle: "COVID-19 Impact on Essential Health Services", requestingFile: "Ethics_Application_COVID.pdf", type: "exempt", clearanceFile: "EPHI_Exempt_Cert_EC-2023-011.pdf", status: "expired", organization: "EPHI IRB", dateOfApplication: "2023-09-10T00:00:00Z", approvalDate: "2023-09-20T00:00:00Z", expiryDate: "2024-09-19T00:00:00Z" },
+  {
+    id: "ec-001",
+    proposalReference: "PRP-008",
+    proposalTitle: "Task Shifting to CHWs for Hypertension Management",
+    requestingFile: "Ethics_Application_CHW_HTN.pdf",
+    type: "full_board",
+    clearanceFile: "EPHI_Clearance_EC-2024-001.pdf",
+    status: "approved",
+    organization: "EPHI IRB",
+    dateOfApplication: "2024-01-25T00:00:00Z",
+    approvalDate: "2024-02-15T00:00:00Z",
+    expiryDate: "2026-02-14T00:00:00Z",
+  },
+  {
+    id: "ec-002",
+    proposalReference: "PRP-009",
+    proposalTitle: "Kangaroo Mother Care Scale-Up in Secondary Hospitals",
+    requestingFile: "Ethics_Application_KMC.pdf",
+    type: "expedited",
+    clearanceFile: "MOH_IRB_Clearance_EC-2024-002.pdf",
+    status: "approved",
+    organization: "MOH IRB",
+    dateOfApplication: "2024-01-20T00:00:00Z",
+    approvalDate: "2024-02-05T00:00:00Z",
+    expiryDate: "2026-02-04T00:00:00Z",
+  },
+  {
+    id: "ec-003",
+    proposalReference: "PRP-010",
+    proposalTitle: "mHealth App for Maternal Danger Sign Reporting",
+    requestingFile: "Ethics_Application_mHealth.pdf",
+    type: "full_board",
+    status: "under_review",
+    organization: "AAU IRB",
+    dateOfApplication: "2024-03-01T00:00:00Z",
+  },
+  {
+    id: "ec-004",
+    proposalReference: "PRP-005",
+    proposalTitle: "Evaluation of Maternal Waiting Homes",
+    requestingFile: "Ethics_Application_MWH.pdf",
+    type: "full_board",
+    status: "pending",
+    organization: "MOH IRB",
+    dateOfApplication: "2024-03-18T00:00:00Z",
+  },
+  {
+    id: "ec-005",
+    proposalReference: "PRP-006",
+    proposalTitle: "Integration of Mental Health into Primary Health Care",
+    requestingFile: "Ethics_Application_MH_PHC.pdf",
+    type: "full_board",
+    status: "pending",
+    organization: "Jimma University IRB",
+    dateOfApplication: "2024-03-22T00:00:00Z",
+  },
+  {
+    id: "ec-006",
+    proposalReference: "PRP-003",
+    proposalTitle: "COVID-19 Impact on Essential Health Services",
+    requestingFile: "Ethics_Application_COVID.pdf",
+    type: "exempt",
+    clearanceFile: "EPHI_Exempt_Cert_EC-2023-011.pdf",
+    status: "expired",
+    organization: "EPHI IRB",
+    dateOfApplication: "2023-09-10T00:00:00Z",
+    approvalDate: "2023-09-20T00:00:00Z",
+    expiryDate: "2024-09-19T00:00:00Z",
+  },
 ];
 
-const statusConfig: Record<ClearanceStatus, { label: string; color: string; icon: any }> = {
-  pending:      { label: "Pending",      color: "bg-slate-100 text-slate-700 border-slate-200",       icon: Clock },
-  under_review: { label: "Under Review", color: "bg-blue-100 text-blue-700 border-blue-200",          icon: Shield },
-  approved:     { label: "Approved",     color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-  rejected:     { label: "Rejected",     color: "bg-rose-100 text-rose-700 border-rose-200",          icon: XCircle },
-  expired:      { label: "Expired",      color: "bg-amber-100 text-amber-700 border-amber-200",       icon: AlertCircle },
+const statusConfig: Record<
+  ClearanceStatus,
+  { label: string; color: string; icon: any }
+> = {
+  pending: {
+    label: "Pending",
+    color: "bg-slate-100 text-slate-700 border-slate-200",
+    icon: Clock,
+  },
+  under_review: {
+    label: "Under Review",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: Shield,
+  },
+  approved: {
+    label: "Approved",
+    color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    icon: CheckCircle2,
+  },
+  rejected: {
+    label: "Rejected",
+    color: "bg-rose-100 text-rose-700 border-rose-200",
+    icon: XCircle,
+  },
+  expired: {
+    label: "Expired",
+    color: "bg-amber-100 text-amber-700 border-amber-200",
+    icon: AlertCircle,
+  },
 };
 
 const typeLabel: Record<ClearanceType, string> = {
-  full_board:              "Full Board Review",
-  expedited:               "Expedited Review",
-  exempt:                  "Exempt",
+  full_board: "Full Board Review",
+  expedited: "Expedited Review",
+  exempt: "Exempt",
   informed_consent_waiver: "Informed Consent Waiver",
 };
 
@@ -76,9 +179,17 @@ export default function EthicalClearanceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const [clearance, setClearance] = useState<EthicalClearance | null>(null);
+  const [isClearanceModalOpen, setIsClearanceModalOpen] = useState(false);
+  const [irbDecision, setIrbDecision] = useState("");
+  const [clearanceTypeState, setClearanceTypeState] = useState<
+    ClearanceType | ""
+  >("");
+  const [clearanceOffice, setClearanceOffice] = useState("");
+  const [clearanceFile, setClearanceFile] = useState<File | null>(null);
+  const [isClearanceFileDragging, setIsClearanceFileDragging] = useState(false);
 
   useEffect(() => {
-    const found = mockClearances.find(c => c.id === id);
+    const found = mockClearances.find((c) => c.id === id);
     if (found) {
       setClearance(found);
     } else {
@@ -91,7 +202,8 @@ export default function EthicalClearanceDetailPage() {
 
   const cfg = statusConfig[clearance.status];
   const StatusIcon = cfg.icon;
-  const isExpired = clearance.expiryDate && new Date(clearance.expiryDate) < new Date();
+  const isExpired =
+    clearance.expiryDate && new Date(clearance.expiryDate) < new Date();
 
   return (
     <PageContainer
@@ -99,20 +211,21 @@ export default function EthicalClearanceDetailPage() {
       description={`Ethical Clearance — ${clearance.proposalReference}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => router.push("/research/ethical-clearance")}>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/research/ethical-clearance")}
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          {(clearance.status === "pending" || clearance.status === "under_review") && (
-            <Button
-              className="bg-primary/80 hover:bg-primary/60"
-              onClick={() => router.push(`/research/ethical-clearance/${id}/approve`)}
-            >
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Process Clearance
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            className="bg-primary/80 hover:bg-primary/60"
+            onClick={() => setIsClearanceModalOpen(true)}
+          >
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            Process Clearance
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
         </div>
       }
     >
@@ -120,16 +233,31 @@ export default function EthicalClearanceDetailPage() {
         {/* Main */}
         <div className="space-y-6">
           {/* Status Banner */}
-          <Card className={cn("shadow-sm border", cfg.color.replace("bg-", "border-").replace("text-", "").split(" ")[0])}>
+          <Card
+            className={cn(
+              "shadow-sm border",
+              cfg.color
+                .replace("bg-", "border-")
+                .replace("text-", "")
+                .split(" ")[0],
+            )}
+          >
             <CardContent className="pt-5 pb-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={cn("h-10 w-10 rounded-full flex items-center justify-center", cfg.color)}>
+                  <div
+                    className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center",
+                      cfg.color,
+                    )}
+                  >
                     <StatusIcon className="h-5 w-5" />
                   </div>
                   <div>
                     <p className="font-black text-base">{cfg.label}</p>
-                    <p className="text-xs text-muted-foreground">Current clearance status</p>
+                    <p className="text-xs text-muted-foreground">
+                      Current clearance status
+                    </p>
                   </div>
                 </div>
                 {isExpired && (
@@ -153,15 +281,92 @@ export default function EthicalClearanceDetailPage() {
             <CardContent className="pt-6">
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {[
-                  { label: "Proposal Reference", value: <span className="font-bold text-primary">{clearance.proposalReference}</span> },
-                  { label: "Type of Ethical Clearance", value: <Badge variant="outline" className="font-bold border-primary/20">{typeLabel[clearance.type]}</Badge> },
-                  { label: "Name of Organization / IRB", value: <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{clearance.organization}</span> },
-                  { label: "Date of Application", value: <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{new Date(clearance.dateOfApplication).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span> },
-                  { label: "Approval Date", value: clearance.approvalDate ? <span className="flex items-center gap-1.5 text-primary font-bold"><CheckCircle2 className="h-3.5 w-3.5" />{new Date(clearance.approvalDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span> : <span className="text-muted-foreground/50 italic text-xs">Pending approval</span> },
-                  { label: "Expiry Date", value: clearance.expiryDate ? <span className={cn("flex items-center gap-1.5 font-bold", isExpired ? "text-rose-600" : "text-primary")}><CalendarDays className="h-3.5 w-3.5" />{new Date(clearance.expiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}{isExpired ? " (Expired)" : ""}</span> : <span className="text-muted-foreground/50 italic text-xs">Not set</span> },
+                  {
+                    label: "Proposal Reference",
+                    value: (
+                      <span className="font-bold text-primary">
+                        {clearance.proposalReference}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Type of Ethical Clearance",
+                    value: (
+                      <Badge
+                        variant="outline"
+                        className="font-bold border-primary/20"
+                      >
+                        {typeLabel[clearance.type]}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    label: "Name of Organization / IRB",
+                    value: (
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        {clearance.organization}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Date of Application",
+                    value: (
+                      <span className="flex items-center gap-1.5">
+                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                        {new Date(
+                          clearance.dateOfApplication,
+                        ).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Approval Date",
+                    value: clearance.approvalDate ? (
+                      <span className="flex items-center gap-1.5 text-primary font-bold">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {new Date(clearance.approvalDate).toLocaleDateString(
+                          "en-GB",
+                          { day: "numeric", month: "long", year: "numeric" },
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50 italic text-xs">
+                        Pending approval
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Expiry Date",
+                    value: clearance.expiryDate ? (
+                      <span
+                        className={cn(
+                          "flex items-center gap-1.5 font-bold",
+                          isExpired ? "text-rose-600" : "text-primary",
+                        )}
+                      >
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {new Date(clearance.expiryDate).toLocaleDateString(
+                          "en-GB",
+                          { day: "numeric", month: "long", year: "numeric" },
+                        )}
+                        {isExpired ? " (Expired)" : ""}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/50 italic text-xs">
+                        Not set
+                      </span>
+                    ),
+                  },
                 ].map(({ label, value }) => (
                   <div key={label}>
-                    <dt className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">{label}</dt>
+                    <dt className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">
+                      {label}
+                    </dt>
                     <dd className="text-sm font-medium">{value}</dd>
                   </div>
                 ))}
@@ -185,11 +390,19 @@ export default function EthicalClearanceDetailPage() {
                     <FileText className="h-4 w-4 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">{clearance.requestingFile}</p>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">Requesting File / Application</p>
+                    <p className="text-sm font-bold">
+                      {clearance.requestingFile}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">
+                      Requesting File / Application
+                    </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                >
                   <Download className="h-3.5 w-3.5 mr-1" />
                   Download
                 </Button>
@@ -203,11 +416,19 @@ export default function EthicalClearanceDetailPage() {
                       <ShieldCheck className="h-4 w-4 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold">{clearance.clearanceFile}</p>
-                      <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wide">Approved Clearance Certificate</p>
+                      <p className="text-sm font-bold">
+                        {clearance.clearanceFile}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wide">
+                        Approved Clearance Certificate
+                      </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
                     <Download className="h-3.5 w-3.5 mr-1" />
                     Download
                   </Button>
@@ -215,7 +436,9 @@ export default function EthicalClearanceDetailPage() {
               ) : (
                 <div className="p-6 text-center">
                   <ShieldCheck className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground italic">Clearance certificate will appear here once approved.</p>
+                  <p className="text-xs text-muted-foreground italic">
+                    Clearance certificate will appear here once approved.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -225,48 +448,96 @@ export default function EthicalClearanceDetailPage() {
         {/* Sidebar */}
         <aside className="space-y-4 sticky top-20 self-start">
           <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className={cn("py-6 text-center text-white", clearance.status === "approved" ? "bg-emerald-600" : clearance.status === "rejected" ? "bg-rose-600" : clearance.status === "expired" ? "bg-amber-600" : "bg-primary")}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mb-2">Clearance Record</p>
-              <p className="text-2xl font-black">{clearance.proposalReference}</p>
+            <CardHeader
+              className={cn(
+                "py-6 text-center text-white",
+                clearance.status === "approved"
+                  ? "bg-emerald-600"
+                  : clearance.status === "rejected"
+                    ? "bg-rose-600"
+                    : clearance.status === "expired"
+                      ? "bg-amber-600"
+                      : "bg-primary",
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80 mb-2">
+                Clearance Record
+              </p>
+              <p className="text-2xl font-black">
+                {clearance.proposalReference}
+              </p>
               <Badge className="mt-2 bg-white/20 text-white border-white/30 text-[9px] font-bold uppercase">
                 {clearance.type.replace(/_/g, " ")}
               </Badge>
             </CardHeader>
             <CardContent className="pt-5 space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Status</span>
-                <Badge className={cn("border text-[10px] font-bold shadow-none", cfg.color)}>
+                <span className="text-muted-foreground font-medium">
+                  Status
+                </span>
+                <Badge
+                  className={cn(
+                    "border text-[10px] font-bold shadow-none",
+                    cfg.color,
+                  )}
+                >
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {cfg.label}
                 </Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Organization</span>
-                <span className="font-bold text-right max-w-[140px] text-right text-xs leading-tight">{clearance.organization}</span>
+                <span className="text-muted-foreground font-medium">
+                  Organization
+                </span>
+                <span className="font-bold max-w-35 text-right text-xs leading-tight">
+                  {clearance.organization}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Applied</span>
-                <span className="font-bold text-xs">{new Date(clearance.dateOfApplication).toLocaleDateString("en-GB")}</span>
+                <span className="text-muted-foreground font-medium">
+                  Applied
+                </span>
+                <span className="font-bold text-xs">
+                  {new Date(clearance.dateOfApplication).toLocaleDateString(
+                    "en-GB",
+                  )}
+                </span>
               </div>
               {clearance.approvalDate && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground font-medium">Approved</span>
-                  <span className="font-bold text-xs text-emerald-600">{new Date(clearance.approvalDate).toLocaleDateString("en-GB")}</span>
+                  <span className="text-muted-foreground font-medium">
+                    Approved
+                  </span>
+                  <span className="font-bold text-xs text-emerald-600">
+                    {new Date(clearance.approvalDate).toLocaleDateString(
+                      "en-GB",
+                    )}
+                  </span>
                 </div>
               )}
               {clearance.expiryDate && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground font-medium">Expires</span>
-                  <span className={cn("font-bold text-xs", isExpired ? "text-rose-600" : "text-emerald-600")}>{new Date(clearance.expiryDate).toLocaleDateString("en-GB")}</span>
+                  <span className="text-muted-foreground font-medium">
+                    Expires
+                  </span>
+                  <span
+                    className={cn(
+                      "font-bold text-xs",
+                      isExpired ? "text-rose-600" : "text-emerald-600",
+                    )}
+                  >
+                    {new Date(clearance.expiryDate).toLocaleDateString("en-GB")}
+                  </span>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {(clearance.status === "pending" || clearance.status === "under_review") && (
+          {(clearance.status === "pending" ||
+            clearance.status === "under_review") && (
             <Button
               className="w-full bg-emerald-600 hover:bg-emerald-700 h-11"
-              onClick={() => router.push(`/research/ethical-clearance/${id}/approve`)}
+              onClick={() => setIsClearanceModalOpen(true)}
             >
               <ShieldCheck className="mr-2 h-4 w-4" />
               Process Clearance
@@ -274,6 +545,234 @@ export default function EthicalClearanceDetailPage() {
           )}
         </aside>
       </div>
+
+      <Dialog
+        open={isClearanceModalOpen}
+        onOpenChange={setIsClearanceModalOpen}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>IRB Decision</DialogTitle>
+            <DialogDescription>
+              Record the IRB decision and upload the clearance file if approved.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">IRB Decision</label>
+              <select
+                value={irbDecision}
+                onChange={(e) => setIrbDecision(e.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select decision</option>
+                <option value="approved">Approved</option>
+                <option value="conditionally_approved">
+                  Conditionally Approved
+                </option>
+                <option value="deferred">Deferred</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Clearance Type</label>
+              <select
+                value={clearanceTypeState}
+                onChange={(e) =>
+                  setClearanceTypeState(e.target.value as ClearanceType)
+                }
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Select type</option>
+                {Object.entries(typeLabel).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Clearance Office</label>
+              <input
+                value={clearanceOffice}
+                onChange={(e) => setClearanceOffice(e.target.value)}
+                placeholder="e.g., EPHI IRB"
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+
+            {irbDecision === "approved" && (
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium">Clearance File</label>
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Required
+                  </span>
+                </div>
+
+                {!clearanceFile ? (
+                  <div
+                    className={cn(
+                      "rounded-xl border-2 border-dashed p-5 transition-colors",
+                      isClearanceFileDragging
+                        ? "border-primary bg-primary/5"
+                        : "border-muted-foreground/25 hover:border-primary/40 hover:bg-muted/30",
+                    )}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsClearanceFileDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsClearanceFileDragging(false);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsClearanceFileDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) setClearanceFile(file);
+                    }}
+                    onClick={() =>
+                      document.getElementById("clearance-file-input")?.click()
+                    }
+                  >
+                    <input
+                      id="clearance-file-input"
+                      type="file"
+                      accept=".pdf,.doc,.docx,image/*"
+                      onChange={(e) =>
+                        setClearanceFile(e.target.files?.[0] || null)
+                      }
+                      className="hidden"
+                    />
+
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-full bg-muted p-3">
+                        <Paperclip className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">
+                          {isClearanceFileDragging
+                            ? "Drop the file here"
+                            : "Click to upload or drag and drop"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PDF, DOC, DOCX, or image. Required when approved.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border bg-card p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="rounded-lg bg-primary/10 p-3">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">
+                            {clearanceFile.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {((clearanceFile.size || 0) / 1024 / 1024).toFixed(
+                              2,
+                            )}{" "}
+                            MB
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Uploaded clearance file
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <a href="#" className="text-sm text-primary">
+                          Preview
+                        </a>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setClearanceFile(null)}
+                          aria-label="Remove clearance file"
+                        >
+                          <XCircle className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsClearanceModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!irbDecision || !clearanceTypeState || !clearanceOffice) {
+                  toast.error(
+                    "Please complete the decision, type and office fields.",
+                  );
+                  return;
+                }
+                if (irbDecision === "approved" && !clearanceFile) {
+                  toast.error(
+                    "Please upload the clearance file for an approved decision.",
+                  );
+                  return;
+                }
+
+                // Update local mock clearance record
+                setClearance((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        status:
+                          irbDecision === "approved"
+                            ? "approved"
+                            : irbDecision === "rejected"
+                              ? "rejected"
+                              : "under_review",
+                        type: clearanceTypeState || prev.type,
+                        organization: clearanceOffice || prev.organization,
+                        clearanceFile: clearanceFile
+                          ? clearanceFile.name
+                          : prev.clearanceFile,
+                        approvalDate:
+                          irbDecision === "approved"
+                            ? new Date().toISOString()
+                            : prev.approvalDate,
+                      }
+                    : prev,
+                );
+
+                toast.success("IRB decision recorded.");
+                setIsClearanceModalOpen(false);
+              }}
+            >
+              Save Decision
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }

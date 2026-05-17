@@ -175,12 +175,23 @@ const navigationGroups: NavGroup[] = [
         href: "/research/ethical-clearance",
         icon: FileCheck2,
       },
-      { label: "Monitoring", href: "/research/monitoring", icon: Activity },
-      {
-        label: "Final Report",
-        href: "/research/reports",
-        icon: BarChart3,
-      },
+      { label: "Monitoring", icon: Activity, subItems: [
+        {
+          label: "Progress Report",
+          href: "/research/monitoring/progress-report",
+          icon: Dot,
+        },
+        {
+          label: "Progress Report Approval",
+          href: "/research/monitoring/progress-report-approval",
+          icon: Dot,
+        },
+        {
+          label: "Terminal Report Approval",
+          href: "/research/monitoring/terminal-report-approval",
+          icon: Dot,
+        }
+      ]},
       {
         label: "Research Repository",
         href: "/research/repository",

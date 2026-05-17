@@ -5,21 +5,22 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { 
-  ArrowLeft, 
-  Upload, 
-  BookOpen, 
-  User, 
-  Building2, 
-  Calendar, 
-  Tag, 
+import {
+  ArrowLeft,
+  Upload,
+  BookOpen,
+  User,
+  Building2,
+  Calendar,
+  Tag,
   FileUp,
   X,
-  Plus,
   Send,
   Library,
   GraduationCap,
-  Scale
+  Scale,
+  Check,
+  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -60,6 +67,7 @@ const formSchema = z.object({
 export default function AddExternalResearchPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,11 +89,15 @@ export default function AddExternalResearchPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      toast.success("External research added to repository!");
-      setTimeout(() => router.push("/research/external-research"), 2000);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      toast.success("External research successfully ingested into repository!");
+      router.push("/research/external-research");
     } catch (error) {
       toast.error("Failed to add research.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -94,52 +106,72 @@ export default function AddExternalResearchPage() {
       title="Add External Research"
       description="Manually ingest external findings into the PSR Repository"
       actions={
-        <Button variant="outline" onClick={() => router.back()}>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/research/external-research")}
+          className="shadow-sm bg-white"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
       }
     >
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="grid gap-8 md:grid-cols-[1fr_350px]">
-              
-              {/* Primary Information */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-[1fr_350px]">
+              {/* Left Column: Form Fields */}
               <div className="space-y-6">
-                <Card className="border-none shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-black tracking-tight flex items-center gap-2">
+                <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden ">
+                  <CardHeader className="border-b pb-4">
+                    <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
                       <Library className="h-5 w-5 text-primary" />
                       Research Metadata
                     </CardTitle>
+                    <CardDescription>
+                      Record primary indexing details and academic parameters.
+                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-6 pt-6">
+                    {/* Research Title */}
                     <FormField
                       control={form.control}
                       name="title"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Research Title</FormLabel>
+                          <FormLabel className="text-xs font-bold text-slate-700">
+                            Research Title
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., Impact of climate change on health..." className="h-12 rounded-xl" {...field} />
+                            <Input
+                              placeholder="e.g., Global Trends in Antimicrobial Resistance..."
+                              className="h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
 
+                    {/* Authors & Publisher */}
                     <div className="grid md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="authors"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Authors</FormLabel>
+                            <FormLabel className="text-xs font-bold text-slate-700">
+                              Authors
+                            </FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Separated by commas..." className="pl-10 h-11 rounded-xl" {...field} />
+                                <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
+                                <Input
+                                  placeholder="Separated by commas..."
+                                  className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                  {...field}
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -151,11 +183,17 @@ export default function AddExternalResearchPage() {
                         name="institution"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Institution</FormLabel>
+                            <FormLabel className="text-xs font-bold text-slate-700">
+                              Publisher / Source Institution
+                            </FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="e.g., Addis Ababa University" className="pl-10 h-11 rounded-xl" {...field} />
+                                <Building2 className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
+                                <Input
+                                  placeholder="e.g., World Health Organization"
+                                  className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                  {...field}
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -164,17 +202,24 @@ export default function AddExternalResearchPage() {
                       />
                     </div>
 
+                    {/* Year, Type & Evidence Grade */}
                     <div className="grid md:grid-cols-3 gap-6">
                       <FormField
                         control={form.control}
                         name="year"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Year</FormLabel>
+                            <FormLabel className="text-xs font-bold text-slate-700">
+                              Publication Year
+                            </FormLabel>
                             <FormControl>
                               <div className="relative">
-                                <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="2024" className="pl-10 h-11 rounded-xl" {...field} />
+                                <Calendar className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
+                                <Input
+                                  placeholder="2024"
+                                  className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                  {...field}
+                                />
                               </div>
                             </FormControl>
                             <FormMessage />
@@ -186,18 +231,27 @@ export default function AddExternalResearchPage() {
                         name="type"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Research Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormLabel className="text-xs font-bold text-slate-700">
+                              Research Type
+                            </FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
                               <FormControl>
-                                <SelectTrigger className="h-11 rounded-xl">
+                                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm">
                                   <SelectValue placeholder="Select Type" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
+                              <SelectContent className="rounded-xl border-primary/10 shadow-lg">
                                 <SelectItem value="report">Report</SelectItem>
-                                <SelectItem value="manuscript">Manuscript</SelectItem>
+                                <SelectItem value="manuscript">
+                                  Manuscript
+                                </SelectItem>
                                 <SelectItem value="thesis">Thesis</SelectItem>
-                                <SelectItem value="policy_brief">Policy Brief</SelectItem>
+                                <SelectItem value="policy_brief">
+                                  Policy Brief
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -209,16 +263,31 @@ export default function AddExternalResearchPage() {
                         name="gradedEvidence"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Graded Evidence</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormLabel className="text-xs font-bold text-slate-700">
+                              Evidence Grade
+                            </FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
                               <FormControl>
-                                <SelectTrigger className="h-11 rounded-xl">
+                                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm">
                                   <SelectValue placeholder="Select Grade" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="good" className="text-emerald-600 font-bold">Good Quality</SelectItem>
-                                <SelectItem value="bad" className="text-rose-600 font-bold">Poor Quality</SelectItem>
+                              <SelectContent className="rounded-xl border-primary/10 shadow-lg">
+                                <SelectItem value="good">
+                                  <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    Verified Good
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="bad">
+                                  <span className="text-rose-700 font-semibold flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                    Poor Grade
+                                  </span>
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -227,16 +296,23 @@ export default function AddExternalResearchPage() {
                       />
                     </div>
 
+                    {/* Keywords tags */}
                     <FormField
                       control={form.control}
                       name="keywords"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Keywords</FormLabel>
+                          <FormLabel className="text-xs font-bold text-slate-700">
+                            Keywords / Tags
+                          </FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Tag className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="e.g., Health, Climate, Ethiopia" className="pl-10 h-11 rounded-xl" {...field} />
+                              <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
+                              <Input
+                                placeholder="e.g., AMR, Policy, Global Health (separated by commas)..."
+                                className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                {...field}
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -247,62 +323,111 @@ export default function AddExternalResearchPage() {
                 </Card>
               </div>
 
-              {/* Sidebar: File Upload & Actions */}
+              {/* Right Column: File Upload & Submission */}
               <div className="space-y-6">
-                <Card className="border-none shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Research File</CardTitle>
+                {/* File Upload card */}
+                <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden">
+                  <CardHeader className="border-b pb-4">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                      Research File
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className={cn(
-                      "border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer group",
-                      file ? "border-emerald-500 bg-emerald-50/30" : "border-muted-foreground/20 hover:bg-primary/5"
-                    )}>
-                      <input 
-                        type="file" 
-                        id="external-research-upload" 
-                        className="hidden" 
+                  <CardContent className="space-y-4 pt-6">
+                    {/* File Dropzone */}
+                    <div
+                      className={cn(
+                        "border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer group relative overflow-hidden",
+                        file
+                          ? "border-emerald-500/50 bg-emerald-50/15"
+                          : "border-muted-foreground/25 hover:border-primary/50 hover:bg-slate-50/50",
+                      )}
+                    >
+                      <input
+                        type="file"
+                        id="external-research-upload"
+                        className="hidden"
                         onChange={(e) => setFile(e.target.files?.[0] || null)}
                       />
-                      <label htmlFor="external-research-upload" className="cursor-pointer space-y-2">
-                        <FileUp className={cn("h-8 w-8 mx-auto transition-transform group-hover:scale-110", file ? "text-emerald-500" : "text-muted-foreground/40")} />
-                        <p className="text-[11px] font-black uppercase tracking-tighter">
-                          {file ? file.name : "Upload Research File"}
-                        </p>
+                      <label
+                        htmlFor="external-research-upload"
+                        className="cursor-pointer space-y-3 block"
+                      >
+                        <FileUp
+                          className={cn(
+                            "h-8 w-8 mx-auto transition-all duration-300",
+                            file
+                              ? "text-emerald-500 scale-110"
+                              : "text-muted-foreground/40 group-hover:scale-115 group-hover:text-primary",
+                          )}
+                        />
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-800">
+                            {file ? "File Uploaded" : "Upload Document"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {file
+                              ? file.name
+                              : "Drag & drop or browse PDF / Word"}
+                          </p>
+                        </div>
                       </label>
                     </div>
 
+                    {/* PDF Visual Card Indicator */}
                     {file && (
-                       <Button 
-                         variant="ghost" 
-                         size="sm" 
-                         className="w-full text-rose-600 hover:bg-rose-50 font-bold text-[10px]"
-                         onClick={() => setFile(null)}
-                       >
-                         <X className="h-3 w-3 mr-2" /> REMOVE FILE
-                       </Button>
+                      <div className="flex items-center justify-between p-3.5 border border-emerald-100 bg-emerald-50/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground font-medium">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg hover:bg-rose-50 text-rose-500"
+                          onClick={() => setFile(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     )}
 
-                    <div className="pt-4">
-                      <Button 
-                        type="submit" 
-                        className="w-full h-12 text-sm font-black bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 rounded-xl group"
+                    {/* Submit Actions */}
+                    <div className="pt-4 border-t border-slate-100">
+                      <Button
+                        type="submit"
+                        disabled={isSubmitting || !file}
+                        className="w-full h-11 text-xs font-bold uppercase tracking-wider text-white bg-primary hover:bg-primary/95 shadow-md shadow-primary/25 hover:shadow-lg rounded-xl transition-all"
                       >
-                        <Send className="mr-2 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                        Ingest Research
+                        {isSubmitting
+                          ? "Ingesting..."
+                          : "Ingest Research Document"}
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-muted/30">
+                {/* Guidelines sidebar card */}
+                <Card className="border border-muted-foreground/10 shadow-sm bg-slate-50/40 rounded-[1.5rem]">
                   <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <GraduationCap className="h-5 w-5 text-primary" />
-                      <p className="text-xs font-bold">Evidence Standards</p>
+                    <div className="flex items-center gap-3 text-slate-800">
+                      <GraduationCap className="h-5 w-5 text-primary shrink-0" />
+                      <p className="text-xs font-bold uppercase tracking-wide">
+                        Evidence Guidelines
+                      </p>
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      External research is graded based on the **PSR Quality Matrix**. Ensure authors and year are accurately recorded for citation purposes.
+                      External research works are indexed in compliance with the
+                      **PSR Quality Indexing Framework**. Double check that Year
+                      and Authors represent academic guidelines to guarantee
+                      correct APA/MLA bibliography generations in referencing
+                      dashboards.
                     </p>
                   </CardContent>
                 </Card>
