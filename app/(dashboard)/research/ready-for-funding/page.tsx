@@ -227,19 +227,7 @@ export default function ReadyForFundingPage() {
         </div>
 
         {/* Table Section */}
-        <Card className="border-none shadow-sm overflow-hidden bg-white">
-          <CardHeader className="border-b bg-muted/20 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold">Approved Proposals</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Manage and authorize funding for cleared research</p>
-              </div>
-              <Badge variant="outline" className="bg-white font-bold border-primary/20">
-                {proposals.length} Proposals Total
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
+
             {isLoading ? (
               <div className="p-8 space-y-4">
                 <Skeleton className="h-10 w-full" />
@@ -257,8 +245,7 @@ export default function ReadyForFundingPage() {
                 emptyDescription="No proposals have been approved by the ROC board yet."
               />
             )}
-          </CardContent>
-        </Card>
+
       </div>
     </PageContainer>
   );

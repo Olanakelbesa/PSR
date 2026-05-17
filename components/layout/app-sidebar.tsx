@@ -171,7 +171,7 @@ const navigationGroups: NavGroup[] = [
         icon: DollarSign,
       },
       {
-        label: "Ethical Clearance",
+        label: "IRB",
         href: "/research/ethical-clearance",
         icon: FileCheck2,
       },

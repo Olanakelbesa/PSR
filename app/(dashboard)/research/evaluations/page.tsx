@@ -25,9 +25,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageContainer } from '@/components/layout'
-import { evaluationsApi } from '@/lib/api/client'
+import { proposalsApi } from '@/lib/api/client'
+import { mockProposals } from '@/lib/api/mock-data'
 import { THEMATIC_AREAS } from '@/lib/constants'
-import type { Evaluation } from '@/lib/types'
+import type { ResearchProposal } from '@/lib/types'
+
+type EvaluationRow = {
+  id: string;
+  proposalTitle: string;
+  proposalReference: string;
+  principalInvestigator: string;
+  thematicArea: string;
+  deadline: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  score?: number;
+  recommendation?: 'approve' | 'revise' | 'reject';
+};
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline'; icon: typeof Clock }> = {
   pending: { label: 'Pending', variant: 'outline', icon: Clock },
@@ -35,7 +48,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   completed: { label: 'Completed', variant: 'default', icon: CheckCircle2 },
 }
 
-function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
+function EvaluationCard({ evaluation }: { evaluation: EvaluationRow }) {
   const status = statusConfig[evaluation.status] || statusConfig.pending
   const StatusIcon = status.icon
   const deadline = new Date(evaluation.deadline)
@@ -129,7 +142,7 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
 }
 
 export default function EvaluationsPage() {
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([])
+  const [evaluations, setEvaluations] = useState<EvaluationRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -137,12 +150,61 @@ export default function EvaluationsPage() {
   useEffect(() => {
     async function loadEvaluations() {
       try {
-        const response = await evaluationsApi.getAssigned()
-        if (response.success && response.data) {
-          setEvaluations(response.data)
+        const response = await proposalsApi.getProposals(
+          { status: 'under_review' },
+          { page: 1, pageSize: 100 },
+        )
+
+        const sourceProposals =
+          response.data.length > 0
+            ? response.data
+            : mockProposals.filter(
+                (proposal) =>
+                  proposal.status === 'under_review' ||
+                  proposal.status === 'completed' ||
+                  proposal.reviews.length > 0,
+              )
+
+        setEvaluations(
+          sourceProposals.map((proposal: ResearchProposal) => {
+            const latestReview = proposal.reviews?.[0];
+
+            return {
+              id: proposal.id,
+              proposalTitle: proposal.title,
+              proposalReference: proposal.id.replace('prop-', 'PRP-').toUpperCase(),
+              principalInvestigator: `${proposal.principalInvestigator.firstName} ${proposal.principalInvestigator.lastName}`,
+              thematicArea: proposal.researchArea,
+              deadline:
+                proposal.submittedAt || proposal.updatedAt || proposal.createdAt,
+              status:
+                proposal.status === 'completed'
+                  ? 'completed'
+                  : proposal.status === 'under_review'
+                    ? 'in_progress'
+                    : 'pending',
+              score: latestReview?.overallScore,
+              recommendation: latestReview?.recommendation,
+            }
+          }),
+        )
         }
       } catch (error) {
         console.error('Failed to load evaluations:', error)
+        const fallbackRows = mockProposals
+          .filter((proposal) => proposal.status === 'under_review')
+          .map((proposal) => ({
+            id: proposal.id,
+            proposalTitle: proposal.title,
+            proposalReference: proposal.id.replace('prop-', 'PRP-').toUpperCase(),
+            principalInvestigator: `${proposal.principalInvestigator.firstName} ${proposal.principalInvestigator.lastName}`,
+            thematicArea: proposal.researchArea,
+            deadline: proposal.submittedAt || proposal.updatedAt || proposal.createdAt,
+            status: 'in_progress' as const,
+            score: proposal.reviews?.[0]?.overallScore,
+            recommendation: proposal.reviews?.[0]?.recommendation,
+          }))
+        setEvaluations(fallbackRows)
       } finally {
         setIsLoading(false)
       }
