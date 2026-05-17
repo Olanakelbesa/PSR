@@ -188,7 +188,6 @@ export default function EvaluationsPage() {
             }
           }),
         )
-        }
       } catch (error) {
         console.error('Failed to load evaluations:', error)
         const fallbackRows = mockProposals

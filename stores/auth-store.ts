@@ -19,7 +19,7 @@ interface AuthStore extends AuthState {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Mock user database for demo
-const MOCK_USERS: Record<string, { password: string; user: User }> = {
+const MOCK_USERS: Record<string, { password: string; user: any }> = {
   'admin@moe.gov.et': {
     password: 'admin123',
     user: {

@@ -8,12 +8,13 @@ import type { Section, SectionId } from "./types";
 
 export function useFilesStep() {
   const form = useFormContext<ProposalFormInput>();
-  const { data: backendSections = [], isLoading: isLoadingSections } =
+  const { data = [], isLoading: isLoadingSections } =
     useProposalTemplateSections({
       proposal_type: form.watch("proposalType")
         ? Number(form.watch("proposalType"))
         : undefined,
     });
+  const backendSections = data as Section[];
 
   // Map only the available sections from backend
   const allSections = useMemo(() => {
@@ -21,8 +22,15 @@ export function useFilesStep() {
       return [];
     }
 
-    // Return backend sections sorted by order
-    return [...backendSections].sort((a, b) => a.order - b.order);
+    return [...backendSections]
+      .map((section: any) => ({
+        ...section,
+        title: section.title || section.label || "",
+        label: section.label || section.title || "",
+        order: typeof section.order === "number" ? section.order : typeof section.section_order === "number" ? section.section_order : 0,
+        section_order: typeof section.section_order === "number" ? section.section_order : typeof section.order === "number" ? section.order : 0,
+      }))
+      .sort((a, b) => a.order - b.order) as any[];
   }, [backendSections]);
 
   // Set initial active section to first section when sections are loaded

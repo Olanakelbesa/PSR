@@ -1304,7 +1304,7 @@ export const mockProjects: ResearchProject[] = [
       { id: "ms-3", title: "Final Deliverable", description: "Submit Final Research Report", dueDate: "2025-02-15", status: "delayed" },
     ],
     progressReports: [
-      { id: "pr-1", projectId: "proj-002", reportingPeriod: "Q1 2024", activitiesCompleted: "Initial assessment done.", challenges: "Procurement delays.", nextSteps: "Start design phase.", budgetSpent: 120000, status: "approved", submittedAt: "2024-05-10T00:00:00Z", createdAt: "2024-05-01T00:00:00Z" },
+      { id: "pr-1", projectId: "proj-002", reportingPeriod: "Q1 2024", activitiesCompleted: "Initial assessment done.", challenges: "Procurement delays.", nextSteps: "Start design phase.", budgetSpent: 120000, status: "approved", submittedAt: "2024-05-10T00:00:00Z", createdAt: "2024-05-01T00:00:00Z", attachments: [] },
     ],
     budgetUtilization: {
       allocated: 1250000,

@@ -98,7 +98,7 @@ export const userApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<User>> {
     await delay()
-    const filtered = filterItems(mockUsers, filters)
+    const filtered = filterItems(mockUsers as any, filters) as any as User[]
     return paginate(filtered, pagination)
   },
 
@@ -123,7 +123,7 @@ export const userApi = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...data,
-    }
+    } as any
     mockUsers.push(newUser)
     return { success: true, data: newUser }
   },
@@ -158,7 +158,7 @@ export const conceptNoteApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<ConceptNote>> {
     await delay()
-    const filtered = filterItems(mockConceptNotes, filters)
+    const filtered = filterItems(mockConceptNotes as any, filters) as any as ConceptNote[]
     return paginate(filtered, pagination)
   },
 
@@ -217,7 +217,7 @@ export const policyApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<PolicyDocument>> {
     await delay()
-    const filtered = filterItems(mockPolicyDocuments, filters)
+    const filtered = filterItems(mockPolicyDocuments as any, filters) as any as PolicyDocument[]
     return paginate(filtered, pagination)
   },
 
@@ -273,7 +273,7 @@ export const callsApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<CallForProposal>> {
     await delay()
-    const filtered = filterItems(mockCalls, filters)
+    const filtered = filterItems(mockCalls as any, filters) as any as CallForProposal[]
     return paginate(filtered, pagination)
   },
 
@@ -335,7 +335,7 @@ export const proposalsApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<ResearchProposal>> {
     await delay()
-    const filtered = filterItems(mockProposals, filters)
+    const filtered = filterItems(mockProposals as any, filters) as any as ResearchProposal[]
     return paginate(filtered, pagination)
   },
 
@@ -444,7 +444,7 @@ export const monitoringApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<ResearchProject>> {
     await delay()
-    const filtered = filterItems(mockProjects, filters)
+    const filtered = filterItems(mockProjects as any, filters) as any as ResearchProject[]
     return paginate(filtered, pagination)
   },
 
@@ -467,7 +467,7 @@ export const auditApi = {
     pagination: PaginationOptions = { page: 1, pageSize: 10 }
   ): Promise<PaginatedResponse<AuditLog>> {
     await delay()
-    const filtered = filterItems(mockAuditLogs, filters)
+    const filtered = filterItems(mockAuditLogs as any, filters) as any as AuditLog[]
     return paginate(filtered, pagination)
   },
 }

@@ -117,6 +117,7 @@ export const CALL_STATUSES: Record<
   open: { label: "Open", color: "bg-green-100 text-green-800" },
   closed: { label: "Closed", color: "bg-red-100 text-red-800" },
   cancelled: { label: "Cancelled", color: "bg-slate-100 text-slate-800" },
+  closing_soon: { label: "Closing Soon", color: "bg-amber-100 text-amber-800" },
 };
 
 // Navigation Configuration

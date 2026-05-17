@@ -85,7 +85,7 @@ export function GrantCallInformationSection({
    * ------------------------------------------------------------------ */
 
   const proposalTypeOptions = useMemo(() => {
-    const data = proposalOptionsData?.data?.proposal_type;
+    const data = proposalOptionsData?.proposal_type;
     if (!data) return [];
 
     if (data.options?.length) return data.options;
@@ -95,7 +95,7 @@ export function GrantCallInformationSection({
   }, [proposalOptionsData]);
 
   const subCallOptions = useMemo<ProposalOption[]>(() => {
-    return proposalOptionsData?.data?.subcall?.options ?? [];
+    return proposalOptionsData?.subcall?.options ?? [];
   }, [proposalOptionsData]);
 
   /* ------------------------------------------------------------------

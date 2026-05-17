@@ -46,8 +46,20 @@ import {
 } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { PageContainer } from '@/components/layout'
-import { auditLogsApi } from '@/lib/api/client'
-import type { AuditLog } from '@/lib/types'
+import { auditApi } from '@/lib/api/client'
+interface AuditLog {
+  id: string;
+  action: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  resource: string;
+  resourceId: string;
+  details: string;
+  ipAddress: string;
+  userAgent: string;
+  timestamp: string;
+}
 
 const actionIcons: Record<string, typeof FileText> = {
   login: LogIn,

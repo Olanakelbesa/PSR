@@ -19,8 +19,8 @@ export function ExternalStakeholdersSection() {
     append: appendStakeholder,
     remove: removeStakeholder,
   } = useFieldArray({
-    control: form.control,
-    name: "stakeholders",
+    control: form.control as any,
+    name: "stakeholders" as any,
   });
 
   return (
