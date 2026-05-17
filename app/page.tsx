@@ -25,6 +25,7 @@ import {
   MessageSquare,
   PlusCircle,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -109,9 +110,9 @@ export default function LandingPage() {
       {/* Navigation */}
       <header
         className={cn(
-          "fixed top-0 w-full z-50 transition-all duration-300 h-20",
+          "fixed top-0 w-full z-50 transition-all duration-300 h-20 border-b",
           isScrolled
-            ? "border-b bg-background/80 backdrop-blur-xl"
+            ? "bg-background/80 backdrop-blur-xl"
             : "bg-transparent",
         )}
       >
@@ -123,9 +124,7 @@ export default function LandingPage() {
               )}
             >
               <FileText
-                className={cn(
-                  "text-primary-foreground transition-all h-5 w-5",
-                )}
+                className={cn("text-primary-foreground transition-all h-5 w-5")}
               />
             </div>
             <div className="flex flex-col -space-y-0.5">
@@ -134,11 +133,11 @@ export default function LandingPage() {
                   "font-bold tracking-tighter uppercase transition-all text-xl",
                 )}
               >
-                PSR <span className="text-primary">Global</span>
+                PSR
               </span>
               {!isScrolled && (
                 <span className="text-[8px] font-bold text-muted-foreground tracking-[0.2em] uppercase">
-                  Intelligence Platform
+                  Platform
                 </span>
               )}
             </div>
@@ -199,11 +198,11 @@ export default function LandingPage() {
           <div className="container mx-auto px-4 pt-20 relative">
             <div className="max-w-4xl mx-auto text-center space-y-8">
               <h1 className="text-4xl md:text-7xl font-black tracking-tight leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                Data{" "}
+                Policy & Research{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-purple-700 bg-300%  animate-gradient">
-                  Driven
+                  Decision
                 </span>{" "}
-                Decision Intelligence.
+                Management.
               </h1>
 
               <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 opacity-90">
@@ -235,7 +234,12 @@ export default function LandingPage() {
             </div>
 
             {/* Dashboard Showcase */}
-            <RevealOnScroll className="mt-20 max-w-5xl mx-auto">
+            <motion.div
+              className="mt-20 max-w-5xl mx-auto"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+            >
               <div className="relative p-1.5 rounded-[2.5rem] bg-gradient-to-br from-primary/20 via-white/5 to-purple-500/20 shadow-xl ring-1 ring-white/10">
                 <div className="rounded-[2rem] border-4 border-background bg-card shadow-2xl overflow-hidden aspect-[16/10] relative group">
                   <div className="absolute inset-0 bg-gradient-to-t from-background/30 to-transparent z-10 pointer-events-none" />
@@ -243,13 +247,22 @@ export default function LandingPage() {
                     src="/psr_landing_hero.png"
                     alt="PSR Platform Dashboard Preview"
                     fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-[20s] ease-linear"
+                    className="object-cover group-hover:scale-105"
                     priority
                   />
 
                   {/* Floating Glass UI */}
                   <div className="absolute bottom-6 left-6 right-6 z-20 flex items-end justify-between">
-                    <div className="p-5 rounded-2xl bg-background/40 backdrop-blur-xl border border-white/20 shadow-xl space-y-2 max-w-xs animate-in slide-in-from-left-10 duration-700 delay-500">
+                    <motion.div
+                      className="p-5 rounded-2xl bg-background/40 backdrop-blur-xl border border-white/20 shadow-xl space-y-2 max-w-xs"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{
+                        duration: 0.7,
+                        delay: 0.2,
+                        ease: "easeOut",
+                      }}
+                    >
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-lg bg-primary shadow-md shadow-primary/20 flex items-center justify-center">
                           <PieChart className="h-4 w-4 text-primary-foreground" />
@@ -262,26 +275,32 @@ export default function LandingPage() {
                         Tracking over 1,200 research nodes in a unified
                         dashboard.
                       </p>
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
               </div>
-            </RevealOnScroll>
+            </motion.div>
           </div>
         </section>
 
         {/* Features / Modules Section */}
-        <section id="modules" className="p-24 bg-background relative border-t">
+        <section id="modules" className="p-24 bg-background relative">
           <div className="container mx-auto px-4">
             <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
-              <Badge variant="secondary" className="rounded-full px-4 py-1 text-[10px] font-bold tracking-widest uppercase">
+              <Badge
+                variant="secondary"
+                className="rounded-full px-4 py-1 text-[10px] font-bold tracking-widest uppercase"
+              >
                 Modules
               </Badge>
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
-                The Infrastructure for <span className="text-primary">Research & Policy</span>
+                The Infrastructure for{" "}
+                <span className="text-primary">Research & Policy</span>
               </h2>
               <p className="text-muted-foreground text-sm font-medium leading-relaxed">
-                A unified ecosystem designed to streamline institutional workflows, ensuring transparency, compliance, and impact tracking across every stage.
+                A unified ecosystem designed to streamline institutional
+                workflows, ensuring transparency, compliance, and impact
+                tracking across every stage.
               </p>
             </RevealOnScroll>
 
@@ -289,7 +308,8 @@ export default function LandingPage() {
               {[
                 {
                   title: "Policy Repository",
-                  description: "Centralized management of institutional policies with intelligent neural search and versioning.",
+                  description:
+                    "Centralized management of institutional policies with intelligent neural search and versioning.",
                   icon: FileText,
                   color: "text-blue-600",
                   bg: "bg-blue-50",
@@ -298,7 +318,8 @@ export default function LandingPage() {
                 },
                 {
                   title: "Research Proposals",
-                  description: "Full-lifecycle grant management from call publication to automated funding disbursement.",
+                  description:
+                    "Full-lifecycle grant management from call publication to automated funding disbursement.",
                   icon: BarChart3,
                   color: "text-purple-600",
                   bg: "bg-purple-50",
@@ -307,7 +328,8 @@ export default function LandingPage() {
                 },
                 {
                   title: "Ethics Clearance",
-                  description: "Rigorous ethical review workflows with multi-tier approval boards and audit trails.",
+                  description:
+                    "Rigorous ethical review workflows with multi-tier approval boards and audit trails.",
                   icon: ShieldCheck,
                   color: "text-emerald-600",
                   bg: "bg-emerald-50",
@@ -316,7 +338,8 @@ export default function LandingPage() {
                 },
                 {
                   title: "Impact Analysis",
-                  description: "AI-driven monitoring of policy implementation and community-wide research outcomes.",
+                  description:
+                    "AI-driven monitoring of policy implementation and community-wide research outcomes.",
                   icon: Users,
                   color: "text-orange-600",
                   bg: "bg-orange-50",
@@ -327,18 +350,24 @@ export default function LandingPage() {
                 <RevealOnScroll key={i} delay={feature.delay}>
                   <div className="group h-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500">
                     <div className="h-40 relative overflow-hidden">
-                      <Image 
-                        src={feature.image} 
-                        alt={feature.title} 
+                      <Image
+                        src={feature.image}
+                        alt={feature.title}
                         fill
                         className="object-cover transition-transform duration-700 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent opacity-60" />
-                      <div className={cn("absolute bottom-4 left-4 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10", feature.bg, feature.color)}>
+                      <div
+                        className={cn(
+                          "absolute bottom-4 left-4 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10",
+                          feature.bg,
+                          feature.color,
+                        )}
+                      >
                         <feature.icon className="h-5 w-5" />
                       </div>
                     </div>
-                    
+
                     <div className="p-8 space-y-4 flex-1 flex flex-col">
                       <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
                         {feature.title}
@@ -347,8 +376,8 @@ export default function LandingPage() {
                         {feature.description}
                       </p>
                       <div className="pt-6 border-t border-border/50">
-                        <Link 
-                          href="#" 
+                        <Link
+                          href="#"
                           className="inline-flex items-center text-xs font-bold text-primary hover:gap-2 transition-all"
                         >
                           Learn more <ChevronRight className="h-3 w-3 ml-1" />
@@ -423,7 +452,10 @@ export default function LandingPage() {
                 </Button>
               </RevealOnScroll>
 
-              <RevealOnScroll className="relative rotate-6 hover:rotate-3 transition-all duration-700" delay={200}>
+              <RevealOnScroll
+                className="relative rotate-6 hover:rotate-3 transition-all duration-700"
+                delay={200}
+              >
                 <div className="absolute inset-0 bg-primary/10 blur-[80px] rounded-full -z-10" />
                 <div className="rounded-[2.5rem] overflow-hidden border-4 border-background shadow-2xl rotate-2 hover:rotate-0 transition-all duration-700 group">
                   <Image
@@ -516,7 +548,7 @@ export default function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="py-24 container mx-auto px-4">
+        <section className="p-24 container mx-auto px-4">
           <RevealOnScroll className="rounded-[3rem] bg-primary px-8 py-20 text-center text-background relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
             <div className="max-w-3xl mx-auto space-y-10 relative z-10">

@@ -1,0 +1,30 @@
+export type {
+  User,
+  PolicyDocument,
+  ConceptNote,
+  Review,
+  ReviewCriteria,
+  ProposalStatus,
+  CallStatus,
+  CallForProposal,
+  ResearchProposal,
+  TeamMember,
+  Budget,
+  TimelineItem,
+  ProposalReview,
+  ResearchProject,
+  ProgressReport,
+  Milestone,
+  ResearchOutput,
+  AuditLog,
+  Notification,
+  TaxonomyItem,
+  Institution,
+  ApiResponse,
+  PaginatedResponse,
+  FilterOptions,
+  PaginationOptions,
+} from "@/lib/types";
+
+export type GrantCall = any;
+export type ProposalDetail = any;

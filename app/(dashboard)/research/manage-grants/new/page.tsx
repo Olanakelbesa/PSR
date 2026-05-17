@@ -1,647 +1,901 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useRef, useMemo } from "react";
+import Link from "next/link";
 import {
-  ArrowLeft,
-  Calendar,
+  ChevronLeft,
+  Save,
+  Send,
   Plus,
   Trash2,
-  FileText,
-  DollarSign,
-  AlertCircle,
-  Save,
-  Rocket,
-  Image,
+  Bold,
+  Italic,
+  Underline,
+  Link as LinkIcon,
+  List,
+  Image as ImageIcon,
+  Calendar as CalendarIcon,
   Upload,
+  Info,
+  Check,
+  FileUp,
+  FileText,
+  ChevronsUpDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { PageContainer } from "@/components/layout";
+import { Progress } from "@/components/ui/progress";
 import {
-  callForProposalSchema,
-  type CallForProposalFormData,
-} from "@/lib/validations";
-import { callsApi } from "@/lib/api/client";
-import { toast } from "sonner";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { PageContainer } from "@/components/layout";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import RichTextEditor from "@/components/RichTextEditor";
 
-export default function CreateCallPage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [priorityAreaInput, setPriorityAreaInput] = useState("");
-  const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [posterFile, setPosterFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState<string>("");
-  const [posterPreview, setPosterPreview] = useState<string>("");
+const PROPOSAL_TYPES = [
+  { value: "research", label: "Research" },
+  { value: "innovation", label: "Innovation" },
+  { value: "community", label: "Community Engagement" },
+  { value: "consultancy", label: "Consultancy" },
+  { value: "capacity-building", label: "Capacity Building" },
+  { value: "policy-review", label: "Policy Review" },
+];
 
-  const form = useForm<CallForProposalFormData>({
-    resolver: zodResolver(callForProposalSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      eligibilityCriteria: "",
-      priorityAreas: [],
-      budgetMin: 50000,
-      budgetMax: 500000,
-      submissionDeadline: "",
-      reviewDeadline: "",
-    },
-  });
+export default function NewGrantPage() {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("<p></p>");
+  const [eligibilityCriteria, setEligibilityCriteria] = useState("<p></p>");
+  const [openDate, setOpenDate] = useState("2025-01-01");
+  const [closeDate, setCloseDate] = useState("2025-06-01");
 
-  const priorityAreas = form.watch("priorityAreas");
+  const [installments, setInstallments] = useState([
+    { id: 1, percentage: 40 },
+    { id: 2, percentage: 30 },
+    { id: 3, percentage: 30 },
+  ]);
 
-  const addPriorityArea = () => {
-    if (
-      priorityAreaInput.trim() &&
-      !priorityAreas.includes(priorityAreaInput.trim())
-    ) {
-      form.setValue("priorityAreas", [
-        ...priorityAreas,
-        priorityAreaInput.trim(),
-      ]);
-      setPriorityAreaInput("");
-    }
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([
+    "research",
+    "innovation",
+  ]);
+  const [open, setOpen] = useState(false);
+
+  // Image Upload State
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [banner, setBanner] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+
+  // Supporting Documents State
+  const [documents, setDocuments] = useState<{ id: string; file: File }[]>([]);
+
+  // Refs for hidden inputs
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to normalize rich-text HTML into visible text.
+  const getCleanText = (html: string) => {
+    const normalized = html
+      .replace(/&nbsp;/g, " ")
+      .replace(/\u00a0/g, " ")
+      .replace(/<br\s*\/?>(?=\s*<\/p>)/gi, " ")
+      .replace(/<[^>]*>/g, " ");
+
+    return normalized.replace(/\s+/g, " ").trim();
   };
 
-  const removePriorityArea = (area: string) => {
-    form.setValue(
-      "priorityAreas",
-      priorityAreas.filter((a) => a !== area),
+  const hasMeaningfulContent = (html: string) => getCleanText(html).length > 0;
+
+  // Installment Logic
+  const addInstallment = () => {
+    const newId =
+      installments.length > 0
+        ? Math.max(...installments.map((i) => i.id)) + 1
+        : 1;
+    setInstallments([...installments, { id: newId, percentage: 0 }]);
+  };
+
+  const removeInstallment = (id: number) => {
+    setInstallments(installments.filter((i) => i.id !== id));
+  };
+
+  const updatePercentage = (id: number, value: string) => {
+    const percentage = parseInt(value) || 0;
+    setInstallments(
+      installments.map((i) => (i.id === id ? { ...i, percentage } : i)),
     );
   };
 
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const totalPercentage = installments.reduce(
+    (sum, i) => sum + i.percentage,
+    0,
+  );
+
+  // Progress Calculation
+  const progress = useMemo(() => {
+    let score = 0;
+    const totalWeight = 9;
+
+    if (title.trim().length > 3) score += 1;
+    if (hasMeaningfulContent(description)) score += 1;
+    if (hasMeaningfulContent(eligibilityCriteria)) score += 1;
+    if (selectedTypes.length > 0) score += 1;
+    if (thumbnail) score += 1;
+    if (banner) score += 1;
+    if (openDate) score += 1;
+    if (closeDate) score += 1;
+    if (totalPercentage === 100) score += 1;
+
+    return Math.round((score / totalWeight) * 100);
+  }, [
+    title,
+    description,
+    eligibilityCriteria,
+    selectedTypes,
+    thumbnail,
+    banner,
+    openDate,
+    closeDate,
+    totalPercentage,
+  ]);
+
+  const progressBlocks = Math.round(progress / 10);
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "thumbnail" | "banner",
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
-      setBannerFile(file);
-      form.setValue("banner", file);
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setBannerPreview(event.target?.result as string);
+      reader.onloadend = () => {
+        if (type === "thumbnail") {
+          setThumbnail(file);
+          setThumbnailPreview(reader.result as string);
+        } else {
+          setBanner(file);
+          setBannerPreview(reader.result as string);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPosterFile(file);
-      form.setValue("poster", file);
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setPosterPreview(event.target?.result as string);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setPosterPreview(file.name);
-      }
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newDocs = Array.from(files).map((file) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        file,
+      }));
+      setDocuments((prev) => [...prev, ...newDocs]);
     }
   };
 
-  const removeBanner = () => {
-    setBannerFile(null);
-    setBannerPreview("");
-    form.setValue("banner", undefined);
+  const removeDocument = (id: string) => {
+    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
   };
 
-  const removePoster = () => {
-    setPosterFile(null);
-    setPosterPreview("");
-    form.setValue("poster", undefined);
-  };
-
-  async function onSubmit(data: CallForProposalFormData) {
-    setIsLoading(true);
-    try {
-      const response = await callsApi.createCall(data);
-      if (response.success) {
-        toast.success("Research call created successfully");
-        router.push("/research/calls");
-      } else {
-        toast.error(response.message || "Failed to create research call");
-      }
-    } catch (error) {
-      console.error("Error creating call:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
+  const removeImage = (type: "thumbnail" | "banner") => {
+    if (type === "thumbnail") {
+      setThumbnail(null);
+      setThumbnailPreview(null);
+    } else {
+      setBanner(null);
+      setBannerPreview(null);
     }
-  }
+  };
+
+  const toggleType = (value: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
+    );
+  };
 
   return (
     <PageContainer
-      title="Create Research Call"
-      description="Launch a new call for research proposals to address ministry priority areas"
+      title="Create Grant Call"
+      description="Create and configure a new funding opportunity"
       actions={
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => router.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Cancel
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          asChild
+          className="h-8 text-muted-foreground hover:text-foreground"
+        >
+          <Link href="/research/manage-grants">
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Back
+          </Link>
+        </Button>
       }
     >
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_350px] xl:items-start">
-        <div className="space-y-6">
-          <Form {...form}>
-            <form className="space-y-6">
-              {/* Core Information */}
-              <Card className="shadow-sm border-primary/10">
-                <CardHeader className="bg-muted/30 border-b pb-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">
-                      Call Information
-                    </CardTitle>
-                  </div>
-                  <CardDescription>
-                    Primary identification and focus of the research call
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-5">
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-bold">Call Title</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g. National Assessment on Technical and Vocational Education Quality"
-                            className="h-11 shadow-sm focus-visible:ring-primary/20"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-bold">
-                          Detailed Description
-                        </FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Provide a comprehensive overview of the research needs and objectives..."
-                            className="min-h-[160px] resize-none shadow-sm"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Explain why this research is being commissioned and
-                          what it aims to solve.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Eligibility & Priorities */}
-              <Card className="shadow-sm border-primary/10">
-                <CardHeader className="bg-muted/30 border-b pb-4">
-                  <CardTitle className="text-base">
-                    Eligibility & Priorities
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-5">
-                  <FormField
-                    control={form.control}
-                    name="eligibilityCriteria"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-bold">
-                          Eligibility Criteria
-                        </FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Specify who can apply (e.g. Academic Institutions, NGOs, etc.)"
-                            className="min-h-[100px] resize-none shadow-sm"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-3">
-                    <FormLabel className="font-bold">
-                      Specific Priority Areas
-                    </FormLabel>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Add a priority area..."
-                        value={priorityAreaInput}
-                        onChange={(e) => setPriorityAreaInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addPriorityArea();
-                          }
-                        }}
-                        className="h-10 shadow-sm"
-                      />
-                      <Button
-                        type="button"
-                        onClick={addPriorityArea}
-                        variant="outline"
-                        className="h-10"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {priorityAreas.map((area) => (
-                        <Badge
-                          key={area}
-                          variant="secondary"
-                          className="pl-3 pr-2 py-1 gap-1 border-primary/10"
-                        >
-                          {area}
-                          <button
-                            type="button"
-                            onClick={() => removePriorityArea(area)}
-                            className="ml-1 hover:text-destructive transition-colors"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                      {priorityAreas.length === 0 && (
-                        <p className="text-xs text-muted-foreground italic">
-                          No priority areas added yet.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Budget & Timeline */}
-              <Card className="shadow-sm border-primary/10">
-                <CardHeader className="bg-muted/30 border-b pb-4">
-                  <CardTitle className="text-base">
-                    Budget & Deadlines
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="grid gap-6 sm:grid-cols-2 mb-6">
-                    <FormField
-                      control={form.control}
-                      name="budgetMin"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-bold flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-emerald-600" />
-                            Min Budget (ETB)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(Number(e.target.value))
-                              }
-                              className="h-11 shadow-sm"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="budgetMax"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-bold flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-emerald-600" />
-                            Max Budget (ETB)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(Number(e.target.value))
-                              }
-                              className="h-11 shadow-sm"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="submissionDeadline"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-bold flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            Submission Deadline
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="date"
-                              {...field}
-                              className="h-11 shadow-sm"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="reviewDeadline"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="font-bold flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            Review Deadline (Optional)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="date"
-                              {...field}
-                              className="h-11 shadow-sm"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Marketing Materials */}
-              <Card className="shadow-sm border-primary/10">
-                <CardHeader className="bg-muted/30 border-b pb-4">
-                  <div className="flex items-center gap-2">
-                    <Image className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">
-                      Marketing Materials
-                    </CardTitle>
-                  </div>
-                  <CardDescription>
-                    Upload promotional banner and poster for the research call
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-6">
-                  {/* Banner Upload */}
-                  <div className="space-y-3">
-                    <FormLabel className="font-bold flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      Call Banner (Optional)
-                    </FormLabel>
-                    <FormDescription className="text-xs">
-                      Recommended size: 1200x300px, Max: 5MB (JPG, PNG)
-                    </FormDescription>
-                    
-                    {!bannerPreview ? (
-                      <div className="border-2 border-dashed border-border/50 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleBannerChange}
-                          className="hidden"
-                          id="banner-input"
-                        />
-                        <label
-                          htmlFor="banner-input"
-                          className="cursor-pointer block"
-                        >
-                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm font-medium text-foreground">
-                            Click to upload or drag and drop
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            PNG, JPG up to 5MB
-                          </p>
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <img
-                          src={bannerPreview}
-                          alt="Banner preview"
-                          className="w-full h-32 object-cover rounded-lg border border-border/50"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={removeBanner}
-                          className="w-full"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove Banner
-                        </Button>
-                      </div>
-                    )}
-                    {form.formState.errors.banner && (
-                      <p className="text-xs text-destructive">
-                        {form.formState.errors.banner.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Poster Upload */}
-                  <div className="space-y-3 pt-4 border-t">
-                    <FormLabel className="font-bold flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      Research Poster (Optional)
-                    </FormLabel>
-                    <FormDescription className="text-xs">
-                      Recommended size: 36x48 inches (A1), Max: 10MB (JPG, PNG, PDF)
-                    </FormDescription>
-                    
-                    {!posterPreview ? (
-                      <div className="border-2 border-dashed border-border/50 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handlePosterChange}
-                          className="hidden"
-                          id="poster-input"
-                        />
-                        <label
-                          htmlFor="poster-input"
-                          className="cursor-pointer block"
-                        >
-                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm font-medium text-foreground">
-                            Click to upload or drag and drop
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            PNG, JPG, PDF up to 10MB
-                          </p>
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {posterFile?.type.startsWith("image/") ? (
-                          <img
-                            src={posterPreview}
-                            alt="Poster preview"
-                            className="w-full h-48 object-cover rounded-lg border border-border/50"
-                          />
-                        ) : (
-                          <div className="bg-muted rounded-lg p-6 text-center border border-border/50">
-                            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                            <p className="text-sm font-medium text-foreground">
-                              {posterPreview}
-                            </p>
-                          </div>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={removePoster}
-                          className="w-full"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove Poster
-                        </Button>
-                      </div>
-                    )}
-                    {form.formState.errors.poster && (
-                      <p className="text-xs text-destructive">
-                        {form.formState.errors.poster.message}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </form>
-          </Form>
-        </div>
-
-        {/* Sidebar */}
-        <aside className="space-y-4 xl:sticky xl:top-20 xl:h-fit">
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Call Requirements
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Main Form Fields */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Basic Information */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 font-bold tracking-tight">
+                <Info className="h-5 w-5 text-primary" />
+                BASIC INFORMATION
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 space-y-3">
-              {[
-                {
-                  label: "Clear descriptive title",
-                  checked: !!form.watch("title"),
-                },
-                {
-                  label: "Detailed research scope",
-                  checked: form.watch("description").length > 50,
-                },
-                {
-                  label: "Eligibility criteria",
-                  checked: !!form.watch("eligibilityCriteria"),
-                },
-                {
-                  label: "Valid budget range",
-                  checked: form.watch("budgetMax") >= form.watch("budgetMin"),
-                },
-                {
-                  label: "Submission deadline",
-                  checked: !!form.watch("submissionDeadline"),
-                },
-              ].map((req, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs">
-                  <div
-                    className={cn(
-                      "h-3.5 w-3.5 rounded-full border flex items-center justify-center transition-colors",
-                      req.checked
-                        ? "bg-green-500 border-green-600"
-                        : "bg-muted border-muted-foreground/30",
-                    )}
-                  >
-                    {req.checked && <Plus className="h-2 w-2 text-white" />}
-                  </div>
-                  <span
-                    className={
-                      req.checked
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground"
-                    }
-                  >
-                    {req.label}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardContent className=" pt-6 space-y-4">
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save as Draft
-                </Button>
-                <Button
-                  onClick={form.handleSubmit(onSubmit)}
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  <Rocket className="mr-2 h-4 w-4" />
-                  Publish
-                </Button>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="title" className="text-sm font-semibold">
+                  Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="title"
+                  placeholder="e.g. 2026 Research Call for Health Innovations"
+                  className="h-11"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
               </div>
 
-              <div className="pt-2 border-t">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Publishing this call will make it immediately visible to all
-                    registered researchers and institutions.
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="year" className="text-sm font-semibold">
+                    Current Year
+                  </Label>
+                  <Select defaultValue="2025">
+                    <SelectTrigger id="year" className="h-11">
+                      <SelectValue placeholder="Select Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                      <SelectItem value="2027">2027</SelectItem>
+                      <SelectItem value="2028">2028</SelectItem>
+                      <SelectItem value="2029">2029</SelectItem>
+                      <SelectItem value="2030">2030</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-sm font-semibold">
+                  Proposal Types <span className="text-destructive">*</span>
+                </Label>
+                <div className="flex flex-col gap-3">
+                  <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-full h-11 justify-between bg-muted/20 hover:bg-muted/30 border-border/40 text-left font-normal"
+                      >
+                        <span className="truncate">
+                          {selectedTypes.length > 0
+                            ? `${selectedTypes.length} types selected`
+                            : "Select proposal types..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-[--radix-popover-trigger-width] p-0"
+                      align="start"
+                    >
+                      <Command className="w-full">
+                        <CommandInput
+                          placeholder="Search proposal types..."
+                          className="h-9"
+                        />
+                        <CommandList>
+                          <CommandEmpty>No proposal type found.</CommandEmpty>
+                          <CommandGroup>
+                            {PROPOSAL_TYPES.map((type) => (
+                              <CommandItem
+                                key={type.value}
+                                value={type.value}
+                                onSelect={() => toggleType(type.value)}
+                                className="cursor-pointer"
+                              >
+                                <div
+                                  className={cn(
+                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-colors",
+                                    selectedTypes.includes(type.value)
+                                      ? "bg-primary text-primary-foreground"
+                                      : "opacity-50 [&_svg]:invisible",
+                                  )}
+                                >
+                                  <Check className={cn("h-3 w-3")} />
+                                </div>
+                                <span>{type.label}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+
+                  {selectedTypes.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-muted/20 rounded-xl border border-border/40 min-h-[50px]">
+                      {selectedTypes.map((val) => {
+                        const type = PROPOSAL_TYPES.find(
+                          (t) => t.value === val,
+                        );
+                        return (
+                          <Badge
+                            key={val}
+                            variant="secondary"
+                            className="bg-background hover:bg-background border-border/40 text-xs py-1 px-2 flex items-center gap-1 group"
+                          >
+                            {type?.label}
+                            <button
+                              onClick={() => toggleType(val)}
+                              className="ml-1 rounded-full outline-hidden hover:bg-muted p-0.5"
+                            >
+                              <Plus className="h-3 w-3 rotate-45 text-muted-foreground group-hover:text-foreground" />
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Description */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Description
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RichTextEditor
+                content={description}
+                onChange={(html) => setDescription(html)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Eligibility Criteria */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Eligibility Criteria
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RichTextEditor
+                content={eligibilityCriteria}
+                onChange={(html) => setEligibilityCriteria(html)}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Upload Images */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Upload Images
+              </CardTitle>
+              <CardDescription>
+                Add a thumbnail and banner for the grant call listing
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Thumbnail Upload */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Thumbnail</Label>
+                  <input
+                    type="file"
+                    ref={thumbnailInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleImageUpload(e, "thumbnail")}
+                  />
+                  {thumbnailPreview ? (
+                    <div className="relative group rounded-xl overflow-hidden border border-border aspect-video bg-muted/20">
+                      <img
+                        src={thumbnailPreview}
+                        alt="Thumbnail Preview"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 shadow-lg"
+                          onClick={() => thumbnailInputRef.current?.click()}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Change
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 shadow-lg"
+                          onClick={() => removeImage("thumbnail")}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => thumbnailInputRef.current?.click()}
+                      className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group min-h-[160px] bg-muted/10"
+                    >
+                      <div className="p-3 rounded-full bg-background border shadow-xs group-hover:scale-110 transition-transform">
+                        <Upload className="h-6 w-6 text-primary/70" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Click to upload</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Thumbnail (400x400)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Banner Upload */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">Banner</Label>
+                  <input
+                    type="file"
+                    ref={bannerInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => handleImageUpload(e, "banner")}
+                  />
+                  {bannerPreview ? (
+                    <div className="relative group rounded-xl overflow-hidden border border-border aspect-video bg-muted/20">
+                      <img
+                        src={bannerPreview}
+                        alt="Banner Preview"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 shadow-lg"
+                          onClick={() => bannerInputRef.current?.click()}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Change
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 shadow-lg"
+                          onClick={() => removeImage("banner")}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => bannerInputRef.current?.click()}
+                      className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group min-h-[160px] bg-muted/10"
+                    >
+                      <div className="p-3 rounded-full bg-background border shadow-xs group-hover:scale-110 transition-transform">
+                        <ImageIcon className="h-6 w-6 text-primary/70" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Click to upload</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Banner (1200x400)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Supporting Documents */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Supporting Documents
+              </CardTitle>
+              <CardDescription>
+                Upload relevant guidelines, templates, or policy documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <input
+                type="file"
+                ref={documentInputRef}
+                className="hidden"
+                multiple
+                onChange={handleDocumentUpload}
+              />
+
+              <div
+                onClick={() => documentInputRef.current?.click()}
+                className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group bg-muted/10"
+              >
+                <div className="p-3 rounded-full bg-background border shadow-xs group-hover:scale-110 transition-transform">
+                  <FileUp className="h-6 w-6 text-primary/70" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium">
+                    Click to upload documents
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PDF, DOCX, XLSX (Max 10MB each)
                   </p>
                 </div>
               </div>
+
+              {documents.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold px-1">
+                    Uploaded Files
+                  </Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background/50 hover:bg-muted/20 transition-colors shadow-xs group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <FileText className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium truncate max-w-[240px] sm:max-w-md">
+                              {doc.file.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                              {(doc.file.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeDocument(doc.id)}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
-        </aside>
+
+          {/* Dates */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Application Dates
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="open-date" className="text-sm font-semibold">
+                    Open Date
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="open-date"
+                      type="date"
+                      value={openDate}
+                      onChange={(e) => setOpenDate(e.target.value)}
+                      className="pl-10 h-11 bg-muted/10"
+                    />
+                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="close-date" className="text-sm font-semibold">
+                    Close Date
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="close-date"
+                      type="date"
+                      value={closeDate}
+                      onChange={(e) => setCloseDate(e.target.value)}
+                      className="pl-10 h-11 bg-muted/10"
+                    />
+                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Installment Plan */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <div>
+                <CardTitle className="text-lg font-bold tracking-tight">
+                  Installment Plan
+                </CardTitle>
+                <CardDescription>
+                  Configure the grant disbursement schedule
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addInstallment}
+                className="h-9 shadow-xs hover:bg-primary/5"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Installment
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-xl border border-border/40 overflow-hidden shadow-xs">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="w-32 pl-6">Installment</TableHead>
+                      <TableHead>Percentage (%)</TableHead>
+                      <TableHead className="w-20 pr-6 text-right"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {installments.map((inst, index) => (
+                      <TableRow
+                        key={inst.id}
+                        className="hover:bg-muted/10 transition-colors"
+                      >
+                        <TableCell className="font-medium pl-6">
+                          [{index + 1}]
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Input
+                              type="number"
+                              value={inst.percentage}
+                              onChange={(e) =>
+                                updatePercentage(inst.id, e.target.value)
+                              }
+                              className="w-24 h-9 bg-background"
+                            />
+                            <div className="flex-1 max-w-[200px] hidden sm:block">
+                              <Progress
+                                value={inst.percentage}
+                                className="h-1.5"
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="pr-6 text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeInstallment(inst.id)}
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/20 p-5 rounded-xl border border-border/40">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={cn(
+                      "px-5 py-2.5 rounded-lg font-bold border-2 shadow-sm transition-all",
+                      totalPercentage === 100
+                        ? "bg-primary/10 text-green-600 border-green-200"
+                        : "bg-destructive/10 text-destructive border-destructive/20",
+                    )}
+                  >
+                    Total = {totalPercentage}%
+                  </div>
+                  {totalPercentage !== 100 && (
+                    <span className="text-sm text-destructive">
+                      Sum must be 100%
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                  <Info className="h-3.5 w-3.5" />
+                  Remaining: {100 - totalPercentage}%
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Status Panel */}
+        <div >
+          <Card className="xl:sticky xl:top-2 shadow-md border-primary/10 overflow-hidden bg-gradient-to-b from-background to-muted/20 -py-6">
+            <div className=" bg-primary w-full" />
+            <CardHeader className="bg-primary/5 pb-6 -mt-6">
+              <CardTitle className="text-xs font-bold uppercase tracking-[0.2em] text-primary/80">
+                GRANT STATUS
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-8 pt-6">
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs font-bold tracking-wider">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="text-primary">{progress}%</span>
+                </div>
+                <div className="flex gap-1 h-2 w-full">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex-1 rounded-sm transition-all duration-500",
+                        i < progressBlocks
+                          ? "bg-primary shadow-[0_0_5px_rgba(var(--primary),0.3)]"
+                          : "bg-muted",
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground font-medium italic">
+                  {progress === 100
+                    ? "Ready to publish!"
+                    : progress > 70
+                      ? "Almost ready to publish"
+                      : "Keep filling the form"}
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-border/40">
+                <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 mt-0.5">
+                      <Info className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold text-primary uppercase tracking-tight">
+                        Checklist
+                      </p>
+                      <ul className="text-xs space-y-1.5 text-muted-foreground font-medium">
+                        <li className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full transition-colors",
+                              title.length > 3
+                                ? "bg-primary"
+                                : "bg-muted-foreground/30",
+                            )}
+                          />
+                          Basic Information
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full transition-colors",
+                              hasMeaningfulContent(description)
+                                ? "bg-primary"
+                                : "bg-muted-foreground/30",
+                            )}
+                          />
+                          Description
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full transition-colors",
+                              hasMeaningfulContent(eligibilityCriteria)
+                                ? "bg-primary"
+                                : "bg-muted-foreground/30",
+                            )}
+                          />
+                          Eligibility Criteria
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full transition-colors",
+                              thumbnail && banner
+                                ? "bg-primary"
+                                : "bg-muted-foreground/30",
+                            )}
+                          />
+                          Media Assets
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <div
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full transition-colors",
+                              totalPercentage === 100
+                                ? "bg-primary"
+                                : "bg-muted-foreground/30",
+                            )}
+                          />
+                          Installment Plan
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4 pt-2 grid grid-cols-2 gap-4 ">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start h-12 border-border/60 hover:bg-primary/5 hover:border-primary/30 transition-all shadow-xs group font-bold"
+                >
+                  <Save className="mr-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  Save Draft
+                </Button>
+                <Button className="w-full justify-start h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group font-black text-sm">
+                  <Send className="mr-3 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                  Publish Call
+                </Button>
+              </div>
+            </CardContent>
+            <div className="p-4 bg-muted/40 border-t border-border/40">
+              <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-bold">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                AUTOSAVED AT{" "}
+                {new Date().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </PageContainer>
   );

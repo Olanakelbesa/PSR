@@ -1,0 +1,39 @@
+export { proposalSchema as proposalFormSchema } from "@/lib/validations";
+
+export interface ProposalFormInput {
+  title?: string;
+  abstract?: string;
+  background?: string;
+  objectives?: string;
+  methodology?: string;
+  expectedOutcomes?: string;
+  thematicArea?: string;
+  subThematicArea?: string;
+  studyType?: string;
+  studyRegions?: string[];
+  budget?: number;
+  duration?: number;
+  callId?: string;
+  grantCallId?: string;
+  proposalType?: string;
+  subProposalTypeId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  budgetRequested?: number;
+  submissionLevel?: string;
+  officeToSubmit?: string;
+  teamMembers?: unknown[];
+  stakeholders?: unknown[];
+  technicalProposal?: unknown;
+  budgetFile?: unknown;
+  keywords?: string;
+  submissionType?: "on_site" | "document_upload";
+  hasStakeholder?: boolean;
+  organizationName?: string;
+  stakeholderName?: string;
+  position?: string;
+  phoneNumber?: string;
+  customSections?: unknown[];
+  sectionConfig?: unknown[];
+  [key: string]: unknown;
+}

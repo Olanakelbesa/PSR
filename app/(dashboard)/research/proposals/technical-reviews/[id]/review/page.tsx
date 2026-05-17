@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -38,13 +38,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
 import { proposalsApi } from "@/lib/api/client";
 import { mockUsers } from "@/lib/api/mock-data";
@@ -56,13 +49,13 @@ import { Badge } from "@/components/ui/badge";
 // Evaluation criteria based on PSR requirements
 // ---------------------------------------------------------------------------
 const EVALUATION_CRITERIA = [
-  { id: "scientific_merit", label: "Scientific Merit & Originality" },
-  { id: "methodology", label: "Research Methodology & Design" },
-  { id: "feasibility", label: "Feasibility & Team Capacity" },
-  { id: "ethical", label: "Ethical Compliance" },
-  { id: "budget_justification", label: "Budget Justification & Value for Money" },
-  { id: "policy_relevance", label: "Policy Relevance & National Priority Alignment" },
-  { id: "expected_outcomes", label: "Expected Outcomes & Dissemination Plan" },
+  { id: "scientific_merit", label: "Scientific Merit & Originality", points: 20 },
+  { id: "methodology", label: "Research Methodology & Design", points: 20 },
+  { id: "feasibility", label: "Feasibility & Team Capacity", points: 15 },
+  { id: "ethical", label: "Ethical Compliance", points: 10 },
+  { id: "budget_justification", label: "Budget Justification & Value for Money", points: 10 },
+  { id: "policy_relevance", label: "Policy Relevance & National Priority Alignment", points: 15 },
+  { id: "expected_outcomes", label: "Expected Outcomes & Dissemination Plan", points: 10 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -70,13 +63,8 @@ const EVALUATION_CRITERIA = [
 // ---------------------------------------------------------------------------
 const technicalReviewSchema = z.object({
   reviewerName: z.string().min(1, "Reviewer name is required"),
-  comments: z.array(
-    z.object({
-      text: z.string().min(10, "Comment must be at least 10 characters"),
-      givenAt: z.string(),
-    })
-  ).min(1, "At least one comment is required"),
-  evaluationCriteria: z.record(z.boolean()),
+  comments: z.string().min(10, "Comment must be at least 10 characters"),
+  evaluationCriteria: z.record(z.union([z.number(), z.literal("")])),
   recommendation: z.enum(["approve", "revise", "reject"]),
 });
 
@@ -90,30 +78,29 @@ export default function TechnicalReviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [reviewerFile, setReviewerFile] = useState<File | null>(null);
 
-  const rocReviewers = mockUsers.filter(u => u.role === "roc_reviewer");
-
   const defaultCriteria = Object.fromEntries(
-    EVALUATION_CRITERIA.map(c => [c.id, false])
-  );
+    EVALUATION_CRITERIA.map(c => [c.id, ""])
+  ) as Record<string, number | "">;
 
   const form = useForm<TechnicalReviewFormData>({
     resolver: zodResolver(technicalReviewSchema),
     defaultValues: {
       reviewerName: "",
-      comments: [{ text: "", givenAt: new Date().toISOString() }],
+      comments: "",
       evaluationCriteria: defaultCriteria,
       recommendation: "approve",
     },
   });
 
-  const { fields: commentFields, append: appendComment, remove: removeComment } = useFieldArray({
-    control: form.control,
-    name: "comments",
-  });
-
-  const recommendation = form.watch("recommendation");
   const criteria = form.watch("evaluationCriteria");
-  const passedCount = Object.values(criteria).filter(Boolean).length;
+  const passedCount = EVALUATION_CRITERIA.filter(c => {
+    const val = Number(criteria[c.id] || 0);
+    return val > 0;
+  }).length;
+  const totalScore = EVALUATION_CRITERIA.reduce((sum, c) => {
+    const val = Number(criteria[c.id] || 0);
+    return sum + val;
+  }, 0);
 
   useEffect(() => {
     async function loadProposal() {
@@ -137,15 +124,8 @@ export default function TechnicalReviewPage() {
   async function onSubmit(data: TechnicalReviewFormData) {
     setIsSubmitting(true);
     try {
-      const newStatus =
-        data.recommendation === "approve"
-          ? "approved"
-          : data.recommendation === "reject"
-          ? "rejected"
-          : "revision_requested";
-
       const response = await proposalsApi.updateProposal(id as string, {
-        status: newStatus as any,
+        status: "approved",
       });
 
       if (response.success) {
@@ -221,136 +201,98 @@ export default function TechnicalReviewPage() {
                 </CardContent>
               </Card>
 
-              {/* Version-Controlled Comments */}
+              {/* Reviewer Details */}
               <Card className="shadow-sm border-primary/10">
                 <CardHeader className="bg-muted/30 border-b pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                      <CardTitle className="text-base">Review Comments</CardTitle>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => appendComment({ text: "", givenAt: new Date().toISOString() })}
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Comment
-                    </Button>
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-base">Reviewer Information</CardTitle>
                   </div>
-                  <CardDescription>Version-controlled — each comment records time of entry and can be addressed separately</CardDescription>
+                  <CardDescription>Verify your reviewer credentials before submitting the assessment</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-6 space-y-6">
-                  {commentFields.map((field, index) => (
-                    <div key={field.id} className="space-y-3 p-4 rounded-xl border border-muted/60 bg-muted/10 relative">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-[9px] font-black text-primary">{index + 1}</span>
-                          </div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Comment #{index + 1}</span>
-                        </div>
-                        {commentFields.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
-                            onClick={() => removeComment(index)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name={`comments.${index}.text`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Textarea
-                                placeholder="Enter your technical comment or feedback..."
-                                className="min-h-[120px] resize-none shadow-sm"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="flex items-center gap-6 pt-1">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <CalendarClock className="h-3 w-3" />
-                          <span className="text-[10px] font-bold">
-                            Given: {new Date(field.givenAt).toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground/50">
-                          <CalendarClock className="h-3 w-3" />
-                          <span className="text-[10px] font-bold">Addressed: —</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <CardContent className="pt-6">
+                  <FormField
+                    control={form.control}
+                    name="reviewerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-bold">Reviewer Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your full name" className="h-11 shadow-sm border-primary/20" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
 
-              {/* Evaluation Criteria Checklist */}
+              {/* Evaluation Criteria Scoring Card */}
               <Card className="shadow-sm border-primary/10">
                 <CardHeader className="bg-muted/30 border-b pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ClipboardList className="h-4 w-4 text-primary" />
-                      <CardTitle className="text-base">Evaluation Criteria Checklist</CardTitle>
+                      <CardTitle className="text-base">Evaluation Criteria Scoring</CardTitle>
                     </div>
-                    <Badge variant="outline" className={cn(
-                      "font-bold",
-                      passedCount === EVALUATION_CRITERIA.length
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-amber-50 text-amber-700 border-amber-200"
-                    )}>
-                      {passedCount} / {EVALUATION_CRITERIA.length} Met
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn(
+                        "font-bold",
+                        passedCount === EVALUATION_CRITERIA.length
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                      )}>
+                        {passedCount} / {EVALUATION_CRITERIA.length} Scored
+                      </Badge>
+                      <Badge className="font-bold bg-primary text-primary-foreground">
+                        Total Score: {totalScore} / 100
+                      </Badge>
+                    </div>
                   </div>
-                  <CardDescription>Indicate whether each criterion has been satisfactorily addressed</CardDescription>
+                  <CardDescription>Enter the score achieved for each of the following criteria (Total Score is out of 100)</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-5 divide-y">
+                <CardContent className="pt-5 divide-y bg-background/30 rounded-b-xl">
                   {EVALUATION_CRITERIA.map((criterion) => {
-                    const value = form.watch(`evaluationCriteria.${criterion.id}`);
                     return (
                       <div key={criterion.id} className="flex items-center justify-between py-4 first:pt-0">
-                        <span className="text-sm font-medium text-foreground">{criterion.label}</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => form.setValue(`evaluationCriteria.${criterion.id}`, true)}
-                            className={cn(
-                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all",
-                              value === true
-                                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                                : "border-muted-foreground/20 text-muted-foreground hover:border-emerald-400 hover:text-emerald-600"
+                        <div className="space-y-0.5">
+                          <span className="text-sm font-semibold text-foreground">{criterion.label}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <FormField
+                            control={form.control}
+                            name={`evaluationCriteria.${criterion.id}`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      placeholder="0"
+                                      min={0}
+                                      max={criterion.points}
+                                      className="w-20 text-center h-10 font-bold border-primary/25 focus:border-primary/50 text-primary bg-background focus:ring-1 focus:ring-primary/30"
+                                      value={field.value}
+                                      onChange={(e) => {
+                                        const rawValue = e.target.value;
+                                        if (rawValue === "") {
+                                          field.onChange("");
+                                          return;
+                                        }
+                                        let val = parseInt(rawValue, 10);
+                                        if (isNaN(val)) val = 0;
+                                        if (val < 0) val = 0;
+                                        if (val > criterion.points) val = criterion.points;
+                                        field.onChange(val);
+                                      }}
+                                    />
+                                    <span className="text-sm font-bold text-muted-foreground">/ {criterion.points}</span>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
                             )}
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            Yes
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => form.setValue(`evaluationCriteria.${criterion.id}`, false)}
-                            className={cn(
-                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all",
-                              value === false && Object.keys(form.formState.touchedFields).length > 0
-                                ? "bg-rose-600 text-white border-rose-600 shadow-sm"
-                                : "border-muted-foreground/20 text-muted-foreground hover:border-rose-400 hover:text-rose-600"
-                            )}
-                          >
-                            <XCircle className="h-3 w-3" />
-                            No
-                          </button>
+                          />
                         </div>
                       </div>
                     );
@@ -395,62 +337,28 @@ export default function TechnicalReviewPage() {
             {/* ------------------------------------------------------------------ */}
             {/* Sidebar — Decision                                                   */}
             {/* ------------------------------------------------------------------ */}
-            <aside className="space-y-4 sticky">
+            <aside className="space-y-4 xl:sticky xl:top-2 xl:h-fit ">
               <Card className="shadow-sm border-primary/10 overflow-hidden">
                 <CardHeader className="bg-primary text-primary-foreground py-6 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1 opacity-80">ROC Decision</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1 opacity-80">Decision</p>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
                   <FormField
                     control={form.control}
-                    name="recommendation"
+                    name="comments"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="font-bold">Technical Recommendation</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-11 shadow-sm border-primary/20">
-                              <SelectValue placeholder="Select outcome" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="approve">
-                              <div className="flex items-center gap-2 text-emerald-600">
-                                <CheckCircle2 className="h-4 w-4" />
-                                Approve for Funding
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="revise">
-                              <div className="flex items-center gap-2 text-amber-600">
-                                <MessageSquare className="h-4 w-4" />
-                                Request Major Revisions
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="reject">
-                              <div className="flex items-center gap-2 text-rose-600">
-                                <XCircle className="h-4 w-4" />
-                                Reject Proposal
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter your technical comment or feedback..."
+                            className="min-h-[150px] resize-none shadow-sm"
+                            {...field}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  <div className="p-4 rounded-xl bg-muted/30 border border-muted-foreground/10">
-                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                      <ShieldCheck className="h-3 w-3" /> Decision Impact
-                    </h4>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      {recommendation === "approve"
-                        ? "Approving will move this proposal to 'Approved' status and initiate the contracting process."
-                        : recommendation === "reject"
-                        ? "Rejecting will notify the researcher and archive the proposal."
-                        : "Requesting revisions will send the proposal back to the researcher with your comments."}
-                    </p>
-                  </div>
 
                   <div className="pt-2">
                     <Button
@@ -462,28 +370,6 @@ export default function TechnicalReviewPage() {
                       {isSubmitting ? "Submitting..." : "Submit Evaluation"}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Criteria Summary */}
-              <Card className="shadow-sm border-primary/5">
-                <CardHeader className="py-3 border-b">
-                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Criteria Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-2">
-                  {EVALUATION_CRITERIA.map(c => {
-                    const met = form.watch(`evaluationCriteria.${c.id}`);
-                    return (
-                      <div key={c.id} className="flex items-center justify-between text-[11px] gap-2">
-                        <span className="text-muted-foreground truncate flex-1">{c.label}</span>
-                        {met ? (
-                          <Badge variant="outline" className="h-4 px-1 text-[8px] bg-emerald-50 text-emerald-600 border-emerald-100 shrink-0">YES</Badge>
-                        ) : (
-                          <Badge variant="outline" className="h-4 px-1 text-[8px] bg-rose-50 text-rose-600 border-rose-100 shrink-0">NO</Badge>
-                        )}
-                      </div>
-                    );
-                  })}
                 </CardContent>
               </Card>
             </aside>

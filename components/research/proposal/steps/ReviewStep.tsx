@@ -1,0 +1,551 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useFormContext } from "react-hook-form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
+import { CheckCircle2, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { HtmlContentRenderer } from "./HtmlContentRenderer";
+import { toast } from "sonner";
+import { useProposalTemplateSections } from "@/lib/queries/proposal-template-section";
+import { useGrantCall } from "@/lib/queries/grant-calls";
+import { useProposalType } from "@/lib/queries/proposal-type";
+import { useSubCallType } from "@/lib/queries/subcalltype";
+import { useOfficeLevel } from "@/lib/queries/office-level";
+import { useOffice } from "@/lib/queries/office";
+import { useThematicArea } from "@/lib/queries/thematic-area";
+import { useInternalUsers } from "@/lib/queries/internal-users";
+import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
+
+// Helper function to format dates
+const formatDate = (date: Date | undefined | null): string => {
+  if (!date) return "Not provided";
+  try {
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return "Invalid date";
+  }
+};
+
+// Helper function to format currency
+const formatCurrency = (amount: number | undefined | null): string => {
+  if (amount === undefined || amount === null) return "Not provided";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "ETB",
+  }).format(amount);
+};
+
+interface ProposalReviewStepProps {
+  onSubmit: (status: "draft" | "submitted") => void;
+  isSubmitting?: boolean;
+  onPrevious: () => void;
+  isEditMode?: boolean;
+  isDraft?: boolean;
+}
+
+export function ProposalReviewStep({
+  onSubmit,
+  isSubmitting = false,
+  onPrevious,
+  isEditMode = false,
+  isDraft = false,
+}: ProposalReviewStepProps) {
+  const form = useFormContext<ProposalFormInput>();
+  const values = form.watch();
+
+  // Get all form values including unregistered fields
+  const allFormValues = form.getValues();
+
+  // Fetch sections filtered by proposal type (same source as ContentRenderer)
+  const { data: allSections = [], isLoading: isLoadingSections } =
+    useProposalTemplateSections({
+      proposal_type: values.proposalType
+        ? Number(values.proposalType)
+        : undefined,
+    });
+
+  // Fetch selected data from backend
+  const { data: grantCallData } = useGrantCall(values.grantCallId || "");
+  const selectedGrantCall = grantCallData;
+
+  const { data: proposalTypeData } = useProposalType(values.proposalType || "");
+
+  const selectedCallType = Array.isArray(proposalTypeData?.data)
+    ? proposalTypeData.data[0]
+    : proposalTypeData?.data;
+
+  const { data: subCallTypeData } = useSubCallType(
+    values.subProposalTypeId || "",
+  );
+  // Detail endpoint might return array or single object - handle both
+  const selectedSubCallType = Array.isArray(subCallTypeData?.data)
+    ? subCallTypeData.data[0]
+    : subCallTypeData?.data;
+
+  const { data: officeLevelData } = useOfficeLevel(
+    values.submissionLevel || "",
+  );
+  // Detail endpoint might return array or single object - handle both
+  const selectedOfficeLevel = Array.isArray(officeLevelData?.data)
+    ? officeLevelData.data[0]
+    : officeLevelData?.data;
+
+  const { data: officeData } = useOffice(values.officeToSubmit || "");
+
+  const selectedOffice = Array.isArray(officeData?.data)
+    ? officeData.data[0]
+    : officeData?.data;
+
+  const { data: thematicAreaData } = useThematicArea(values.thematicArea || "");
+  const selectedThematicArea = thematicAreaData?.data;
+
+  // Fetch all users and roles for team members display
+  const { data: allUsersData } = useInternalUsers({ limit: 1000 });
+  const { data: allRolesData } = useTeamMemberRoles({ limit: 100 });
+
+  // Create lookup maps for users and roles
+  const usersMap = useMemo(() => {
+    const map = new Map<string, string>();
+    // Handle both 'results' (standard API) and 'data' (legacy) response structures
+    const users = allUsersData?.results || allUsersData?.data || [];
+    users.forEach((user) => {
+      map.set(String(user.id), user.full_name);
+    });
+    return map;
+  }, [allUsersData]);
+
+  const rolesMap = useMemo(() => {
+    const map = new Map<string, string>();
+    // TeamMemberRoleResponse uses 'data' property, not 'results'
+    const roles = allRolesData?.data || [];
+    roles.forEach((role) => {
+      map.set(String(role.id), role.name);
+    });
+    return map;
+  }, [allRolesData]);
+
+  // State to track expanded/collapsed sections
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(), // Start with all sections collapsed
+  );
+
+  // Toggle section expand/collapse
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async (
+    e: React.MouseEvent<HTMLButtonElement>,
+    status: "draft" | "submitted",
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // For submitted status, validate form before submitting
+    // For draft status, skip validation
+    if (status === "submitted") {
+      const isValid = await form.trigger();
+      if (!isValid) {
+        console.error("Form validation failed", form.formState.errors);
+        toast.error("Please fill in all required fields before submitting.");
+        return;
+      }
+    }
+
+    onSubmit(status);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border bg-muted/50 p-4">
+        <h3 className="mb-4 font-semibold">Review Your Proposal</h3>
+        <p className="text-sm text-muted-foreground">
+          Please review all information before submitting. Once submitted, you
+          cannot edit the proposal.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Proposal Details Section */}
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                Proposal Title
+              </label>
+              <p className="text-sm font-medium">
+                {values.title || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                Grant Call
+              </label>
+              <p className="text-sm">
+                {selectedGrantCall?.title || "Not provided"}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                  Proposal Type
+                </label>
+                <p className="text-sm">
+                  {selectedCallType?.name || "Not provided"}
+                </p>
+              </div>
+              {values.subProposalTypeId && selectedSubCallType && (
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                    Proposal Sub Type
+                  </label>
+                  <p className="text-sm">{selectedSubCallType.name}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Timeline Section */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                  Start Date
+                </label>
+                <p className="text-sm">{formatDate(values.startDate)}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                  End Date
+                </label>
+                <p className="text-sm">{formatDate(values.endDate)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Financial & Submission Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                Submission Level
+              </label>
+              <p className="text-sm">
+                {selectedOfficeLevel?.name || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                Office to Submit
+              </label>
+              <p className="text-sm">
+                {selectedOffice?.name || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                Thematic Area
+              </label>
+              <p className="text-sm">
+                {selectedThematicArea?.name || "Not provided"}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
+                Budget Requested
+              </label>
+              <p className="text-sm font-medium text-primary">
+                {values.budgetRequested}{" "}ETB
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Members</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Internal Members Column */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Internal Members</h4>
+              {values.teamMembers && values.teamMembers.length > 0 ? (
+                <ul className="space-y-2">
+                  {values.teamMembers.map((member, index) => (
+                    <li key={index} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span>
+                        {usersMap.get(member.userId) || member.userId} -{" "}
+                        {rolesMap.get(member.role) || member.role}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No internal members added
+                </p>
+              )}
+            </div>
+
+            {/* External Stakeholders Column */}
+            <div>
+              <h4 className="text-sm font-semibold mb-3">
+                External Stakeholders
+              </h4>
+              {values.stakeholders && values.stakeholders.length > 0 ? (
+                <ul className="space-y-3">
+                  {values.stakeholders.map((stakeholder, index) => (
+                    <li
+                      key={index}
+                      className="text-sm space-y-1 border-l-2 pl-3"
+                    >
+                      <p className="font-medium">
+                        {stakeholder.stakeholderName}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {stakeholder.position} at {stakeholder.organizationName}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {stakeholder.email} | {stakeholder.phoneNumber}
+                      </p>
+                      {stakeholder.role && (
+                        <p className="text-muted-foreground">
+                          Role: {stakeholder.role}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No external stakeholders added
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Abstract</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HtmlContentRenderer content={values.abstract} />
+        </CardContent>
+      </Card>
+
+      {values.keywords && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Keywords</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{values.keywords}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dynamic Content Sections - Only for on_site submission */}
+      {values.submissionType === "on_site" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Proposal Sections</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isLoadingSections ? (
+              <div className="px-6 pb-6">
+                <p className="text-sm text-muted-foreground">
+                  Loading sections...
+                </p>
+              </div>
+            ) : allSections.length > 0 ? (
+              <div className="divide-y divide-border">
+                {allSections
+                  .sort((a, b) => a.order - b.order)
+                  .map((section) => {
+                    const sectionIdStr = String(section.id);
+                    // Try multiple ways to get content from form
+                    // 1. From watched values (reactive)
+                    // 2. From getValues (includes all registered fields)
+                    const content =
+                      (values as any)[sectionIdStr] ||
+                      (allFormValues as any)[sectionIdStr] ||
+                      "";
+
+                    const hasContent =
+                      content &&
+                      typeof content === "string" &&
+                      content.trim() !== "";
+
+                    const isExpanded = expandedSections.has(
+                      section.id.toString(),
+                    );
+
+                    return (
+                      <div key={section.id}>
+                        <div
+                          className="px-6 py-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => toggleSection(section.id.toString())}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-semibold">
+                                {section.title}
+                              </h3>
+                              {!hasContent && (
+                                <span className="text-xs text-muted-foreground italic">
+                                  (Not filled)
+                                </span>
+                              )}
+                            </div>
+                            {isExpanded ? (
+                              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="border-t border-border bg-muted/30">
+                            <div className="px-6 py-4">
+                              {hasContent ? (
+                                <HtmlContentRenderer content={content} />
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">
+                                  No content has been added to this section yet.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              <div className="px-6 pb-6">
+                <p className="text-sm text-muted-foreground">
+                  No sections available for this proposal type.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {(values.technicalProposal || values.budgetFile) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Files</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {values.technicalProposal && (
+              <div className="border rounded-md p-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium">
+                    Technical Proposal
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 ml-6">
+                  {values.technicalProposal instanceof File
+                    ? values.technicalProposal.name
+                    : (values.technicalProposal as any)?.name ||
+                      (values.technicalProposal as any)?.file
+                        ?.split("/")
+                        .pop() ||
+                      "Technical Proposal"}
+                </p>
+              </div>
+            )}
+            {values.budgetFile && (
+              <div className="border rounded-md p-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium">Budget File</span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 ml-6">
+                  {values.budgetFile instanceof File
+                    ? values.budgetFile.name
+                    : (values.budgetFile as any)?.name ||
+                      (values.budgetFile as any)?.file?.split("/").pop() ||
+                      "Budget File"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Action Buttons Section */}
+      <div className="flex justify-between items-center pt-6 border-t">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onPrevious}
+          disabled={isSubmitting}
+        >
+          Previous
+        </Button>
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={(e) => handleSubmit(e, "draft")}
+            disabled={isSubmitting}
+            size="lg"
+            className="min-w-37.5"
+          >
+            {isSubmitting ? <span>Saving...</span> : <span>Save as Draft</span>}
+          </Button>
+          <Button
+            type="button"
+            onClick={(e) => handleSubmit(e, "submitted")}
+            disabled={isSubmitting}
+            size="lg"
+            className="min-w-37.5"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="mr-2">
+                  {isEditMode && !isDraft ? "Updating..." : "Submitting..."}
+                </span>
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                {isEditMode && !isDraft ? "Update Proposal" : "Submit Proposal"}
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
