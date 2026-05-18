@@ -153,16 +153,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 });
 
-export async function GET(
-  req: NextRequest,
-  _context: { params: Promise<{ nextauth: string[] }> },
-) {
-  return handlers.GET(req);
-}
-
-export async function POST(
-  req: NextRequest,
-  _context: { params: Promise<{ nextauth: string[] }> },
-) {
-  return handlers.POST(req);
-}
+export const { GET, POST } = handlers;

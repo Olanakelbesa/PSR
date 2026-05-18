@@ -8,7 +8,7 @@
 //   /login, /signup, /forgot-password, /reset-password, /verify-otp,
 //   /api/auth/*, /api/health
 
-export { auth as middleware } from "@/app/api/auth/[...nextauth]/route";
+export { auth as proxy } from "@/app/api/auth/[...nextauth]/route";
 
 export const config = {
   matcher: [

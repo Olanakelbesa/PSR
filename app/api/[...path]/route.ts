@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.API_BASE_URL; // renamed from BACKEND_URL
+const BACKEND_URL = process.env.API_BASE_URL;
 const isDev = process.env.NODE_ENV === "development";
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
