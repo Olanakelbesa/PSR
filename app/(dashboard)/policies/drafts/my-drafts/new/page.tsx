@@ -148,7 +148,7 @@ export default function NewPolicyDraftPage() {
           lastName: user.lastName,
           email: user.email,
           institution: user.institution || "",
-          image: user.image
+          image: (user as any).avatar || (user as any).image
         } as any
       });
       

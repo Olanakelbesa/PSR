@@ -1,0 +1,499 @@
+
+> my-project@0.1.0 build
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local, .env
+
+  Creating an optimized production build ...
+Turbopack build encountered 1 warnings:
+./app/api/proxy/[...path]/route.ts:95:28
+Module not found: Can't resolve '@/auth'
+  [90m93 |[0m   [36mtry[0m {
+  [90m94 |[0m     [90m// Dynamic import avoids circular deps and keeps this tree-shakeable.[0m
+[31m[1m>[0m [90m95 |[0m     [36mconst[0m { auth } = [36mawait[0m [36mimport[0m([32m"@/auth"[0m);
+  [90m   |[0m                            [31m[1m^^^^^^^^^^^^^^^^[0m
+  [90m96 |[0m     [36mconst[0m session = [36mawait[0m auth();
+  [90m97 |[0m     [36mconst[0m backendToken =
+  [90m98 |[0m       (session [36mas[0m [33mRecord[0m<string, unknown>)?.backendToken [36mas[0m string | [36mundefined[0m;
+
+Import map: aliased to relative './auth' inside of [project]/
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+
+> Build error occurred
+Error: Turbopack build failed with 19 errors:
+./components/research/proposal/ProposalWizard.tsx:35:1
+Module not found: Can't resolve '../../../lib/api/api-config'
+  [90m33 |[0m [36mimport[0m { useProposalTemplateSections } [36mfrom[0m [32m"@/lib/queries/proposal-template-section"[0m;
+  [90m34 |[0m [36mimport[0m axiosClient [36mfrom[0m [32m"../../../lib/api/axios-client"[0m;
+[31m[1m>[0m [90m35 |[0m [36mimport[0m { [33mAPI_ENDPOINTS[0m } [36mfrom[0m [32m"../../../lib/api/api-config"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m36 |[0m [36mimport[0m [36mtype[0m { [33mProposalDetail[0m } [36mfrom[0m [32m"@/types"[0m;
+  [90m37 |[0m
+  [90m38 |[0m [36minterface[0m [33mProposalWizardProps[0m {
+
+
+
+Import trace:
+  Server Component:
+    ./components/research/proposal/ProposalWizard.tsx
+    ./app/(dashboard)/research/proposals/my-proposals/new/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./components/research/proposal/ProposalWizard.tsx:34:1
+Module not found: Can't resolve '../../../lib/api/axios-client'
+  [90m32 |[0m [36mimport[0m [36mtype[0m { [33mSection[0m } [36mfrom[0m [32m"./steps/FilesStep/types"[0m;
+  [90m33 |[0m [36mimport[0m { useProposalTemplateSections } [36mfrom[0m [32m"@/lib/queries/proposal-template-section"[0m;
+[31m[1m>[0m [90m34 |[0m [36mimport[0m axiosClient [36mfrom[0m [32m"../../../lib/api/axios-client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m35 |[0m [36mimport[0m { [33mAPI_ENDPOINTS[0m } [36mfrom[0m [32m"../../../lib/api/api-config"[0m;
+  [90m36 |[0m [36mimport[0m [36mtype[0m { [33mProposalDetail[0m } [36mfrom[0m [32m"@/types"[0m;
+  [90m37 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./components/research/proposal/ProposalWizard.tsx
+    ./app/(dashboard)/research/proposals/my-proposals/new/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/(auth)/verify-otp/page.tsx:9:1
+Module not found: Can't resolve '@/stores/auth-store'
+  [90m 7 |[0m [36mimport[0m { [33mButton[0m } [36mfrom[0m [32m'@/components/ui/button'[0m
+  [90m 8 |[0m [36mimport[0m { [33mInput[0m } [36mfrom[0m [32m'@/components/ui/input'[0m
+[31m[1m>[0m [90m 9 |[0m [36mimport[0m { useAuthStore } [36mfrom[0m [32m'@/stores/auth-store'[0m
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m10 |[0m
+  [90m11 |[0m [36mexport[0m [36mdefault[0m [36mfunction[0m [33mVerifyOTPPage[0m() {
+  [90m12 |[0m   [36mconst[0m router = useRouter()
+
+Import map: aliased to relative './stores/auth-store' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./app/(auth)/verify-otp/page.tsx [Client Component Browser]
+    ./app/(auth)/verify-otp/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(auth)/verify-otp/page.tsx [Client Component SSR]
+    ./app/(auth)/verify-otp/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx:44:1
+Export callsApi doesn't exist in target module
+  [90m42 |[0m   [36mtype[0m [33mCallForProposalFormData[0m,
+  [90m43 |[0m } [36mfrom[0m [32m"@/lib/validations"[0m;
+[31m[1m>[0m [90m44 |[0m [36mimport[0m { callsApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m45 |[0m [36mimport[0m { mockCalls } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m46 |[0m [36mimport[0m { toast } [36mfrom[0m [32m"sonner"[0m;
+  [90m47 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export callsApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import userApi?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx:44:1
+Export callsApi doesn't exist in target module
+  [90m42 |[0m   [36mtype[0m [33mCallForProposalFormData[0m,
+  [90m43 |[0m } [36mfrom[0m [32m"@/lib/validations"[0m;
+[31m[1m>[0m [90m44 |[0m [36mimport[0m { callsApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m45 |[0m [36mimport[0m { mockCalls } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m46 |[0m [36mimport[0m { toast } [36mfrom[0m [32m"sonner"[0m;
+  [90m47 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export callsApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import userApi?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx:39:1
+Export monitoringApi doesn't exist in target module
+  [90m37 |[0m [36mimport[0m { [33mLabel[0m } [36mfrom[0m [32m"@/components/ui/label"[0m;
+  [90m38 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+[31m[1m>[0m [90m39 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m40 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m41 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m, [33mProgressReport[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m42 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx:39:1
+Export monitoringApi doesn't exist in target module
+  [90m37 |[0m [36mimport[0m { [33mLabel[0m } [36mfrom[0m [32m"@/components/ui/label"[0m;
+  [90m38 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+[31m[1m>[0m [90m39 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m40 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m41 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m, [33mProgressReport[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m42 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx:33:1
+Export monitoringApi doesn't exist in target module
+  [90m31 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+  [90m32 |[0m [36mimport[0m { [33mDataTable[0m } [36mfrom[0m [32m"@/components/shared/data-table"[0m;
+[31m[1m>[0m [90m33 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m34 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m35 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m, [33mProgressReport[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m36 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx:33:1
+Export monitoringApi doesn't exist in target module
+  [90m31 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+  [90m32 |[0m [36mimport[0m { [33mDataTable[0m } [36mfrom[0m [32m"@/components/shared/data-table"[0m;
+[31m[1m>[0m [90m33 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m34 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m35 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m, [33mProgressReport[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m36 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx:39:1
+Export monitoringApi doesn't exist in target module
+  [90m37 |[0m [36mimport[0m { [33mTabs[0m, [33mTabsContent[0m, [33mTabsList[0m, [33mTabsTrigger[0m } [36mfrom[0m [32m"@/components/ui/tabs"[0m;
+  [90m38 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+[31m[1m>[0m [90m39 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m40 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m, [33mMilestone[0m, [33mProgressReport[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m41 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+  [90m42 |[0m [36mimport[0m { [33mSkeleton[0m } [36mfrom[0m [32m"@/components/ui/skeleton"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx:39:1
+Export monitoringApi doesn't exist in target module
+  [90m37 |[0m [36mimport[0m { [33mTabs[0m, [33mTabsContent[0m, [33mTabsList[0m, [33mTabsTrigger[0m } [36mfrom[0m [32m"@/components/ui/tabs"[0m;
+  [90m38 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+[31m[1m>[0m [90m39 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m40 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m, [33mMilestone[0m, [33mProgressReport[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m41 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+  [90m42 |[0m [36mimport[0m { [33mSkeleton[0m } [36mfrom[0m [32m"@/components/ui/skeleton"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report/page.tsx:32:1
+Export monitoringApi doesn't exist in target module
+  [90m30 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+  [90m31 |[0m [36mimport[0m { [33mDataTable[0m } [36mfrom[0m [32m"@/components/shared/data-table"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m34 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m35 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/progress-report/page.tsx:32:1
+Export monitoringApi doesn't exist in target module
+  [90m30 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+  [90m31 |[0m [36mimport[0m { [33mDataTable[0m } [36mfrom[0m [32m"@/components/shared/data-table"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m34 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m35 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/progress-report/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx:39:1
+Export monitoringApi doesn't exist in target module
+  [90m37 |[0m [36mimport[0m { [33mLabel[0m } [36mfrom[0m [32m"@/components/ui/label"[0m;
+  [90m38 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+[31m[1m>[0m [90m39 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m40 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m41 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m42 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx:39:1
+Export monitoringApi doesn't exist in target module
+  [90m37 |[0m [36mimport[0m { [33mLabel[0m } [36mfrom[0m [32m"@/components/ui/label"[0m;
+  [90m38 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+[31m[1m>[0m [90m39 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m40 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m41 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m42 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx:34:1
+Export monitoringApi doesn't exist in target module
+  [90m32 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+  [90m33 |[0m [36mimport[0m { [33mDataTable[0m } [36mfrom[0m [32m"@/components/shared/data-table"[0m;
+[31m[1m>[0m [90m34 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m35 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m36 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m37 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx:34:1
+Export monitoringApi doesn't exist in target module
+  [90m32 |[0m [36mimport[0m { [33mPageContainer[0m } [36mfrom[0m [32m"@/components/layout"[0m;
+  [90m33 |[0m [36mimport[0m { [33mDataTable[0m } [36mfrom[0m [32m"@/components/shared/data-table"[0m;
+[31m[1m>[0m [90m34 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m35 |[0m [36mimport[0m { mockProjects } [36mfrom[0m [32m"@/lib/api/mock-data"[0m;
+  [90m36 |[0m [36mimport[0m [36mtype[0m { [33mResearchProject[0m } [36mfrom[0m [32m"@/lib/types"[0m;
+  [90m37 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/reports/page.tsx:32:1
+Export monitoringApi doesn't exist in target module
+  [90m30 |[0m   [33mDropdownMenuTrigger[0m,
+  [90m31 |[0m } [36mfrom[0m [32m"@/components/ui/dropdown-menu"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+  [90m34 |[0m
+  [90m35 |[0m [36mconst[0m reportStatuses = {
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-client] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/reports/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/reports/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/reports/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/reports/page.tsx [Server Component]
+
+
+./app/(dashboard)/research/reports/page.tsx:32:1
+Export monitoringApi doesn't exist in target module
+  [90m30 |[0m   [33mDropdownMenuTrigger[0m,
+  [90m31 |[0m } [36mfrom[0m [32m"@/components/ui/dropdown-menu"[0m;
+[31m[1m>[0m [90m32 |[0m [36mimport[0m { monitoringApi } [36mfrom[0m [32m"@/api/client"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m33 |[0m [36mimport[0m { cn } [36mfrom[0m [32m"@/lib/utils"[0m;
+  [90m34 |[0m
+  [90m35 |[0m [36mconst[0m reportStatuses = {
+
+The export monitoringApi was not found in module [project]/api/client.ts [app-ssr] (ecmascript).
+Did you mean to import tokenStorage?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/research/reports/page.tsx [Client Component Browser]
+    ./app/(dashboard)/research/reports/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/research/reports/page.tsx [Client Component SSR]
+    ./app/(dashboard)/research/reports/page.tsx [Server Component]
+
+
+    at <unknown> (./components/research/proposal/ProposalWizard.tsx:35:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./components/research/proposal/ProposalWizard.tsx:34:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/(auth)/verify-otp/page.tsx:9:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx:44:1)
+    at <unknown> (./app/(dashboard)/research/manage-grants/[id]/edit/page.tsx:44:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx:39:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report-approval/[id]/page.tsx:39:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx:33:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report-approval/page.tsx:33:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx:39:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report/[id]/page.tsx:39:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report/page.tsx:32:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/progress-report/page.tsx:32:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx:39:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/terminal-report-approval/[id]/page.tsx:39:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx:34:1)
+    at <unknown> (./app/(dashboard)/research/monitoring/terminal-report-approval/page.tsx:34:1)
+    at <unknown> (./app/(dashboard)/research/reports/page.tsx:32:1)
+    at <unknown> (./app/(dashboard)/research/reports/page.tsx:32:1)

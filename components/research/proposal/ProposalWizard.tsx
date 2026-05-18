@@ -31,8 +31,8 @@ import {
 } from "@/lib/queries/proposals";
 import type { Section } from "./steps/FilesStep/types";
 import { useProposalTemplateSections } from "@/lib/queries/proposal-template-section";
-import axiosClient from "../../../lib/api/axios-client";
-import { API_ENDPOINTS } from "../../../lib/api/api-config";
+import apiClient from "@/api/client";
+import { API_ENDPOINTS } from "@/api/endpoints";
 import type { ProposalDetail } from "@/types";
 
 interface ProposalWizardProps {

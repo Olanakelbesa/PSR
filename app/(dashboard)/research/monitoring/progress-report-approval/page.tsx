@@ -114,7 +114,7 @@ export default function ProgressReportApprovalListPage() {
         const response = await monitoringApi.getProjects();
         if (response && response.data) {
           // Add pending reports dynamically if not present
-          const apiProjects = response.data.map((p) => {
+          const apiProjects = response.data.map((p: ResearchProject) => {
             const enriched = enrichedProjects.find((ep) => ep.id === p.id);
             return enriched ? enriched : p;
           });

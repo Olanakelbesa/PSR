@@ -45,7 +45,7 @@ export default function AssignReviewersPage() {
       });
       // For this view, we filter for proposals that need assignment
       // Typically those with 'submitted' status or 'under_review' with few reviewers
-      const pendingAssignment = response.data.filter(p => 
+      const pendingAssignment = response.data.filter((p: ResearchProposal) => 
         p.status === "submitted" || p.status === "under_review"
       );
       setProposals(pendingAssignment);

@@ -65,7 +65,7 @@ export default function AssignReviewersDetailPage() {
       if (proposalRes.success && proposalRes.data) {
         setProposal(proposalRes.data);
         if (proposalRes.data.reviews) {
-          const currentIds = proposalRes.data.reviews.map(r => r.reviewer.id);
+          const currentIds = proposalRes.data.reviews.map((r: any) => r.reviewer.id);
           setSelectedReviewerIds(currentIds);
         }
       }

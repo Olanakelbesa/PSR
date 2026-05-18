@@ -282,7 +282,7 @@ export default function PolicyDraftsPage() {
       try {
         const response = await policyApi.getPolicies({}, { page: 1, pageSize: 100 });
         // Filter to show drafts and draft review statuses
-        const drafts = response.data.filter((p) =>
+        const drafts = response.data.filter((p: PolicyDocument) =>
           ["draft", "under_review", "revision_requested", "approved"].includes(p.status)
         );
         setPolicies(drafts);
