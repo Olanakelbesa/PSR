@@ -28,6 +28,7 @@ import {
   Dot,
   DollarSign,
   Globe,
+  FileUp,
 } from "lucide-react";
 
 import {
@@ -204,6 +205,11 @@ const navigationGroups: NavGroup[] = [
         label: "Research Repository",
         href: "/research/repository",
         icon: Library,
+      },
+      {
+        label: "Minutes",
+        href: "/research/minutes",
+        icon: FileUp
       },
       {
         label: "External Research ",

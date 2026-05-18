@@ -107,12 +107,8 @@ export const API_CONFIG = {
     auditLogs: {
       list: "/audit-logs",
     },
-    taxonomy: {
-      researchAreas: "/taxonomy/research-areas",
-      policyTypes: "/taxonomy/policy-types",
-      institutions: "/taxonomy/institutions",
-      create: (type: string) => `/taxonomy/${type}`,
-      delete: (type: string, id: string) => `/taxonomy/${type}/${id}`,
+    thematicArea: {
+      list: "/v1/thematicareas"
     },
     notifications: {
       list: (userId: string) => `/notifications?userId=${userId}`,

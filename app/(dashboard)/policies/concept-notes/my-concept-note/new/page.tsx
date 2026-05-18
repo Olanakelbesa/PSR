@@ -48,35 +48,12 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
 import { conceptNoteApi } from "@/lib/api/client";
-import { taxonomyApi } from "@/lib/api/client";
+import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
+import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
-import type { Institution } from "@/lib/types";
-
-interface DocumentType {
-  id: string;
-  name: string;
-}
-
-interface ThematicArea {
-  id: string;
-  name: string;
-}
-
-type OrganizationId = "MoH" | "Agency" | "University" | "Other";
-
-interface OrganizationOption {
-  id: OrganizationId;
-  name: string;
-}
-
-const ORGANIZATION_OPTIONS = [
-  { id: "MoH", name: "MoH" },
-  { id: "Agency", name: "Agency" },
-  { id: "University", name: "University" },
-  { id: "Other", name: "Other" },
-] as const satisfies readonly OrganizationOption[];
+import { useOrganizations } from "@/lib/queries/organizations";
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SUMMARY_WORDS = 250;
@@ -85,31 +62,11 @@ export default function NewConceptNotePage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
-  const [thematicAreas, setThematicAreas] = useState<ThematicArea[]>([]);
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const { data: documentTypes = [] } = usePolicyDocumentTypes();
+  const { data: thematicAreasResponse, isLoading: isLoadingThematic, error: thematicError } = useThematicAreas();
+  const thematicAreas = thematicAreasResponse?.data ?? [];
 
-  useEffect(() => {
-    // TODO: Fetch document types and thematic areas from API
-    // For now, using placeholder data
-    setDocumentTypes([
-      { id: "1", name: "Policy" },
-      { id: "2", name: "Strategy" },
-      { id: "3", name: "Guideline" },
-    ]);
-    setThematicAreas([
-      { id: "1", name: "Education" },
-      { id: "2", name: "Health" },
-      { id: "3", name: "Environmental" },
-      { id: "4", name: "Economic" },
-    ]);
-
-    taxonomyApi.getInstitutions().then((response) => {
-      if (response.success && response.data) {
-        setInstitutions(response.data);
-      }
-    });
-  }, []);
+  const { data: organizations = [] } = useOrganizations();
 
   const form = useForm<ConceptNoteFormData>({
     resolver: zodResolver(conceptNoteSchema),
@@ -118,7 +75,6 @@ export default function NewConceptNotePage() {
       executiveSummary: "",
       documentType: "",
       organization: [],
-      universities: [],
       thematicAreas: [],
       documentCategory: "new",
       file: undefined,
@@ -130,29 +86,21 @@ export default function NewConceptNotePage() {
   const selectedDocumentType = form.watch("documentType");
   const selectedDocumentCategory = form.watch("documentCategory");
   const selectedOrganizationIds = form.watch("organization") || [];
-  const selectedUniversities = form.watch("universities") || [];
   const selectedThematicIds = form.watch("thematicAreas") || [];
   const selectedFile = form.watch("file") as File | undefined;
 
-  const showUniversityField = selectedOrganizationIds.includes("University");
-  const universityOptions = institutions.filter(
-    (institution) => institution.type === "academic",
-  );
-  const selectedOrganizationsList = ORGANIZATION_OPTIONS.filter((org) =>
-    selectedOrganizationIds.includes(org.id),
+  const selectedOrganizationsList = organizations.filter((org) =>
+    selectedOrganizationIds.includes(String(org.id)),
   );
   const selectedAreas = thematicAreas.filter((area) =>
-    selectedThematicIds.includes(area.id),
+    selectedThematicIds.includes(String(area.id)),
   );
   const wordCount = calculateWordCount(executiveSummary);
-  const organizationReady =
-    selectedOrganizationIds.length > 0 &&
-    (!showUniversityField || selectedUniversities.length > 0);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
-    organizationReady,
+    selectedOrganizationIds.length > 0,
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
     selectedThematicIds.length > 0,
     Boolean(selectedFile),
@@ -262,7 +210,7 @@ export default function NewConceptNotePage() {
                           </FormControl>
                           <SelectContent>
                             {documentTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
+                              <SelectItem key={type.id} value={String(type.id)}>
                                 {type.name}
                               </SelectItem>
                             ))}
@@ -324,104 +272,14 @@ export default function NewConceptNotePage() {
                 <FormField
                   control={form.control}
                   name="organization"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Organization</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <button
-                              type="button"
-                              className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <span className="flex-1 text-left">
-                                {selectedOrganizationIds.length > 0
-                                  ? `${selectedOrganizationIds.length} organization${selectedOrganizationIds.length !== 1 ? "s" : ""} selected`
-                                  : "Select organization(s)"}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-3" align="start">
-                          <div className="space-y-2">
-                            {ORGANIZATION_OPTIONS.map((organization) => {
-                              const checked =
-                                field.value?.includes(organization.id) || false;
-                              return (
-                                <label
-                                  key={organization.id}
-                                  className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
-                                >
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(isChecked) => {
-                                      const currentValue = field.value || [];
-                                      const nextValue = isChecked
-                                        ? [...currentValue, organization.id]
-                                        : currentValue.filter(
-                                            (id) => id !== organization.id,
-                                          );
-                                      field.onChange(nextValue);
+                  render={({ field }) => {
+                    const currentValue: string[] = (field.value || []).map(
+                      String,
+                    );
 
-                                      if (!nextValue.includes("University")) {
-                                        form.setValue("universities", []);
-                                      }
-                                    }}
-                                  />
-                                  <span className="text-sm font-medium">
-                                    {organization.name}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        Select one or more organizations relevant to the concept
-                        note.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {selectedOrganizationsList.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {selectedOrganizationsList.map((organization) => (
-                      <Badge
-                        key={organization.id}
-                        variant="secondary"
-                        className="flex items-center gap-2"
-                      >
-                        {organization.name}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            form.setValue(
-                              "organization",
-                              selectedOrganizationIds.filter(
-                                (id) => id !== organization.id,
-                              ),
-                            );
-                          }}
-                          className="ml-1 hover:opacity-70"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                {showUniversityField && (
-                  <FormField
-                    control={form.control}
-                    name="universities"
-                    render={({ field }) => (
+                    return (
                       <FormItem>
-                        <FormLabel>Universities</FormLabel>
+                        <FormLabel>Organization</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -430,45 +288,72 @@ export default function NewConceptNotePage() {
                                 className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <span className="flex-1 text-left">
-                                  {selectedUniversities.length > 0
-                                    ? `${selectedUniversities.length} universit${selectedUniversities.length === 1 ? "y" : "ies"} selected`
-                                    : "Select university(s)"}
+                                  {selectedOrganizationsList.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                      {selectedOrganizationsList.map((org) => (
+                                        <Badge
+                                          key={org.id}
+                                          variant="secondary"
+                                          className="flex items-center gap-2"
+                                        >
+                                          {org.name}
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              field.onChange(
+                                                currentValue.filter(
+                                                  (id) => id !== String(org.id),
+                                                ),
+                                              )
+                                            }
+                                            className="ml-1 hover:opacity-70"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">
+                                      Select organizations...
+                                    </span>
+                                  )}
                                 </span>
-                                <ChevronDown className="h-4 w-4 opacity-50" />
+                                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
                               </button>
                             </FormControl>
                           </PopoverTrigger>
-                          <PopoverContent className="w-full p-3" align="start">
-                            <div className="space-y-2">
-                              {universityOptions.map((institution) => {
-                                const checked =
-                                  field.value?.includes(institution.name) ||
-                                  false;
 
+                          <PopoverContent
+                            className="w-[300px] p-0"
+                            align="start"
+                          >
+                            <div className="p-4">
+                              {organizations.map((organization) => {
+                                const checked = currentValue.includes(
+                                  String(organization.id),
+                                );
                                 return (
                                   <label
-                                    key={institution.id}
-                                    className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
+                                    key={organization.id}
+                                    className="flex items-center space-x-2 p-2 rounded cursor-pointer hover:bg-muted"
                                   >
                                     <Checkbox
                                       checked={checked}
                                       onCheckedChange={(isChecked) => {
-                                        const currentValue = field.value || [];
-                                        field.onChange(
-                                          isChecked
-                                            ? [
-                                                ...currentValue,
-                                                institution.name,
-                                              ]
-                                            : currentValue.filter(
-                                                (name) =>
-                                                  name !== institution.name,
-                                              ),
-                                        );
+                                        const idStr = String(organization.id);
+                                        const nextValue = isChecked
+                                          ? Array.from(
+                                              new Set([...currentValue, idStr]),
+                                            )
+                                          : currentValue.filter(
+                                              (id) => id !== idStr,
+                                            );
+                                        field.onChange(nextValue);
                                       }}
                                     />
                                     <span className="text-sm font-medium">
-                                      {institution.name}
+                                      {organization.name}
                                     </span>
                                   </label>
                                 );
@@ -476,43 +361,16 @@ export default function NewConceptNotePage() {
                             </div>
                           </PopoverContent>
                         </Popover>
+
                         <FormDescription>
-                          Choose one or more academic institutions when
-                          University is selected.
+                          Select one or more organizations relevant to the
+                          concept note.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
-                    )}
-                  />
-                )}
-
-                {selectedUniversities.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {selectedUniversities.map((university) => (
-                      <Badge
-                        key={university}
-                        variant="secondary"
-                        className="flex items-center gap-2"
-                      >
-                        {university}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            form.setValue(
-                              "universities",
-                              selectedUniversities.filter(
-                                (name) => name !== university,
-                              ),
-                            );
-                          }}
-                          className="ml-1 hover:opacity-70"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                    );
+                  }}
+                />
               </CardContent>
             </Card>
 
@@ -622,7 +480,7 @@ export default function NewConceptNotePage() {
                           <div className="space-y-2">
                             {thematicAreas.map((area) => {
                               const checked =
-                                field.value?.includes(area.id) || false;
+                                field.value?.includes(String(area.id)) || false;
                               return (
                                 <label
                                   key={area.id}
@@ -634,9 +492,9 @@ export default function NewConceptNotePage() {
                                       const currentValue = field.value || [];
                                       field.onChange(
                                         isChecked
-                                          ? [...currentValue, area.id]
+                                          ? [...currentValue, String(area.id)]
                                           : currentValue.filter(
-                                              (id) => id !== area.id,
+                                              (id) => id !== String(area.id),
                                             ),
                                       );
                                     }}
@@ -667,7 +525,7 @@ export default function NewConceptNotePage() {
                                 onClick={() => {
                                   field.onChange(
                                     field.value?.filter(
-                                      (id) => id !== area.id,
+                                      (id) => id !== String(area.id),
                                     ) || [],
                                   );
                                 }}

@@ -27,12 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -44,7 +39,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
-import { useConceptNotes, type ConceptNoteItem } from "@/lib/queries/concept-notes";
+import {
+  useConceptNotes,
+  type ConceptNoteItem,
+} from "@/lib/queries/concept-notes";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 // ── Current Status config ─────────────────────────────────────────────────────
@@ -52,15 +51,42 @@ const STATUS_CONFIG: Record<
   ConceptNoteItem["currentStatus"],
   { label: string; className: string }
 > = {
-  draft: { label: "Draft", className: "bg-slate-100 text-slate-600 border-slate-200" },
-  submitted: { label: "Submitted", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  under_review: { label: "Under Review", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  accepted: { label: "Accepted", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  partially_accepted: { label: "Partially Accepted", className: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-  not_accepted: { label: "Not Accepted", className: "bg-red-50 text-red-700 border-red-200" },
-  revision_required: { label: "Revision Required", className: "bg-orange-50 text-orange-700 border-orange-200" },
-  resubmitted: { label: "Resubmitted", className: "bg-purple-50 text-purple-700 border-purple-200" },
-  policy_draft_ready: { label: "Policy Draft Ready", className: "bg-green-50 text-green-700 border-green-200" },
+  draft: {
+    label: "Draft",
+    className: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  submitted: {
+    label: "Submitted",
+    className: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  under_review: {
+    label: "Under Review",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+  },
+  accepted: {
+    label: "Accepted",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  partially_accepted: {
+    label: "Partially Accepted",
+    className: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  },
+  not_accepted: {
+    label: "Not Accepted",
+    className: "bg-red-50 text-red-700 border-red-200",
+  },
+  revision_required: {
+    label: "Revision Required",
+    className: "bg-orange-50 text-orange-700 border-orange-200",
+  },
+  resubmitted: {
+    label: "Resubmitted",
+    className: "bg-purple-50 text-purple-700 border-purple-200",
+  },
+  policy_draft_ready: {
+    label: "Policy Draft Ready",
+    className: "bg-green-50 text-green-700 border-green-200",
+  },
 };
 
 // ── Table columns ─────────────────────────────────────────────────────────────
@@ -81,19 +107,14 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     cell: ({ row }) => {
       const note = row.original;
       return (
-        <div className="flex flex-col gap-1 py-2 min-w-[160px] max-w-[340px]">
+        <div className="flex flex-col gap-1 py-2  min-w-[160px] max-w-[340px]">
           <Link
             href={`/policies/concept-notes/my-concept-note/${note.id}`}
-            className="font-bold text-[15px] leading-tight text-foreground hover:text-primary transition-colors line-clamp-1"
+            className="font-bold text-[15px] leading-tight text-foreground hover:text-primary transition-colors whitespace-pre-wrap break-words"
             onClick={(e) => e.stopPropagation()}
           >
             {note.title}
           </Link>
-          {note.versionNumber && (
-            <span className="text-[11px] font-mono text-muted-foreground">
-              {note.versionNumber}
-            </span>
-          )}
           <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
             {note.executiveSummary}
           </p>
@@ -139,9 +160,11 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
       </Button>
     ),
     cell: ({ row }) => (
-      <span className="text-[13px] font-medium text-foreground">
-        {row.original.organization?.name ?? "—"}
-      </span>
+      <div className="min-w-[140px]">
+        <span className="text-[13px] font-medium text-foreground whitespace-pre-wrap break-words ">
+          {row.original.organization?.name ?? "—"}
+        </span>
+      </div>
     ),
   },
   {
@@ -149,9 +172,12 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     accessorFn: (row) => row.unit?.name ?? "",
     header: "Unit",
     cell: ({ row }) => (
-      <span className="text-[13px] font-medium text-foreground">
+      <div className="min-w-[140px">
+
+      <span className="text-[13px] font-medium text-foreground whitespace-pre-wrap break-words ">
         {row.original.unit?.name ?? "—"}
       </span>
+      </div>
     ),
   },
   {
@@ -171,7 +197,13 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
       const s = row.original.currentStatus;
       const cfg = STATUS_CONFIG[s] ?? { label: s, className: "" };
       return (
-        <Badge variant="outline" className={cn("text-[11px] font-semibold capitalize whitespace-nowrap", cfg.className)}>
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-[11px] font-semibold capitalize whitespace-nowrap",
+            cfg.className,
+          )}
+        >
           {cfg.label}
         </Badge>
       );
@@ -197,31 +229,19 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     ),
   },
   {
-    id: "submittedBy",
-    accessorFn: (row) => row.submittedBy?.fullName ?? "",
-    header: () => <span className="ml-4">Submitted by</span>,
+    id: "version",
+    accessorKey: "version",
+    header: () => <span className="ml-4">Version</span>,
     cell: ({ row }) => {
-      const author = row.original.submittedBy;
-      if (!author) return <span className="text-muted-foreground text-xs">—</span>;
-      const initials = author.fullName
-        .split(" ")
-        .map((p) => p[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
+      const version = row.original.versionNumber;
+      if (!version)
+        return <span className="text-muted-foreground text-xs">—</span>;
       return (
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8 border-2 border-background shadow-sm ring-1 ring-border/50">
-            {author.photoUrl && <AvatarImage src={author.photoUrl} alt={author.fullName} />}
-            <AvatarFallback className="text-[11px] font-bold bg-muted text-muted-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
           <div className="flex flex-col">
-            <span className="text-[13px] font-semibold leading-none text-foreground">
-              {author.fullName}
+            <span className="text-[13px] font-medium text-foreground">
+              {version}
             </span>
-            <span className="text-[11px] text-muted-foreground mt-0.5">{author.email}</span>
           </div>
         </div>
       );
@@ -236,7 +256,7 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="h-8 font-semibold hover:bg-transparent"
       >
-        Submitted
+        Submitted At
         <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
       </Button>
     ),
@@ -264,12 +284,18 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full">
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full"
+              >
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px] p-1 shadow-xl border-muted-foreground/20">
+            <DropdownMenuContent
+              align="end"
+              className="w-[180px] p-1 shadow-xl border-muted-foreground/20"
+            >
               <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5 font-normal uppercase tracking-wider">
                 Actions
               </DropdownMenuLabel>
@@ -313,26 +339,35 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ConceptNotesPage() {
   const router = useRouter();
-  const { data, isLoading, isError, refetch, isFetching } = useConceptNotes({ limit: 100 });
+  const { backendToken } = useAuth();
+  const { data, isLoading, isError, refetch, isFetching } = useConceptNotes(
+    { limit: 100 },
+    backendToken,
+  );
 
   const notes = data?.data ?? [];
   const meta = data?.meta;
 
-  const stats = useMemo(() => ({
-    total: meta?.total ?? notes.length,
-    draft: notes.filter((n) => n.currentStatus === "draft").length,
-    review: notes.filter((n) =>
-      ["submitted", "under_review", "resubmitted"].includes(n.currentStatus)
-    ).length,
-    accepted: notes.filter((n) =>
-      ["accepted", "policy_draft_ready"].includes(n.currentStatus)
-    ).length,
-  }), [notes, meta]);
+  const stats = useMemo(
+    () => ({
+      total: meta?.total ?? notes.length,
+      draft: notes.filter((n) => n.currentStatus === "draft").length,
+      review: notes.filter((n) =>
+        ["submitted", "under_review", "resubmitted"].includes(n.currentStatus),
+      ).length,
+      accepted: notes.filter((n) =>
+        ["accepted", "policy_draft_ready"].includes(n.currentStatus),
+      ).length,
+    }),
+    [notes, meta],
+  );
 
-  const statusFilterOptions = Object.entries(STATUS_CONFIG).map(([value, { label }]) => ({
-    value,
-    label,
-  }));
+  const statusFilterOptions = Object.entries(STATUS_CONFIG).map(
+    ([value, { label }]) => ({
+      value,
+      label,
+    }),
+  );
 
   return (
     <PageContainer
@@ -347,7 +382,9 @@ export default function ConceptNotesPage() {
             disabled={isFetching}
             className="h-9 w-9"
           >
-            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            <RefreshCw
+              className={cn("h-4 w-4", isFetching && "animate-spin")}
+            />
           </Button>
           <Button asChild className="shadow-sm">
             <Link href="/policies/concept-notes/my-concept-note/new">
@@ -362,7 +399,9 @@ export default function ConceptNotesPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-primary/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-primary/80">Total Notes</CardTitle>
+            <CardTitle className="text-sm font-medium text-primary/80">
+              Total Notes
+            </CardTitle>
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
               <FileText className="h-4 w-4 text-primary" />
             </div>
@@ -371,13 +410,17 @@ export default function ConceptNotesPage() {
             <div className="text-2xl font-bold">
               {isLoading ? <Skeleton className="h-8 w-12" /> : stats.total}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">Across all categories</p>
+            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+              Across all categories
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-orange-100/50 bg-orange-50/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-orange-600/80">In Draft</CardTitle>
+            <CardTitle className="text-sm font-medium text-orange-600/80">
+              In Draft
+            </CardTitle>
             <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
               <Clock className="h-4 w-4 text-orange-500" />
             </div>
@@ -386,13 +429,17 @@ export default function ConceptNotesPage() {
             <div className="text-2xl font-bold">
               {isLoading ? <Skeleton className="h-8 w-12" /> : stats.draft}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">Pending submission</p>
+            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+              Pending submission
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-blue-100/50 bg-blue-50/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600/80">Under Review</CardTitle>
+            <CardTitle className="text-sm font-medium text-blue-600/80">
+              Under Review
+            </CardTitle>
             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
               <AlertCircle className="h-4 w-4 text-blue-500" />
             </div>
@@ -401,13 +448,17 @@ export default function ConceptNotesPage() {
             <div className="text-2xl font-bold">
               {isLoading ? <Skeleton className="h-8 w-12" /> : stats.review}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">Requiring attention</p>
+            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+              Requiring attention
+            </p>
           </CardContent>
         </Card>
 
         <Card className="border-green-100/50 bg-green-50/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-600/80">Accepted</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-600/80">
+              Accepted
+            </CardTitle>
             <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </div>
@@ -416,7 +467,9 @@ export default function ConceptNotesPage() {
             <div className="text-2xl font-bold">
               {isLoading ? <Skeleton className="h-8 w-12" /> : stats.accepted}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">Ready for next stage</p>
+            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+              Ready for next stage
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -441,9 +494,17 @@ export default function ConceptNotesPage() {
         ) : isError ? (
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-12 text-center">
             <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-3" />
-            <p className="font-semibold text-foreground">Failed to load concept notes</p>
-            <p className="text-sm text-muted-foreground mt-1">Please check your connection and try again.</p>
-            <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+            <p className="font-semibold text-foreground">
+              Failed to load concept notes
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Please check your connection and try again.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => refetch()}
+            >
               <RefreshCw className="mr-2 h-4 w-4" />
               Retry
             </Button>
@@ -481,7 +542,8 @@ export default function ConceptNotesPage() {
             <EmptyHeader>
               <EmptyTitle>No concept notes found</EmptyTitle>
               <EmptyDescription>
-                You haven't created any concept notes yet. Get started by creating a new one.
+                You haven't created any concept notes yet. Get started by
+                creating a new one.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>

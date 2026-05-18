@@ -61,8 +61,11 @@ export interface ConceptNotesMeta {
 export function useConceptNotes(params: ConceptNotesParams = {}, token?: string | null) {
   return useQuery({
     queryKey: ["concept-notes", params],
-    // Only fire once we know whether we have a token (avoids an immediate 401)
-    enabled: token !== undefined,
+    // If caller provides a `token` param we wait until it's non-null before
+    // firing (avoids an immediate 401). If `token` is omitted (undefined),
+    // we allow the query to run and rely on the Axios interceptor / default
+    // auth behaviour.
+    enabled: token === undefined ? true : token !== null,
     queryFn: async () => {
       const { data } = await api.get(API_CONFIG.endpoints.conceptNotes.list, {
         params,

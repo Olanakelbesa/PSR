@@ -1,19 +1,48 @@
-import { mockResearchAreas } from "@/lib/api/mock-data";
+import { useQuery } from "@tanstack/react-query";
 
-export function useThematicAreas() {
-  return {
-    data: { data: mockResearchAreas as any[] },
-    isLoading: false,
-    isError: false,
+import api from "@/lib/axios";
+import { API_CONFIG } from "@/lib/config/api";
+
+export interface ThematicArea {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface ThematicAreasResponse {
+  success: boolean;
+  data: ThematicArea[];
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
   };
 }
 
+export function useThematicAreas() {
+  return useQuery({
+    queryKey: ["thematic-areas"],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get(API_CONFIG.endpoints.thematicArea.list);
+        return data as ThematicAreasResponse;
+      } catch (err) {
+        console.warn("[API] Failed to fetch thematic areas dynamically.", err);
+        return {
+          success: false,
+          data: [],
+          meta: undefined,
+        } as ThematicAreasResponse;
+      }
+    },
+  });
+}
+
 export function useThematicArea(id: string) {
+  const query = useThematicAreas();
   return {
-    data: (mockResearchAreas as any[]).find(
-      (area) => String(area.id) === String(id),
-    ),
-    isLoading: false,
-    isError: false,
+    ...query,
+    data: query.data?.data.find((area) => String(area.id) === String(id)),
   };
 }
