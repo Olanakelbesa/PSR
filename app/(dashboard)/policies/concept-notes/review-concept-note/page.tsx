@@ -341,6 +341,8 @@ export default function ConceptNotesPage() {
     }
   };
 
+  console.log('notes', loadNotes);
+
   useEffect(() => {
     loadNotes();
   }, []);

@@ -35,7 +35,7 @@ import { PageContainer } from "@/components/layout";
 import { mockCalls } from "@/lib/api/mock-data";
 import type { CallForProposal } from "@/lib/types";
 import { PRIORITY_AREAS } from "@/lib/constants";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/lib/hooks/useAuth";
 import Image from "next/image";
 
 const statusConfig: Record<
@@ -50,7 +50,7 @@ const statusConfig: Record<
 };
 
 function CallCard({ call }: { call: CallForProposal }) {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const isOpen = call.status === "open";
   const isPi = user?.role === "researcher";
   const isAdmin = user?.role === "system_admin";
@@ -134,12 +134,12 @@ function CallCard({ call }: { call: CallForProposal }) {
               <ExternalLink className="h-4 w-4 ml-2" />
             </Link>
           </Button>
-            <Button className="flex-1" asChild>
-              <Link href={`/research/manage-grants/${call.id}/edit`}>
+          <Button className="flex-1" asChild>
+            <Link href={`/research/manage-grants/${call.id}/edit`}>
               <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Link>
-            </Button>
+              Edit
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>

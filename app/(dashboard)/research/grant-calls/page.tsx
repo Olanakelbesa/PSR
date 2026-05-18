@@ -36,7 +36,7 @@ import { PageContainer } from "@/components/layout";
 import { mockCalls } from "@/lib/api/mock-data";
 import type { CallForProposal } from "@/lib/types";
 import { PRIORITY_AREAS } from "@/lib/constants";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 const statusConfig: Record<
   CallForProposal["status"],
@@ -50,7 +50,7 @@ const statusConfig: Record<
 };
 
 function CallCard({ call }: { call: CallForProposal }) {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const isOpen = call.status === "open";
   const isPi = user?.role === "researcher";
   const isAdmin = user?.role === "system_admin";
@@ -136,7 +136,9 @@ function CallCard({ call }: { call: CallForProposal }) {
           </Button>
           {isOpen && (
             <Button className="flex-1" asChild>
-              <Link href={`/research/proposals/my-proposals/new?callId=${call.id}`}>
+              <Link
+                href={`/research/proposals/my-proposals/new?callId=${call.id}`}
+              >
                 Apply Now
               </Link>
             </Button>

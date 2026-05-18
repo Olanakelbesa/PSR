@@ -304,74 +304,150 @@ export function DataTable<TData, TValue>({
           </Table>
         </div>
         <Separator className="bg-border/60" />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-6 py-4 bg-muted/5">
-          <div className="flex items-center gap-6 lg:gap-8 order-1 sm:order-2 ml-auto">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium">Rows per page</p>
-              <Select
-                value={`${table.getState().pagination.pageSize}`}
-                onValueChange={(value) => {
-                  table.setPageSize(Number(value));
-                }}
-              >
-                <SelectTrigger className="h-8 w-[70px] border-muted-foreground/20">
-                  <SelectValue
-                    placeholder={table.getState().pagination.pageSize}
-                  />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {[10, 20, 30, 40, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+        {/* ── Pagination Footer ───────────────────────────────────────────────── */}
+        {(() => {
+          const pageIndex = table.getState().pagination.pageIndex;
+          const pageSize  = table.getState().pagination.pageSize;
+          const pageCount = table.getPageCount();
+          const totalRows = table.getFilteredRowModel().rows.length;
+          const from      = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
+          const to        = Math.min((pageIndex + 1) * pageSize, totalRows);
+          const current   = pageIndex + 1;
+
+          // Build smart page window with ellipsis
+          const buildPages = (): (number | "…")[] => {
+            if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
+            const pages: (number | "…")[] = [1];
+            const left  = Math.max(2, current - 1);
+            const right = Math.min(pageCount - 1, current + 1);
+            if (left > 2) pages.push("…");
+            for (let p = left; p <= right; p++) pages.push(p);
+            if (right < pageCount - 1) pages.push("…");
+            pages.push(pageCount);
+            return pages;
+          };
+          const pages = buildPages();
+
+          return (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 bg-muted/5">
+              {/* Results summary */}
+              <p className="text-xs text-muted-foreground shrink-0">
+                {totalRows === 0 ? (
+                  "No results"
+                ) : (
+                  <>
+                    Showing{" "}
+                    <span className="font-semibold text-foreground">{from}</span>
+                    {" "}–{" "}
+                    <span className="font-semibold text-foreground">{to}</span>
+                    {" "}of{" "}
+                    <span className="font-semibold text-foreground">{totalRows}</span>
+                    {" "}results
+                  </>
+                )}
+              </p>
+
+              <div className="flex items-center gap-4 ml-auto flex-wrap">
+                {/* Rows per page */}
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Rows per page</p>
+                  <Select
+                    value={`${pageSize}`}
+                    onValueChange={(v) => { table.setPageSize(Number(v)); }}
+                  >
+                    <SelectTrigger className="h-8 w-[64px] text-xs border-muted-foreground/20 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      {[10, 20, 30, 50].map((s) => (
+                        <SelectItem key={s} value={`${s}`} className="text-xs">{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Page navigation — always visible */}
+                <div className="flex items-center gap-1">
+                  {/* First page */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="hidden lg:flex h-8 w-8 border-muted-foreground/20 text-muted-foreground hover:text-foreground"
+                    onClick={() => table.setPageIndex(0)}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">First page</span>
+                    <ChevronsLeft className="h-3.5 w-3.5" />
+                  </Button>
+
+                  {/* Prev */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 border-muted-foreground/20 text-muted-foreground hover:text-foreground"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Previous page</span>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+
+                  {/* Numbered pages */}
+                  {pages.map((page, idx) =>
+                    page === "…" ? (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="flex h-8 w-8 items-center justify-center text-xs text-muted-foreground select-none"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={page}
+                        size="sm"
+                        variant={current === page ? "default" : "ghost"}
+                        className={cn(
+                          "h-8 w-8 p-0 text-xs font-medium transition-all",
+                          current === page
+                            ? "shadow-sm"
+                            : "text-muted-foreground hover:text-foreground border border-transparent hover:border-muted-foreground/20",
+                        )}
+                        onClick={() => table.setPageIndex((page as number) - 1)}
+                      >
+                        {page}
+                      </Button>
+                    )
+                  )}
+
+                  {/* Next */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 border-muted-foreground/20 text-muted-foreground hover:text-foreground"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Next page</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+
+                  {/* Last page */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="hidden lg:flex h-8 w-8 border-muted-foreground/20 text-muted-foreground hover:text-foreground"
+                    onClick={() => table.setPageIndex(pageCount - 1)}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Last page</span>
+                    <ChevronsRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex border-muted-foreground/20"
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Go to first page</span>
-                <ChevronsLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0 border-muted-foreground/20"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Go to previous page</span>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-8 w-8 p-0 border-muted-foreground/20"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Go to next page</span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex border-muted-foreground/20"
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Go to last page</span>
-                <ChevronsRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
     </div>
   );

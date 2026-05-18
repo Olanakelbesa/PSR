@@ -40,7 +40,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 // ─── Stats Data ────────────────────────────────────────────────────────────────
@@ -574,7 +574,7 @@ function ResearchTrendChart() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const [greeting, setGreeting] = useState("Good morning");
 
   useEffect(() => {

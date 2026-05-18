@@ -1,10 +1,15 @@
 "use client";
 
+// ============================================================================
+// PSR Platform — Dashboard Layout (NextAuth v5)
+// ============================================================================
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar, AppHeader } from "@/components/layout";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/lib/hooks/useAuth";
+import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -12,24 +17,28 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, hasTokenError } = useAuth();
 
-  // Auth check disabled as per user request
-  /*
+  // Redirect to login if session expired or refresh token failed
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && (!isAuthenticated || hasTokenError)) {
       router.push("/login");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, hasTokenError, router]);
 
-  if (!isAuthenticated) {
+  // Show full-screen loader while session is being resolved
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm font-medium">Verifying session…</p>
+        </div>
       </div>
     );
   }
-  */
+
+  if (!isAuthenticated) return null;
 
   return (
     <SidebarProvider>

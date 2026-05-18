@@ -18,7 +18,7 @@ import {
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 // Mock notifications
 const notifications = [
@@ -46,7 +46,7 @@ const notifications = [
 ];
 
 export function AppHeader() {
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const unreadCount = notifications.filter((n) => n.unread).length;

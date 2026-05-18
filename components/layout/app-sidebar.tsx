@@ -53,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { ROLES } from "@/lib/constants";
 import type { UserRole } from "@/lib/types";
 
@@ -143,28 +143,32 @@ const navigationGroups: NavGroup[] = [
         href: "/research/manage-grants",
         icon: Settings2Icon,
       },
-      { label: "Proposals", icon: FileText, subItems: [
-        {
-          label: "My Proposals",
-          href: "/research/proposals/my-proposals",
-          icon: Dot,
-        },
-        {
-          label: "Screening",
-          href: "/research/proposals/screening-reviews",
-          icon: Dot,
-        },
-        {
-          label: "Assign Reviewers",
-          href: "/research/proposals/assign-reviewers",
-          icon: Dot,
-        },
-        {
-          label: "Technical Reviews",
-          href: "/research/proposals/technical-reviews",
-          icon: Dot,
-        }
-      ]},
+      {
+        label: "Proposals",
+        icon: FileText,
+        subItems: [
+          {
+            label: "My Proposals",
+            href: "/research/proposals/my-proposals",
+            icon: Dot,
+          },
+          {
+            label: "Screening",
+            href: "/research/proposals/screening-reviews",
+            icon: Dot,
+          },
+          {
+            label: "Assign Reviewers",
+            href: "/research/proposals/assign-reviewers",
+            icon: Dot,
+          },
+          {
+            label: "Technical Reviews",
+            href: "/research/proposals/technical-reviews",
+            icon: Dot,
+          },
+        ],
+      },
       {
         label: "Ready for Funding",
         href: "/research/ready-for-funding",
@@ -175,23 +179,27 @@ const navigationGroups: NavGroup[] = [
         href: "/research/ethical-clearance",
         icon: FileCheck2,
       },
-      { label: "Monitoring", icon: Activity, subItems: [
-        {
-          label: "Progress Report",
-          href: "/research/monitoring/progress-report",
-          icon: Dot,
-        },
-        {
-          label: "Progress Report Approval",
-          href: "/research/monitoring/progress-report-approval",
-          icon: Dot,
-        },
-        {
-          label: "Terminal Report Approval",
-          href: "/research/monitoring/terminal-report-approval",
-          icon: Dot,
-        }
-      ]},
+      {
+        label: "Monitoring",
+        icon: Activity,
+        subItems: [
+          {
+            label: "Progress Report",
+            href: "/research/monitoring/progress-report",
+            icon: Dot,
+          },
+          {
+            label: "Progress Report Approval",
+            href: "/research/monitoring/progress-report-approval",
+            icon: Dot,
+          },
+          {
+            label: "Terminal Report Approval",
+            href: "/research/monitoring/terminal-report-approval",
+            icon: Dot,
+          },
+        ],
+      },
       {
         label: "Research Repository",
         href: "/research/repository",
@@ -201,7 +209,7 @@ const navigationGroups: NavGroup[] = [
         label: "External Research ",
         href: "/research/external-research",
         icon: Globe,
-      }
+      },
     ],
   },
   {
@@ -237,7 +245,7 @@ const navigationGroups: NavGroup[] = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const { user, signOut } = useAuth();
 
   const hasAccess = (roles?: UserRole[]) => {
     if (!roles || roles.length === 0) return true;
@@ -350,7 +358,9 @@ export function AppSidebar() {
                             `}
                           >
                             {Icon && <Icon className="size-5" />}
-                            <span className="text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
+                            <span className="text-sm group-data-[collapsible=icon]:hidden">
+                              {item.label}
+                            </span>
                             <svg
                               className={`ml-auto transition-transform group-data-[collapsible=icon]:hidden ${openMap[item.label] || parentActive ? "rotate-180" : ""}`}
                               width="16"
@@ -425,7 +435,9 @@ export function AppSidebar() {
                             className="flex items-center gap-3"
                           >
                             {Icon && <Icon className="size-5" />}
-                            <span className="text-sm group-data-[collapsible=icon]:hidden">{item.label}</span>
+                            <span className="text-sm group-data-[collapsible=icon]:hidden">
+                              {item.label}
+                            </span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -495,7 +507,7 @@ export function AppSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={logout}
+                  onClick={signOut}
                   className="text-destructive cursor-pointer"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
