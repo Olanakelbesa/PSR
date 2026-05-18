@@ -430,7 +430,7 @@ export function ProposalWizard({
           const proposalOptionsResponse = await queryClient.prefetchQuery({
             queryKey: ["proposal-options", grantCallIdForFetch],
             queryFn: async () => {
-              const response = await axiosClient.get(
+              const response = await apiClient.get(
                 API_ENDPOINTS.PROPOSALS.OPTIONS,
                 {
                   params: { grant_call_id: grantCallIdForFetch },
@@ -450,7 +450,7 @@ export function ProposalWizard({
                 submissionLevelForFetch,
               ],
               queryFn: async () => {
-                const response = await axiosClient.get(
+                const response = await apiClient.get(
                   API_ENDPOINTS.PROPOSALS.OPTIONS,
                   {
                     params: {
@@ -488,7 +488,7 @@ export function ProposalWizard({
           const proposalOptions = await queryClient.ensureQueryData({
             queryKey: ["proposal-options", grantCallIdForFetch],
             queryFn: async () => {
-              const response = await axiosClient.get(
+              const response = await apiClient.get(
                 API_ENDPOINTS.PROPOSALS.OPTIONS,
                 {
                   params: { grant_call_id: grantCallIdForFetch },
@@ -535,7 +535,7 @@ export function ProposalWizard({
                 submissionLevelForFetch,
               ],
               queryFn: async () => {
-                const response = await axiosClient.get(
+                const response = await apiClient.get(
                   API_ENDPOINTS.PROPOSALS.OPTIONS,
                   {
                     params: {
@@ -689,7 +689,7 @@ export function ProposalWizard({
               { proposal_type: Number(proposalType) },
             ],
             queryFn: async () => {
-              const response = await axiosClient.get(
+              const response = await apiClient.get(
                 API_ENDPOINTS.PROPOSAL_TEMPLATE_SECTION.LIST,
                 {
                   params: {

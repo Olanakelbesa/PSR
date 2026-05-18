@@ -46,7 +46,6 @@ import {
 } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { PageContainer } from '@/components/layout'
-import { auditApi } from '@/api/client'
 interface AuditLog {
   id: string;
   action: string;

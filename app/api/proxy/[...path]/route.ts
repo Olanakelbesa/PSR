@@ -29,7 +29,7 @@ const BLOCKED_REQUEST_HEADERS = new Set([
   "host",
   "connection",
   "content-encoding",
-  "content-length",       // recalculated by fetch automatically
+  "content-length", // recalculated by fetch automatically
   "transfer-encoding",
   "access-control-allow-origin",
   "access-control-allow-methods",
@@ -94,8 +94,7 @@ async function handler(
     // Dynamic import avoids circular deps and keeps this tree-shakeable.
     const { auth } = await import("@/auth");
     const session = await auth();
-    const backendToken =
-      (session as Record<string, unknown>)?.backendToken as string | undefined;
+    const backendToken = session?.backendToken;
     if (backendToken) {
       headers["Authorization"] = `Bearer ${backendToken}`;
     }
@@ -144,7 +143,10 @@ async function handler(
     // Never expose raw error message to the client
     if (isDev) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[Proxy] Upstream error for ${req.method} ${apiPath}:`, msg);
+      console.error(
+        `[Proxy] Upstream error for ${req.method} ${apiPath}:`,
+        msg,
+      );
     }
 
     return NextResponse.json(

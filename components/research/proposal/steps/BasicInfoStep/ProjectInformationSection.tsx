@@ -21,9 +21,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
-import {
-  useSubThematicAreas,
-} from "@/lib/queries/sub-thematic-area";
+import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
 import { useProposalResponse } from "@/lib/queries/proposals";
 import { useSearchParams } from "next/navigation";
 import type { Theme, SubThematicArea } from "@/types/thematic-area";
@@ -106,6 +104,7 @@ export function ProjectInformationSection() {
           {
             id: Number(thematicAreaId),
             name: fallbackName,
+            description: "",
           },
         ];
       }
