@@ -81,6 +81,9 @@ export default function NewConceptNotePage() {
   const { data: thematicAreasResponse, isLoading: isLoadingThematic, error: thematicError } = useThematicAreas();
   const thematicAreas = thematicAreasResponse?.data ?? [];
 
+  console.log("Thematic Areas:", thematicAreas);
+  console.log("Thematic Areas Response:", thematicAreasResponse);
+
   const { data: organizations = [] } = useOrganizations();
 
   const form = useForm<ConceptNoteFormData>({

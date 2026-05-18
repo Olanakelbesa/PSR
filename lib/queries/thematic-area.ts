@@ -25,7 +25,7 @@ export function useThematicAreas() {
     queryKey: ["thematic-areas"],
     queryFn: async () => {
       try {
-        const { data } = await api.get(API_ENDPOINTS.THEMATIC_AREAS.LIST);
+        const { data } = await api.get(API_ENDPOINTS.REFERENCE.THEMATIC_AREAS);
         return data as ThematicAreasResponse;
       } catch (err) {
         console.warn("[API] Failed to fetch thematic areas dynamically.", err);
