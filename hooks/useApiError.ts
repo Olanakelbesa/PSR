@@ -17,7 +17,6 @@ export function useApiError() {
     const apiError = error as ApiError;
 
     if (apiError?.errors) {
-      // Show the first field-level validation error
       const firstField = Object.keys(apiError.errors)[0];
       const firstMsg = apiError.errors[firstField]?.[0];
       if (firstMsg) {

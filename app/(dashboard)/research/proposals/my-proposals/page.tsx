@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import { mockProposals } from "@/lib/api/mock-data";
 import type { ResearchProposal } from "@/lib/types";
 import { PROPOSAL_STATUSES, THEMATIC_AREAS } from "@/lib/constants";

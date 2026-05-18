@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable, StatusBadge } from "@/components/shared";
-import { conceptNoteApi } from "@/lib/api/client";
+import { conceptNoteApi } from "@/api/client";
 import { POLICY_TYPES, POLICY_STATUSES } from "@/lib/constants";
 import type { ConceptNote, PolicyStatus, PolicyType } from "@/lib/types";
 import {

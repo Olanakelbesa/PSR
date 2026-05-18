@@ -40,7 +40,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 // ─── Stats Data ────────────────────────────────────────────────────────────────

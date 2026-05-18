@@ -50,7 +50,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { StatusBadge, PdfViewer } from "@/components/shared";
 import { ConceptNoteTabs } from "@/components/policies/concept-notes/concept-note-tabs";
-import { conceptNoteApi } from "@/lib/api/client";
+import { conceptNoteApi } from "@/api/client";
 import { POLICY_TYPES, POLICY_STATUSES } from "@/lib/constants";
 import type { ConceptNote, Attachment } from "@/lib/types";
 import { toast } from "sonner";

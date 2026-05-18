@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
-import { API_CONFIG } from "@/lib/config/api";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 export interface Unit {
   id: number;
@@ -14,7 +14,7 @@ export function useUnits() {
     queryKey: ["units"],
     queryFn: async () => {
       try {
-        const { data } = await api.get(API_CONFIG.endpoints.reference.units);
+        const { data } = await api.get(API_ENDPOINTS.REFERENCE.UNITS);
         return data.data as Unit[];
       } catch (err) {
         console.warn("[API] Failed to fetch units dynamically.", err);

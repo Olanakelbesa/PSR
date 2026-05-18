@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { proposalsApi, userApi } from "@/lib/api/client";
+import { proposalsApi, userApi } from "@/api/client";
 import type { ResearchProposal, User } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

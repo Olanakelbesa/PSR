@@ -1,6 +1,10 @@
 // ============================================================================
-// PSR Platform — Next.js BFF Proxy: /api/[...path]
+// PSR Platform — Legacy Catch-all Proxy: /api/[...path]
 // ============================================================================
+// NOTE: The canonical proxy is now at /api/proxy/[...path]/route.ts
+// This file is kept as a fallback for any existing calls that still
+// target /api/* directly. New code should use /api/proxy/* via apiClient.
+// Rule ref: NEXTJS_FRONTEND_API_RULES.md §2.3
 // This single catch-all route forwards ALL requests to the real backend.
 // The browser NEVER sees the actual backend URL — it only talks to /api/*.
 //
@@ -12,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.BACKEND_URL;
+const BACKEND_URL = process.env.API_BASE_URL; // renamed from BACKEND_URL
 const isDev = process.env.NODE_ENV === "development";
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
@@ -44,26 +48,10 @@ async function handler(
     apiPath += "/";
   }
 
-  // ── Delegate NextAuth routes to the auth handler to avoid accidental 404s
-  if (apiPath.startsWith("/auth")) {
-    try {
-      const authModule = await import("../auth/[...nextauth]/route");
-      // Prefer the exported handlers from the NextAuth route
-      const handlers = authModule.handlers as any;
-      const method = (req.method ?? "GET").toUpperCase();
-      if (handlers && typeof handlers[method] === "function") {
-        return handlers[method](req);
-      }
-      // Fallback to generic GET if specific method not found
-      if (handlers && typeof handlers.GET === "function") {
-        return handlers.GET(req);
-      }
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Auth handler delegation failed";
-      return NextResponse.json({ message: msg }, { status: 500 });
-    }
+  // ── Auth routes are handled natively by NextAuth at /api/auth/* —
+  // no delegation needed here. Only forward non-auth backend requests.
+  if (apiPath.startsWith("/auth/callback") || apiPath.startsWith("/auth/session") || apiPath.startsWith("/auth/csrf") || apiPath.startsWith("/auth/signin") || apiPath.startsWith("/auth/signout")) {
+    return NextResponse.json({ message: "Use /api/auth for NextAuth routes" }, { status: 404 });
   }
   const queryString = req.nextUrl.search;
   const targetPath = apiPath.startsWith("/api") ? apiPath : `/api${apiPath}`;

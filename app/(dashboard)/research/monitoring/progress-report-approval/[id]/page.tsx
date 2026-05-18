@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageContainer } from "@/components/layout";
-import { monitoringApi } from "@/lib/api/client";
+import { monitoringApi } from "@/api/client";
 import { mockProjects } from "@/lib/api/mock-data";
 import type { ResearchProject, ProgressReport } from "@/lib/types";
 import { cn } from "@/lib/utils";

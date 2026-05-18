@@ -29,7 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { monitoringApi } from "@/lib/api/client";
+import { monitoringApi } from "@/api/client";
 import { cn } from "@/lib/utils";
 
 const reportStatuses = {

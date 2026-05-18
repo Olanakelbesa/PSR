@@ -37,9 +37,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
-import { policyApi, conceptNoteApi } from "@/lib/api/client";
+import { policyApi, conceptNoteApi } from "@/api/client";
 import { policyDocumentSchema, type PolicyDocumentFormData } from "@/lib/validations";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { POLICY_TYPES } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +75,7 @@ const MOCK_CONCEPTS: any[] = [
 
 export default function NewPolicyDraftPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 

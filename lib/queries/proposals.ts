@@ -1,4 +1,4 @@
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import { mockProposals } from "@/lib/api/mock-data";
 import type { ProposalDetail } from "@/types";
 

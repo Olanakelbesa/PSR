@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
-import { API_CONFIG } from "@/lib/config/api";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 export interface Title {
   id: number;
@@ -14,7 +14,7 @@ export function useTitles() {
     queryKey: ["titles"],
     queryFn: async () => {
       try {
-        const { data } = await api.get(API_CONFIG.endpoints.reference.titles);
+        const { data } = await api.get(API_ENDPOINTS.REFERENCE.TITLES);
         return data.data as Title[];
       } catch (err) {
         console.warn("[API] Failed to fetch titles dynamically, using fallback.", err);

@@ -1,19 +1,24 @@
 // ============================================================================
-// PSR Platform — Axios HTTP Client
+// PSR Platform — Axios HTTP Client (Legacy Adapter)
 // ============================================================================
+// This file is kept for backward-compatibility with lib/queries/* imports.
+// New code should import from @/api/client instead.
+//
 // Features:
 //   ✔ JWT Bearer injection on every request
 //   ✔ Refresh-token rotation (silent re-auth)
 //   ✔ Normalized error shape for UI consumption
 //   ✔ Request deduplication via a pending-refresh queue
 //   ✔ Server-side safe (no window/localStorage access during SSR)
+//
+// Rule ref: NEXTJS_FRONTEND_API_RULES.md §2.2 — baseURL is /api/proxy,
+// never a NEXT_PUBLIC_ env var.
 
 import axios, {
   AxiosError,
-  AxiosRequestConfig,
   InternalAxiosRequestConfig,
 } from "axios";
-import { API_CONFIG } from "@/lib/config/api";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TOKEN_KEY = "psr_token";
@@ -52,8 +57,10 @@ export const tokenStorage = {
 };
 
 // ─── Axios Instance ────────────────────────────────────────────────────────────
+// baseURL points to the Next.js BFF proxy — NEVER the real backend URL.
+// Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.1
 const api = axios.create({
-  baseURL: API_CONFIG.baseURL,
+  baseURL: "/api/proxy",
   headers: { "Content-Type": "application/json" },
   timeout: 30_000,
 });
@@ -149,9 +156,9 @@ api.interceptors.response.use(
       }
 
       try {
-        // Exchange refresh token for a new access token
+        // Exchange refresh token for a new access token via the proxy layer
         const { data } = await axios.post(
-          `${API_CONFIG.baseURL}${API_CONFIG.endpoints.auth.refresh}`,
+          `/api/proxy${API_ENDPOINTS.AUTH.REFRESH}`,
           { refreshToken },
         );
 

@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PageContainer } from "@/components/layout";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import type { ResearchProposal } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

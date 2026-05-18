@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageContainer } from '@/components/layout'
-import { proposalsApi } from '@/lib/api/client'
+import { proposalsApi } from '@/api/client'
 import { mockProposals } from '@/lib/api/mock-data'
 import { THEMATIC_AREAS } from '@/lib/constants'
 import type { ResearchProposal } from '@/lib/types'

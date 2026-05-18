@@ -28,7 +28,7 @@ import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { conceptNoteApi } from "@/lib/api/client";
+import { conceptNoteApi } from "@/api/client";
 import type { ConceptNote } from "@/lib/types";
 import { cn } from "@/lib/utils";
 

@@ -40,7 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";

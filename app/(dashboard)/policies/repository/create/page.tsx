@@ -37,7 +37,7 @@ import {
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { policyApi } from "@/lib/api/client";
+import { policyApi } from "@/api/client";
 import { PolicyDocument } from "@/lib/types";
 
 const READINESS = [

@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageContainer } from '@/components/layout'
-import { userApi } from '@/lib/api/client'
+import { userApi } from '@/api/client'
 import { userSchema, type UserFormData } from '@/lib/validations'
 import { ROLES, INSTITUTION_TYPES } from '@/lib/constants'
 import { toast } from 'sonner'

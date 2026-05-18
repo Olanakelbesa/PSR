@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { PageContainer } from '@/components/layout'
 import { StatusBadge } from '@/components/shared'
-import { userApi } from '@/lib/api/client'
+import { userApi } from '@/api/client'
 import { ROLES } from '@/lib/constants'
 import type { User } from '@/lib/types'
 

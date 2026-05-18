@@ -43,7 +43,7 @@ import {
   useConceptNotes,
   type ConceptNoteItem,
 } from "@/lib/queries/concept-notes";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 // ── Current Status config ─────────────────────────────────────────────────────

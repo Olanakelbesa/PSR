@@ -35,7 +35,7 @@ import { PageContainer } from "@/components/layout";
 import { mockCalls } from "@/lib/api/mock-data";
 import type { CallForProposal } from "@/lib/types";
 import { PRIORITY_AREAS } from "@/lib/constants";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import Image from "next/image";
 
 const statusConfig: Record<

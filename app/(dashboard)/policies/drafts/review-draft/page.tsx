@@ -32,7 +32,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { DataTable, StatusBadge } from "@/components/shared";
-import { policyApi } from "@/lib/api/client";
+import { policyApi } from "@/api/client";
 import { POLICY_TYPES, POLICY_STATUSES } from "@/lib/constants";
 import type { PolicyDocument, PolicyStatus, PolicyType } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

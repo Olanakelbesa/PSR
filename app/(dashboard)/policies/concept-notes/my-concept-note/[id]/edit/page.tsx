@@ -48,9 +48,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
-import { conceptNoteApi, taxonomyApi } from "@/lib/api/client";
+import { conceptNoteApi, taxonomyApi } from "@/api/client";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Institution, PolicyType } from "@/lib/types";
 
@@ -84,7 +84,7 @@ const MAX_SUMMARY_WORDS = 250;
 export default function EditConceptNotePage() {
   const router = useRouter();
   const params = useParams();
-  const { user } = useAuthStore();
+  const { user } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);

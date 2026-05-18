@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { monitoringApi } from "@/lib/api/client";
+import { monitoringApi } from "@/api/client";
 import { mockProjects } from "@/lib/api/mock-data";
 import type { ResearchProject, ProgressReport } from "@/lib/types";
 import { cn } from "@/lib/utils";

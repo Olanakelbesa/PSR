@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import { mockProposals } from "@/lib/api/mock-data";
 import type { ResearchProposal } from "@/lib/types";
 import { cn } from "@/lib/utils";

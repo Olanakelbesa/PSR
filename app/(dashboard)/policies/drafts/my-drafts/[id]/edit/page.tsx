@@ -36,9 +36,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
-import { policyApi, conceptNoteApi } from "@/lib/api/client";
+import { policyApi, conceptNoteApi } from "@/api/client";
 import { policyDocumentSchema, type PolicyDocumentFormData } from "@/lib/validations";
-import { useAuthStore } from "@/stores/auth-store";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { POLICY_TYPES } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -76,7 +76,7 @@ export default function EditPolicyDraftPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
-  const { user } = useAuthStore();
+  const { user } = useAuth();
 
   const [isLoadingPolicy, setIsLoadingPolicy] = useState(true);
   const [isSaving, setIsSaving] = useState(false);

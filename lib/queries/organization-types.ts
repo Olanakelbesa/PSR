@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
-import { API_CONFIG } from "@/lib/config/api";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 export interface OrganizationType {
   id: number;
@@ -14,7 +14,7 @@ export function useOrganizationTypes() {
     queryKey: ["organizationTypes"],
     queryFn: async () => {
       try {
-        const { data } = await api.get(API_CONFIG.endpoints.reference.organizationTypes);
+        const { data } = await api.get(API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES);
         return data.data as OrganizationType[];
       } catch (err) {
         console.warn("[API] Failed to fetch organization types dynamically.", err);

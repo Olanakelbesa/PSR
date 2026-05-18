@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar, AppHeader } from "@/components/layout";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({

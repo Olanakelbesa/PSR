@@ -57,7 +57,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/layout";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import type { ResearchProposal } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

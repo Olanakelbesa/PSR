@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/layout";
-import { monitoringApi } from "@/lib/api/client";
+import { monitoringApi } from "@/api/client";
 import type { ResearchProject, Milestone, ProgressReport } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";

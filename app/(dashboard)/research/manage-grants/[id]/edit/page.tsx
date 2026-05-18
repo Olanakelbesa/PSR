@@ -41,7 +41,7 @@ import {
   callForProposalSchema,
   type CallForProposalFormData,
 } from "@/lib/validations";
-import { callsApi } from "@/lib/api/client";
+import { callsApi } from "@/api/client";
 import { mockCalls } from "@/lib/api/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

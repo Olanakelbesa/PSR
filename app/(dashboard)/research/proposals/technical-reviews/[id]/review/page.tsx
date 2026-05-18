@@ -39,7 +39,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import { mockUsers } from "@/lib/api/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

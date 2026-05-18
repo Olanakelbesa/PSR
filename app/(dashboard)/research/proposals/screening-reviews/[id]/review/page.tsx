@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
 import { proposalScreeningSchema, type ProposalScreeningFormData } from "@/lib/validations";
-import { proposalsApi } from "@/lib/api/client";
+import { proposalsApi } from "@/api/client";
 import { mockUsers } from "@/lib/api/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

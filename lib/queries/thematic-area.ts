@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import api from "@/lib/axios";
-import { API_CONFIG } from "@/lib/config/api";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 export interface ThematicArea {
   id: number;
@@ -25,7 +25,7 @@ export function useThematicAreas() {
     queryKey: ["thematic-areas"],
     queryFn: async () => {
       try {
-        const { data } = await api.get(API_CONFIG.endpoints.thematicArea.list);
+        const { data } = await api.get(API_ENDPOINTS.THEMATIC_AREAS.LIST);
         return data as ThematicAreasResponse;
       } catch (err) {
         console.warn("[API] Failed to fetch thematic areas dynamically.", err);

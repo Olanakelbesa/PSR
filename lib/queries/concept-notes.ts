@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
-import { API_CONFIG } from "@/lib/config/api";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 // ── Backend response shape ────────────────────────────────────────────────────
 export interface ConceptNoteItem {
@@ -67,7 +67,7 @@ export function useConceptNotes(params: ConceptNotesParams = {}, token?: string 
     // auth behaviour.
     enabled: token === undefined ? true : token !== null,
     queryFn: async () => {
-      const { data } = await api.get(API_CONFIG.endpoints.conceptNotes.list, {
+      const { data } = await api.get(API_ENDPOINTS.CONCEPT_NOTES.LIST, {
         params,
         // Inject the NextAuth backendToken when available.
         // Falls back to whatever the Axios interceptor provides (localStorage).
@@ -97,7 +97,7 @@ export function useCreateConceptNote(backendToken?: string | null) {
       }
 
       const { data } = await api.post(
-        API_CONFIG.endpoints.conceptNotes.create,
+        API_ENDPOINTS.CONCEPT_NOTES.CREATE,
         payload,
         { headers }
       );
@@ -124,7 +124,7 @@ export function useUpdateConceptNote(backendToken?: string | null) {
       }
 
       const { data } = await api.patch(
-        API_CONFIG.endpoints.conceptNotes.update(id),
+        API_ENDPOINTS.CONCEPT_NOTES.UPDATE(id),
         payload,
         { headers }
       );
@@ -142,7 +142,7 @@ export function useSubmitConceptNote(backendToken?: string | null) {
   return useMutation({
     mutationFn: async (id: string | number) => {
       const { data } = await api.post(
-        API_CONFIG.endpoints.conceptNotes.submit(id),
+        API_ENDPOINTS.CONCEPT_NOTES.SUBMIT(id),
         {}, 
         backendToken ? { headers: { Authorization: `Bearer ${backendToken}` } } : {}
       );

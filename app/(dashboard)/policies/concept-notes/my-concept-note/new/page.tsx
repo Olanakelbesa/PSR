@@ -53,7 +53,7 @@ import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { toast } from "sonner";
 import { useOrganizations } from "@/lib/queries/organizations";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SUMMARY_WORDS = 250;

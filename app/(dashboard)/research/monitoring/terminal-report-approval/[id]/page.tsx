@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PageContainer } from "@/components/layout";
-import { monitoringApi } from "@/lib/api/client";
+import { monitoringApi } from "@/api/client";
 import { mockProjects } from "@/lib/api/mock-data";
 import type { ResearchProject } from "@/lib/types";
 import { cn } from "@/lib/utils";
