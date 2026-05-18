@@ -1,21 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
-
-import { taxonomyApi } from "@/lib/api/client";
+import api from "@/lib/axios";
+import { API_CONFIG } from "@/lib/config/api";
 
 export interface PolicyDocumentType {
   id: number;
   name: string;
   description: string;
-  isDeleted: boolean;
-  deletedAt: string | null;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
 }
 
 export function usePolicyDocumentTypes() {
   return useQuery({
     queryKey: ["policy-document-types"],
     queryFn: async () => {
-      const response = await taxonomyApi.getPolicyTypes();
-      return response.success && response.data ? response.data : [];
+      try {
+        const { data } = await api.get(API_CONFIG.endpoints.reference.policyDocumentTypes);
+        return data.success && data.data ? (data.data as PolicyDocumentType[]) : [];
+      } catch (err) {
+        console.warn("[API] Failed to fetch policy document types dynamically.", err);
+        return [] as PolicyDocumentType[];
+      }
     },
   });
 }

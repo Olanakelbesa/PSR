@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -47,21 +47,36 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
-import { conceptNoteApi } from "@/lib/api/client";
+import { useCreateConceptNote, useUpdateConceptNote, useSubmitConceptNote } from "@/lib/queries/concept-notes";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
-import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 import { useOrganizations } from "@/lib/queries/organizations";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SUMMARY_WORDS = 250;
 
 export default function NewConceptNotePage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(false);
+  const { backendToken } = useAuth();
+  const createConceptNoteMutation = useCreateConceptNote(backendToken);
+  const updateConceptNoteMutation = useUpdateConceptNote(backendToken);
+  const submitConceptNoteMutation = useSubmitConceptNote(backendToken);
+
+  const [draftId, setDraftId] = useState<string | number | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<"saving" | "saved" | "failed" | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastSavedValuesRef = useRef<any>(null);
+  const isFirstRender = useRef(true);
+  const isSavingInProgressRef = useRef(false);
+
+  const isPending =
+    createConceptNoteMutation.isPending ||
+    updateConceptNoteMutation.isPending ||
+    submitConceptNoteMutation.isPending;
   const { data: documentTypes = [] } = usePolicyDocumentTypes();
   const { data: thematicAreasResponse, isLoading: isLoadingThematic, error: thematicError } = useThematicAreas();
   const thematicAreas = thematicAreasResponse?.data ?? [];
@@ -73,7 +88,7 @@ export default function NewConceptNotePage() {
     defaultValues: {
       title: "",
       executiveSummary: "",
-      documentType: "",
+      documentType: undefined,
       organization: [],
       thematicAreas: [],
       documentCategory: "new",
@@ -109,43 +124,270 @@ export default function NewConceptNotePage() {
     (completionItems.filter(Boolean).length / completionItems.length) * 100,
   );
 
-  async function onSubmit(data: ConceptNoteFormData, submitForReview = false) {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      const response = await conceptNoteApi.createConceptNote({
-        ...data,
-        status: submitForReview ? "submitted" : "draft",
-      });
-      if (response.success) {
-        toast.success(
-          submitForReview
-            ? "Concept note created and submitted for review"
-            : "Concept note saved as draft",
-        );
-        router.push("/policies/concept-notes");
-      } else {
-        toast.error(response.message || "Failed to create concept note");
+  const formValues = form.watch();
+
+  const extractIdFromResponse = (res: any): string | number | null => {
+    console.log("Extracting ID from response:", res);
+    if (!res) return null;
+    
+    // Check direct properties
+    if (res.id !== undefined && res.id !== null) return res.id;
+    
+    // Check nested "data" wrapper (very common in API clients or custom Axios setup)
+    if (res.data) {
+      if (res.data.id !== undefined && res.data.id !== null) return res.data.id;
+      if (res.data.data && res.data.data.id !== undefined && res.data.data.id !== null) {
+        return res.data.data.id;
       }
-    } catch (error) {
-      console.error("Failed to create concept note:", error);
-      toast.error("An error occurred while creating the concept note");
-    } finally {
-      setIsLoading(false);
+    }
+    
+    // Check other nested objects
+    if (res.conceptNote && res.conceptNote.id !== undefined && res.conceptNote.id !== null) {
+      return res.conceptNote.id;
+    }
+    
+    // If it's a string, maybe it's just the ID
+    if (typeof res === "string" || typeof res === "number") return res;
+    
+    return null;
+  };
+
+  const buildRequestPayload = (values: any) => {
+    const isFileUpload = values.file instanceof File;
+
+    // Resolve fallback IDs from loaded reference data to guarantee they exist in the DB
+    const fallbackDocType = documentTypes[0]?.id || 1;
+    const fallbackOrg = organizations[0]?.id || 1;
+    const fallbackThematic = thematicAreas[0]?.id || 1;
+
+    const parsedDocType = Number(values.documentType);
+    const docTypeVal = isNaN(parsedDocType) || parsedDocType <= 0 ? fallbackDocType : parsedDocType;
+
+    const parsedOrg = values.organization && values.organization.length > 0 ? Number(values.organization[0]) : NaN;
+    const orgVal = isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
+
+    const thematicVal = values.thematicAreas && values.thematicAreas.length > 0 
+      ? values.thematicAreas.map(Number).filter((n: number) => !isNaN(n) && n > 0)
+      : [fallbackThematic];
+    
+    if (thematicVal.length === 0) {
+      thematicVal.push(fallbackThematic);
+    }
+
+    if (isFileUpload) {
+      const formData = new FormData();
+      formData.append("title", values.title || "Untitled Draft");
+      formData.append("doc_type", docTypeVal.toString());
+      formData.append("executive_summary", values.executiveSummary || "No summary provided.");
+      formData.append("organization", orgVal.toString());
+      formData.append("document_category", values.documentCategory || "new");
+      
+      if (values.file) {
+        formData.append("file", values.file);
+      }
+
+      thematicVal.forEach((id: number) => {
+        formData.append("thematicreas", id.toString());
+      });
+
+      return formData;
+    } else {
+      const payload: Record<string, any> = {
+        title: values.title || "Untitled Draft",
+        doc_type: docTypeVal,
+        executive_summary: values.executiveSummary || "No summary provided.",
+        thematicreas: thematicVal,
+        organization: orgVal,
+        document_category: values.documentCategory || "new",
+      };
+
+      // Only append string files if needed, but standard file uploads use FormData.
+      // We omit "file" key entirely if it's null/undefined to prevent Django REST Framework
+      // validation from failing with "This field may not be null" (since file is blank=True but not null=True).
+      if (values.file && typeof values.file === "string") {
+        payload.file = values.file;
+      }
+
+      return payload;
+    }
+  };
+
+  const hasChanged = (val1: any, val2: any) => {
+    if (!val1 || !val2) return true;
+    return (
+      val1.title !== val2.title ||
+      val1.executiveSummary !== val2.executiveSummary ||
+      val1.documentType !== val2.documentType ||
+      val1.documentCategory !== val2.documentCategory ||
+      JSON.stringify(val1.organization) !== JSON.stringify(val2.organization) ||
+      JSON.stringify(val1.thematicAreas) !== JSON.stringify(val2.thematicAreas) ||
+      val1.file !== val2.file
+    );
+  };
+
+  const organizationDep = JSON.stringify(formValues.organization);
+  const thematicDep = JSON.stringify(formValues.thematicAreas);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    const values = form.getValues();
+    if (!hasChanged(values, lastSavedValuesRef.current)) {
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      // Validate before autosaving without touching form visual error state in UI
+      const result = conceptNoteSchema.safeParse(values);
+      if (!result.success) {
+        setAutosaveStatus(null);
+        return;
+      }
+
+      if (isSavingInProgressRef.current) return;
+      isSavingInProgressRef.current = true;
+      setAutosaveStatus("saving");
+
+      try {
+        const payload = buildRequestPayload(values);
+
+        let response;
+        if (draftId) {
+          response = await updateConceptNoteMutation.mutateAsync({ id: draftId, payload });
+        } else {
+          response = await createConceptNoteMutation.mutateAsync(payload);
+        }
+
+        const returnedId = extractIdFromResponse(response);
+        if (returnedId) {
+          setDraftId(returnedId);
+        } else {
+          console.warn("Autosave returned empty ID. Full response:", response);
+        }
+
+        lastSavedValuesRef.current = values;
+        setAutosaveStatus("saved");
+      } catch (error) {
+        console.error("Autosave failed:", error);
+        setAutosaveStatus("failed");
+      } finally {
+        isSavingInProgressRef.current = false;
+      }
+    }, 1500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [
+    formValues.title,
+    formValues.executiveSummary,
+    formValues.documentType,
+    formValues.documentCategory,
+    organizationDep,
+    thematicDep,
+    formValues.file,
+    draftId
+  ]);
+
+  async function onSubmit(data: ConceptNoteFormData, submitForReview = false) {
+    if (!backendToken) return;
+    try {
+      const payload = buildRequestPayload(data);
+
+      let currentDraftId = draftId;
+
+      if (submitForReview) {
+        // Step 1: Ensure draft exists
+        if (!currentDraftId) {
+          toast.loading("Creating draft for submission...", { id: "submit-flow" });
+          const response = await createConceptNoteMutation.mutateAsync(payload);
+          currentDraftId = extractIdFromResponse(response);
+          if (currentDraftId) {
+            setDraftId(currentDraftId);
+          } else {
+            console.error("Draft creation response failed to yield ID. Full response:", response);
+            throw new Error(`Failed to extract concept note ID from response. Response: ${JSON.stringify(response)}`);
+          }
+        } else {
+          // Update draft with latest changes before submission
+          toast.loading("Updating draft with latest changes...", { id: "submit-flow" });
+          await updateConceptNoteMutation.mutateAsync({ id: currentDraftId, payload });
+        }
+
+        // Step 2: Submit the draft
+        toast.loading("Submitting concept note for review...", { id: "submit-flow" });
+        await submitConceptNoteMutation.mutateAsync(currentDraftId);
+        
+        toast.success("Concept note successfully submitted for review!", { id: "submit-flow" });
+        router.push("/policies/concept-notes/my-concept-note");
+      } else {
+        // Manual Draft Save
+        toast.loading("Saving draft...", { id: "draft-flow" });
+        let response;
+        if (currentDraftId) {
+          response = await updateConceptNoteMutation.mutateAsync({ id: currentDraftId, payload });
+        } else {
+          response = await createConceptNoteMutation.mutateAsync(payload);
+        }
+        
+        const returnedId = extractIdFromResponse(response);
+        if (returnedId) {
+          setDraftId(returnedId);
+        } else {
+          console.warn("Manual draft save returned empty ID. Full response:", response);
+        }
+
+        lastSavedValuesRef.current = data;
+        toast.success("Draft saved successfully!", { id: "draft-flow" });
+      }
+    } catch (error: any) {
+      console.error("Operation failed:", error);
+      toast.error(error?.message || "An error occurred. Please try again.", {
+        id: submitForReview ? "submit-flow" : "draft-flow",
+      });
     }
   }
+
+  const onInvalid = (errors: any) => {
+    console.error("Form validation errors:", errors);
+    toast.error("Form validation failed. Please check all fields.");
+    
+    Object.keys(errors).forEach((key) => {
+      const fieldError = errors[key];
+      if (fieldError?.message) {
+        toast.error(`${key}: ${fieldError.message}`);
+      } else if (Array.isArray(fieldError)) {
+        fieldError.forEach((err: any) => {
+          if (err?.message) toast.error(`${key}: ${err.message}`);
+        });
+      }
+    });
+  };
 
   return (
     <PageContainer
       title="New Concept Note"
       description="Prepare a policy concept note for draft saving or review submission"
       actions={
-        <Button variant="outline" asChild>
-          <Link href="/policies/concept-notes">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          {autosaveStatus && (
+            <div className={`flex items-center gap-2 ${autosaveStatus === "failed" ? "" : "rounded-full border shadow-sm"} bg-background px-3 py-1 text-xs font-medium text-muted-foreground `}>
+              <span className={`h-2 w-2 rounded-full ${
+                autosaveStatus === "saving" ? "bg-amber-500 animate-pulse" :
+                autosaveStatus === "saved" ? "bg-emerald-500" :""
+              }`} />
+              {autosaveStatus === "saving" && "Saving..."}
+              {autosaveStatus === "saved" && "Saved"}
+            </div>
+          )}
+          <Button variant="outline" asChild>
+            <Link href="/policies/concept-notes/my-concept-note">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+        </div>
       }
     >
       <Form {...form}>
@@ -199,9 +441,8 @@ export default function NewConceptNotePage() {
                       <FormItem>
                         <FormLabel>Document Type</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="w-full"
+                          onValueChange={(val) => field.onChange(Number(val))}
+                          value={field.value ? String(field.value) : undefined}
                         >
                           <FormControl>
                             <SelectTrigger className="h-11">
@@ -287,39 +528,12 @@ export default function NewConceptNotePage() {
                                 type="button"
                                 className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                <span className="flex-1 text-left">
-                                  {selectedOrganizationsList.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2 pt-1">
-                                      {selectedOrganizationsList.map((org) => (
-                                        <Badge
-                                          key={org.id}
-                                          variant="secondary"
-                                          className="flex items-center gap-2"
-                                        >
-                                          {org.name}
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              field.onChange(
-                                                currentValue.filter(
-                                                  (id) => id !== String(org.id),
-                                                ),
-                                              )
-                                            }
-                                            className="ml-1 hover:opacity-70"
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </button>
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm text-muted-foreground">
-                                      Select organizations...
-                                    </span>
-                                  )}
+                                <span className="flex-1 text-left text-muted-foreground">
+                                  {selectedOrganizationsList.length > 0
+                                    ? `${selectedOrganizationsList.length} organization${selectedOrganizationsList.length !== 1 ? "s" : ""} selected`
+                                    : "Select organizations..."}
                                 </span>
-                                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground opacity-50" />
                               </button>
                             </FormControl>
                           </PopoverTrigger>
@@ -366,6 +580,33 @@ export default function NewConceptNotePage() {
                           Select one or more organizations relevant to the
                           concept note.
                         </FormDescription>
+
+                        {selectedOrganizationsList.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-3">
+                            {selectedOrganizationsList.map((org) => (
+                              <Badge
+                                key={org.id}
+                                variant="secondary"
+                                className="flex items-center gap-2"
+                              >
+                                {org.name}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    field.onChange(
+                                      currentValue.filter(
+                                        (id) => id !== String(org.id),
+                                      ),
+                                    )
+                                  }
+                                  className="ml-1 hover:opacity-70"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         <FormMessage />
                       </FormItem>
                     );
@@ -572,7 +813,7 @@ export default function NewConceptNotePage() {
                       <FormControl>
                         <div className="rounded-lg border border-dashed bg-muted/20 p-5">
                           <Input
-                            id="concept-note-file"
+                            ref={fileInputRef}
                             type="file"
                             accept=".pdf,.doc,.docx,.txt"
                             onChange={(e) => {
@@ -581,7 +822,7 @@ export default function NewConceptNotePage() {
                                 field.onChange(file);
                               }
                             }}
-                            className="sr-only"
+                            className="hidden"
                           />
                           {selectedFile ? (
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -603,13 +844,13 @@ export default function NewConceptNotePage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" asChild>
-                                  <label
-                                    htmlFor="concept-note-file"
-                                    className="cursor-pointer"
-                                  >
-                                    Replace
-                                  </label>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => fileInputRef.current?.click()}
+                                >
+                                  Replace
                                 </Button>
                                 <Button
                                   type="button"
@@ -623,8 +864,8 @@ export default function NewConceptNotePage() {
                               </div>
                             </div>
                           ) : (
-                            <label
-                              htmlFor="concept-note-file"
+                            <div
+                              onClick={() => fileInputRef.current?.click()}
                               className="flex cursor-pointer flex-col items-center justify-center gap-3 py-8 text-center"
                             >
                               <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-background text-muted-foreground shadow-sm">
@@ -638,7 +879,7 @@ export default function NewConceptNotePage() {
                                   PDF, DOC, DOCX, or TXT up to 10MB
                                 </span>
                               </span>
-                            </label>
+                            </div>
                           )}
                         </div>
                       </FormControl>
@@ -708,22 +949,22 @@ export default function NewConceptNotePage() {
               <div className="grid gap-2">
                 <Button
                   type="button"
-                  disabled={isLoading}
-                  onClick={form.handleSubmit((data) => onSubmit(data, true))}
+                  disabled={isPending}
+                  onClick={form.handleSubmit((data) => onSubmit(data, true), onInvalid)}
                 >
-                  {isLoading ? (
+                  {isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Send className="mr-2 h-4 w-4" />
                   )}
-                  Submit for Review
+                  Submit
                 </Button>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={isLoading}
-                    onClick={form.handleSubmit((data) => onSubmit(data, false))}
+                    disabled={isPending}
+                    onClick={() => onSubmit(form.getValues(), false)}
                   >
                     <Save className="mr-2 h-4 w-4" />
                     Draft
@@ -731,7 +972,7 @@ export default function NewConceptNotePage() {
                   <Button
                     type="button"
                     variant="ghost"
-                    disabled={isLoading}
+                    disabled={isPending}
                     onClick={() => router.back()}
                   >
                     Cancel

@@ -103,10 +103,14 @@ api.interceptors.response.use(
     const normalized: ApiError = {
       message:
         error.response?.data?.message ??
+        (error.response?.data as any)?.error?.message ??
         error.message ??
         "Something went wrong",
       status: error.response?.status ?? 0,
-      errors: error.response?.data?.errors ?? error.response?.data?.error,
+      errors:
+        error.response?.data?.errors ??
+        (error.response?.data as any)?.error?.details ??
+        error.response?.data?.error,
     };
 
     // ── 401 → attempt silent token refresh ──────────────────────────────────

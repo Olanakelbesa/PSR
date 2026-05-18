@@ -21,10 +21,11 @@ export const API_CONFIG = {
 
     // ── Reference Data ────────────────────────────────────────────────────
     reference: {
-      titles: "/api/v1/titles/",
-      organizationTypes: "/api/v1/organizationtypes/",
-      units: "/api/v1/units/",
-      organizations: "/api/v1/organizations/",
+      titles: "/v1/titles/",
+      organizationTypes: "/v1/organizationtypes/",
+      units: "/v1/units/",
+      organizations: "/v1/organizations/",
+      policyDocumentTypes: "/v1/policydocumenttypes/",
     },
 
     // ── Users ─────────────────────────────────────────────────────────────

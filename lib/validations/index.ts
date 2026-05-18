@@ -135,27 +135,36 @@ export const conceptNoteSchema = z.object({
     .string()
     .min(1, "Executive summary is required")
     .max(1500, "Executive summary must not exceed 250 words"),
-  documentType: z.string().min(1, "Document type is required"),
+  documentType: z.number().min(1, "Document type is required"),
   organization: z.array(z.string()).min(1, "Select at least one organization"),
   thematicAreas: z
     .array(z.string())
     .min(1, "At least one thematic area is required"),
   file: z
-    .instanceof(File)
+    .any()
     .refine(
-      (file) => file.size <= 10 * 1024 * 1024,
-      "File size must be less than 10MB",
+      (file) => !file || typeof file === "string" || file instanceof File,
+      "File must be a valid file object"
+    )
+    .refine(
+      (file) => !file || typeof file === "string" || (file instanceof File && file.size <= 10 * 1024 * 1024),
+      "File size must be less than 10MB"
     )
     .refine(
       (file) =>
-        [
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "text/plain",
-        ].includes(file.type),
-      "File must be a PDF, DOC, DOCX, or TXT file",
-    ),
+        !file ||
+        typeof file === "string" ||
+        (file instanceof File &&
+          [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+          ].includes(file.type)),
+      "File must be a PDF, DOC, DOCX, or TXT file"
+    )
+    .optional()
+    .nullable(),
   documentCategory: z.enum(["new", "revision"], {
     errorMap: () => ({
       message: "Document category must be either new or revision",

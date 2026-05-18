@@ -49,7 +49,7 @@ async function handler(
     try {
       const authModule = await import("../auth/[...nextauth]/route");
       // Prefer the exported handlers from the NextAuth route
-      const handlers = authModule.handlers;
+      const handlers = authModule.handlers as any;
       const method = (req.method ?? "GET").toUpperCase();
       if (handlers && typeof handlers[method] === "function") {
         return handlers[method](req);
@@ -67,12 +67,17 @@ async function handler(
   }
   const queryString = req.nextUrl.search;
   const targetPath = apiPath.startsWith("/api") ? apiPath : `/api${apiPath}`;
-  const upstreamUrl = `${BACKEND_URL}${targetPath}${queryString}`;
+  const cleanBackendUrl = BACKEND_URL ? BACKEND_URL.replace(/\/+$/, "") : "http://localhost:8000";
+  const upstreamUrl = `${cleanBackendUrl}${targetPath}${queryString}`;
 
-  // Forward the Authorization header
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  // Forward the Authorization header and content-type
+  const headers: Record<string, string> = {};
+  const contentType = req.headers.get("content-type");
+  const isMultipart = contentType?.includes("multipart/form-data");
+  
+  if (contentType && !isMultipart) {
+    headers["content-type"] = contentType;
+  }
   const auth = req.headers.get("Authorization");
   if (auth) headers["Authorization"] = auth;
 
@@ -80,11 +85,22 @@ async function handler(
 
   try {
     const hasBody = ["POST", "PUT", "PATCH"].includes(req.method);
+    let body: any = undefined;
+    if (hasBody) {
+      const isJson = contentType?.includes("application/json");
+      if (isJson) {
+        body = await req.text();
+      } else if (isMultipart) {
+        body = await req.formData();
+      } else {
+        body = Buffer.from(await req.arrayBuffer());
+      }
+    }
 
     const upstreamRes = await fetch(upstreamUrl, {
       method: req.method,
       headers,
-      ...(hasBody ? { body: await req.text() } : {}),
+      ...(hasBody ? { body } : {}),
     });
 
     const duration = Date.now() - start;

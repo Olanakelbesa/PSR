@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_CONFIG } from "@/lib/config/api";
 
@@ -78,6 +78,78 @@ export function useConceptNotes(params: ConceptNotesParams = {}, token?: string 
         data: data.data as ConceptNoteItem[],
         meta: data.meta as ConceptNotesMeta,
       };
+    },
+  });
+}
+
+export function useCreateConceptNote(backendToken?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: Record<string, any> | FormData) => {
+      const isMultipart = payload instanceof FormData;
+      const headers: Record<string, string> = {};
+      if (backendToken) {
+        headers.Authorization = `Bearer ${backendToken}`;
+      }
+      if (isMultipart) {
+        headers["Content-Type"] = "multipart/form-data";
+      }
+
+      const { data } = await api.post(
+        API_CONFIG.endpoints.conceptNotes.create,
+        payload,
+        { headers }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    },
+  });
+}
+
+export function useUpdateConceptNote(backendToken?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string | number; payload: Record<string, any> | FormData }) => {
+      const isMultipart = payload instanceof FormData;
+      const headers: Record<string, string> = {};
+      if (backendToken) {
+        headers.Authorization = `Bearer ${backendToken}`;
+      }
+      if (isMultipart) {
+        headers["Content-Type"] = "multipart/form-data";
+      }
+
+      const { data } = await api.patch(
+        API_CONFIG.endpoints.conceptNotes.update(id),
+        payload,
+        { headers }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    },
+  });
+}
+
+export function useSubmitConceptNote(backendToken?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string | number) => {
+      const { data } = await api.post(
+        API_CONFIG.endpoints.conceptNotes.submit(id),
+        {}, 
+        backendToken ? { headers: { Authorization: `Bearer ${backendToken}` } } : {}
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
     },
   });
 }

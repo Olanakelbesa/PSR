@@ -97,9 +97,8 @@ export default function EditConceptNotePage() {
     defaultValues: {
       title: "",
       executiveSummary: "",
-      documentType: "",
+      documentType: undefined,
       organization: [],
-      universities: [],
       thematicAreas: [],
       documentCategory: "new",
       file: undefined,
@@ -139,7 +138,6 @@ export default function EditConceptNotePage() {
             executiveSummary: note.background,
             documentType: note.policyType,
             organization: [], // Mock data doesn't have these specific fields, using defaults
-            universities: [],
             thematicAreas: [],
             documentCategory: "revision",
             file: undefined, // File can't be pre-filled easily, handled as optional update
@@ -162,7 +160,6 @@ export default function EditConceptNotePage() {
   const selectedDocumentType = form.watch("documentType");
   const selectedDocumentCategory = form.watch("documentCategory");
   const selectedOrganizationIds = form.watch("organization") || [];
-  const selectedUniversities = form.watch("universities") || [];
   const selectedThematicIds = form.watch("thematicAreas") || [];
   const selectedFile = form.watch("file") as File | undefined;
 
@@ -178,8 +175,7 @@ export default function EditConceptNotePage() {
   );
   const wordCount = calculateWordCount(executiveSummary);
   const organizationReady =
-    selectedOrganizationIds.length > 0 &&
-    (!showUniversityField || selectedUniversities.length > 0);
+    selectedOrganizationIds.length > 0;
   
   const completionItems = [
     title.trim().length > 0,
@@ -297,8 +293,8 @@ export default function EditConceptNotePage() {
                       <FormItem>
                         <FormLabel>Document Type</FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          onValueChange={(val) => field.onChange(Number(val))}
+                          value={field.value ? String(field.value) : undefined}
                         >
                           <FormControl>
                             <SelectTrigger className="h-11">
@@ -307,7 +303,7 @@ export default function EditConceptNotePage() {
                           </FormControl>
                           <SelectContent>
                             {documentTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
+                              <SelectItem key={type.id} value={String(type.id)}>
                                 {type.name}
                               </SelectItem>
                             ))}
