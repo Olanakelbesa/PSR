@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -19,15 +20,10 @@ import {
   ArrowUpRight,
   Sparkles,
   PieChart,
-  Network,
-  Cpu,
-  Layers,
-  MessageSquare,
-  PlusCircle,
+  Network
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -83,8 +79,22 @@ function RevealOnScroll({
 }
 
 export default function LandingPage() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -144,7 +154,7 @@ export default function LandingPage() {
           </div>
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-muted-foreground/70">
-            {["Modules", "Workflow", "Impact", "Support"].map((item) => (
+            {["Home", "About Us", "Thematic Areas", "Attachments", "Research Calls", "Manuals"].map((item) => (
               <Link
                 key={item}
                 href={`#${item.toLowerCase()}`}
@@ -211,26 +221,60 @@ export default function LandingPage() {
                 prioritize transparency and efficiency.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-                <Button
-                  size="lg"
-                  className=" text-sm font-bold gap-2 group shadow-xl shadow-primary/20 active:scale-95 transition-all"
-                  asChild
-                >
-                  <Link href="/signup">
-                    Get Started
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className=" text-sm font-bold gap-2 border-2 hover:bg-muted/50 transition-all backdrop-blur-sm active:scale-95"
-                  asChild
-                >
-                  <Link href="#modules">Learn More</Link>
-                </Button>
-              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (searchQuery.trim()) {
+                    router.push(`/policies/repository?search=${encodeURIComponent(searchQuery)}`);
+                  }
+                }}
+                className="w-full max-w-2xl mx-auto pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000"
+              >
+                <div className="relative flex items-center bg-background/60 backdrop-blur-xl border border-primary/20 hover:border-primary/40 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-2 pr-2.5 shadow-xl transition-all duration-300">
+                  <div className="flex items-center pl-3 pr-2 text-muted-foreground pointer-events-none">
+                    <Search className="h-5 w-5 text-primary/70" />
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search national policies, guidelines, or research strategies..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-transparent border-0 outline-none focus:ring-0 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 "
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm shadow-primary/20 transition-all flex items-center gap-1.5 active:scale-95 shrink-0"
+                  >
+                    Search
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                
+                {/* Suggestions Quick Tags */}
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs font-semibold text-muted-foreground">
+                  <span>Popular:</span>
+                  {[
+                    { label: "ESDP VI", term: "ESDP VI" },
+                    { label: "Inclusive Education", term: "Inclusive Education" },
+                    { label: "TVET Roadmap", term: "TVET" },
+                    { label: "Frameworks", term: "Framework" }
+                  ].map((tag) => (
+                    <button
+                      key={tag.label}
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery(tag.term);
+                        router.push(`/policies/repository?search=${encodeURIComponent(tag.term)}`);
+                      }}
+                      className="px-3 py-1 rounded-full bg-muted/40 hover:bg-primary/10 hover:text-primary border border-primary/5 hover:border-primary/20 transition-all duration-200"
+                    >
+                      {tag.label}
+                    </button>
+                  ))}
+                </div>
+              </form>
             </div>
 
             {/* Dashboard Showcase */}
