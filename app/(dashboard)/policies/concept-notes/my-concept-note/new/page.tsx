@@ -56,41 +56,11 @@ import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { toast } from "sonner";
 import { useOrganizations } from "@/lib/queries/organizations";
+import { useUnits } from "@/lib/queries/units";
 import { useAuth } from "@/hooks/useAuth";
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SUMMARY_WORDS = 250;
-
-const MOCK_UNITS_BY_ORG: Record<string, { id: string; name: string }[]> = {
-  "Addis Ababa University": [
-    { id: "aau-cs", name: "Department of Computer Science" },
-    { id: "aau-math", name: "Department of Mathematics" },
-    { id: "aau-phys", name: "Department of Physics" },
-    { id: "aau-chem", name: "Department of Chemistry" },
-  ],
-  "Ministry of Education": [
-    { id: "moe-curriculum", name: "Curriculum Development Directorate" },
-    { id: "moe-ict", name: "ICT & Digital Education Unit" },
-    { id: "moe-higher-ed", name: "Higher Education Affairs" },
-  ],
-  "Ministry of Health": [
-    { id: "moh-public-health", name: "Public Health Directorate" },
-    { id: "moh-disease-control", name: "Disease Prevention & Control" },
-    { id: "moh-clinical", name: "Clinical Services Directorate" },
-  ],
-  "Ministry of Innovation and Technology": [
-    { id: "mint-tech", name: "Technology Transfer & Development" },
-    { id: "mint-rnd", name: "Research & Innovation Division" },
-    { id: "mint-standards", name: "Quality & Standards Assurance" },
-  ],
-};
-
-const DEFAULT_MOCK_UNITS = [
-  { id: "generic-unit-1", name: "Policy & Planning Department" },
-  { id: "generic-unit-2", name: "Research & Development Division" },
-  { id: "generic-unit-3", name: "Monitoring and Evaluation Unit" },
-  { id: "generic-unit-4", name: "Human Resource & Admin Services" },
-];
 
 export default function NewConceptNotePage() {
   const router = useRouter();
@@ -147,33 +117,16 @@ export default function NewConceptNotePage() {
     selectedOrganizationIds.includes(String(org.id)),
   );
 
-  const unitsOptions = useMemo(() => {
-    if (selectedOrganizationsList.length === 0) return [];
-    
-    let combinedUnits: { id: string; name: string }[] = [];
-    selectedOrganizationsList.forEach((org) => {
-      const orgUnits = MOCK_UNITS_BY_ORG[org.name] || MOCK_UNITS_BY_ORG[String(org.id)];
-      if (orgUnits) {
-        combinedUnits = [...combinedUnits, ...orgUnits];
-      }
-    });
+  const { data: units = [], isLoading: isLoadingUnits } = useUnits(
+    selectedOrganizationIds,
+  );
 
-    if (combinedUnits.length === 0) {
-      return DEFAULT_MOCK_UNITS;
-    }
-    
-    const seen = new Set();
-    return combinedUnits.filter((u) => {
-      if (seen.has(u.id)) return false;
-      seen.add(u.id);
-      return true;
-    });
-  }, [selectedOrganizationsList]);
+  const unitsOptions = useMemo(() => units, [units]);
 
   // Reset selected unit if it is no longer valid for the selected organizations
   useEffect(() => {
     if (selectedUnit && unitsOptions.length > 0) {
-      const isValid = unitsOptions.some((u) => u.id === selectedUnit);
+      const isValid = unitsOptions.some((u) => String(u.id) === selectedUnit);
       if (!isValid) {
         form.setValue("unit", "");
       }
@@ -408,22 +361,34 @@ export default function NewConceptNotePage() {
         // Always create a fresh note with the full payload (including the file).
         // The autosaved draft may not have the file if it was uploaded after the
         // initial autosave — so we never reuse the draftId for submission.
-        toast.loading("Creating concept note for submission...", { id: "submit-flow" });
-        const createResponse = await createConceptNoteMutation.mutateAsync(payload);
+        toast.loading("Creating concept note for submission...", {
+          id: "submit-flow",
+        });
+        const createResponse =
+          await createConceptNoteMutation.mutateAsync(payload);
         const submittableId = extractIdFromResponse(createResponse);
 
         if (!submittableId) {
-          console.error("Failed to get ID from create response:", createResponse);
-          throw new Error(`Could not get concept note ID: ${JSON.stringify(createResponse)}`);
+          console.error(
+            "Failed to get ID from create response:",
+            createResponse,
+          );
+          throw new Error(
+            `Could not get concept note ID: ${JSON.stringify(createResponse)}`,
+          );
         }
 
         setDraftId(submittableId);
 
         // Submit the freshly-created note for review
-        toast.loading("Submitting concept note for review...", { id: "submit-flow" });
+        toast.loading("Submitting concept note for review...", {
+          id: "submit-flow",
+        });
         await submitConceptNoteMutation.mutateAsync(submittableId);
 
-        toast.success("Concept note successfully submitted for review!", { id: "submit-flow" });
+        toast.success("Concept note successfully submitted for review!", {
+          id: "submit-flow",
+        });
         router.push("/policies/concept-notes/my-concept-note");
       } else {
         // Manual Draft Save — create if no draft exists yet
@@ -434,7 +399,10 @@ export default function NewConceptNotePage() {
           if (returnedId) {
             setDraftId(returnedId);
           } else {
-            console.warn("Manual draft save returned empty ID. Full response:", response);
+            console.warn(
+              "Manual draft save returned empty ID. Full response:",
+              response,
+            );
           }
         }
         lastSavedValuesRef.current = data;
@@ -645,10 +613,7 @@ export default function NewConceptNotePage() {
                             </FormControl>
                           </PopoverTrigger>
 
-                          <PopoverContent
-                            className="w-[300px] p-0"
-                            align="start"
-                          >
+                          <PopoverContent className="w-75 p-0" align="start">
                             <div className="p-4">
                               {organizations.map((organization) => {
                                 const checked = currentValue.includes(
@@ -727,7 +692,10 @@ export default function NewConceptNotePage() {
                     <FormItem className="pt-2">
                       <FormLabel>Unit / Department</FormLabel>
                       <Select
-                        disabled={selectedOrganizationsList.length === 0}
+                        disabled={
+                          selectedOrganizationsList.length === 0 ||
+                          isLoadingUnits
+                        }
                         onValueChange={field.onChange}
                         value={field.value}
                       >
@@ -737,7 +705,9 @@ export default function NewConceptNotePage() {
                               placeholder={
                                 selectedOrganizationsList.length === 0
                                   ? "Select organization(s) first"
-                                  : "Select a unit/department..."
+                                  : isLoadingUnits
+                                    ? "Loading units..."
+                                    : "Select a unit/department..."
                               }
                             />
                           </SelectTrigger>
@@ -746,7 +716,7 @@ export default function NewConceptNotePage() {
                           {unitsOptions.map((unitOption) => (
                             <SelectItem
                               key={unitOption.id}
-                              value={unitOption.id}
+                              value={String(unitOption.id)}
                             >
                               {unitOption.name}
                             </SelectItem>
@@ -754,8 +724,8 @@ export default function NewConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Specify the specific department or unit within the selected
-                        organization context.
+                        Specify the specific department or unit within the
+                        selected organization context.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
