@@ -113,7 +113,7 @@ export default function RepositoryDashboardPage() {
       description="National Policy Knowledge Management System — registered, versioned, and published policy documents"
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
+          {/* <Button variant="outline" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
             <Link href="/policies/repository/archived">
               <Archive className="mr-2 h-4 w-4" />
               Archived
@@ -124,7 +124,7 @@ export default function RepositoryDashboardPage() {
               <Clock className="mr-2 h-4 w-4" />
               Pending Publication
             </Link>
-          </Button>
+          </Button> */}
           <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-md">
             <Link href="/policies/repository/create">
               <Plus className="mr-2 h-4 w-4" />
