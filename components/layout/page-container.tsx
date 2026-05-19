@@ -23,7 +23,6 @@ export function PageContainer({
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
       {children}
-      <div className="shrink-0" aria-hidden="true" />
     </div>
   );
 }

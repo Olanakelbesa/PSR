@@ -154,16 +154,6 @@ export default function ConceptNoteDetailPage() {
               </Link>
             </Button>
           )}
-          {isDraft && (
-            <Button
-              onClick={handleSubmit}
-              disabled={submitMutation.isPending}
-              className="shadow-sm"
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {submitMutation.isPending ? "Submitting..." : "Submit for Review"}
-            </Button>
-          )}
         </div>
       }
     >
