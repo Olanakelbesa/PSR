@@ -47,7 +47,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
-import { useCreateConceptNote, useUpdateConceptNote, useSubmitConceptNote } from "@/lib/queries/concept-notes";
+import {
+  useCreateConceptNote,
+  useSubmitConceptNote,
+} from "@/lib/queries/concept-notes";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
@@ -61,12 +64,13 @@ const MAX_SUMMARY_WORDS = 250;
 export default function NewConceptNotePage() {
   const router = useRouter();
   const { backendToken } = useAuth();
-  const createConceptNoteMutation = useCreateConceptNote(backendToken);
-  const updateConceptNoteMutation = useUpdateConceptNote(backendToken);
+  const createConceptNoteMutation = useCreateConceptNote();
   const submitConceptNoteMutation = useSubmitConceptNote(backendToken);
 
   const [draftId, setDraftId] = useState<string | number | null>(null);
-  const [autosaveStatus, setAutosaveStatus] = useState<"saving" | "saved" | "failed" | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<
+    "saving" | "saved" | "failed" | null
+  >(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedValuesRef = useRef<any>(null);
@@ -74,15 +78,14 @@ export default function NewConceptNotePage() {
   const isSavingInProgressRef = useRef(false);
 
   const isPending =
-    createConceptNoteMutation.isPending ||
-    updateConceptNoteMutation.isPending ||
-    submitConceptNoteMutation.isPending;
+    createConceptNoteMutation.isPending || submitConceptNoteMutation.isPending;
   const { data: documentTypes = [] } = usePolicyDocumentTypes();
-  const { data: thematicAreasResponse, isLoading: isLoadingThematic, error: thematicError } = useThematicAreas();
+  const {
+    data: thematicAreasResponse,
+    isLoading: isLoadingThematic,
+    error: thematicError,
+  } = useThematicAreas();
   const thematicAreas = thematicAreasResponse?.data ?? [];
-
-  console.log("Thematic Areas:", thematicAreas);
-  console.log("Thematic Areas Response:", thematicAreasResponse);
 
   const { data: organizations = [] } = useOrganizations();
 
@@ -132,26 +135,34 @@ export default function NewConceptNotePage() {
   const extractIdFromResponse = (res: any): string | number | null => {
     console.log("Extracting ID from response:", res);
     if (!res) return null;
-    
+
     // Check direct properties
     if (res.id !== undefined && res.id !== null) return res.id;
-    
+
     // Check nested "data" wrapper (very common in API clients or custom Axios setup)
     if (res.data) {
       if (res.data.id !== undefined && res.data.id !== null) return res.data.id;
-      if (res.data.data && res.data.data.id !== undefined && res.data.data.id !== null) {
+      if (
+        res.data.data &&
+        res.data.data.id !== undefined &&
+        res.data.data.id !== null
+      ) {
         return res.data.data.id;
       }
     }
-    
+
     // Check other nested objects
-    if (res.conceptNote && res.conceptNote.id !== undefined && res.conceptNote.id !== null) {
+    if (
+      res.conceptNote &&
+      res.conceptNote.id !== undefined &&
+      res.conceptNote.id !== null
+    ) {
       return res.conceptNote.id;
     }
-    
+
     // If it's a string, maybe it's just the ID
     if (typeof res === "string" || typeof res === "number") return res;
-    
+
     return null;
   };
 
@@ -164,15 +175,24 @@ export default function NewConceptNotePage() {
     const fallbackThematic = thematicAreas[0]?.id || 1;
 
     const parsedDocType = Number(values.documentType);
-    const docTypeVal = isNaN(parsedDocType) || parsedDocType <= 0 ? fallbackDocType : parsedDocType;
+    const docTypeVal =
+      isNaN(parsedDocType) || parsedDocType <= 0
+        ? fallbackDocType
+        : parsedDocType;
 
-    const parsedOrg = values.organization && values.organization.length > 0 ? Number(values.organization[0]) : NaN;
+    const parsedOrg =
+      values.organization && values.organization.length > 0
+        ? Number(values.organization[0])
+        : NaN;
     const orgVal = isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
 
-    const thematicVal = values.thematicAreas && values.thematicAreas.length > 0 
-      ? values.thematicAreas.map(Number).filter((n: number) => !isNaN(n) && n > 0)
-      : [fallbackThematic];
-    
+    const thematicVal =
+      values.thematicAreas && values.thematicAreas.length > 0
+        ? values.thematicAreas
+            .map(Number)
+            .filter((n: number) => !isNaN(n) && n > 0)
+        : [fallbackThematic];
+
     if (thematicVal.length === 0) {
       thematicVal.push(fallbackThematic);
     }
@@ -181,10 +201,13 @@ export default function NewConceptNotePage() {
       const formData = new FormData();
       formData.append("title", values.title || "Untitled Draft");
       formData.append("doc_type", docTypeVal.toString());
-      formData.append("executive_summary", values.executiveSummary || "No summary provided.");
+      formData.append(
+        "executive_summary",
+        values.executiveSummary || "No summary provided.",
+      );
       formData.append("organization", orgVal.toString());
       formData.append("document_category", values.documentCategory || "new");
-      
+
       if (values.file) {
         formData.append("file", values.file);
       }
@@ -223,7 +246,8 @@ export default function NewConceptNotePage() {
       val1.documentType !== val2.documentType ||
       val1.documentCategory !== val2.documentCategory ||
       JSON.stringify(val1.organization) !== JSON.stringify(val2.organization) ||
-      JSON.stringify(val1.thematicAreas) !== JSON.stringify(val2.thematicAreas) ||
+      JSON.stringify(val1.thematicAreas) !==
+        JSON.stringify(val2.thematicAreas) ||
       val1.file !== val2.file
     );
   };
@@ -243,7 +267,7 @@ export default function NewConceptNotePage() {
     }
 
     const delayDebounceFn = setTimeout(async () => {
-      // Validate before autosaving without touching form visual error state in UI
+      // Validate before autosaving
       const result = conceptNoteSchema.safeParse(values);
       if (!result.success) {
         setAutosaveStatus(null);
@@ -251,18 +275,21 @@ export default function NewConceptNotePage() {
       }
 
       if (isSavingInProgressRef.current) return;
+
+      // If a draft already exists, just mark as saved — no need to create again.
+      // useCreateConceptNote (POST) always creates a new note; updates are not done here.
+      if (draftId) {
+        lastSavedValuesRef.current = values;
+        setAutosaveStatus("saved");
+        return;
+      }
+
       isSavingInProgressRef.current = true;
       setAutosaveStatus("saving");
 
       try {
         const payload = buildRequestPayload(values);
-
-        let response;
-        if (draftId) {
-          response = await updateConceptNoteMutation.mutateAsync({ id: draftId, payload });
-        } else {
-          response = await createConceptNoteMutation.mutateAsync(payload);
-        }
+        const response = await createConceptNoteMutation.mutateAsync(payload);
 
         const returnedId = extractIdFromResponse(response);
         if (returnedId) {
@@ -290,57 +317,56 @@ export default function NewConceptNotePage() {
     organizationDep,
     thematicDep,
     formValues.file,
-    draftId
+    draftId,
   ]);
 
   async function onSubmit(data: ConceptNoteFormData, submitForReview = false) {
     if (!backendToken) return;
     try {
+      // Guard: file is required by the backend before submission
+      if (submitForReview && !(data.file instanceof File)) {
+        toast.error(
+          "Please upload a concept note document (PDF or DOCX) before submitting for review.",
+          { id: "submit-flow", duration: 5000 },
+        );
+        return;
+      }
+
       const payload = buildRequestPayload(data);
 
-      let currentDraftId = draftId;
-
       if (submitForReview) {
-        // Step 1: Ensure draft exists
-        if (!currentDraftId) {
-          toast.loading("Creating draft for submission...", { id: "submit-flow" });
-          const response = await createConceptNoteMutation.mutateAsync(payload);
-          currentDraftId = extractIdFromResponse(response);
-          if (currentDraftId) {
-            setDraftId(currentDraftId);
-          } else {
-            console.error("Draft creation response failed to yield ID. Full response:", response);
-            throw new Error(`Failed to extract concept note ID from response. Response: ${JSON.stringify(response)}`);
-          }
-        } else {
-          // Update draft with latest changes before submission
-          toast.loading("Updating draft with latest changes...", { id: "submit-flow" });
-          await updateConceptNoteMutation.mutateAsync({ id: currentDraftId, payload });
+        // Always create a fresh note with the full payload (including the file).
+        // The autosaved draft may not have the file if it was uploaded after the
+        // initial autosave — so we never reuse the draftId for submission.
+        toast.loading("Creating concept note for submission...", { id: "submit-flow" });
+        const createResponse = await createConceptNoteMutation.mutateAsync(payload);
+        const submittableId = extractIdFromResponse(createResponse);
+
+        if (!submittableId) {
+          console.error("Failed to get ID from create response:", createResponse);
+          throw new Error(`Could not get concept note ID: ${JSON.stringify(createResponse)}`);
         }
 
-        // Step 2: Submit the draft
+        setDraftId(submittableId);
+
+        // Submit the freshly-created note for review
         toast.loading("Submitting concept note for review...", { id: "submit-flow" });
-        await submitConceptNoteMutation.mutateAsync(currentDraftId);
-        
+        await submitConceptNoteMutation.mutateAsync(submittableId);
+
         toast.success("Concept note successfully submitted for review!", { id: "submit-flow" });
         router.push("/policies/concept-notes/my-concept-note");
       } else {
-        // Manual Draft Save
+        // Manual Draft Save — create if no draft exists yet
         toast.loading("Saving draft...", { id: "draft-flow" });
-        let response;
-        if (currentDraftId) {
-          response = await updateConceptNoteMutation.mutateAsync({ id: currentDraftId, payload });
-        } else {
-          response = await createConceptNoteMutation.mutateAsync(payload);
+        if (!draftId) {
+          const response = await createConceptNoteMutation.mutateAsync(payload);
+          const returnedId = extractIdFromResponse(response);
+          if (returnedId) {
+            setDraftId(returnedId);
+          } else {
+            console.warn("Manual draft save returned empty ID. Full response:", response);
+          }
         }
-        
-        const returnedId = extractIdFromResponse(response);
-        if (returnedId) {
-          setDraftId(returnedId);
-        } else {
-          console.warn("Manual draft save returned empty ID. Full response:", response);
-        }
-
         lastSavedValuesRef.current = data;
         toast.success("Draft saved successfully!", { id: "draft-flow" });
       }
@@ -355,7 +381,7 @@ export default function NewConceptNotePage() {
   const onInvalid = (errors: any) => {
     console.error("Form validation errors:", errors);
     toast.error("Form validation failed. Please check all fields.");
-    
+
     Object.keys(errors).forEach((key) => {
       const fieldError = errors[key];
       if (fieldError?.message) {
@@ -375,11 +401,18 @@ export default function NewConceptNotePage() {
       actions={
         <div className="flex items-center gap-3">
           {autosaveStatus && (
-            <div className={`flex items-center gap-2 ${autosaveStatus === "failed" ? "" : "rounded-full border shadow-sm"} bg-background px-3 py-1 text-xs font-medium text-muted-foreground `}>
-              <span className={`h-2 w-2 rounded-full ${
-                autosaveStatus === "saving" ? "bg-amber-500 animate-pulse" :
-                autosaveStatus === "saved" ? "bg-emerald-500" :""
-              }`} />
+            <div
+              className={`flex items-center gap-2 ${autosaveStatus === "failed" ? "" : "rounded-full border shadow-sm"} bg-background px-3 py-1 text-xs font-medium text-muted-foreground `}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  autosaveStatus === "saving"
+                    ? "bg-amber-500 animate-pulse"
+                    : autosaveStatus === "saved"
+                      ? "bg-emerald-500"
+                      : ""
+                }`}
+              />
               {autosaveStatus === "saving" && "Saving..."}
               {autosaveStatus === "saved" && "Saved"}
             </div>
@@ -953,7 +986,10 @@ export default function NewConceptNotePage() {
                 <Button
                   type="button"
                   disabled={isPending}
-                  onClick={form.handleSubmit((data) => onSubmit(data, true), onInvalid)}
+                  onClick={form.handleSubmit(
+                    (data) => onSubmit(data, true),
+                    onInvalid,
+                  )}
                 >
                   {isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

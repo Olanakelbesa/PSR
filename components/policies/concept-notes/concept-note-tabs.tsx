@@ -16,7 +16,14 @@ interface ConceptNoteTabsProps {
   setViewingFile?: (file: any) => void;
 }
 
-export function ConceptNoteTabs({ note, setViewingFile }: ConceptNoteTabsProps) {
+export function ConceptNoteTabs({
+  note,
+  setViewingFile,
+}: ConceptNoteTabsProps) {
+  const feedbackItems = note.expertFeedback ?? note.reviews ?? [];
+  const documentUrl =
+    note.overview?.file ?? note.attachments?.[0]?.url ?? "/doc/PSR_FRS_v1.pdf";
+
   return (
     <Tabs defaultValue="overview" className="w-full">
       <TabsList className="h-10 w-full justify-start border-b bg-transparent rounded-none p-0 gap-0">
@@ -27,7 +34,7 @@ export function ConceptNoteTabs({ note, setViewingFile }: ConceptNoteTabsProps) 
             value: "feedback",
             label: "Expert Feedback",
             icon: ClipboardCheck,
-            badge: note.reviews?.length,
+            badge: feedbackItems.length,
           },
           { value: "timeline", label: "Timeline", icon: Clock },
           { value: "versions", label: "Versions", icon: GitBranch },
@@ -55,12 +62,12 @@ export function ConceptNoteTabs({ note, setViewingFile }: ConceptNoteTabsProps) 
 
       {/* Document Tab */}
       <TabsContent value="document" className="mt-6">
-        <ConceptNoteDocument url="/doc/PSR_FRS_v1.pdf" title="Policy Framework Concept Note" />
+        <ConceptNoteDocument url={documentUrl} title={note.title} />
       </TabsContent>
 
       {/* Expert Feedback Tab */}
       <TabsContent value="feedback" className="mt-6 space-y-6">
-        <ConceptNoteFeedback reviews={note.reviews} />
+        <ConceptNoteFeedback feedback={feedbackItems} />
       </TabsContent>
 
       {/* Timeline Tab */}

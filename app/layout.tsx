@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/app/providers";
+import { auth } from "@/app/api/auth/[...nextauth]/route";
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -17,22 +18,21 @@ export const metadata: Metadata = {
     "Policy & Research Platform. Manage policy documents, research proposals, and academic partnerships.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <Providers>
-            {children}
-          </Providers>
+          <Providers session={session}>{children}</Providers>
           <Analytics />
         </ThemeProvider>
       </body>
     </html>
   );
 }
-

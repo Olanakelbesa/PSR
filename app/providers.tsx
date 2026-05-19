@@ -15,18 +15,18 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { queryClient } from "@/lib/query-client";
+import type { Session } from "next-auth";
 
 interface ProvidersProps {
   children: React.ReactNode;
+  session?: Session | null;
 }
 
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children, session }: ProvidersProps) {
   return (
-    <SessionProvider>
+    <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
+        <ErrorBoundary>{children}</ErrorBoundary>
 
         {/* Global Toast Notifications */}
         <Toaster
@@ -36,7 +36,8 @@ export function Providers({ children }: ProvidersProps) {
           duration={4000}
           toastOptions={{
             classNames: {
-              toast: "font-sans text-sm rounded-xl shadow-xl border border-slate-100",
+              toast:
+                "font-sans text-sm rounded-xl shadow-xl border border-slate-100",
               title: "font-bold",
               description: "text-slate-500",
             },
@@ -44,7 +45,10 @@ export function Providers({ children }: ProvidersProps) {
         />
 
         {/* TanStack Query DevTools — only visible in development */}
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition="bottom-left"
+        />
       </QueryClientProvider>
     </SessionProvider>
   );

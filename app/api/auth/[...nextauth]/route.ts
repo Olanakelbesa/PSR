@@ -37,7 +37,9 @@ declare module "next-auth" {
   }
 }
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "https://psr-policyresearchmanagmentsystem.onrender.com";
+const BACKEND_URL =
+  process.env.BACKEND_URL ??
+  "https://psr-policyresearchmanagmentsystem.onrender.com";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -80,7 +82,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const refreshToken = data.data?.refreshToken?.token;
 
           if (!user || !token) {
-            console.error(`[NextAuth] Missing user or token in response. Data:`, JSON.stringify(data));
+            console.error(
+              `[NextAuth] Missing user or token in response. Data:`,
+              JSON.stringify(data),
+            );
             return null;
           }
 
@@ -90,11 +95,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             name: `${user.firstName} ${user.lastName}`,
             backendToken: token,
             backendRefreshToken: refreshToken,
-            backendTokenExpires: data.data?.accessToken?.expires ? new Date(data.data.accessToken.expires).getTime() : Date.now() + 1000 * 60 * 60 * 8,
+            backendTokenExpires: data.data?.accessToken?.expires
+              ? new Date(data.data.accessToken.expires).getTime()
+              : Date.now() + 1000 * 60 * 60 * 8,
             psrUser: user,
           };
         } catch (err) {
-          console.error(`[NextAuth] Network or parsing error during login:`, err);
+          console.error(
+            `[NextAuth] Network or parsing error during login:`,
+            err,
+          );
           return null;
         }
       },
@@ -102,6 +112,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      // ── Initial sign-in: populate token from credentials response ────────────
       if (user) {
         const u = user as any;
         token.backendToken = u.backendToken;
@@ -111,33 +122,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       const now = Date.now();
-      const tokenExpires = (token.backendTokenExpires as number) ?? 0;
+      // Default to now + 8h if the field is missing (old session cookies).
+      // Using ?? 0 would make every old session immediately attempt a refresh and fail.
+      const tokenExpires =
+        typeof token.backendTokenExpires === "number" && token.backendTokenExpires > 0
+          ? (token.backendTokenExpires as number)
+          : now + 1000 * 60 * 60 * 8;
 
+      // Token is still valid — return as-is
       if (now < tokenExpires) {
         return token;
       }
 
+      // Token expired — attempt silent refresh
       if (!token.backendRefreshToken) {
         return { ...token, error: "RefreshTokenError" };
       }
 
       try {
-        const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
+        // Django REST Framework SimpleJWT endpoint — field name is `refresh`, not `refreshToken`
+        const res = await fetch(`${BACKEND_URL}/api/token/refresh/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: token.backendRefreshToken }),
+          body: JSON.stringify({ refresh: token.backendRefreshToken }),
         });
 
-        if (!res.ok) throw new Error("Refresh failed");
+        if (!res.ok) throw new Error(`Refresh failed: ${res.status}`);
 
         const data = await res.json();
         return {
           ...token,
-          backendToken: data.accessToken ?? data.token,
-          backendRefreshToken: data.refreshToken ?? token.backendRefreshToken,
+          backendToken: data.access ?? data.accessToken ?? data.token,
+          backendRefreshToken: data.refresh ?? token.backendRefreshToken,
           backendTokenExpires: Date.now() + 1000 * 60 * 60 * 8,
+          error: undefined,
         };
-      } catch {
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[NextAuth] Token refresh failed:", err);
+        }
         return { ...token, error: "RefreshTokenError" };
       }
     },
@@ -145,7 +168,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token) {
         session.user = token.user as any;
         session.backendToken = token.backendToken as string;
-        session.backendRefreshToken = token.backendRefreshToken as string | undefined;
+        session.backendRefreshToken = token.backendRefreshToken as
+          | string
+          | undefined;
         session.error = token.error as Session["error"];
       }
       return session;

@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import {
+  getConceptNoteDetailById,
+  type ConceptNoteDetail,
+} from "@/api/services/concept-notes.service";
 
 // ── Backend response shape ────────────────────────────────────────────────────
 export interface ConceptNoteItem {
@@ -22,11 +26,7 @@ export interface ConceptNoteItem {
   status: { id: number; name: string } | null;
   updatedAt: string;
   documentCategory: "new" | "revision";
-  psrFinalDecision:
-    | "accepted"
-    | "partially_accepted"
-    | "not_accepted"
-    | null;
+  psrFinalDecision: "accepted" | "partially_accepted" | "not_accepted" | null;
   currentStatus:
     | "draft"
     | "submitted"
@@ -58,22 +58,17 @@ export interface ConceptNotesMeta {
   totalPages: number;
 }
 
-export function useConceptNotes(params: ConceptNotesParams = {}, token?: string | null) {
+export function useConceptNotes(
+  params: ConceptNotesParams = {},
+  backendToken?: string | null,
+) {
   return useQuery({
     queryKey: ["concept-notes", params],
-    // If caller provides a `token` param we wait until it's non-null before
-    // firing (avoids an immediate 401). If `token` is omitted (undefined),
-    // we allow the query to run and rely on the Axios interceptor / default
-    // auth behaviour.
-    enabled: token === undefined ? true : token !== null,
     queryFn: async () => {
       const { data } = await api.get(API_ENDPOINTS.CONCEPT_NOTES.LIST, {
         params,
-        // Inject the NextAuth backendToken when available.
-        // Falls back to whatever the Axios interceptor provides (localStorage).
-        ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+        ...(backendToken && { backendToken }),
       });
-      console.log("Fetched concept notes:", data);
       return {
         data: data.data as ConceptNoteItem[],
         meta: data.meta as ConceptNotesMeta,
@@ -82,24 +77,33 @@ export function useConceptNotes(params: ConceptNotesParams = {}, token?: string 
   });
 }
 
-export function useCreateConceptNote(backendToken?: string | null) {
+export function useConceptNoteDetail(
+  id?: string | number,
+  backendToken?: string | null,
+) {
+  return useQuery<ConceptNoteDetail>({
+    queryKey: ["concept-note-detail", id],
+    enabled: Boolean(id),
+    // queryFn must return ConceptNoteDetail (a single document), not a list.
+    queryFn: () =>
+      getConceptNoteDetailById(id as string | number, backendToken),
+  });
+}
+
+export function useCreateConceptNote() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: Record<string, any> | FormData) => {
       const isMultipart = payload instanceof FormData;
-      const headers: Record<string, string> = {};
-      if (backendToken) {
-        headers.Authorization = `Bearer ${backendToken}`;
-      }
-      if (isMultipart) {
-        headers["Content-Type"] = "multipart/form-data";
-      }
 
+      // The BFF proxy injects Authorization automatically — no token needed here.
       const { data } = await api.post(
         API_ENDPOINTS.CONCEPT_NOTES.CREATE,
         payload,
-        { headers }
+        isMultipart
+          ? { headers: { "Content-Type": "multipart/form-data" } }
+          : undefined,
       );
       return data;
     },
@@ -113,7 +117,13 @@ export function useUpdateConceptNote(backendToken?: string | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string | number; payload: Record<string, any> | FormData }) => {
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string | number;
+      payload: Record<string, any> | FormData;
+    }) => {
       const isMultipart = payload instanceof FormData;
       const headers: Record<string, string> = {};
       if (backendToken) {
@@ -126,7 +136,7 @@ export function useUpdateConceptNote(backendToken?: string | null) {
       const { data } = await api.patch(
         API_ENDPOINTS.CONCEPT_NOTES.UPDATE(id),
         payload,
-        { headers }
+        { headers },
       );
       return data;
     },
@@ -143,8 +153,7 @@ export function useSubmitConceptNote(backendToken?: string | null) {
     mutationFn: async (id: string | number) => {
       const { data } = await api.post(
         API_ENDPOINTS.CONCEPT_NOTES.SUBMIT(id),
-        {}, 
-        backendToken ? { headers: { Authorization: `Bearer ${backendToken}` } } : {}
+        {},
       );
       return data;
     },

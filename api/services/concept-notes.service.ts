@@ -56,6 +56,76 @@ export const ConceptNoteSchema = z.object({
   expertReviewer: z.number().nullable().optional(),
 });
 
+const ConceptNoteDetailFileSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  versionNumber: z.string(),
+  file: z.string(),
+  fileSha256: z.string().optional(),
+  isLatest: z.boolean(),
+  isResubmission: z.boolean(),
+  parentVersionNumber: z.string().nullable().optional(),
+  createdByName: z.string(),
+  createdByEmail: z.string(),
+  createdAt: z.string(),
+});
+
+const ConceptNoteDetailTimelineSchema = z.object({
+  eventType: z.string(),
+  title: z.string(),
+  actor: z.string(),
+  actorPhoto: z.string().nullable(),
+  timestamp: z.string(),
+  version: z.string().nullable(),
+  metadataSummary: z
+    .object({
+      title: z.string().optional(),
+      decision: z.string().optional(),
+      recommendation: z.string().optional(),
+    })
+    .partial()
+    .optional(),
+});
+
+const ConceptNoteDetailFeedbackSchema = z.object({
+  versionNumber: z.string(),
+  isLatest: z.boolean(),
+  isResubmission: z.boolean(),
+  feedbackDetail: z.array(z.unknown()).default([]),
+});
+
+export const ConceptNoteDetailSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  title: z.string(),
+  overview: z.object({
+    executiveSummary: z.string().default(""),
+    thematicAreas: z
+      .array(z.object({ id: z.number(), name: z.string() }))
+      .default([]),
+    file: z.string().nullable().optional(),
+  }),
+  expertFeedback: z.array(ConceptNoteDetailFeedbackSchema).default([]),
+  timeline: z.array(ConceptNoteDetailTimelineSchema).default([]),
+  versions: z.array(ConceptNoteDetailFileSchema).default([]),
+  currentStatus: z.object({
+    status: z.string(),
+    conceptId: z.string(),
+    version: z.string(),
+  }),
+  submittedBy: z.object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    fullName: z.string(),
+    email: z.string(),
+    photoUrl: z.string().nullable().optional(),
+    submittedAt: z.string(),
+    lastUpdated: z.string(),
+  }),
+});
+
+const ConceptNoteDetailResponseSchema = z.object({
+  success: z.boolean(),
+  data: ConceptNoteDetailSchema,
+});
+
 const ConceptNotesListSchema = z.object({
   data: z.array(ConceptNoteSchema),
   meta: z
@@ -70,6 +140,7 @@ const ConceptNotesListSchema = z.object({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type ConceptNote = z.infer<typeof ConceptNoteSchema>;
+export type ConceptNoteDetail = z.infer<typeof ConceptNoteDetailSchema>;
 export type ConceptNoteStatus = z.infer<typeof ConceptNoteStatusSchema>;
 export type ConceptNotesList = z.infer<typeof ConceptNotesListSchema>;
 
@@ -95,9 +166,22 @@ export async function getConceptNotes(
 }
 
 // ─── GET /v1/concept-notes/:id/ ───────────────────────────────────────────────
-export async function getConceptNoteById(id: string | number): Promise<ConceptNote> {
+export async function getConceptNoteById(
+  id: string | number,
+): Promise<ConceptNote> {
   const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id));
   return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+}
+
+// ─── GET /v1/concept-notes/:id/ (detail view payload) ───────────────────────
+export async function getConceptNoteDetailById(
+  id: string | number,
+  backendToken?: string | null,
+): Promise<ConceptNoteDetail> {
+  const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id), {
+    params: backendToken ? { backendToken } : undefined,
+  });
+  return ConceptNoteDetailResponseSchema.parse(res.data).data;
 }
 
 // ─── POST /v1/concept-notes/ ──────────────────────────────────────────────────
@@ -105,9 +189,15 @@ export async function createConceptNote(
   payload: Record<string, unknown> | FormData,
 ): Promise<ConceptNote> {
   const isFormData = payload instanceof FormData;
-  const res = await apiClient.post(API_ENDPOINTS.CONCEPT_NOTES.CREATE, payload, {
-    headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
-  });
+  const res = await apiClient.post(
+    API_ENDPOINTS.CONCEPT_NOTES.CREATE,
+    payload,
+    {
+      headers: isFormData
+        ? { "Content-Type": "multipart/form-data" }
+        : undefined,
+    },
+  );
   return ConceptNoteSchema.parse(res.data?.data ?? res.data);
 }
 
@@ -121,14 +211,25 @@ export async function updateConceptNote(
     API_ENDPOINTS.CONCEPT_NOTES.UPDATE(id),
     payload,
     {
-      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+      headers: isFormData
+        ? { "Content-Type": "multipart/form-data" }
+        : undefined,
     },
   );
   return ConceptNoteSchema.parse(res.data?.data ?? res.data);
 }
 
 // ─── POST /v1/concept-notes/:id/submit/ ──────────────────────────────────────
-export async function submitConceptNote(id: string | number): Promise<ConceptNote> {
-  const res = await apiClient.post(API_ENDPOINTS.CONCEPT_NOTES.SUBMIT(id), {});
+export async function submitConceptNote(
+  id: string | number,
+  backendToken?: string | null,
+): Promise<ConceptNote> {
+  const res = await apiClient.post(
+    API_ENDPOINTS.CONCEPT_NOTES.SUBMIT(id),
+    {},
+    backendToken
+      ? { headers: { Authorization: `Bearer ${backendToken}` } }
+      : {},
+  );
   return ConceptNoteSchema.parse(res.data?.data ?? res.data);
 }

@@ -51,6 +51,7 @@ import { PageContainer } from "@/components/layout";
 import { conceptNoteApi, taxonomyApi } from "@/api/client";
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { useAuth } from "@/hooks/useAuth";
+import { useUpdateConceptNote } from "@/lib/queries/concept-notes";
 import { toast } from "sonner";
 import type { Institution, PolicyType } from "@/lib/types";
 
@@ -84,7 +85,8 @@ const MAX_SUMMARY_WORDS = 250;
 export default function EditConceptNotePage() {
   const router = useRouter();
   const params = useParams();
-  const { user } = useAuth();
+  const { user, backendToken } = useAuth();
+  const updateMutation = useUpdateConceptNote(backendToken);
   
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -196,22 +198,21 @@ export default function EditConceptNotePage() {
     if (!user) return;
     setIsLoading(true);
     try {
-      const response = await conceptNoteApi.updateConceptNote(params.id as string, {
-        title: data.title,
-        background: data.executiveSummary,
-        policyType: data.documentType as unknown as PolicyType,
-        status: submitForReview ? "submitted" : "draft",
+      await updateMutation.mutateAsync({
+        id: params.id as string,
+        payload: {
+          title: data.title,
+          background: data.executiveSummary,
+          policyType: data.documentType,
+          status: submitForReview ? "submitted" : "draft",
+        },
       });
-      if (response.success) {
-        toast.success(
-          submitForReview
-            ? "Concept note updated and submitted for review"
-            : "Concept note changes saved as draft",
-        );
-        router.push(`/policies/concept-notes/${params.id}`);
-      } else {
-        toast.error(response.message || "Failed to update concept note");
-      }
+      toast.success(
+        submitForReview
+          ? "Concept note updated and submitted for review"
+          : "Concept note changes saved as draft",
+      );
+      router.push(`/policies/concept-notes/my-concept-note/${params.id}`);
     } catch (error) {
       console.error("Failed to update concept note:", error);
       toast.error("An error occurred while updating the concept note");
@@ -236,7 +237,7 @@ export default function EditConceptNotePage() {
       description="Update your policy concept note and save changes or submit for review"
       actions={
         <Button variant="outline" asChild>
-          <Link href={`/policies/concept-notes/${params.id}`}>
+          <Link href={`/policies/concept-notes/my-concept-note/${params.id}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Details
           </Link>

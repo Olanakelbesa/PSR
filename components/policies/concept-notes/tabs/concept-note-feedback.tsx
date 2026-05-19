@@ -1,6 +1,12 @@
 "use client";
 
-import { GitBranch, Calendar, FileText, Download, ClipboardCheck } from "lucide-react";
+import {
+  GitBranch,
+  Calendar,
+  FileText,
+  Download,
+  ClipboardCheck,
+} from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,11 +19,17 @@ import {
 import { cn } from "@/lib/utils";
 
 interface ConceptNoteFeedbackProps {
-  reviews: any[];
+  feedback?: any[];
+  reviews?: any[];
 }
 
-export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
-  if (!reviews || reviews.length === 0) {
+export function ConceptNoteFeedback({
+  feedback,
+  reviews,
+}: ConceptNoteFeedbackProps) {
+  const items = feedback ?? reviews ?? [];
+
+  if (!items.length) {
     return (
       <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
         <ClipboardCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -31,14 +43,16 @@ export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
     );
   }
 
-  const groupedReviews = reviews.reduce((acc: any, review: any) => {
-    const v = review.version || "v1.0.0";
+  const groupedReviews = items.reduce((acc: any, review: any) => {
+    const v = review.versionNumber || review.version || "v1.0.0";
     if (!acc[v]) acc[v] = [];
     acc[v].push(review);
     return acc;
   }, {});
 
-  const sortedVersions = Object.keys(groupedReviews).sort((a, b) => b.localeCompare(a));
+  const sortedVersions = Object.keys(groupedReviews).sort((a, b) =>
+    b.localeCompare(a),
+  );
 
   return (
     <div className="space-y-6">
@@ -51,18 +65,24 @@ export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
         {sortedVersions.map((version) => {
           const versionReviews = groupedReviews[version];
           return (
-            <Card key={version} className="overflow-hidden border-primary/10 shadow-sm">
+            <Card
+              key={version}
+              className="overflow-hidden border-primary/10 shadow-sm"
+            >
               <AccordionItem value={version} className="border-none">
                 <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-4 w-full text-left">
                     <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
                       <GitBranch className="h-3.5 w-3.5" />
-                      <span className="text-xs font-black uppercase tracking-wider">{version}</span>
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        {version}
+                      </span>
                     </div>
                     <div className="h-px flex-1 bg-gradient-to-r from-primary/10 to-transparent" />
                     <div className="flex items-center gap-4 mr-4">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        {versionReviews.length} Expert Assessment{versionReviews.length !== 1 ? "s" : ""}
+                        {versionReviews.length} Expert Assessment
+                        {versionReviews.length !== 1 ? "s" : ""}
                       </span>
                     </div>
                   </div>
@@ -78,24 +98,26 @@ export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border-2 border-background">
-                                <AvatarImage
-                                  src={review.reviewer.image}
-                                />
                                 <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                  {review.reviewer.firstName[0]}
-                                  {review.reviewer.lastName[0]}
+                                  {String(
+                                    review.versionNumber ||
+                                      review.version ||
+                                      version,
+                                  )
+                                    .slice(0, 2)
+                                    .toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col">
                                 <span className="text-sm font-bold text-foreground">
-                                  {review.reviewer.firstName}{" "}
-                                  {review.reviewer.lastName}
+                                  {review.reviewer?.firstName &&
+                                  review.reviewer?.lastName
+                                    ? `${review.reviewer.firstName} ${review.reviewer.lastName}`
+                                    : review.versionNumber || version}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
-                                  {review.reviewer.position ||
-                                    "Expert Reviewer"}{" "}
                                   ·{" "}
-                                  {review.reviewer.institution ||
+                                  {review.reviewer?.institution ||
                                     "PSR Council"}
                                 </span>
                               </div>
@@ -109,8 +131,7 @@ export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
                                     ? "bg-green-100 text-green-700 border-green-200"
                                     : review.decision ===
                                           "Partially Accepted" ||
-                                        review.recommendation ===
-                                          "revise"
+                                        review.recommendation === "revise"
                                       ? "bg-orange-100 text-orange-700 border-orange-200"
                                       : "bg-red-100 text-red-700 border-red-200",
                                 )}
@@ -132,7 +153,8 @@ export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
                                 Expert Feedback
                               </h4>
                               <p className="text-sm leading-relaxed text-slate-700 italic border-l-4 border-muted pl-4">
-                                "{review.comments}"
+                                {review.comments ||
+                                  "No detailed feedback notes recorded yet."}
                               </p>
                             </div>
 
@@ -154,14 +176,13 @@ export function ConceptNoteFeedback({ reviews }: ConceptNoteFeedbackProps) {
                         </CardContent>
                         <div className="bg-muted/10 border-t py-2 px-4 flex justify-between items-center">
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" /> Reviewed
-                            on{" "}
-                            {new Date(
-                              review.createdAt,
-                            ).toLocaleDateString()}
+                            <Calendar className="h-3 w-3" />
+                            {review.createdAt
+                              ? `Reviewed on ${new Date(review.createdAt).toLocaleDateString()}`
+                              : `Version ${review.versionNumber || version}`}
                           </span>
                           <span className="text-[10px] font-mono text-muted-foreground/60">
-                            {review.id}
+                            {review.id || review.versionNumber || version}
                           </span>
                         </div>
                       </Card>

@@ -14,10 +14,7 @@
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §2.2 — baseURL is /api/proxy,
 // never a NEXT_PUBLIC_ env var.
 
-import axios, {
-  AxiosError,
-  InternalAxiosRequestConfig,
-} from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -101,7 +98,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (res) => res,
   async (
-    error: AxiosError<{ message?: string; errors?: Record<string, string[]>; error?: Record<string, string[]> }>,
+    error: AxiosError<{
+      message?: string;
+      errors?: Record<string, string[]>;
+      error?: Record<string, string[]>;
+    }>,
   ) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
@@ -148,7 +149,14 @@ api.interceptors.response.use(
         // Let the app handle redirect to login, but skip if already on auth pages
         if (isBrowser) {
           const path = window.location.pathname;
-          if (!["/login", "/signup", "/forgot-password", "/reset-password"].includes(path)) {
+          if (
+            ![
+              "/login",
+              "/signup",
+              "/forgot-password",
+              "/reset-password",
+            ].includes(path)
+          ) {
             window.location.href = "/login";
           }
         }
@@ -180,7 +188,14 @@ api.interceptors.response.use(
         processQueue(normalized, null);
         if (isBrowser) {
           const path = window.location.pathname;
-          if (!["/login", "/signup", "/forgot-password", "/reset-password"].includes(path)) {
+          if (
+            ![
+              "/login",
+              "/signup",
+              "/forgot-password",
+              "/reset-password",
+            ].includes(path)
+          ) {
             window.location.href = "/login";
           }
         }

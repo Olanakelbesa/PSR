@@ -19,10 +19,7 @@
 //   import apiClient from "@/api/client";
 //   const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.LIST);
 
-import axios, {
-  type AxiosError,
-  type InternalAxiosRequestConfig,
-} from "axios";
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { API_ENDPOINTS } from "./endpoints";
 
 // ─── Normalized Error Shape ───────────────────────────────────────────────────
@@ -87,7 +84,15 @@ function processQueue(error: ApiError | null, token: string | null) {
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = tokenStorage.get();
-    if (token && config.headers) {
+    const headers = config.headers as InternalAxiosRequestConfig["headers"] & {
+      Authorization?: string;
+      authorization?: string;
+    };
+    const hasExplicitAuthHeader = Boolean(
+      headers?.Authorization ?? headers?.authorization,
+    );
+
+    if (token && config.headers && !hasExplicitAuthHeader) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -118,9 +123,9 @@ apiClient.interceptors.response.use(
       status: error.response?.status ?? 0,
       errors:
         error.response?.data?.errors ??
-        (error.response?.data as Record<string, unknown>)?.error as
+        ((error.response?.data as Record<string, unknown>)?.error as
           | Record<string, string[]>
-          | undefined,
+          | undefined),
     };
 
     // ── 401 → attempt silent token refresh ────────────────────────────────
@@ -149,7 +154,12 @@ apiClient.interceptors.response.use(
         processQueue(normalized, null);
         if (isBrowser) {
           const path = window.location.pathname;
-          const authPaths = ["/login", "/signup", "/forgot-password", "/reset-password"];
+          const authPaths = [
+            "/login",
+            "/signup",
+            "/forgot-password",
+            "/reset-password",
+          ];
           if (!authPaths.includes(path)) window.location.href = "/login";
         }
         return Promise.reject(normalized);
@@ -166,7 +176,8 @@ apiClient.interceptors.response.use(
 
         tokenStorage.set(newToken);
         tokenStorage.setRefresh(newRefresh);
-        apiClient.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+        apiClient.defaults.headers.common["Authorization"] =
+          `Bearer ${newToken}`;
 
         processQueue(null, newToken);
 
@@ -179,7 +190,12 @@ apiClient.interceptors.response.use(
         processQueue(normalized, null);
         if (isBrowser) {
           const path = window.location.pathname;
-          const authPaths = ["/login", "/signup", "/forgot-password", "/reset-password"];
+          const authPaths = [
+            "/login",
+            "/signup",
+            "/forgot-password",
+            "/reset-password",
+          ];
           if (!authPaths.includes(path)) window.location.href = "/login";
         }
         return Promise.reject(normalized);

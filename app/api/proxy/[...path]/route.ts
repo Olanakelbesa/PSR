@@ -15,12 +15,14 @@
 //   ✔ Forwards query string, body (JSON, FormData, binary)
 //   ✔ Structured request logging in development
 //   ✔ 502 on upstream unreachable (no error detail exposure)
+//
+// NextAuth v5 pattern: handler is wrapped with auth() so req.auth is
+// automatically populated from cookies — do NOT call auth() internally.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-// API_BASE_URL is a server-only env var (no NEXT_PUBLIC_ prefix).
-// It is NEVER bundled into client-side JS.
 const API_BASE_URL = process.env.API_BASE_URL;
 const isDev = process.env.NODE_ENV === "development";
 
@@ -40,41 +42,30 @@ const BLOCKED_REQUEST_HEADERS = new Set([
 ]);
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
-function log(
-  method: string,
-  proxyPath: string,
-  status: number,
-  durationMs: number,
-) {
+function log(method: string, proxyPath: string, status: number, durationMs: number) {
   if (!isDev) return;
   const icon = status >= 500 ? "🔴" : status >= 400 ? "🟠" : "🟢";
-  console.log(
-    `${icon} [Proxy] ${method} /api/proxy${proxyPath} → ${status} (${durationMs}ms)`,
-  );
+  console.log(`${icon} [Proxy] ${method} /api/proxy${proxyPath} → ${status} (${durationMs}ms)`);
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
-async function handler(
-  req: NextRequest,
-  context: { params: Promise<{ path: string[] }> },
-) {
+// ─── Core Handler ─────────────────────────────────────────────────────────────
+// Wrapped with auth() — the correct NextAuth v5 pattern for Route Handlers.
+// This ensures req.auth is populated from the session cookie automatically.
+const handler = auth(async (req, context) => {
   // ── Guard: ensure server-side env var is configured ─────────────────────────
   if (!API_BASE_URL) {
-    console.error(
-      "[Proxy] API_BASE_URL is not set. Configure it as a server-only env var.",
-    );
+    console.error("[Proxy] API_BASE_URL is not set. Configure it as a server-only env var.");
     return NextResponse.json(
       { message: "Service temporarily unavailable. Please contact support." },
       { status: 500 },
     );
   }
 
-  const { path } = await context.params;
+  const { path } = (await (context as any).params) as { path: string[] };
   const apiPath = `/${path.join("/")}`;
   const queryString = req.nextUrl.search;
 
   // ── SSRF Protection: target is always the fixed API_BASE_URL ────────────────
-  // The client cannot influence the target host — it is hardcoded here.
   const cleanBaseUrl = API_BASE_URL.replace(/\/+$/, "");
   const upstreamUrl = `${cleanBaseUrl}/api${apiPath}${queryString}`;
 
@@ -86,21 +77,28 @@ async function handler(
     }
   });
 
-  // ── Inject server-side session token (keeps token off the browser) ───────────
-  // Try to read the NextAuth session and inject its backendToken.
-  // If session is unavailable (public route / SSR edge case) we continue
-  // without auth — the upstream will return 401 as expected.
-  try {
-    // Dynamic import avoids circular deps and keeps this tree-shakeable.
-    const { auth } = await import("@/auth");
-    const session = await auth();
-    const backendToken = session?.backendToken;
+  // ── Inject server-side session token ────────────────────────────────────────
+  // req.auth is populated by the auth() wrapper — this is the correct Auth.js v5
+  // pattern. No need to call auth() manually inside the handler.
+  const backendToken = (req.auth as any)?.backendToken as string | undefined;
+
+  if (isDev) {
     if (backendToken) {
-      headers["Authorization"] = `Bearer ${backendToken}`;
+      console.log(`[Proxy] ✅ Token injected from session for ${req.method} ${apiPath}`);
+    } else {
+      const clientHasToken = req.headers.has("authorization");
+      console.warn(
+        `[Proxy] ⚠️  No session backendToken for ${req.method} ${apiPath}.`,
+        `client-auth-header=${clientHasToken ? "present (forwarding)" : "missing"}`,
+      );
     }
-  } catch {
-    // session unavailable — forward without Authorization header
   }
+
+  if (backendToken) {
+    // Server-side session token takes priority over any client-sent header
+    headers["Authorization"] = `Bearer ${backendToken}`;
+  }
+  // If no session token, the client's Authorization header (if any) is forwarded as-is
 
   const contentType = req.headers.get("content-type") ?? "";
   const isMultipart = contentType.includes("multipart/form-data");
@@ -115,7 +113,6 @@ async function handler(
       if (contentType.includes("application/json")) {
         body = await req.text();
       } else if (isMultipart) {
-        // Remove content-type so fetch can set the correct boundary
         delete headers["content-type"];
         body = await req.formData();
       } else {
@@ -132,21 +129,15 @@ async function handler(
     const duration = Date.now() - start;
     log(req.method, apiPath, upstreamRes.status, duration);
 
-    // ── Normalize response ───────────────────────────────────────────────────
-    // Never stream raw backend errors; parse and return normalized JSON.
     const data = await upstreamRes.json().catch(() => null);
     return NextResponse.json(data ?? {}, { status: upstreamRes.status });
   } catch (err: unknown) {
     const duration = Date.now() - start;
     log(req.method, apiPath, 502, duration);
 
-    // Never expose raw error message to the client
     if (isDev) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[Proxy] Upstream error for ${req.method} ${apiPath}:`,
-        msg,
-      );
+      console.error(`[Proxy] Upstream error for ${req.method} ${apiPath}:`, msg);
     }
 
     return NextResponse.json(
@@ -154,7 +145,7 @@ async function handler(
       { status: 502 },
     );
   }
-}
+});
 
 // Export handler for all supported HTTP methods
 export {
