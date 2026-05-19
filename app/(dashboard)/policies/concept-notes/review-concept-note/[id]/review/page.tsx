@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -28,39 +28,23 @@ import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { conceptNoteApi } from "@/api/client";
-import type { ConceptNote } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useMyReviewDetail, useReviewConceptNote } from "@/lib/queries/concept-notes";
 
 export default function ConceptNoteReviewPage() {
   const params = useParams();
   const router = useRouter();
-  const [note, setNote] = useState<ConceptNote | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const id = params.id as string;
+  const { user } = useAuth();
+
+  const { data: note, isLoading } = useMyReviewDetail(id);
+  const reviewMutation = useReviewConceptNote();
   
   // Review Form State
   const [comments, setComments] = useState("");
   const [decision, setDecision] = useState<"approve" | "revise" | "reject" | null>(null);
-
-  useEffect(() => {
-    async function loadNote() {
-      try {
-        const response = await conceptNoteApi.getConceptNote(params.id as string);
-        if (response.success && response.data) {
-          setNote(response.data);
-        } else {
-          router.push("/policies/concept-notes");
-        }
-      } catch (error) {
-        console.error("Failed to load concept note:", error);
-        router.push("/policies/concept-notes");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadNote();
-  }, [params.id, router]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async () => {
     if (!decision) {
@@ -72,17 +56,29 @@ export default function ConceptNoteReviewPage() {
       return;
     }
 
-    setIsSubmitting(true);
+    let backendDecision = "accepted";
+    if (decision === "revise") {
+      backendDecision = "partially_accepted";
+    } else if (decision === "reject") {
+      backendDecision = "not_accepted";
+    }
+
     try {
-      // Simulate API call to create ConceptReview record and notify proposer
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+      const formData = new FormData();
+      formData.append("reviewer", user?.id ? String(user.id) : "1");
+      formData.append("final_decision", backendDecision);
+      formData.append("comment", comments);
+      formData.append("recommendation", comments);
+      formData.append("comment_addressed", "true");
+      if (selectedFile) {
+        formData.append("review_file", selectedFile);
+      }
+
+      await reviewMutation.mutateAsync({ id, payload: formData });
       toast.success("Review successfully submitted and recorded.");
-      router.push(`/policies/concept-notes/${params.id}`);
+      router.push(`/policies/concept-notes/review-concept-note/${id}`);
     } catch (error) {
       toast.error("Failed to submit review. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -146,11 +142,55 @@ export default function ConceptNoteReviewPage() {
                 <Label className="text-sm font-semibold flex items-center gap-2">
                   2. Supporting Documents (Optional)
                 </Label>
-                <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer">
-                  <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-                  <p className="text-sm font-medium text-foreground">Click to upload annotated files</p>
-                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to 10MB</p>
-                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast.error("File size must be under 10MB");
+                        return;
+                      }
+                      setSelectedFile(file);
+                    }
+                  }}
+                />
+                {!selectedFile ? (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground mb-3" />
+                    <p className="text-sm font-medium text-foreground">Click to upload annotated files</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to 10MB</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 border-emerald-100">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-semibold text-emerald-800 truncate">
+                          {selectedFile.name}
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-medium">
+                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </div>
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setSelectedFile(null)} 
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 font-medium text-xs px-2"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
               </div>
 
             </CardContent>
@@ -204,10 +244,10 @@ export default function ConceptNoteReviewPage() {
             <CardFooter className="bg-muted/30 pt-6 border-t">
               <Button 
                 onClick={handleSubmit} 
-                disabled={isSubmitting} 
+                disabled={reviewMutation.isPending} 
                 className="w-full h-12 text-md font-semibold bg-primary hover:bg-primary/90"
               >
-                {isSubmitting ? "Submitting..." : "Submit"}
+                {reviewMutation.isPending ? "Submitting..." : "Submit"}
               </Button>
             </CardFooter>
           </Card>
@@ -226,19 +266,22 @@ export default function ConceptNoteReviewPage() {
               </div>
               
               <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground leading-relaxed line-clamp-6">
-                {note.background}
+                {note.overview?.executiveSummary || "No summary provided."}
               </div>
 
-              {note.attachments && note.attachments.length > 0 && (
+              {note.overview?.file && (
                 <div className="pt-2">
-                  <p className="text-xs font-semibold mb-2">Original Files</p>
-                  <div className="space-y-2">
-                    {note.attachments.map((file) => (
-                      <div key={file.id} className="flex items-center gap-2 p-2 border rounded hover:bg-muted/30 cursor-pointer transition-colors">
-                        <FileText className="h-4 w-4 text-primary shrink-0" />
-                        <span className="text-xs truncate">{file.name}</span>
-                      </div>
-                    ))}
+                  <p className="text-xs font-semibold mb-2">Original File</p>
+                  <div 
+                    className="flex items-center gap-2 p-2 border rounded hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => {
+                      if (note.overview?.file) {
+                        window.open(note.overview.file, "_blank");
+                      }
+                    }}
+                  >
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-xs truncate">{note.overview.file.split("/").pop()}</span>
                   </div>
                 </div>
               )}

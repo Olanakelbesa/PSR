@@ -184,6 +184,17 @@ export async function getConceptNoteDetailById(
   return ConceptNoteDetailResponseSchema.parse(res.data).data;
 }
 
+// ─── GET /v1/concept-notes/:id/manage/ (admin detail view) ──────────────────
+export async function getManageConceptNoteDetailById(
+  id: string | number,
+  backendToken?: string | null,
+): Promise<ConceptNoteDetail> {
+  const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.MANAGE_DETAIL(id), {
+    params: backendToken ? { backendToken } : undefined,
+  });
+  return ConceptNoteDetailResponseSchema.parse(res.data).data;
+}
+
 // ─── POST /v1/concept-notes/ ──────────────────────────────────────────────────
 export async function createConceptNote(
   payload: Record<string, unknown> | FormData,
@@ -232,4 +243,38 @@ export async function submitConceptNote(
       : {},
   );
   return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+}
+
+// ─── POST /v1/concept-notes/:id/psr-approval/ ───────────────────────────────
+export async function approveConceptNote(
+  id: string | number,
+  payload: { decision: "approve" | "revision" | "reject"; comments?: string },
+  backendToken?: string | null,
+): Promise<any> {
+  const res = await apiClient.post(
+    API_ENDPOINTS.CONCEPT_NOTES.APPROVAL(id),
+    payload,
+    backendToken
+      ? { headers: { Authorization: `Bearer ${backendToken}` } }
+      : {},
+  );
+  return res.data;
+}
+export async function reviewConceptNote(
+  id: string | number,
+  payload: Record<string, any> | FormData,
+  backendToken?: string | null,
+): Promise<any> {
+  const isFormData = payload instanceof FormData;
+  const res = await apiClient.post(
+    API_ENDPOINTS.CONCEPT_NOTES.REVIEW(id),
+    payload,
+    {
+      headers: {
+        ...(backendToken && { Authorization: `Bearer ${backendToken}` }),
+        ...(isFormData && { "Content-Type": "multipart/form-data" }),
+      },
+    },
+  );
+  return res.data;
 }

@@ -1,33 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Edit,
-  Send,
-  FileText,
-  User,
-  Calendar,
-  Clock,
-  Building,
-  Tag,
-  BookOpen,
   Download,
   ClipboardCheck,
-  CheckCircle2,
-  Eye,
-  ZoomIn,
-  ZoomOut,
-  Printer,
-  Maximize2,
-  ChevronLeft,
-  ChevronRight,
   Building2,
-  GitBranch,
-  ExternalLink,
   Check,
+  AlertCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,138 +21,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
-import { StatusBadge, PdfViewer } from "@/components/shared";
 import { ConceptNoteTabs } from "@/components/policies/concept-notes/concept-note-tabs";
-import { conceptNoteApi } from "@/api/client";
-import { POLICY_TYPES, POLICY_STATUSES } from "@/lib/constants";
-import type { ConceptNote, Attachment } from "@/lib/types";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-
-const MOCK_REVIEWS: any[] = [
-  {
-    id: "REV-001",
-    reviewerId: "rev1",
-    reviewer: {
-      firstName: "Dr. Kassahun",
-      lastName: "Taye",
-      image: "",
-      position: "Senior Policy Analyst",
-      institution: "Ministry of Education"
-    },
-    comments: "The strategic alignment with the 10-year development plan is excellent. However, the budget allocation for digital infrastructure needs more granular detail in the next phase.",
-    recommendation: "approve",
-    decision: "Accepted",
-    supportingDocument: { name: "Technical_Compliance_Report.pdf", url: "#" },
-    score: 92,
-    criteria: [
-      { name: "Strategic Alignment", score: 10, maxScore: 10 },
-      { name: "Feasibility", score: 8, maxScore: 10 },
-      { name: "Institutional Capacity", score: 9, maxScore: 10 },
-      { name: "Resource Efficiency", score: 9, maxScore: 10 }
-    ],
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "REV-002",
-    reviewerId: "rev2",
-    reviewer: {
-      firstName: "Elena",
-      lastName: "Girma",
-      image: "",
-      position: "Technical Specialist",
-      institution: "PSR Technical Committee"
-    },
-    comments: "Methodology is sound and the expected outcomes are realistic. I recommend moving forward to the drafting stage with minor adjustments to the monitoring framework.",
-    recommendation: "revise",
-    decision: "Partially Accepted",
-    supportingDocument: null,
-    score: 88,
-    criteria: [
-      { name: "Strategic Alignment", score: 9, maxScore: 10 },
-      { name: "Feasibility", score: 9, maxScore: 10 },
-      { name: "Technical Rigor", score: 8, maxScore: 10 },
-      { name: "Social Impact", score: 10, maxScore: 10 }
-    ],
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "REV-003",
-    reviewerId: "rev3",
-    reviewer: {
-      firstName: "Samuel",
-      lastName: "Kassa",
-      image: "",
-      position: "Legal Counsel",
-      institution: "Ministry of Justice"
-    },
-    comments: "The current proposal lacks the necessary legal grounding for data privacy compliance in cross-border education data exchange.",
-    recommendation: "reject",
-    decision: "Rejected",
-    supportingDocument: { name: "Legal_Objection_Memo.pdf", url: "#" },
-    score: 45,
-    criteria: [
-      { name: "Legal Compliance", score: 3, maxScore: 10 },
-      { name: "Data Security", score: 4, maxScore: 10 }
-    ],
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
-  }
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useMyReviewDetail } from "@/lib/queries/concept-notes";
 
 export default function ConceptNoteDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [note, setNote] = useState<ConceptNote | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewingFile, setViewingFile] = useState<Attachment | null>(null);
+  const { backendToken } = useAuth();
+  const id = params.id as string;
 
-  useEffect(() => {
-    async function loadNote() {
-      if (!params.id) return;
-      try {
-        const response = await conceptNoteApi.getConceptNote(params.id as string);
-        const data = response.data;
-        if (data) {
-          // Inject mock reviews for demonstration if needed
-          data.reviews = [...(data.reviews || []), ...MOCK_REVIEWS];
-          setNote(data);
-        }
-      } catch (error) {
-        console.error("Failed to load concept note:", error);
-        toast.error("Failed to load document details");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadNote();
-  }, [params.id]);
-
-  const handleSubmit = async () => {
-    if (!note) return;
-    setIsSubmitting(true);
-    try {
-      const response = await conceptNoteApi.submitConceptNote(note.id);
-      if (response.success) {
-        toast.success("Concept note successfully submitted for PSR review.");
-        setNote(response.data!);
-      }
-    } catch (error) {
-      toast.error("Failed to submit concept note");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const { data: note, isLoading, isError } = useMyReviewDetail(id);
+  const [viewingFile, setViewingFile] = useState<any>(null);
 
   if (isLoading) {
     return (
@@ -186,14 +52,45 @@ export default function ConceptNoteDetailPage() {
     );
   }
 
-  if (!note) {
-    return null;
+  if (isError || !note) {
+    return (
+      <PageContainer title="Error Loading Concept Note">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-semibold">Failed to load concept note details</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md">
+            There was a problem retrieving the details for this concept note. Please verify the URL or try again.
+          </p>
+          <div className="flex gap-3 mt-6">
+            <Button variant="outline" asChild>
+              <Link href={`/policies/concept-notes/review-concept-note`}>
+                Go to Reviews Queue
+              </Link>
+            </Button>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </PageContainer>
+    );
   }
+
+  const authorName = note.submittedBy?.fullName || "Anonymous";
+  const authorEmail = note.submittedBy?.email || "";
+  const authorPhoto = note.submittedBy?.photoUrl;
+  const authorInstitution = (note as any).organization?.name || "Ministry of Health";
+  const initials = authorName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .substring(0, 2);
 
   return (
     <PageContainer
       title={note.title}
-      description={`${note.id} · ${POLICY_TYPES[note.policyType]?.label || note.policyType} · ${note.createdBy.institution || "Ministry of Health"}`}
+      description={`Concept Note #${note.id}`}
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild className="shadow-sm">
@@ -202,15 +99,16 @@ export default function ConceptNoteDetailPage() {
               Back
             </Link>
           </Button>
-           <Button className="shadow-sm">
-            <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`} className="flex items-center px-2 py-2 text-sm font-semibold rounded-md focus:bg-primary/10 focus:text-primary">
+          <Button className="shadow-sm bg-primary hover:bg-primary/90 text-white" asChild>
+            <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`} className="flex items-center px-4 py-2 text-sm font-semibold rounded-md">
               <Check className="mr-2 h-4 w-4" />
               Review
             </Link>
           </Button>
         </div>
       }
-    >      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+    >
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         {/* Main Content Area */}
         <div className="space-y-6">
           <ConceptNoteTabs note={note} setViewingFile={setViewingFile} />
@@ -227,33 +125,36 @@ export default function ConceptNoteDetailPage() {
             <CardContent className="pt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <StatusBadge type="policy" status={note.status} />
+                <Badge variant="outline" className="text-[10px] font-semibold bg-primary/10 text-primary border-primary/20 uppercase tracking-wide">
+                  {note.currentStatus?.status || "Under Review"}
+                </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Concept ID</span>
-                <span className="text-xs font-mono font-bold">{note.id}</span>
+                <span className="text-xs font-mono font-bold">{note.currentStatus?.conceptId || note.id}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Version</span>
-                <Badge variant="secondary" className="text-[10px]">v1.0.0</Badge>
+                <Badge variant="secondary" className="text-[10px]">{note.currentStatus?.version || "CN-0001-V1"}</Badge>
               </div>
               <Separator />
               <div className="space-y-3">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Submitted By</span>
                 <div className="flex items-center gap-3 pt-1">
                   <Avatar className="h-9 w-9 border shadow-sm">
-                    <AvatarImage src={note.createdBy.image} />
-                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-                      {note.createdBy.firstName[0]}
-                      {note.createdBy.lastName[0]}
+                    {authorPhoto && (
+                      <AvatarImage src={authorPhoto} alt={authorName} />
+                    )}
+                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold uppercase">
+                      {initials}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col overflow-hidden">
                     <span className="text-sm font-semibold truncate text-foreground">
-                      {note.createdBy.firstName} {note.createdBy.lastName}
+                      {authorName}
                     </span>
                     <span className="text-[10px] text-muted-foreground truncate">
-                      {note.createdBy.institution || "Ministry of Health"}
+                      {authorInstitution}
                     </span>
                   </div>
                 </div>
@@ -263,13 +164,13 @@ export default function ConceptNoteDetailPage() {
                 <div className="flex justify-between">
                   <span>Submitted</span>
                   <span className="font-medium text-foreground">
-                    {new Date(note.createdAt).toLocaleDateString()}
+                    {note.submittedBy?.submittedAt ? new Date(note.submittedBy.submittedAt).toLocaleDateString() : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Last Updated</span>
                   <span className="font-medium text-foreground">
-                    {new Date(note.updatedAt).toLocaleDateString()}
+                    {note.submittedBy?.lastUpdated ? new Date(note.submittedBy.lastUpdated).toLocaleDateString() : "—"}
                   </span>
                 </div>
               </div>
@@ -298,132 +199,21 @@ export default function ConceptNoteDetailPage() {
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start h-9 text-sm"
+                onClick={() => {
+                  if (note.overview?.file) {
+                    window.open(note.overview.file, "_blank");
+                  } else {
+                    toast.error("No attachment file is available.");
+                  }
+                }}
               >
                 <Download className="mr-2 h-4 w-4 text-muted-foreground" />
                 Download PDF
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start h-9 text-sm"
-              >
-                <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
-                Share Concept
               </Button>
             </CardContent>
           </Card>
         </aside>
       </div>
-
-      <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] p-0 flex flex-col overflow-hidden">
-          <DialogHeader className="p-0 border-b bg-background">
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 px-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1 border rounded-md bg-muted/50 p-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7"><ZoomOut className="h-4 w-4" /></Button>
-                  <span className="text-xs font-medium px-2">100%</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7"><ZoomIn className="h-4 w-4" /></Button>
-                </div>
-                <Separator orientation="vertical" className="h-6" />
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7"><ChevronLeft className="h-4 w-4" /></Button>
-                  <span className="text-xs font-medium px-1">Page 1 / 1</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7"><ChevronRight className="h-4 w-4" /></Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                  <Printer className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Print</span>
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                  <Maximize2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Full Screen</span>
-                </Button>
-                <Button size="sm" className="h-8 gap-1.5 bg-primary" onClick={() => setViewingFile(null)}>
-                  Close Preview
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="flex-1 bg-slate-200/50 flex justify-center items-start overflow-auto p-4 sm:p-8">
-            <div className="shadow-2xl bg-white w-full max-w-[800px] min-h-[1100px] p-8 sm:p-16 space-y-8 text-slate-800 animate-in fade-in zoom-in-95 duration-300">
-              <div className="text-center space-y-4 border-b-4 border-primary pb-8">
-                <div className="flex justify-center mb-4">
-                   <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Building2 className="w-10 h-10 text-primary" />
-                   </div>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter leading-tight">Federal Democratic Republic of Ethiopia</h1>
-                <h2 className="text-lg sm:text-xl font-bold uppercase tracking-wide text-muted-foreground">{note.createdBy.institution || "Ministry of Health"}</h2>
-              </div>
-
-              <div className="py-8 sm:py-12 text-center space-y-6">
-                <h3 className="text-3xl sm:text-4xl font-black text-slate-900 leading-tight uppercase">
-                  {note.title}
-                </h3>
-                <div className="flex justify-center gap-8 py-4">
-                  <div className="text-left">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Serial Number</p>
-                    <p className="text-sm font-mono font-bold">{note.id}</p>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Version</p>
-                    <p className="text-sm font-mono font-bold">v1.0.0</p>
-                  </div>
-                </div>
-                <div className="inline-block px-6 py-2 border-2 border-slate-900 font-black text-lg">
-                  OFFICIAL CONCEPT DOCUMENT
-                </div>
-              </div>
-
-              <div className="space-y-6 text-justify">
-                <p className="font-bold text-lg border-l-4 border-primary pl-4 uppercase tracking-wide">1. Executive Summary</p>
-                <p className="leading-relaxed text-sm sm:text-base">
-                  {note.background}
-                </p>
-                <p className="leading-relaxed text-sm sm:text-base">
-                  This document serves as the primary concept framework for health policy refinement within the national education and health systems. It outlines the strategic objectives, implementation methodologies, and oversight mechanisms required to achieve the stated outcomes within the operational period of 2025-2027.
-                </p>
-              </div>
-
-              <div className="pt-24 mt-auto">
-                <div className="flex justify-between items-end border-t pt-8">
-                  <div className="space-y-4">
-                    <div className="h-12 w-48 bg-slate-100 rounded-sm border-b-2 border-slate-300 italic flex items-center justify-center text-slate-400 text-xs">
-                      Electronic Signature Verified
-                    </div>
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Authorized PSR Officer</p>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <p className="text-xs font-bold uppercase">Registry Timestamp</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">{new Date(note.createdAt).toLocaleString()} UTC</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-3 border-t bg-muted/5 flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setViewingFile(null)}>
-              Close
-            </Button>
-            <Button size="sm" onClick={() => {
-              if (viewingFile) {
-                const link = document.createElement("a");
-                link.href = viewingFile.url;
-                link.download = viewingFile.name;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }
-            }}>
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </PageContainer>
   );
 }

@@ -23,11 +23,12 @@ export const API_ENDPOINTS = {
 
   // ── Users ─────────────────────────────────────────────────────────────────
   USERS: {
-    LIST: "/users",
-    DETAIL: (id: string) => `/users/${id}`,
-    CREATE: "/users",
-    UPDATE: (id: string) => `/users/${id}`,
-    DELETE: (id: string) => `/users/${id}`,
+    LIST:            "/users",
+    SELECTOR:        "/v1/users/selector/",
+    DETAIL:          (id: string) => `/users/${id}`,
+    CREATE:          "/users",
+    UPDATE:          (id: string) => `/users/${id}`,
+    DELETE:          (id: string) => `/users/${id}`,
   },
 
   // ── Reference Data ────────────────────────────────────────────────────────
@@ -49,12 +50,18 @@ export const API_ENDPOINTS = {
 
   // ── Concept Notes ─────────────────────────────────────────────────────────
   CONCEPT_NOTES: {
-    LIST: "/v1/concept-notes/",
-    DETAIL: (id: string | number) => `/v1/concept-notes/${id}/`,
-    CREATE: "/v1/concept-notes/",
-    UPDATE: (id: string | number) => `/v1/concept-notes/${id}/`,
-    SUBMIT: (id: string | number) => `/v1/concept-notes/${id}/submit/`,
-    REVIEW: (id: string | number) => `/v1/concept-notes/${id}/reviews/`,
+    LIST:            "/v1/concept-notes/",
+    MANAGE:          "/v1/concept-notes/manage/",
+    DETAIL:          (id: string | number) => `/v1/concept-notes/${id}/`,
+    MANAGE_DETAIL:   (id: string | number) => `/v1/concept-notes/${id}/manage/`,
+    CREATE:          "/v1/concept-notes/",
+    UPDATE:          (id: string | number) => `/v1/concept-notes/${id}/`,
+    SUBMIT:          (id: string | number) => `/v1/concept-notes/${id}/submit/`,
+    REVIEW:          (id: string | number) => `/v1/concept-notes/${id}/review/`,
+    ASSIGN_REVIEWER: (id: string | number) => `/v1/concept-notes/${id}/assign-reviewer/`,
+    APPROVAL:        (id: string | number) => `/v1/concept-notes/${id}/psr-approval/`,
+    MY_REVIEWS:      "/v1/concept-notes/my-reviews/",
+    MY_REVIEW_DETAIL: (id: string | number) => `/v1/concept-notes/${id}/my-reviews/`,
   },
 
   // ── Policy Documents ──────────────────────────────────────────────────────

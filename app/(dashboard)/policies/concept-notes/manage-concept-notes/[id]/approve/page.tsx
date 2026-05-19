@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,11 +13,10 @@ import {
   User,
   Building2,
   MessageSquare,
-  ThumbsUp,
-  ThumbsDown,
+  ClipboardCheck,
 } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout";
-import { StatusBadge } from "@/components/shared";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -50,77 +48,59 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/useAuth";
+import { useManageConceptNoteDetail, useApproveConceptNote } from "@/lib/queries/concept-notes";
 
-type ReviewSummary = {
-  id: string;
-  reviewer: {
-    firstName: string;
-    lastName: string;
-    position: string;
-    institution: string;
-    image?: string;
-  };
-  recommendation?: "approve" | "revise" | "reject";
-  feedback: string;
-  document?: {
-    name: string;
-    url: string;
-  };
-  createdAt: string;
+const formatTimestamp = (timestampString?: string | null) => {
+  if (!timestampString) return "Recently";
+  try {
+    return formatDistanceToNow(new Date(timestampString), { addSuffix: true });
+  } catch {
+    return "Recently";
+  }
 };
 
-const mockReviews: ReviewSummary[] = [
-  {
-    id: "REV-001",
-    reviewer: {
-      firstName: "Dr. Kassahun",
-      lastName: "Taye",
-      position: "Senior Policy Analyst",
-      institution: "Ministry of Education",
-    },
-    recommendation: "approve",
-    feedback:
-      "The concept note is exceptionally well-structured. The alignment with national education goals is clear, and the proposed implementation timeline is realistic. I suggest highlighting the budgetary requirements more explicitly in the full draft.",
-    document: {
-      name: "PSR_FRS_v1.pdf",
-      url: "/doc/PSR_FRS_v1.pdf",
-    },
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "REV-002",
-    reviewer: {
-      firstName: "Elena",
-      lastName: "Girma",
-      position: "Technical Specialist",
-      institution: "PSR Technical Committee",
-    },
-    feedback:
-      "The background section needs more data on existing gaps. While the policy direction is sound, the stakeholder engagement plan feels generic. Please specify the target groups for the consultation phase.",
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
+const getRecommendationBadge = (status?: string | null) => {
+  const norm = (status || "").toLowerCase();
+  if (norm === "accepted" || norm === "approve") {
+    return (
+      <Badge className="bg-primary/10 text-primary border-primary/20 border">
+        <CheckCircle2 className="mr-1 h-3 w-3" /> Approve
+      </Badge>
+    );
+  }
+  if (norm === "partially_accepted" || norm === "revision" || norm === "revise") {
+    return (
+      <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20 border">
+        <Clock className="mr-1 h-3 w-3" /> Revise
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="bg-red-500/10 text-red-700 border-red-500/20 border">
+      <AlertCircle className="mr-1 h-3 w-3" /> Reject
+    </Badge>
+  );
+};
 
 export default function ApproveConceptNotePage() {
   const params = useParams();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { backendToken } = useAuth();
+  const id = params.id as string;
+
+  const { data: note, isLoading, isError } = useManageConceptNoteDetail(id);
+  const approveMutation = useApproveConceptNote();
+
   const [decision, setDecision] = useState<
     "approve" | "request-changes" | "reject" | null
   >(null);
   const [decisionNotes, setDecisionNotes] = useState("");
   const [showDialog, setShowDialog] = useState(false);
-  const [reviews] = useState(mockReviews);
   const [viewerDocument, setViewerDocument] = useState<{
     url: string;
     title: string;
   } | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 350);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleApprove = () => {
     setDecision("approve");
@@ -143,54 +123,97 @@ export default function ApproveConceptNotePage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      const decisionText =
-        decision === "approve"
-          ? "Approved"
-          : decision === "request-changes"
-            ? "Requested Changes"
-            : "Rejected";
-      toast.success(`Concept note ${decisionText.toLowerCase()}.`);
-      router.push(`/policies/concept-notes/manage-concept-notes/${params.id}`);
-    } catch {
-      toast.error("Failed to submit decision. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-      setShowDialog(false);
-    }
+    const backendDecision =
+      decision === "approve"
+        ? "approve"
+        : decision === "request-changes"
+          ? "revision"
+          : "reject";
+
+    approveMutation.mutate(
+      {
+        id,
+        decision: backendDecision,
+        comments: decisionNotes,
+      },
+      {
+        onSuccess: () => {
+          const decisionText =
+            decision === "approve"
+              ? "Approved"
+              : decision === "request-changes"
+                ? "Requested Changes"
+                : "Rejected";
+          toast.success(`Concept note ${decisionText.toLowerCase()} successfully.`);
+          setShowDialog(false);
+          router.push(`/policies/concept-notes/manage-concept-notes/${id}`);
+        },
+        onError: (err: any) => {
+          const errMsg = err?.message || "Failed to submit decision. Please try again.";
+          toast.error(errMsg);
+        },
+      }
+    );
   };
 
   if (isLoading) {
     return (
       <PageContainer title="Loading approval page...">
-        <div className="h-96 animate-pulse rounded-xl bg-muted" />
+        <div className="flex flex-col gap-4 max-w-4xl mx-auto py-8">
+          <div className="h-10 w-48 bg-muted animate-pulse rounded-lg" />
+          <div className="grid gap-6 lg:grid-cols-12 mt-6">
+            <div className="lg:col-span-4 h-[350px] bg-muted animate-pulse rounded-xl" />
+            <div className="lg:col-span-8 h-[500px] bg-muted animate-pulse rounded-xl" />
+          </div>
+        </div>
       </PageContainer>
     );
   }
 
-  const approveCount = reviews.filter(
-    (r) => r.recommendation === "approve",
-  ).length;
-  const reviseCount = reviews.filter(
-    (r) => r.recommendation === "revise",
-  ).length;
-  const rejectCount = reviews.filter(
-    (r) => r.recommendation === "reject",
-  ).length;
+  if (isError || !note) {
+    return (
+      <PageContainer title="Error Loading Concept Note">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-semibold">Failed to load concept note details</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md">
+            There was a problem retrieving the feedback and status information for this concept note. Please verify the URL or try again.
+          </p>
+          <div className="flex gap-3 mt-6">
+            <Button variant="outline" asChild>
+              <Link href={`/policies/concept-notes/manage-concept-notes`}>
+                Go to Dashboard
+              </Link>
+            </Button>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  // Flatten feedback details across all versions for a unified list
+  const allFeedbacks = note.expertFeedback?.flatMap((versionFb: any) =>
+    (versionFb.feedbackDetail || []).map((detail: any) => ({
+      ...detail,
+      versionNumber: versionFb.versionNumber,
+      isLatestVersion: versionFb.isLatest,
+    }))
+  ) || [];
 
   return (
     <PageContainer
-      title="Approve Concept Note"
-      description={`Review assessment summary and make final decision for: ${params.id}`}
+      title={note.title || "Approve Concept Note"}
+      description="Review expert assessment summaries and make a final governance decision."
       actions={
         <Button variant="outline" asChild className="shadow-sm">
           <Link
-            href={`/policies/concept-notes/manage-concept-notes/${params.id}`}
+            href={`/policies/concept-notes/manage-concept-notes/${id}`}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Back to Details
           </Link>
         </Button>
       }
@@ -288,88 +311,99 @@ export default function ApproveConceptNotePage() {
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-6 pr-2">
-                {reviews.map((review) => (
-                  <div
-                    key={review.id}
-                    className="group relative border rounded-xl p-5 hover:border-primary/30 hover:bg-muted/5 transition-all duration-300"
-                  >
-                    <div className="flex flex-col gap-4">
-                      {/* Header: Reviewer & Recommendation */}
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          <Avatar className="h-10 w-10 shrink-0 border-2 border-background shadow-sm ring-1 ring-border/50">
-                            <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
-                              {review.reviewer.firstName[0]}
-                              {review.reviewer.lastName[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-black text-sm text-foreground">
-                              {review.reviewer.firstName} {review.reviewer.lastName}
-                            </p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
-                              {review.reviewer.position} · {review.reviewer.institution}
-                            </p>
-                          </div>
-                        </div>
+                {allFeedbacks.length > 0 ? (
+                  allFeedbacks.map((review: any, idx: number) => {
+                    const reviewerName = review.expertReviewer?.full_name ?? "Anonymous Reviewer";
+                    const reviewerEmail = review.expertReviewer?.email ?? "";
+                    const reviewerPhoto = review.expertReviewer?.photo_url;
 
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <div className="flex items-center gap-2">
-                            {review.recommendation === "approve" ? (
-                              <Badge className="bg-primary/10 text-primary border-primary/20">
-                                <CheckCircle2 className="mr-1 h-3 w-3" /> Approve
-                              </Badge>
-                            ) : review.recommendation === "revise" ? (
-                              <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20">
-                                <Clock className="mr-1 h-3 w-3" /> Revise
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-red-500/10 text-red-700 border-red-500/20">
-                                <AlertCircle className="mr-1 h-3 w-3" /> Reject
-                              </Badge>
-                            )}
+                    return (
+                      <div
+                        key={idx}
+                        className="group relative border rounded-xl p-5 hover:border-primary/30 hover:bg-muted/5 transition-all duration-300"
+                      >
+                        <div className="flex flex-col gap-4">
+                          {/* Header: Reviewer & Recommendation */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              <Avatar className="h-10 w-10 shrink-0 border-2 border-background shadow-sm ring-1 ring-border/50">
+                                {reviewerPhoto && (
+                                  <AvatarImage src={reviewerPhoto} alt={reviewerName} />
+                                )}
+                                <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
+                                  {reviewerName.split(" ").map((n: string) => n[0]).join("").substring(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-black text-sm text-foreground">
+                                    {reviewerName}
+                                  </p>
+                                  <Badge variant="outline" className="text-[10px] scale-90 origin-left px-1.5 py-0">
+                                    {review.versionNumber}
+                                  </Badge>
+                                </div>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight truncate">
+                                  {reviewerEmail || "Technical Committee Member"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                              <div className="flex items-center gap-2">
+                                {getRecommendationBadge(review.final_decision_status)}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground font-medium">
+                                {formatTimestamp(review.comment_given_at)}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-muted-foreground font-medium">
-                            {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}
-                          </p>
+
+                          {/* Feedback Section */}
+                          <div className="relative pl-4 border-l-2 border-primary/10">
+                            <MessageSquare className="absolute -left-2.25 top-0 h-4 w-4 text-primary/40 bg-background" />
+                            <p className="text-sm text-foreground/80 leading-relaxed italic">
+                              "{review.comment || "No comment provided."}"
+                            </p>
+                          </div>
+
+                          {/* Supporting Document */}
+                          {review.review_file && (
+                            <div className="pt-3 mt-1 border-t border-border/50 flex items-center justify-between bg-muted/20 p-3 rounded-lg">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <FileText className="h-4 w-4 text-primary shrink-0" />
+                                <span className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs">
+                                  {review.review_file.split("/").pop()}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50 shrink-0 ml-2"
+                                onClick={() =>
+                                  setViewerDocument({
+                                    url: review.review_file,
+                                    title: review.review_file.split("/").pop() || "Review Document",
+                                  })
+                                }
+                              >
+                                VIEW PDF
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
-
-                      {/* Feedback Section */}
-                      <div className="relative pl-4 border-l-2 border-primary/10">
-                        <MessageSquare className="absolute -left-2.25 top-0 h-4 w-4 text-primary/40 bg-background" />
-                        <p className="text-sm text-foreground/80 leading-relaxed italic">
-                          "{review.feedback}"
-                        </p>
-                      </div>
-
-                      {/* Supporting Document */}
-                      {review.document && (
-                        <div className="pt-3 mt-1 border-t border-border/50 flex items-center justify-between bg-muted/20 p-3 rounded-lg">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="h-4 w-4 text-primary shrink-0" />
-                            <span className="text-xs font-medium truncate">
-                              {review.document.name}
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50 shrink-0 ml-2"
-                            onClick={() =>
-                              setViewerDocument({
-                                url: review.document!.url,
-                                title: review.document!.name,
-                              })
-                            }
-                          >
-                            VIEW PDF
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-xl">
+                    <ClipboardCheck className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                    <p className="text-sm font-medium text-muted-foreground">No reviewer assessments yet</p>
+                    <p className="text-xs text-muted-foreground/70 mt-0.5">
+                      Assessments will appear here once reviewers submit their feedback.
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -423,7 +457,7 @@ export default function ApproveConceptNotePage() {
             </Button>
             <Button
               onClick={handleSubmitDecision}
-              disabled={isSubmitting}
+              disabled={approveMutation.isPending}
               className={cn(
                 "shadow-sm font-semibold",
                 decision === "approve" && "bg-primary hover:bg-primary/80 text-white",
@@ -431,7 +465,7 @@ export default function ApproveConceptNotePage() {
                 decision === "reject" && "bg-red-600 hover:bg-red-700 text-white"
               )}
             >
-              {isSubmitting ? (
+              {approveMutation.isPending ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                   Submitting...
