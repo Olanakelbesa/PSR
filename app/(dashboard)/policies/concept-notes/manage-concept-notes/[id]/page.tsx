@@ -20,12 +20,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,21 +33,54 @@ import { cn } from "@/lib/utils";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft:              { label: "Draft",               className: "bg-slate-100 text-slate-600 border-slate-200" },
-  submitted:          { label: "Submitted",           className: "bg-blue-100 text-blue-700 border-blue-200" },
-  under_review:       { label: "Under Review",        className: "bg-amber-100 text-amber-700 border-amber-200" },
-  accepted:           { label: "Accepted",            className: "bg-green-100 text-green-700 border-green-200" },
-  partially_accepted: { label: "Partially Accepted",  className: "bg-orange-100 text-orange-700 border-orange-200" },
-  not_accepted:       { label: "Not Accepted",        className: "bg-red-100 text-red-700 border-red-200" },
-  revision_required:  { label: "Revision Required",   className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  resubmitted:        { label: "Resubmitted",         className: "bg-purple-100 text-purple-700 border-purple-200" },
-  policy_draft_ready: { label: "Policy Draft Ready",  className: "bg-teal-100 text-teal-700 border-teal-200" },
+  draft: {
+    label: "Draft",
+    className: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  submitted: {
+    label: "Submitted",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  under_review: {
+    label: "Under Review",
+    className: "bg-amber-100 text-amber-700 border-amber-200",
+  },
+  accepted: {
+    label: "Accepted",
+    className: "bg-green-100 text-green-700 border-green-200",
+  },
+  partially_accepted: {
+    label: "Partially Accepted",
+    className: "bg-orange-100 text-orange-700 border-orange-200",
+  },
+  not_accepted: {
+    label: "Not Accepted",
+    className: "bg-red-100 text-red-700 border-red-200",
+  },
+  revision_required: {
+    label: "Revision Required",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  },
+  resubmitted: {
+    label: "Resubmitted",
+    className: "bg-purple-100 text-purple-700 border-purple-200",
+  },
+  policy_draft_ready: {
+    label: "Policy Draft Ready",
+    className: "bg-teal-100 text-teal-700 border-teal-200",
+  },
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, className: "bg-muted text-muted-foreground border-border" };
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status,
+    className: "bg-muted text-muted-foreground border-border",
+  };
   return (
-    <Badge variant="outline" className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 ${cfg.className}`}>
+    <Badge
+      variant="outline"
+      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 ${cfg.className}`}
+    >
       {cfg.label}
     </Badge>
   );
@@ -60,10 +88,10 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── Timeline event icons ──────────────────────────────────────────────────────
 const EVENT_ICONS: Record<string, React.ReactNode> = {
-  SUBMITTED:          <FileText className="h-3.5 w-3.5" />,
-  REVIEWER_ASSIGNED:  <User className="h-3.5 w-3.5" />,
-  REVIEW_COMPLETED:   <CheckCircle2 className="h-3.5 w-3.5" />,
-  RESUBMITTED:        <RefreshCw className="h-3.5 w-3.5" />,
+  SUBMITTED: <FileText className="h-3.5 w-3.5" />,
+  REVIEWER_ASSIGNED: <User className="h-3.5 w-3.5" />,
+  REVIEW_COMPLETED: <CheckCircle2 className="h-3.5 w-3.5" />,
+  RESUBMITTED: <RefreshCw className="h-3.5 w-3.5" />,
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -72,7 +100,12 @@ export default function ManageConceptNoteDetailPage() {
   const { backendToken } = useAuth();
   const id = params.id as string;
 
-  const { data: note, isLoading, isError, refetch } = useManageConceptNoteDetail(id, backendToken);
+  const {
+    data: note,
+    isLoading,
+    isError,
+    refetch,
+  } = useManageConceptNoteDetail(id, backendToken);
 
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (isLoading) {
@@ -95,7 +128,9 @@ export default function ManageConceptNoteDetailPage() {
       <PageContainer title="Error">
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-12 text-center">
           <AlertCircle className="h-10 w-10 text-destructive/60 mx-auto mb-3" />
-          <p className="font-semibold text-destructive">Failed to load concept note</p>
+          <p className="font-semibold text-destructive">
+            Failed to load concept note
+          </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" /> Try Again
           </Button>
@@ -123,13 +158,21 @@ export default function ManageConceptNoteDetailPage() {
             </Link>
           </Button>
           <Button asChild>
-            <Link href={`/policies/concept-notes/manage-concept-notes/${id}/assign`}>
+            <Link
+              href={`/policies/concept-notes/manage-concept-notes/${id}/assign`}
+            >
               <User className="mr-2 h-4 w-4" />
               Assign Expert
             </Link>
           </Button>
-          <Button asChild variant="outline" className="border-green-300 text-green-700 hover:bg-green-50">
-            <Link href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}>
+          <Button
+            asChild
+            variant="outline"
+            className="border-green-300 text-green-700 hover:bg-green-50"
+          >
+            <Link
+              href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}
+            >
               <Check className="mr-2 h-4 w-4" />
               Approve
             </Link>
@@ -145,8 +188,12 @@ export default function ManageConceptNoteDetailPage() {
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="document">Document</TabsTrigger>
               <TabsTrigger value="feedback">Expert Feedback</TabsTrigger>
-              <TabsTrigger value="versions">Versions ({note.versions?.length ?? 0})</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline ({note.timeline?.length ?? 0})</TabsTrigger>
+              <TabsTrigger value="versions">
+                Versions ({note.versions?.length ?? 0})
+              </TabsTrigger>
+              <TabsTrigger value="timeline">
+                Timeline ({note.timeline?.length ?? 0})
+              </TabsTrigger>
             </TabsList>
 
             {/* Document viewer tab */}
@@ -162,8 +209,17 @@ export default function ManageConceptNoteDetailPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button size="sm" variant="outline" className="h-8 gap-1.5" asChild>
-                        <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1.5"
+                        asChild
+                      >
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <Maximize2 className="h-3.5 w-3.5" />
                           <span className="hidden sm:inline">Open in Tab</span>
                         </a>
@@ -192,14 +248,18 @@ export default function ManageConceptNoteDetailPage() {
                         <FileText className="h-8 w-8 text-primary" />
                       </div>
                       <div className="space-y-1">
-                        <p className="font-semibold text-foreground">Document preview not available</p>
+                        <p className="font-semibold text-foreground">
+                          Document preview not available
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          This file type cannot be previewed in the browser. Download it to view the contents.
+                          This file type cannot be previewed in the browser.
+                          Download it to view the contents.
                         </p>
                       </div>
                       <Button asChild>
                         <a href={fileUrl} download>
-                          <Download className="mr-2 h-4 w-4" /> Download Document
+                          <Download className="mr-2 h-4 w-4" /> Download
+                          Document
                         </a>
                       </Button>
                     </div>
@@ -208,7 +268,9 @@ export default function ManageConceptNoteDetailPage() {
               ) : (
                 <div className="rounded-xl border border-dashed p-16 text-center">
                   <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="font-medium text-muted-foreground">No document attached</p>
+                  <p className="font-medium text-muted-foreground">
+                    No document attached
+                  </p>
                   <p className="text-sm text-muted-foreground/70 mt-1">
                     The concept note does not have a file uploaded yet.
                   </p>
@@ -220,7 +282,9 @@ export default function ManageConceptNoteDetailPage() {
             <TabsContent value="overview" className="mt-4 space-y-4">
               <Card className="shadow-sm">
                 <CardHeader className="border-b bg-muted/20 pb-3">
-                  <CardTitle className="text-sm font-semibold">Executive Summary</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Executive Summary
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <p className="text-sm leading-relaxed text-foreground/80">
@@ -229,25 +293,34 @@ export default function ManageConceptNoteDetailPage() {
                 </CardContent>
               </Card>
 
-              {note.overview?.thematicAreas && note.overview.thematicAreas.length > 0 && (
-                <Card className="shadow-sm">
-                  <CardHeader className="border-b bg-muted/20 pb-3">
-                    <CardTitle className="text-sm font-semibold">Thematic Areas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 flex flex-wrap gap-2">
-                    {note.overview.thematicAreas.map((area: any) => (
-                      <Badge key={area.id} variant="secondary" className="text-xs">
-                        {area.name}
-                      </Badge>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+              {note.overview?.thematicAreas &&
+                note.overview.thematicAreas.length > 0 && (
+                  <Card className="shadow-sm">
+                    <CardHeader className="border-b bg-muted/20 pb-3">
+                      <CardTitle className="text-sm font-semibold">
+                        Thematic Areas
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 flex flex-wrap gap-2">
+                      {note.overview.thematicAreas.map((area: any) => (
+                        <Badge
+                          key={area.id}
+                          variant="secondary"
+                          className="text-xs"
+                        >
+                          {area.name}
+                        </Badge>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
 
               {fileUrl && (
                 <Card className="shadow-sm border-primary/10">
                   <CardHeader className="border-b bg-primary/5 pb-3">
-                    <CardTitle className="text-sm font-semibold">Attached Document</CardTitle>
+                    <CardTitle className="text-sm font-semibold">
+                      Attached Document
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
@@ -258,13 +331,20 @@ export default function ManageConceptNoteDetailPage() {
                         <p className="text-sm font-medium text-foreground line-clamp-1">
                           {fileUrl.split("/").pop()}
                         </p>
-                        <p className="text-xs text-muted-foreground">Concept Note Document</p>
+                        <p className="text-xs text-muted-foreground">
+                          Concept Note Document
+                        </p>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" asChild>
-                        <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Preview
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />{" "}
+                          Preview
                         </a>
                       </Button>
                       <Button size="sm" asChild>
@@ -295,7 +375,9 @@ export default function ManageConceptNoteDetailPage() {
                             </Badge>
                           )}
                           {fb.isResubmission && (
-                            <Badge variant="outline" className="text-[10px]">Resubmission</Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                              Resubmission
+                            </Badge>
                           )}
                         </div>
                       </div>
@@ -303,19 +385,39 @@ export default function ManageConceptNoteDetailPage() {
                     <CardContent className="pt-4">
                       {fb.feedbackDetail && fb.feedbackDetail.length > 0 ? (
                         <div className="space-y-3">
-                          {fb.feedbackDetail.map((detail: any, di: number) => (
-                            <div key={di} className="p-3 rounded-lg bg-muted/30 space-y-1">
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                {detail.reviewer ?? `Reviewer ${di + 1}`}
-                              </p>
-                              <p className="text-sm text-foreground/80">{detail.comment ?? detail.recommendation}</p>
-                              {detail.decision && (
-                                <Badge variant="outline" className="text-[10px] mt-1">
-                                  {detail.decision}
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
+                          {fb.feedbackDetail.map((detail: any, di: number) => {
+                            const reviewerName =
+                              detail.expertReviewer?.fullName ??
+                              detail.reviewer ??
+                              `Reviewer ${di + 1}`;
+                            const reviewerEmail =
+                              detail.expertReviewer?.email ?? "";
+
+                            return (
+                              <div
+                                key={di}
+                                className="p-3 rounded-lg bg-muted/30 space-y-1"
+                              >
+                                <div className="flex flex-col gap-0.5">
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                    {reviewerName} {reviewerEmail && <span>({reviewerEmail})</span>}
+                                  </p>
+                                 
+                                </div>
+                                <p className="text-sm text-foreground/80">
+                                  {detail.comment ?? detail.recommendation}
+                                </p>
+                                {detail.decision && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] mt-1"
+                                  >
+                                    {detail.decision}
+                                  </Badge>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground italic">
@@ -328,8 +430,13 @@ export default function ManageConceptNoteDetailPage() {
               ) : (
                 <div className="rounded-xl border border-dashed p-12 text-center">
                   <ClipboardCheck className="h-8 w-8 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-muted-foreground">No expert feedback yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Feedback will appear here once reviewers submit their evaluations.</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    No expert feedback yet
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Feedback will appear here once reviewers submit their
+                    evaluations.
+                  </p>
                 </div>
               )}
             </TabsContent>
@@ -342,30 +449,50 @@ export default function ManageConceptNoteDetailPage() {
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "h-9 w-9 rounded-full flex items-center justify-center shrink-0",
-                            v.isLatest ? "bg-primary/10" : "bg-muted"
-                          )}>
-                            <GitBranch className={cn("h-4 w-4", v.isLatest ? "text-primary" : "text-muted-foreground")} />
+                          <div
+                            className={cn(
+                              "h-9 w-9 rounded-full flex items-center justify-center shrink-0",
+                              v.isLatest ? "bg-primary/10" : "bg-muted",
+                            )}
+                          >
+                            <GitBranch
+                              className={cn(
+                                "h-4 w-4",
+                                v.isLatest
+                                  ? "text-primary"
+                                  : "text-muted-foreground",
+                              )}
+                            />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold font-mono">{v.versionNumber}</span>
+                              <span className="text-sm font-semibold font-mono">
+                                {v.versionNumber}
+                              </span>
                               {v.isLatest && (
                                 <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20 border px-1.5 py-0">
                                   Latest
                                 </Badge>
                               )}
                               {v.isResubmission && (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1.5 py-0"
+                                >
                                   Resubmission
                                 </Badge>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              By {v.createdByName} · {new Date(v.createdAt).toLocaleDateString("en-US", {
-                                month: "short", day: "numeric", year: "numeric"
-                              })}
+                              By {v.createdByName} ·{" "}
+                              {new Date(v.createdAt).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
                             </p>
                             {v.parentVersionNumber && (
                               <p className="text-xs text-muted-foreground/70">
@@ -377,8 +504,13 @@ export default function ManageConceptNoteDetailPage() {
                         {v.file && (
                           <div className="flex gap-2 shrink-0">
                             <Button size="sm" variant="outline" asChild>
-                              <a href={v.file} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-3.5 w-3.5 mr-1" /> View
+                              <a
+                                href={v.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5 mr-1" />{" "}
+                                View
                               </a>
                             </Button>
                             <Button size="sm" variant="ghost" asChild>
@@ -395,7 +527,9 @@ export default function ManageConceptNoteDetailPage() {
               ) : (
                 <div className="rounded-xl border border-dashed p-12 text-center">
                   <GitBranch className="h-8 w-8 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-muted-foreground">No versions yet</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    No versions yet
+                  </p>
                 </div>
               )}
             </TabsContent>
@@ -404,7 +538,9 @@ export default function ManageConceptNoteDetailPage() {
             <TabsContent value="timeline" className="mt-4">
               <Card className="shadow-sm">
                 <CardHeader className="border-b bg-muted/20 pb-3">
-                  <CardTitle className="text-sm font-semibold">Activity Timeline</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Activity Timeline
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-5">
                   {note.timeline && note.timeline.length > 0 ? (
@@ -412,7 +548,9 @@ export default function ManageConceptNoteDetailPage() {
                       {note.timeline.map((event: any, idx: number) => (
                         <li key={idx} className="ml-6">
                           <span className="absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full bg-muted border border-muted-foreground/20 shadow-sm">
-                            {EVENT_ICONS[event.eventType] ?? <Calendar className="h-3.5 w-3.5" />}
+                            {EVENT_ICONS[event.eventType] ?? (
+                              <Calendar className="h-3.5 w-3.5" />
+                            )}
                           </span>
                           <div className="flex items-start justify-between gap-4">
                             <div className="space-y-0.5">
@@ -424,12 +562,18 @@ export default function ManageConceptNoteDetailPage() {
                                   {event.actor}
                                 </span>
                                 {event.version && (
-                                  <Badge variant="outline" className="text-[9px] font-mono px-1.5 py-0">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] font-mono px-1.5 py-0"
+                                  >
                                     {event.version}
                                   </Badge>
                                 )}
                                 {event.metadataSummary?.decision && (
-                                  <Badge variant="outline" className="text-[9px] capitalize px-1.5 py-0">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] capitalize px-1.5 py-0"
+                                  >
                                     {event.metadataSummary.decision}
                                   </Badge>
                                 )}
@@ -441,9 +585,14 @@ export default function ManageConceptNoteDetailPage() {
                               )}
                             </div>
                             <time className="shrink-0 text-[11px] text-muted-foreground whitespace-nowrap">
-                              {new Date(event.timestamp).toLocaleDateString("en-US", {
-                                month: "short", day: "numeric", year: "numeric"
-                              })}
+                              {new Date(event.timestamp).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
                             </time>
                           </div>
                         </li>
@@ -472,11 +621,21 @@ export default function ManageConceptNoteDetailPage() {
             <CardContent className="pt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
-                <StatusBadge status={note.currentStatus?.status?.toLowerCase().replace(/ /g, "_") ?? "draft"} />
+                <StatusBadge
+                  status={
+                    note.currentStatus?.status
+                      ?.toLowerCase()
+                      .replace(/ /g, "_") ?? "draft"
+                  }
+                />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Concept ID</span>
-                <span className="text-xs font-mono font-bold">{note.currentStatus?.conceptId ?? `#${id}`}</span>
+                <span className="text-sm text-muted-foreground">
+                  Concept ID
+                </span>
+                <span className="text-xs font-mono font-bold">
+                  {note.currentStatus?.conceptId ?? `#${id}`}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Version</span>
@@ -494,7 +653,9 @@ export default function ManageConceptNoteDetailPage() {
                 </span>
                 <div className="flex items-center gap-3 pt-1">
                   <Avatar className="h-9 w-9 border shadow-sm">
-                    <AvatarImage src={note.submittedBy?.photoUrl ?? undefined} />
+                    <AvatarImage
+                      src={note.submittedBy?.photoUrl ?? undefined}
+                    />
                     <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
                       {note.submittedBy?.fullName
                         ?.split(" ")
@@ -524,7 +685,9 @@ export default function ManageConceptNoteDetailPage() {
                     <span>Submitted</span>
                     <span className="font-medium text-foreground">
                       {new Date(submittedAt).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric"
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
                       })}
                     </span>
                   </div>
@@ -534,7 +697,9 @@ export default function ManageConceptNoteDetailPage() {
                     <span>Last Updated</span>
                     <span className="font-medium text-foreground">
                       {new Date(lastUpdated).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric", year: "numeric"
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
                       })}
                     </span>
                   </div>
@@ -546,23 +711,44 @@ export default function ManageConceptNoteDetailPage() {
           {/* Quick actions */}
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="pb-3 border-b bg-muted/30">
-              <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
+              <CardTitle className="text-sm font-semibold">
+                Quick Actions
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-3 space-y-2">
-              <Button variant="ghost" size="sm" className="w-full justify-start h-9 text-sm" asChild>
-                <Link href={`/policies/concept-notes/manage-concept-notes/${id}/assign`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start h-9 text-sm"
+                asChild
+              >
+                <Link
+                  href={`/policies/concept-notes/manage-concept-notes/${id}/assign`}
+                >
                   <User className="mr-2 h-4 w-4 text-muted-foreground" />
                   Assign Expert
                 </Link>
               </Button>
-              <Button variant="ghost" size="sm" className="w-full justify-start h-9 text-sm" asChild>
-                <Link href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start h-9 text-sm"
+                asChild
+              >
+                <Link
+                  href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}
+                >
                   <CheckCircle2 className="mr-2 h-4 w-4 text-muted-foreground" />
                   Review & Approve
                 </Link>
               </Button>
               {fileUrl && (
-                <Button variant="ghost" size="sm" className="w-full justify-start h-9 text-sm" asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start h-9 text-sm"
+                  asChild
+                >
                   <a href={fileUrl} download>
                     <Download className="mr-2 h-4 w-4 text-muted-foreground" />
                     Download Document
@@ -583,23 +769,41 @@ export default function ManageConceptNoteDetailPage() {
               <CardContent className="pt-4 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Version</span>
-                  <span className="font-mono font-semibold">{latestVersion.versionNumber}</span>
+                  <span className="font-mono font-semibold">
+                    {latestVersion.versionNumber}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Created by</span>
-                  <span className="font-medium truncate max-w-[130px] text-right">{latestVersion.createdByName}</span>
+                  <span className="font-medium truncate max-w-[130px] text-right">
+                    {latestVersion.createdByName}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
                   <span className="font-medium">
-                    {new Date(latestVersion.createdAt).toLocaleDateString("en-US", {
-                      month: "short", day: "numeric", year: "numeric"
-                    })}
+                    {new Date(latestVersion.createdAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      },
+                    )}
                   </span>
                 </div>
                 {latestVersion.file && (
-                  <Button size="sm" variant="outline" className="w-full mt-3 text-xs h-8" asChild>
-                    <a href={latestVersion.file} target="_blank" rel="noopener noreferrer">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full mt-3 text-xs h-8"
+                    asChild
+                  >
+                    <a
+                      href={latestVersion.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <ExternalLink className="mr-1.5 h-3 w-3" /> View File
                     </a>
                   </Button>

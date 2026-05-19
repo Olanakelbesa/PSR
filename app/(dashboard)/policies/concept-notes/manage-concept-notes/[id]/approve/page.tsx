@@ -49,7 +49,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { useManageConceptNoteDetail, useApproveConceptNote } from "@/lib/queries/concept-notes";
+import {
+  useManageConceptNoteDetail,
+  useApproveConceptNote,
+} from "@/lib/queries/concept-notes";
 
 const formatTimestamp = (timestampString?: string | null) => {
   if (!timestampString) return "Recently";
@@ -60,8 +63,11 @@ const formatTimestamp = (timestampString?: string | null) => {
   }
 };
 
+const normalizeStatusKey = (status?: string | null) =>
+  (status || "").toLowerCase().replace(/[\s-]+/g, "_");
+
 const getRecommendationBadge = (status?: string | null) => {
-  const norm = (status || "").toLowerCase();
+  const norm = normalizeStatusKey(status);
   if (norm === "accepted" || norm === "approve") {
     return (
       <Badge className="bg-primary/10 text-primary border-primary/20 border">
@@ -69,7 +75,11 @@ const getRecommendationBadge = (status?: string | null) => {
       </Badge>
     );
   }
-  if (norm === "partially_accepted" || norm === "revision" || norm === "revise") {
+  if (
+    norm === "partially_accepted" ||
+    norm === "revision" ||
+    norm === "revise"
+  ) {
     return (
       <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/20 border">
         <Clock className="mr-1 h-3 w-3" /> Revise
@@ -144,15 +154,18 @@ export default function ApproveConceptNotePage() {
               : decision === "request-changes"
                 ? "Requested Changes"
                 : "Rejected";
-          toast.success(`Concept note ${decisionText.toLowerCase()} successfully.`);
+          toast.success(
+            `Concept note ${decisionText.toLowerCase()} successfully.`,
+          );
           setShowDialog(false);
           router.push(`/policies/concept-notes/manage-concept-notes/${id}`);
         },
         onError: (err: any) => {
-          const errMsg = err?.message || "Failed to submit decision. Please try again.";
+          const errMsg =
+            err?.message || "Failed to submit decision. Please try again.";
           toast.error(errMsg);
         },
-      }
+      },
     );
   };
 
@@ -175,9 +188,12 @@ export default function ApproveConceptNotePage() {
       <PageContainer title="Error Loading Concept Note">
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-          <h3 className="text-lg font-semibold">Failed to load concept note details</h3>
+          <h3 className="text-lg font-semibold">
+            Failed to load concept note details
+          </h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-md">
-            There was a problem retrieving the feedback and status information for this concept note. Please verify the URL or try again.
+            There was a problem retrieving the feedback and status information
+            for this concept note. Please verify the URL or try again.
           </p>
           <div className="flex gap-3 mt-6">
             <Button variant="outline" asChild>
@@ -185,9 +201,7 @@ export default function ApproveConceptNotePage() {
                 Go to Dashboard
               </Link>
             </Button>
-            <Button onClick={() => window.location.reload()}>
-              Retry
-            </Button>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
           </div>
         </div>
       </PageContainer>
@@ -195,13 +209,25 @@ export default function ApproveConceptNotePage() {
   }
 
   // Flatten feedback details across all versions for a unified list
-  const allFeedbacks = note.expertFeedback?.flatMap((versionFb: any) =>
-    (versionFb.feedbackDetail || []).map((detail: any) => ({
-      ...detail,
-      versionNumber: versionFb.versionNumber,
-      isLatestVersion: versionFb.isLatest,
-    }))
-  ) || [];
+  const allFeedbacks =
+    note.expertFeedback?.flatMap((versionFb: any) =>
+      (versionFb.feedbackDetail || []).map((detail: any) => ({
+        ...detail,
+        versionNumber: versionFb.versionNumber,
+        isLatestVersion: versionFb.isLatest,
+        finalDecisionStatus:
+          detail.finalDecisionStatus ?? detail.final_decision_status,
+        commentGivenAt: detail.commentGivenAt ?? detail.comment_given_at,
+        reviewFile: detail.reviewFile ?? detail.review_file,
+        expertReviewer: {
+          ...detail.expertReviewer,
+          fullName:
+            detail.expertReviewer?.fullName ?? detail.expertReviewer?.full_name,
+          photoUrl:
+            detail.expertReviewer?.photoUrl ?? detail.expertReviewer?.photo_url,
+        },
+      })),
+    ) || [];
 
   return (
     <PageContainer
@@ -209,9 +235,7 @@ export default function ApproveConceptNotePage() {
       description="Review expert assessment summaries and make a final governance decision."
       actions={
         <Button variant="outline" asChild className="shadow-sm">
-          <Link
-            href={`/policies/concept-notes/manage-concept-notes/${id}`}
-          >
+          <Link href={`/policies/concept-notes/manage-concept-notes/${id}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Details
           </Link>
@@ -225,7 +249,8 @@ export default function ApproveConceptNotePage() {
             <CardHeader className="border-b bg-muted/30 pb-4">
               <CardTitle className="text-lg">Your Decision</CardTitle>
               <CardDescription>
-                Make the final decision on this concept note based on the reviewer feedback
+                Make the final decision on this concept note based on the
+                reviewer feedback
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
@@ -236,18 +261,26 @@ export default function ApproveConceptNotePage() {
                     "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                     decision === "approve"
                       ? "border-primary/50 bg-primary/10 shadow-sm ring-1 ring-primary/50 dark:bg-primary/10"
-                      : "border-border hover:border-primary/50 hover:bg-muted/50"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50",
                   )}
                 >
-                  <div className={cn(
-                    "p-2 rounded-lg shrink-0 transition-colors duration-200",
-                    decision === "approve" ? "bg-primary text-white" : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary group-hover:bg-primary/20 dark:group-hover:bg-primary/30"
-                  )}>
+                  <div
+                    className={cn(
+                      "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                      decision === "approve"
+                        ? "bg-primary text-white"
+                        : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary group-hover:bg-primary/20 dark:group-hover:bg-primary/30",
+                    )}
+                  >
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                   <div className="ml-3">
-                    <span className="block text-sm font-semibold text-foreground">Approve Concept Note</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">Ready for the next evaluation phase.</span>
+                    <span className="block text-sm font-semibold text-foreground">
+                      Approve Concept Note
+                    </span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      Ready for the next evaluation phase.
+                    </span>
                   </div>
                 </button>
 
@@ -257,18 +290,26 @@ export default function ApproveConceptNotePage() {
                     "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                     decision === "request-changes"
                       ? "border-yellow-500 bg-yellow-50/80 shadow-sm ring-1 ring-yellow-500 dark:bg-yellow-500/10"
-                      : "border-border hover:border-yellow-500/50 hover:bg-muted/50"
+                      : "border-border hover:border-yellow-500/50 hover:bg-muted/50",
                   )}
                 >
-                  <div className={cn(
-                    "p-2 rounded-lg shrink-0 transition-colors duration-200",
-                    decision === "request-changes" ? "bg-yellow-500 text-white" : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-500/30"
-                  )}>
+                  <div
+                    className={cn(
+                      "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                      decision === "request-changes"
+                        ? "bg-yellow-500 text-white"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-500/30",
+                    )}
+                  >
                     <Clock className="h-5 w-5" />
                   </div>
                   <div className="ml-3">
-                    <span className="block text-sm font-semibold text-foreground">Request Changes</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">Needs revision before approval.</span>
+                    <span className="block text-sm font-semibold text-foreground">
+                      Request Changes
+                    </span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      Needs revision before approval.
+                    </span>
                   </div>
                 </button>
 
@@ -278,18 +319,26 @@ export default function ApproveConceptNotePage() {
                     "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                     decision === "reject"
                       ? "border-red-500 bg-red-50/80 shadow-sm ring-1 ring-red-500 dark:bg-red-500/10"
-                      : "border-border hover:border-red-500/50 hover:bg-muted/50"
+                      : "border-border hover:border-red-500/50 hover:bg-muted/50",
                   )}
                 >
-                  <div className={cn(
-                    "p-2 rounded-lg shrink-0 transition-colors duration-200",
-                    decision === "reject" ? "bg-red-500 text-white" : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 group-hover:bg-red-200 dark:group-hover:bg-red-500/30"
-                  )}>
+                  <div
+                    className={cn(
+                      "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                      decision === "reject"
+                        ? "bg-red-500 text-white"
+                        : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 group-hover:bg-red-200 dark:group-hover:bg-red-500/30",
+                    )}
+                  >
                     <AlertCircle className="h-5 w-5" />
                   </div>
                   <div className="ml-3">
-                    <span className="block text-sm font-semibold text-foreground">Reject Concept Note</span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">Does not meet the criteria.</span>
+                    <span className="block text-sm font-semibold text-foreground">
+                      Reject Concept Note
+                    </span>
+                    <span className="block text-xs text-muted-foreground mt-0.5">
+                      Does not meet the criteria.
+                    </span>
                   </div>
                 </button>
               </div>
@@ -306,16 +355,20 @@ export default function ApproveConceptNotePage() {
                 Reviewer Assessments
               </CardTitle>
               <CardDescription>
-                Detailed feedback and recommendations from the technical committee
+                Detailed feedback and recommendations from the technical
+                committee
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-6 pr-2">
                 {allFeedbacks.length > 0 ? (
                   allFeedbacks.map((review: any, idx: number) => {
-                    const reviewerName = review.expertReviewer?.full_name ?? "Anonymous Reviewer";
+                    const reviewerName =
+                      review.expertReviewer?.full_name ?? "Anonymous Reviewer";
                     const reviewerEmail = review.expertReviewer?.email ?? "";
-                    const reviewerPhoto = review.expertReviewer?.photo_url;
+                    const reviewerPhoto = review.expertReviewer?.photoUrl ?? "";
+                    const displayReviewerName =
+                      review.expertReviewer?.fullName ?? reviewerName;
 
                     return (
                       <div
@@ -328,33 +381,46 @@ export default function ApproveConceptNotePage() {
                             <div className="flex items-start gap-3 flex-1 min-w-0">
                               <Avatar className="h-10 w-10 shrink-0 border-2 border-background shadow-sm ring-1 ring-border/50">
                                 {reviewerPhoto && (
-                                  <AvatarImage src={reviewerPhoto} alt={reviewerName} />
+                                  <AvatarImage
+                                    src={reviewerPhoto}
+                                    alt={displayReviewerName}
+                                  />
                                 )}
                                 <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary uppercase">
-                                  {reviewerName.split(" ").map((n: string) => n[0]).join("").substring(0, 2)}
+                                  {displayReviewerName
+                                    .split(" ")
+                                    .map((n: string) => n[0])
+                                    .join("")
+                                    .substring(0, 2)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-black text-sm text-foreground">
-                                    {reviewerName}
+                                    {displayReviewerName}
                                   </p>
-                                  <Badge variant="outline" className="text-[10px] scale-90 origin-left px-1.5 py-0">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] scale-90 origin-left px-1.5 py-0"
+                                  >
                                     {review.versionNumber}
                                   </Badge>
                                 </div>
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight truncate">
-                                  {reviewerEmail || "Technical Committee Member"}
+                                  {reviewerEmail ||
+                                    "Technical Committee Member"}
                                 </p>
                               </div>
                             </div>
 
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
                               <div className="flex items-center gap-2">
-                                {getRecommendationBadge(review.final_decision_status)}
+                                {getRecommendationBadge(
+                                  review.finalDecisionStatus,
+                                )}
                               </div>
                               <p className="text-[10px] text-muted-foreground font-medium">
-                                {formatTimestamp(review.comment_given_at)}
+                                {formatTimestamp(review.commentGivenAt)}
                               </p>
                             </div>
                           </div>
@@ -368,12 +434,12 @@ export default function ApproveConceptNotePage() {
                           </div>
 
                           {/* Supporting Document */}
-                          {review.review_file && (
+                          {review.reviewFile && (
                             <div className="pt-3 mt-1 border-t border-border/50 flex items-center justify-between bg-muted/20 p-3 rounded-lg">
                               <div className="flex items-center gap-2 overflow-hidden">
                                 <FileText className="h-4 w-4 text-primary shrink-0" />
                                 <span className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs">
-                                  {review.review_file.split("/").pop()}
+                                  {review.reviewFile.split("/").pop()}
                                 </span>
                               </div>
                               <Button
@@ -382,8 +448,10 @@ export default function ApproveConceptNotePage() {
                                 className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50 shrink-0 ml-2"
                                 onClick={() =>
                                   setViewerDocument({
-                                    url: review.review_file,
-                                    title: review.review_file.split("/").pop() || "Review Document",
+                                    url: review.reviewFile,
+                                    title:
+                                      review.reviewFile.split("/").pop() ||
+                                      "Review Document",
                                   })
                                 }
                               >
@@ -398,9 +466,12 @@ export default function ApproveConceptNotePage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-xl">
                     <ClipboardCheck className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm font-medium text-muted-foreground">No reviewer assessments yet</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      No reviewer assessments yet
+                    </p>
                     <p className="text-xs text-muted-foreground/70 mt-0.5">
-                      Assessments will appear here once reviewers submit their feedback.
+                      Assessments will appear here once reviewers submit their
+                      feedback.
                     </p>
                   </div>
                 )}
@@ -413,23 +484,37 @@ export default function ApproveConceptNotePage() {
       {/* Decision Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden gap-0">
-          <div className={cn(
-            "p-6 pb-4 border-b",
-            decision === "approve" && "bg-primary/10 dark:bg-primary/10 border-primary/10 dark:border-primary/20",
-            decision === "request-changes" && "bg-yellow-50/50 dark:bg-yellow-500/10 border-yellow-100 dark:border-yellow-500/20",
-            decision === "reject" && "bg-red-50/50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20"
-          )}>
+          <div
+            className={cn(
+              "p-6 pb-4 border-b",
+              decision === "approve" &&
+                "bg-primary/10 dark:bg-primary/10 border-primary/10 dark:border-primary/20",
+              decision === "request-changes" &&
+                "bg-yellow-50/50 dark:bg-yellow-500/10 border-yellow-100 dark:border-yellow-500/20",
+              decision === "reject" &&
+                "bg-red-50/50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20",
+            )}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-xl">
-                {decision === "approve" && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                {decision === "request-changes" && <Clock className="h-5 w-5 text-yellow-600" />}
-                {decision === "reject" && <AlertCircle className="h-5 w-5 text-red-600" />}
+                {decision === "approve" && (
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                )}
+                {decision === "request-changes" && (
+                  <Clock className="h-5 w-5 text-yellow-600" />
+                )}
+                {decision === "reject" && (
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                )}
                 Confirm Decision
               </DialogTitle>
               <DialogDescription className="pt-2 text-foreground/80 leading-relaxed">
-                {decision === "approve" && "You are about to officially approve this concept note. It will proceed to the next stage."}
-                {decision === "request-changes" && "You are requesting further revisions. The author will be notified to update the document."}
-                {decision === "reject" && "You are rejecting this concept note. It will be archived and the author will be notified."}
+                {decision === "approve" &&
+                  "You are about to officially approve this concept note. It will proceed to the next stage."}
+                {decision === "request-changes" &&
+                  "You are requesting further revisions. The author will be notified to update the document."}
+                {decision === "reject" &&
+                  "You are rejecting this concept note. It will be archived and the author will be notified."}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -440,7 +525,9 @@ export default function ApproveConceptNotePage() {
                 <label className="text-sm font-semibold text-foreground">
                   Feedback / Comments
                 </label>
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded-full">Optional</span>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold bg-muted px-2 py-0.5 rounded-full">
+                  Optional
+                </span>
               </div>
               <Textarea
                 placeholder="Add any additional context or rationale for your decision..."
@@ -452,7 +539,11 @@ export default function ApproveConceptNotePage() {
           </div>
 
           <DialogFooter className="p-4 border-t gap-2 sm:gap-0 bg-muted/10">
-            <Button variant="ghost" onClick={() => setShowDialog(false)} className="hover:bg-muted/50 font-medium">
+            <Button
+              variant="ghost"
+              onClick={() => setShowDialog(false)}
+              className="hover:bg-muted/50 font-medium"
+            >
               Cancel
             </Button>
             <Button
@@ -460,9 +551,12 @@ export default function ApproveConceptNotePage() {
               disabled={approveMutation.isPending}
               className={cn(
                 "shadow-sm font-semibold",
-                decision === "approve" && "bg-primary hover:bg-primary/80 text-white",
-                decision === "request-changes" && "bg-yellow-600 hover:bg-yellow-700 text-white",
-                decision === "reject" && "bg-red-600 hover:bg-red-700 text-white"
+                decision === "approve" &&
+                  "bg-primary hover:bg-primary/80 text-white",
+                decision === "request-changes" &&
+                  "bg-yellow-600 hover:bg-yellow-700 text-white",
+                decision === "reject" &&
+                  "bg-red-600 hover:bg-red-700 text-white",
               )}
             >
               {approveMutation.isPending ? (
@@ -473,7 +567,12 @@ export default function ApproveConceptNotePage() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Send className="h-4 w-4" />
-                  Confirm {decision === 'approve' ? 'Approval' : decision === 'reject' ? 'Rejection' : 'Changes'}
+                  Confirm{" "}
+                  {decision === "approve"
+                    ? "Approval"
+                    : decision === "reject"
+                      ? "Rejection"
+                      : "Changes"}
                 </div>
               )}
             </Button>

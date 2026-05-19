@@ -141,7 +141,7 @@ export function useConceptNoteDetail(
     queryKey: ["concept-note-detail", id],
     enabled: Boolean(id),
     queryFn: () =>
-      getConceptNoteDetailById(id as string | number, backendToken),
+      getConceptNoteDetailById(id as string | number),
   });
 }
 

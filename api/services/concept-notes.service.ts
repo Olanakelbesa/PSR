@@ -182,12 +182,9 @@ export async function getConceptNoteById(
 
 // ─── GET /v1/concept-notes/:id/ (detail view payload) ───────────────────────
 export async function getConceptNoteDetailById(
-  id: string | number,
-  backendToken?: string | null,
+  id: string | number
 ): Promise<ConceptNoteDetail> {
-  const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id), {
-    params: backendToken ? { backendToken } : undefined,
-  });
+  const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id));
   return ConceptNoteDetailResponseSchema.parse(res.data).data;
 }
 

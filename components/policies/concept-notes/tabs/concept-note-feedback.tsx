@@ -30,9 +30,13 @@ export function ConceptNoteFeedback({
 }: ConceptNoteFeedbackProps) {
   const items = feedback ?? reviews ?? [];
 
+  console.log("feedback items:", items);
+
   const normalizedVersions = useMemo(() => {
     // Case 1: Items are already versioned blocks containing nested feedbackDetail
-    const hasNestedDetails = items.some((item: any) => Array.isArray(item.feedbackDetail));
+    const hasNestedDetails = items.some((item: any) =>
+      Array.isArray(item.feedbackDetail),
+    );
     if (hasNestedDetails) {
       return items.map((item: any) => ({
         versionNumber: item.versionNumber || "v1.0.0",
@@ -51,24 +55,29 @@ export function ConceptNoteFeedback({
     }, {});
 
     return Object.entries(grouped).map(([versionNumber, reviewsList]) => {
-      const mappedDetails = (reviewsList as any[]).map((rev: any, idx: number) => ({
-        expertReviewer: {
-          id: rev.reviewerId || rev.id || `rev-${idx}`,
-          fullName: rev.reviewer?.firstName && rev.reviewer?.lastName
-            ? `${rev.reviewer.firstName} ${rev.reviewer.lastName}`
-            : `Reviewer ${idx + 1}`,
-          email: rev.reviewer?.email || "",
-          photoUrl: rev.reviewer?.image || null,
-        },
-        comment: rev.comments || rev.feedback || "",
-        reviewFile: rev.supportingDocument ? rev.supportingDocument.url : null,
-        commentGivenAt: rev.createdAt || null,
-        finalDecisionStatus: rev.recommendation || rev.decision || "approve",
-        supportingDocument: rev.supportingDocument || null,
-        score: rev.score || null,
-        criteria: rev.criteria || [],
-        decision: rev.decision || null,
-      }));
+      const mappedDetails = (reviewsList as any[]).map(
+        (rev: any, idx: number) => ({
+          expertReviewer: {
+            id: rev.reviewerId || rev.id || `rev-${idx}`,
+            fullName:
+              rev.reviewer?.firstName && rev.reviewer?.lastName
+                ? `${rev.reviewer.firstName} ${rev.reviewer.lastName}`
+                : `Reviewer ${idx + 1}`,
+            email: rev.reviewer?.email || "",
+            photoUrl: rev.reviewer?.image || null,
+          },
+          comment: rev.comments || rev.feedback || "",
+          reviewFile: rev.supportingDocument
+            ? rev.supportingDocument.url
+            : null,
+          commentGivenAt: rev.createdAt || null,
+          finalDecisionStatus: rev.recommendation || rev.decision || "approve",
+          supportingDocument: rev.supportingDocument || null,
+          score: rev.score || null,
+          criteria: rev.criteria || [],
+          decision: rev.decision || null,
+        }),
+      );
 
       return {
         versionNumber,
@@ -136,10 +145,12 @@ export function ConceptNoteFeedback({
                 <AccordionContent className="px-6 pb-6 pt-2">
                   <div className="grid gap-6">
                     {feedbackList.map((review: any, idx: number) => {
-                      const reviewerName = review.expertReviewer?.fullName || "Anonymous Reviewer";
+                      const reviewerName =
+                        review.expertReviewer?.fullName || "Anonymous Reviewer";
                       const reviewerEmail = review.expertReviewer?.email || "";
                       const reviewerPhoto = review.expertReviewer?.photoUrl;
-                      const reviewerId = review.expertReviewer?.id || `rev-${idx}`;
+                      const reviewerId =
+                        review.expertReviewer?.id || `rev-${idx}`;
                       const uniqueCardKey = `${version}-${reviewerId}-${idx}`;
 
                       return (
@@ -152,10 +163,18 @@ export function ConceptNoteFeedback({
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10 border-2 border-background">
                                   {reviewerPhoto && (
-                                    <AvatarImage src={reviewerPhoto} alt={reviewerName} />
+                                    <AvatarImage
+                                      src={reviewerPhoto}
+                                      alt={reviewerName}
+                                    />
                                   )}
                                   <AvatarFallback className="bg-primary/10 text-primary font-bold uppercase">
-                                    {reviewerName.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()}
+                                    {reviewerName
+                                      .split(" ")
+                                      .map((n: string) => n[0])
+                                      .join("")
+                                      .substring(0, 2)
+                                      .toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex flex-col">
@@ -173,23 +192,37 @@ export function ConceptNoteFeedback({
                                 <Badge
                                   className={cn(
                                     "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5",
-                                    review.finalDecisionStatus === "accepted" ||
-                                      review.finalDecisionStatus === "approve"
-                                      ? "bg-green-100 text-green-700 border-green-200"
-                                      : review.finalDecisionStatus === "partially_accepted" ||
-                                        review.finalDecisionStatus === "revision" ||
-                                        review.finalDecisionStatus === "revise"
-                                        ? "bg-orange-100 text-orange-700 border-orange-200"
-                                        : "bg-red-100 text-red-700 border-red-200",
+                                    review.finalDecisionStatus === "pending"
+                                      ? "bg-blue-100 text-blue-700 border-blue-200"
+                                      : review.finalDecisionStatus ===
+                                            "accepted" ||
+                                          review.finalDecisionStatus ===
+                                            "approve"
+                                        ? "bg-green-100 text-green-700 border-green-200"
+                                        : review.finalDecisionStatus ===
+                                              "partially_accepted" ||
+                                            review.finalDecisionStatus ===
+                                              "revision" ||
+                                            review.finalDecisionStatus ===
+                                              "revise"
+                                          ? "bg-orange-100 text-orange-700 border-orange-200"
+                                          : "bg-red-100 text-red-700 border-red-200",
                                   )}
                                 >
-                                  {review.finalDecisionStatus === "accepted" || review.finalDecisionStatus === "approve"
-                                    ? "Accepted"
-                                    : review.finalDecisionStatus === "partially_accepted" ||
-                                      review.finalDecisionStatus === "revision" ||
-                                      review.finalDecisionStatus === "revise"
-                                      ? "Partially Accepted"
-                                      : "Rejected"}
+                                  {review.finalDecisionStatus === "pending"
+                                    ? "Pending"
+                                    : review.finalDecisionStatus ===
+                                          "accepted" ||
+                                        review.finalDecisionStatus === "approve"
+                                      ? "Accepted"
+                                      : review.finalDecisionStatus ===
+                                            "partially_accepted" ||
+                                          review.finalDecisionStatus ===
+                                            "revision" ||
+                                          review.finalDecisionStatus ===
+                                            "revise"
+                                        ? "Partially Accepted"
+                                        : "Rejected"}
                                 </Badge>
                               </div>
                             </div>
@@ -201,7 +234,8 @@ export function ConceptNoteFeedback({
                                   Expert Feedback
                                 </h4>
                                 <p className="text-sm leading-relaxed text-slate-700 italic border-l-4 border-muted pl-4">
-                                  {review.comment || "No detailed feedback notes recorded yet."}
+                                  {review.comment ||
+                                    "No detailed feedback notes recorded yet."}
                                 </p>
                               </div>
 
@@ -210,9 +244,11 @@ export function ConceptNoteFeedback({
                                   <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
                                     Supporting Document
                                   </h4>
-                                  <div 
+                                  <div
                                     className="flex items-center gap-2 p-2 border rounded-md bg-muted/20 w-fit group cursor-pointer hover:border-primary/30 transition-colors"
-                                    onClick={() => window.open(review.reviewFile, "_blank")}
+                                    onClick={() =>
+                                      window.open(review.reviewFile, "_blank")
+                                    }
                                   >
                                     <FileText className="h-4 w-4 text-primary" />
                                     <span className="text-xs font-medium group-hover:text-primary transition-colors">
