@@ -50,6 +50,7 @@ import { PageContainer } from "@/components/layout";
 import {
   useCreateConceptNote,
   useSubmitConceptNote,
+  useUpdateConceptNote,
 } from "@/lib/queries/concept-notes";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
@@ -66,6 +67,7 @@ export default function NewConceptNotePage() {
   const router = useRouter();
   const { backendToken } = useAuth();
   const createConceptNoteMutation = useCreateConceptNote();
+  const updateConceptNoteMutation = useUpdateConceptNote(backendToken);
   const submitConceptNoteMutation = useSubmitConceptNote(backendToken);
 
   const [draftId, setDraftId] = useState<string | number | null>(null);
@@ -259,6 +261,25 @@ export default function NewConceptNotePage() {
     }
   };
 
+  const persistDraft = async (values: ConceptNoteFormData) => {
+    const payload = buildRequestPayload(values);
+
+    if (draftId) {
+      await updateConceptNoteMutation.mutateAsync({
+        id: draftId,
+        payload,
+      });
+      return draftId;
+    }
+
+    const response = await createConceptNoteMutation.mutateAsync(payload);
+    const returnedId = extractIdFromResponse(response);
+    if (returnedId) {
+      setDraftId(returnedId);
+    }
+    return returnedId;
+  };
+
   const hasChanged = (val1: any, val2: any) => {
     if (!val1 || !val2) return true;
     return (
@@ -289,20 +310,10 @@ export default function NewConceptNotePage() {
     }
 
     const delayDebounceFn = setTimeout(async () => {
-      // Validate before autosaving
-      const result = conceptNoteSchema.safeParse(values);
-      if (!result.success) {
-        setAutosaveStatus(null);
-        return;
-      }
-
       if (isSavingInProgressRef.current) return;
 
-      // If a draft already exists, just mark as saved — no need to create again.
-      // useCreateConceptNote (POST) always creates a new note; updates are not done here.
-      if (draftId) {
-        lastSavedValuesRef.current = values;
-        setAutosaveStatus("saved");
+      if (!values.title?.trim()) {
+        setAutosaveStatus(null);
         return;
       }
 
@@ -310,14 +321,9 @@ export default function NewConceptNotePage() {
       setAutosaveStatus("saving");
 
       try {
-        const payload = buildRequestPayload(values);
-        const response = await createConceptNoteMutation.mutateAsync(payload);
-
-        const returnedId = extractIdFromResponse(response);
-        if (returnedId) {
-          setDraftId(returnedId);
-        } else {
-          console.warn("Autosave returned empty ID. Full response:", response);
+        const savedId = await persistDraft(values);
+        if (!savedId) {
+          console.warn("Autosave returned empty ID. Full response:", values);
         }
 
         lastSavedValuesRef.current = values;
@@ -355,32 +361,14 @@ export default function NewConceptNotePage() {
         return;
       }
 
-      const payload = buildRequestPayload(data);
-
       if (submitForReview) {
-        // Always create a fresh note with the full payload (including the file).
-        // The autosaved draft may not have the file if it was uploaded after the
-        // initial autosave — so we never reuse the draftId for submission.
-        toast.loading("Creating concept note for submission...", {
-          id: "submit-flow",
-        });
-        const createResponse =
-          await createConceptNoteMutation.mutateAsync(payload);
-        const submittableId = extractIdFromResponse(createResponse);
+        toast.loading("Saving concept note...", { id: "submit-flow" });
+        const submittableId = await persistDraft(data);
 
         if (!submittableId) {
-          console.error(
-            "Failed to get ID from create response:",
-            createResponse,
-          );
-          throw new Error(
-            `Could not get concept note ID: ${JSON.stringify(createResponse)}`,
-          );
+          throw new Error("Could not save concept note before submission.");
         }
 
-        setDraftId(submittableId);
-
-        // Submit the freshly-created note for review
         toast.loading("Submitting concept note for review...", {
           id: "submit-flow",
         });
@@ -391,20 +379,15 @@ export default function NewConceptNotePage() {
         });
         router.push("/policies/concept-notes/my-concept-note");
       } else {
-        // Manual Draft Save — create if no draft exists yet
         toast.loading("Saving draft...", { id: "draft-flow" });
-        if (!draftId) {
-          const response = await createConceptNoteMutation.mutateAsync(payload);
-          const returnedId = extractIdFromResponse(response);
-          if (returnedId) {
-            setDraftId(returnedId);
-          } else {
-            console.warn(
-              "Manual draft save returned empty ID. Full response:",
-              response,
-            );
-          }
+        if (!draftId && !data.title.trim()) {
+          toast.error("Enter a title first so the draft can be created.", {
+            id: "draft-flow",
+          });
+          return;
         }
+
+        await persistDraft(data);
         lastSavedValuesRef.current = data;
         toast.success("Draft saved successfully!", { id: "draft-flow" });
       }
