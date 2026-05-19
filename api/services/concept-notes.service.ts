@@ -96,6 +96,7 @@ const ConceptNoteDetailFeedbackSchema = z.object({
 export const ConceptNoteDetailSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
+  docType: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
   overview: z.object({
     executiveSummary: z.string().default(""),
     thematicAreas: z
@@ -103,6 +104,12 @@ export const ConceptNoteDetailSchema = z.object({
       .default([]),
     file: z.string().nullable().optional(),
   }),
+  documentCategory: z.enum(["new", "revision"]).optional(),
+  organization: z
+    .object({ id: z.number(), name: z.string() })
+    .nullable()
+    .optional(),
+  unit: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
   expertFeedback: z.array(ConceptNoteDetailFeedbackSchema).default([]),
   timeline: z.array(ConceptNoteDetailTimelineSchema).default([]),
   versions: z.array(ConceptNoteDetailFileSchema).default([]),
@@ -189,9 +196,12 @@ export async function getManageConceptNoteDetailById(
   id: string | number,
   backendToken?: string | null,
 ): Promise<ConceptNoteDetail> {
-  const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.MANAGE_DETAIL(id), {
-    params: backendToken ? { backendToken } : undefined,
-  });
+  const res = await apiClient.get(
+    API_ENDPOINTS.CONCEPT_NOTES.MANAGE_DETAIL(id),
+    {
+      params: backendToken ? { backendToken } : undefined,
+    },
+  );
   return ConceptNoteDetailResponseSchema.parse(res.data).data;
 }
 

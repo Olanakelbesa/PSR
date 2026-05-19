@@ -133,7 +133,6 @@ export function useMyReviews(
   });
 }
 
-
 export function useConceptNoteDetail(
   id?: string | number,
   backendToken?: string | null,
@@ -194,18 +193,13 @@ export function useUpdateConceptNote(backendToken?: string | null) {
       payload: Record<string, any> | FormData;
     }) => {
       const isMultipart = payload instanceof FormData;
-      const headers: Record<string, string> = {};
-      if (backendToken) {
-        headers.Authorization = `Bearer ${backendToken}`;
-      }
-      if (isMultipart) {
-        headers["Content-Type"] = "multipart/form-data";
-      }
 
       const { data } = await api.patch(
         API_ENDPOINTS.CONCEPT_NOTES.UPDATE(id),
         payload,
-        { headers },
+        isMultipart
+          ? { headers: { "Content-Type": "multipart/form-data" } }
+          : undefined,
       );
       return data;
     },
@@ -250,8 +244,12 @@ export function useApproveConceptNote() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes-manage"] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-detail", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["concept-note-detail", variables.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["concept-note-manage-detail", variables.id],
+      });
     },
   });
 }
@@ -265,7 +263,7 @@ export function useMyReviewDetail(
     enabled: Boolean(id),
     queryFn: async () => {
       const { data } = await api.get(
-        API_ENDPOINTS.CONCEPT_NOTES.MY_REVIEW_DETAIL(id as string | number)
+        API_ENDPOINTS.CONCEPT_NOTES.MY_REVIEW_DETAIL(id as string | number),
       );
       return data.data as ConceptNoteDetail;
     },
@@ -289,12 +287,15 @@ export function useReviewConceptNote() {
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes-manage"] });
       queryClient.invalidateQueries({ queryKey: ["my-reviews"] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-detail", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["my-review-detail", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["concept-note-detail", variables.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["concept-note-manage-detail", variables.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["my-review-detail", variables.id],
+      });
     },
   });
 }
-
-
-
