@@ -64,6 +64,22 @@ export const API_ENDPOINTS = {
     MY_REVIEW_DETAIL: (id: string | number) => `/v1/concept-notes/${id}/my-reviews/`,
   },
 
+  // ── Policy Drafts ─────────────────────────────────────────────────────────
+  POLICY_DRAFTS: {
+    LIST:            "/v1/policy-drafts/",
+    MANAGE:          "/v1/policy-drafts/manage/",
+    DETAIL:          (id: string | number) => `/v1/policy-drafts/${id}/`,
+    CREATE:          "/v1/policy-drafts/",
+    UPDATE:          (id: string | number) => `/v1/policy-drafts/${id}/`,
+    SUBMIT:          (id: string | number) => `/v1/policy-drafts/${id}/submit/`,
+    ASSIGN_REVIEWERS: (id: string | number) => `/v1/policy-drafts/${id}/assign-reviewers/`,
+    PSR_DECISION: (id: string | number) => `/v1/policy-drafts/${id}/psr-decision/`,
+    MY_REVIEWS: "/v1/policy-drafts/my-reviews/",
+    MY_REVIEW_DETAIL: (id: string | number) => `/v1/policy-drafts/${id}/my-reviews/`,
+    GET_CHECKLIST: (id: string | number, versionId: string | number) => `/v1/policy-drafts/${id}/versions/${versionId}/checklist/`,
+    SUBMIT_CHECKLIST_REVIEW: (id: string | number, versionId: string | number) => `/v1/policy-drafts/${id}/versions/${versionId}/checklist-review/`,
+  },
+
   // ── Policy Documents ──────────────────────────────────────────────────────
   POLICIES: {
     LIST: "/policies",
@@ -71,6 +87,12 @@ export const API_ENDPOINTS = {
     CREATE: "/policies",
     UPDATE: (id: string) => `/policies/${id}`,
     PUBLISH: (id: string) => `/policies/${id}/publish`,
+  },
+
+  POLICY_REPOSITORY: {
+    LIST: "/v1/policy-repository/",
+    DETAIL: (id: string | number) => `/v1/policy-repository/${id}/`,
+    REGISTER: "/v1/policy-repository/register/",
   },
 
   // ── Calls for Proposals ───────────────────────────────────────────────────

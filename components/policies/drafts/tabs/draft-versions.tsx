@@ -72,13 +72,42 @@ export function DraftVersions({ versionHistory }: DraftVersionsProps) {
               </div>
 
               <div className="flex items-center gap-2 shrink-0 md:border-l md:pl-6 border-muted/60">
-                  <Button variant="outline" size="sm" className="h-10 px-4 font-semibold text-xs gap-2 border-primary/20 hover:bg-primary/5">
-                    <Eye className="h-4 w-4" />
-                    View
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    asChild={!!v.file} 
+                    disabled={!v.file} 
+                    className="h-10 px-4 font-semibold text-xs gap-2 border-primary/20 hover:bg-primary/5"
+                  >
+                    {v.file ? (
+                      <a href={v.file} target="_blank" rel="noopener noreferrer">
+                        <Eye className="h-4 w-4" />
+                        View
+                      </a>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        View
+                      </span>
+                    )}
                   </Button>
-                  <Button size="sm" className="h-10 px-4 font-semibold text-xs gap-2">
-                    <Download className="h-4 w-4" />
-                    Download
+                  <Button 
+                    size="sm" 
+                    asChild={!!v.file} 
+                    disabled={!v.file} 
+                    className="h-10 px-4 font-semibold text-xs gap-2"
+                  >
+                    {v.file ? (
+                      <a href={v.file} download target="_blank" rel="noopener noreferrer">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </a>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </span>
+                    )}
                   </Button>
               </div>
             </div>

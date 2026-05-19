@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  UserCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,100 +23,123 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-// Mock user pool
-const expertPool = [
-  { id: "u1", firstName: "Abebe", lastName: "Kebede", email: "abebe@moe.gov.et", department: "Digital Infrastructure", isAssigned: true },
-  { id: "u2", firstName: "Tigist", lastName: "G/Michael", email: "tigist@moe.gov.et", department: "Curriculum Development", isAssigned: true },
-  { id: "u3", firstName: "Samuel", lastName: "Tadesse", email: "samuel@moe.gov.et", department: "Policy Analysis", isAssigned: false },
-  { id: "u4", firstName: "Hirut", lastName: "Worku", email: "hirut@moe.gov.et", department: "Special Needs Education", isAssigned: false },
-  { id: "u5", firstName: "Dawit", lastName: "Mekonnen", email: "dawit@aau.edu.et", department: "Educational Technology", isAssigned: false },
-  { id: "u6", firstName: "Yonas", lastName: "Getachew", email: "yonas@aau.edu.et", department: "Science Education", isAssigned: false },
-  { id: "u7", firstName: "Meron", lastName: "Haile", email: "meron@moe.gov.et", department: "Early Childhood", isAssigned: false },
-  { id: "u8", firstName: "Biruk", lastName: "Alemu", email: "biruk@aau.edu.et", department: "Higher Education", isAssigned: false },
-  { id: "u9", firstName: "Selamawit", lastName: "Tesfaye", email: "selamawit@moe.gov.et", department: "Teacher Training", isAssigned: false },
-  { id: "u10", firstName: "Elias", lastName: "Bekele", email: "elias@aau.edu.et", department: "Vocational Training", isAssigned: false },
-  { id: "u11", firstName: "Hana", lastName: "Girma", email: "hana@moe.gov.et", department: "Special Needs Education", isAssigned: false },
-  { id: "u12", firstName: "Tewodros", lastName: "Mengistu", email: "tewodros@aau.edu.et", department: "Digital Infrastructure", isAssigned: false },
-  { id: "u13", firstName: "Liya", lastName: "Woldemariam", email: "liya@moe.gov.et", department: "Policy Analysis", isAssigned: false },
-  { id: "u14", firstName: "Robel", lastName: "Negash", email: "robel@aau.edu.et", department: "Curriculum Development", isAssigned: false },
-  { id: "u15", firstName: "Abebu", lastName: "Tadesse", email: "abebu@moe.gov.et", department: "Educational Technology", isAssigned: false },
-  { id: "u16", firstName: "Fasika", lastName: "Darge", email: "fasika@aau.edu.et", department: "Science Education", isAssigned: false },
-  { id: "u17", firstName: "Natnael", lastName: "Assefa", email: "natnael@moe.gov.et", department: "Teacher Training", isAssigned: false },
-  { id: "u18", firstName: "Tigist", lastName: "Yimer", email: "tigisty@aau.edu.et", department: "Higher Education", isAssigned: false },
-  { id: "u19", firstName: "Kidist", lastName: "Hailu", email: "kidist@moe.gov.et", department: "Early Childhood", isAssigned: false },
-  { id: "u20", firstName: "Abel", lastName: "Fantahun", email: "abel@aau.edu.et", department: "Vocational Training", isAssigned: false },
-];
+import { useUserSelector } from "@/lib/queries/users";
+import { usePolicyDraft, useAssignDraftReviewers } from "@/lib/queries/policy-drafts";
 
 const PAGE_SIZE = 5;
 
 export default function AssignExpertsPage() {
   const params = useParams();
   const router = useRouter();
-  const [experts, setExperts] = useState(expertPool);
+  const id = params.id as string;
+
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const { data: draft, isLoading: isLoadingDraft } = usePolicyDraft(id);
+  const { data: rawUsers, isLoading: isLoadingUsers } = useUserSelector();
+  const users = rawUsers || [];
+
+  // Initialize selectedIds when draft is loaded
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 400);
-    return () => clearTimeout(timer);
-  }, []);
+    if (draft) {
+      const existingIds = draft.reviewers?.map((r: any) => typeof r === "object" ? r.id : r) 
+                       || draft.assignedReviewers?.map((r: any) => typeof r === "object" ? r.id : r) 
+                       || [];
+      setSelectedIds(existingIds);
+    }
+  }, [draft]);
 
   // Reset to first page when search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const filteredExperts = experts.filter((e) =>
-    `${e.firstName} ${e.lastName} ${e.email} ${e.department}`
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    return users.filter((u: any) => {
+      const search = searchQuery.toLowerCase();
+      const fullName = u.fullName || `${u.firstName || ""} ${u.middleName || ""} ${u.lastName || ""}`;
+      return (
+        fullName.toLowerCase().includes(search) ||
+        (u.email || "").toLowerCase().includes(search) ||
+        (u.unit?.name || "").toLowerCase().includes(search) ||
+        (u.organization?.name || "").toLowerCase().includes(search)
+      );
+    });
+  }, [users, searchQuery]);
 
-  const totalPages = Math.ceil(filteredExperts.length / PAGE_SIZE);
-  const paginatedExperts = filteredExperts.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
+  const paginatedUsers = useMemo(() => {
+    return filteredUsers.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE
+    );
+  }, [filteredUsers, currentPage]);
 
-  const assignedCount = experts.filter((e) => e.isAssigned).length;
+  const assignedCount = selectedIds.length;
 
-  const toggleAssignment = (id: string) => {
-    setExperts((prev) =>
-      prev.map((expert) =>
-        expert.id === id ? { ...expert, isAssigned: !expert.isAssigned } : expert
-      )
+  const toggleAssignment = (userId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
     );
   };
+
+  const assignMutation = useAssignDraftReviewers();
 
   const handleSaveAssignments = async () => {
     if (assignedCount === 0) {
       toast.error("You must assign at least one expert to review this draft.");
       return;
     }
-    setIsSaving(true);
+    
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast.success(`Successfully assigned ${assignedCount} expert(s) to draft ${params.id}. They have been notified.`);
-      router.push(`/policies/drafts`);
-    } catch {
-      toast.error("Failed to save assignments. Please try again.");
-    } finally {
-      setIsSaving(false);
+      await assignMutation.mutateAsync({
+        draftId: id,
+        reviewers: selectedIds,
+      });
+      toast.success(`Successfully assigned ${assignedCount} expert(s) to this draft. They have been notified.`);
+      router.push(`/policies/drafts/manage-drafts`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save assignments. Please try again.");
     }
   };
 
+  // Get currently selected user objects for the sidebar summary list
+  const selectedUsers = useMemo(() => {
+    return users.filter((u: any) => selectedIds.includes(u.id));
+  }, [users, selectedIds]);
+
+  const isLoading = isLoadingDraft || isLoadingUsers;
+
   if (isLoading) {
     return (
-      <PageContainer title="Loading User Pool...">
-        <div className="h-96 bg-muted animate-pulse rounded-xl" />
+      <PageContainer title="Loading Committee Pool...">
+        <div className="rounded-xl border p-6 space-y-6 bg-card">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-6 w-[250px] bg-muted animate-pulse rounded" />
+              <div className="h-4 w-[350px] bg-muted animate-pulse rounded" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-9 w-[100px] bg-muted animate-pulse rounded" />
+              <div className="h-9 w-[150px] bg-muted animate-pulse rounded" />
+            </div>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-4">
+            <div className="lg:col-span-3 space-y-4">
+              {[...Array(PAGE_SIZE)].map((_, i) => (
+                <div key={i} className="h-16 w-full bg-muted animate-pulse rounded-lg" />
+              ))}
+            </div>
+            <div className="h-48 w-full bg-muted animate-pulse rounded-lg" />
+          </div>
+        </div>
       </PageContainer>
     );
   }
@@ -123,22 +147,22 @@ export default function AssignExpertsPage() {
   return (
     <PageContainer
       title="Assign Expert Reviewers"
-      description={`Manage the evaluation committee for Draft: ${params.id}`}
+      description={`Manage the evaluation committee for Draft: ${draft?.title || id}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="shadow-sm">
-            <Link href="/policies/drafts">
+          <Button variant="outline" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
+            <Link href="/policies/drafts/manage-drafts">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Cancel
             </Link>
           </Button>
           <Button
             onClick={handleSaveAssignments}
-            disabled={isSaving}
-            className="bg-primary hover:bg-primary/90"
+            disabled={assignMutation.isPending}
+            className="bg-primary hover:bg-primary/90 font-semibold"
           >
             <Shield className="mr-2 h-4 w-4" />
-            {isSaving ? "Saving..." : "Save Assignments"}
+            {assignMutation.isPending ? "Saving..." : "Save Assignments"}
           </Button>
         </div>
       }
@@ -159,8 +183,8 @@ export default function AssignExpertsPage() {
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Search by name, dept..."
-                    className="pl-9 h-9"
+                    placeholder="Search by name, department, or university..."
+                    className="pl-9 h-9 border-primary/10 focus-visible:ring-primary"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -168,71 +192,79 @@ export default function AssignExpertsPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {filteredExperts.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  No experts match your search criteria.
+              {filteredUsers.length === 0 ? (
+                <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
+                  <AlertCircle className="h-8 w-8 text-muted-foreground/60" />
+                  <span>No experts match your search criteria.</span>
                 </div>
               ) : (
                 <>
                   {/* Expert rows */}
                   <div className="divide-y min-h-[280px]">
-                    {paginatedExperts.map((expert) => (
-                      <div
-                        key={expert.id}
-                        className={cn(
-                          "flex items-center justify-between p-4 hover:bg-muted/20 transition-colors cursor-pointer",
-                          expert.isAssigned && "bg-primary/5 hover:bg-primary/10"
-                        )}
-                        onClick={() => toggleAssignment(expert.id)}
-                      >
-                        <div className="flex items-center gap-4">
-                          <Avatar
-                            className={cn(
-                              "h-10 w-10 border-2",
-                              expert.isAssigned ? "border-primary" : "border-transparent"
-                            )}
-                          >
-                            <AvatarFallback
+                    {paginatedUsers.map((user: any) => {
+                      const isSelected = selectedIds.includes(user.id);
+                      return (
+                        <div
+                          key={user.id}
+                          className={cn(
+                            "flex items-center justify-between p-4 hover:bg-muted/20 transition-colors cursor-pointer",
+                            isSelected && "bg-primary/5 hover:bg-primary/10"
+                          )}
+                          onClick={() => toggleAssignment(user.id)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <Avatar
                               className={cn(
-                                "text-xs font-bold",
-                                expert.isAssigned
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-muted-foreground"
+                                "h-10 w-10 border-2 transition-all",
+                                isSelected ? "border-primary shadow-sm" : "border-transparent"
                               )}
                             >
-                              {expert.firstName[0]}
-                              {expert.lastName[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-sm">
-                              {expert.firstName} {expert.lastName}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{expert.email}</span>
-                            <span className="text-[10px] font-medium uppercase tracking-wider text-primary/70 mt-0.5">
-                              {expert.department}
-                            </span>
+                              <AvatarImage src={user.photoUrl || undefined} />
+                              <AvatarFallback
+                                className={cn(
+                                  "text-xs font-bold transition-all",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-primary/10 text-primary"
+                                )}
+                              >
+                                {user.firstName?.[0] || "U"}
+                                {user.middleName?.[0] || user.lastName?.[0] || ""}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-sm text-foreground">
+                                {user.fullName || `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{user.email}</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/70 mt-0.5">
+                                {user.unit?.name || user.organization?.name || "Institution Partner"}
+                              </span>
+                            </div>
                           </div>
+                          <Button
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            className={cn(
+                              "w-28 font-medium transition-all",
+                              isSelected ? "bg-primary hover:bg-primary/90" : "border-primary/20 hover:bg-primary/5 text-primary"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAssignment(user.id);
+                            }}
+                          >
+                            {isSelected ? (
+                              <>
+                                <Check className="mr-2 h-4 w-4" /> Assigned
+                              </>
+                            ) : (
+                              "Assign"
+                            )}
+                          </Button>
                         </div>
-                        <Button
-                          variant={expert.isAssigned ? "default" : "outline"}
-                          size="sm"
-                          className={cn("w-28", expert.isAssigned && "bg-primary hover:bg-primary/90")}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleAssignment(expert.id);
-                          }}
-                        >
-                          {expert.isAssigned ? (
-                            <>
-                              <Check className="mr-2 h-4 w-4" /> Assigned
-                            </>
-                          ) : (
-                            "Assign"
-                          )}
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Pagination */}
@@ -242,15 +274,15 @@ export default function AssignExpertsPage() {
                         Showing{" "}
                         <span className="font-medium">{(currentPage - 1) * PAGE_SIZE + 1}</span> to{" "}
                         <span className="font-medium">
-                          {Math.min(currentPage * PAGE_SIZE, filteredExperts.length)}
+                          {Math.min(currentPage * PAGE_SIZE, filteredUsers.length)}
                         </span>{" "}
-                        of <span className="font-medium">{filteredExperts.length}</span> experts
+                        of <span className="font-medium">{filteredUsers.length}</span> experts
                       </p>
                       <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
                           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
                         >
@@ -261,7 +293,10 @@ export default function AssignExpertsPage() {
                             key={page}
                             variant={currentPage === page ? "default" : "ghost"}
                             size="sm"
-                            className="h-8 w-8 p-0 text-xs"
+                            className={cn(
+                              "h-8 w-8 p-0 text-xs font-semibold",
+                              currentPage === page ? "bg-primary text-primary-foreground" : "hover:bg-primary/5 text-primary"
+                            )}
                             onClick={() => setCurrentPage(page)}
                           >
                             {page}
@@ -270,7 +305,7 @@ export default function AssignExpertsPage() {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
                           onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                           disabled={currentPage === totalPages}
                         >
@@ -298,25 +333,23 @@ export default function AssignExpertsPage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 You have selected <strong>{assignedCount} expert(s)</strong> to review this policy draft.
               </p>
-              <div className="space-y-2">
-                {experts
-                  .filter((e) => e.isAssigned)
-                  .map((expert) => (
-                    <div
-                      key={expert.id}
-                      className="flex items-center gap-2 text-sm bg-background p-2 rounded border shadow-sm"
-                    >
-                      <Check className="h-4 w-4 text-green-500 shrink-0" />
-                      <span className="truncate">
-                        {expert.firstName} {expert.lastName}
-                      </span>
-                    </div>
-                  ))}
+              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                {selectedUsers.map((user: any) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center gap-2 text-sm bg-background p-2 rounded border border-primary/10 shadow-sm"
+                  >
+                    <UserCheck className="h-4 w-4 text-green-600 shrink-0" />
+                    <span className="truncate font-medium text-foreground">
+                      {user.fullName || `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`}
+                    </span>
+                  </div>
+                ))}
               </div>
               {assignedCount === 0 && (
-                <div className="text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                  Drafts cannot proceed to the evaluation phase without at least one assigned expert.
+                <div className="text-xs text-red-500 bg-red-50 p-2.5 rounded border border-red-100 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />
+                  <span>Drafts cannot proceed to the evaluation phase without at least one assigned expert.</span>
                 </div>
               )}
             </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -27,59 +27,76 @@ import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
-const checklistQuestions = [
-  {
-    id: "q1",
-    text: "Does the comprehensive draft strictly align with the original approved concept note?",
-    required: true,
-  },
-  {
-    id: "q2",
-    text: "Are the financial and budget estimates realistic and adequately justified?",
-    required: true,
-  },
-  {
-    id: "q3",
-    text: "Is the methodology or implementation strategy sound and practically feasible?",
-    required: true,
-  },
-  {
-    id: "q4",
-    text: "Are the key performance indicators (KPIs) and expected outcomes measurable?",
-    required: true,
-  },
-  {
-    id: "q5",
-    text: "Does the draft include a reasonable timeline spanning the operational period?",
-    required: true,
-  },
-];
+import { useAuth } from "@/hooks/useAuth";
+import {
+  usePolicyDraftMyReviewDetail,
+  usePolicyDraftVersionChecklist,
+  useSubmitPolicyDraftChecklistReview,
+} from "@/lib/queries/policy-drafts";
 
 export default function ScoreDraftPage() {
   const params = useParams();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const draftId = (params as any)?.id;
 
-  // State for the checklist
+  const { user } = useAuth();
+  
+  // 1. Fetch policy draft detail to get the latest version ID
+  const { data: detailResponse, isLoading: isLoadingDetail } = usePolicyDraftMyReviewDetail(draftId);
+  const detailData = detailResponse?.data;
+
+  const latestVersion = useMemo(() => {
+    if (!detailData?.versions) return null;
+    return detailData.versions.find((v: any) => v.isLatest) || detailData.versions[0];
+  }, [detailData]);
+
+  const versionId = latestVersion?.id;
+
+  // 2. Fetch the checklist template & items for this version
+  const { data: checklistResponse, isLoading: isLoadingChecklist } = usePolicyDraftVersionChecklist(draftId, versionId);
+  const checklistData = checklistResponse?.data;
+
+  // State for the checklist responses
   const [responses, setResponses] = useState<
     Record<string, { is_passed: "yes" | "no" | null; reviewer_note: string }>
   >({});
-  const [overallComment, setOverallComment] = useState("");
 
+  // Convert API items to the component's expected format
+  const checklistQuestions = useMemo(() => {
+    if (!checklistData?.items) return [];
+    return checklistData.items.map((item: any) => ({
+      id: String(item.id),
+      text: item.question,
+      category: item.category?.name || "Requirement",
+      required: true,
+      isCritical: item.isCritical,
+    }));
+  }, [checklistData]);
+
+  // Pre-populate response state from any existing answers returned by GET
   useEffect(() => {
-    // Initialize state
-    const initialResponses: Record<string, any> = {};
-    checklistQuestions.forEach((q) => {
-      initialResponses[q.id] = { is_passed: null, reviewer_note: "" };
-    });
-    setResponses(initialResponses);
+    if (checklistData?.items) {
+      const initialResponses: Record<string, any> = {};
+      checklistData.items.forEach((item: any) => {
+        let isPassedValue: "yes" | "no" | null = null;
+        if (item.reviewerAnswer === true) {
+          isPassedValue = "yes";
+        } else if (item.reviewerAnswer === false) {
+          isPassedValue = "no";
+        }
+        
+        initialResponses[String(item.id)] = {
+          is_passed: isPassedValue,
+          reviewer_note: item.reviewerNote || "",
+        };
+      });
+      setResponses(initialResponses);
+    }
+  }, [checklistData]);
 
-    // Simulate API Load
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const submitMutation = useSubmitPolicyDraftChecklistReview();
 
   const handleResponseChange = (
     id: string,
@@ -96,6 +113,7 @@ export default function ScoreDraftPage() {
   };
 
   const calculateScore = () => {
+    if (checklistQuestions.length === 0) return 0;
     let passedCount = 0;
     let answeredCount = 0;
     Object.values(responses).forEach((res) => {
@@ -110,40 +128,47 @@ export default function ScoreDraftPage() {
   };
 
   const handleSubmit = async () => {
-    // Validation
+    if (!user?.id) {
+      toast.error("Authentication required to submit review.");
+      return;
+    }
+
     const unanswered = checklistQuestions.filter(
-      (q) => responses[q.id].is_passed === null,
+      (q: any) => !responses[q.id] || responses[q.id].is_passed === null
     );
     if (unanswered.length > 0) {
       toast.error(
-        `Please answer all ${unanswered.length} remaining Yes/No questions before submitting.`,
+        `Please answer all ${unanswered.length} remaining Yes/No questions before submitting.`
       );
       return;
     }
 
-    if (!overallComment.trim()) {
-      toast.error(
-        "An overall summary comment is required to complete this evaluation.",
-      );
-      return;
-    }
+    const payloadResponses = Object.entries(responses).map(([questionId, res]) => ({
+      checklistItemId: Number(questionId),
+      answer: res.is_passed === "yes",
+      comment: res.reviewer_note || "",
+    }));
 
-    setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await submitMutation.mutateAsync({
+        id: Number(draftId),
+        versionId: Number(versionId),
+        reviewerId: Number(user.id),
+        responses: payloadResponses,
+      });
 
       const finalScore = calculateScore();
       toast.success(
-        `Draft successfully scored at ${finalScore}%. Evaluation submitted to the committee.`,
+        `Draft successfully scored at ${finalScore}%. Evaluation submitted to the committee.`
       );
-      router.push(`/policies/drafts/${params.id}`);
-    } catch (error) {
-      toast.error("Failed to submit score. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      router.push(`/policies/drafts/review-draft/${draftId}`);
+    } catch (error: any) {
+      const serverMessage = error?.errors?.review?.[0] || error?.message || "Failed to submit checklist review. Please try again.";
+      toast.error(serverMessage);
     }
   };
+
+  const isLoading = isLoadingDetail || isLoadingChecklist;
 
   if (isLoading) {
     return (
@@ -161,11 +186,11 @@ export default function ScoreDraftPage() {
   return (
     <PageContainer
       title="Score Draft (Granular Evaluation)"
-      description={`Completing checklist evaluation for Draft: ${params.id}`}
+      description={`Completing checklist evaluation for Draft: ${detailData?.title || draftId}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="shadow-sm">
-            <Link href={`/policies/drafts/review-draft/${params.id}`}>
+          <Button variant="outline" size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
+            <Link href={`/policies/drafts/review-draft/${draftId}`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Cancel Evaluation
             </Link>
@@ -190,96 +215,96 @@ export default function ScoreDraftPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 divide-y">
-              {checklistQuestions.map((q, index) => (
-                <div
-                  key={q.id}
-                  className="p-6 space-y-4 hover:bg-muted/10 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex gap-3">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0">
-                        {index + 1}
+              {checklistQuestions.length === 0 ? (
+                <div className="p-12 text-center">
+                  <AlertCircle className="h-8 w-8 text-orange-400 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    No active checklist template found for this document type.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Please contact your system administrator to assign templates to document types.
+                  </p>
+                </div>
+              ) : (
+                checklistQuestions.map((q: any, index: number) => (
+                  <div
+                    key={q.id}
+                    className="p-6 space-y-4 hover:bg-muted/10 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex gap-3">
+                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0 mt-0.5">
+                          {index + 1}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold leading-relaxed">
+                            {q.text}
+                          </p>
+                          {q.isCritical && (
+                            <Badge variant="destructive" className="text-[10px] py-0 px-2 font-bold uppercase tracking-wider">
+                              Critical requirement
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm font-medium leading-relaxed">
-                        {q.text}
-                      </p>
+
+                      <RadioGroup
+                        className="flex items-center gap-4 shrink-0 mt-1"
+                        value={responses[q.id]?.is_passed || ""}
+                        onValueChange={(val) =>
+                          handleResponseChange(q.id, "is_passed", val)
+                        }
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem
+                            value="yes"
+                            id={`yes-${q.id}`}
+                            className="text-green-600 border-green-600 focus:border-green-600"
+                          />
+                          <Label
+                            htmlFor={`yes-${q.id}`}
+                            className="font-bold text-sm cursor-pointer text-green-700"
+                          >
+                            Yes
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem
+                            value="no"
+                            id={`no-${q.id}`}
+                            className="text-red-600 border-red-600 focus:border-red-600"
+                          />
+                          <Label
+                            htmlFor={`no-${q.id}`}
+                            className="font-bold text-sm cursor-pointer text-red-700"
+                          >
+                            No
+                          </Label>
+                        </div>
+                      </RadioGroup>
                     </div>
 
-                    <RadioGroup
-                      className="flex items-center gap-4 shrink-0"
-                      value={responses[q.id]?.is_passed || ""}
-                      onValueChange={(val) =>
-                        handleResponseChange(q.id, "is_passed", val)
-                      }
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="yes"
-                          id={`yes-${q.id}`}
-                          className="text-green-600 border-green-600"
-                        />
-                        <Label
-                          htmlFor={`yes-${q.id}`}
-                          className="font-semibold cursor-pointer"
-                        >
-                          Yes
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value="no"
-                          id={`no-${q.id}`}
-                          className="text-red-600 border-red-600"
-                        />
-                        <Label
-                          htmlFor={`no-${q.id}`}
-                          className="font-semibold cursor-pointer"
-                        >
-                          No
-                        </Label>
-                      </div>
-                    </RadioGroup>
+                    <div className="pl-9 space-y-2">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                        <HelpCircle className="h-3 w-3 text-primary" /> Justification Note
+                        (Optional but recommended)
+                      </Label>
+                      <Textarea
+                        placeholder="Explain your rating..."
+                        className="resize-none h-20 text-sm focus-visible:ring-primary/20"
+                        value={responses[q.id]?.reviewer_note || ""}
+                        onChange={(e) =>
+                          handleResponseChange(
+                            q.id,
+                            "reviewer_note",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
                   </div>
-
-                  <div className="pl-9 space-y-2">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                      <HelpCircle className="h-3 w-3" /> Justification Note
-                      (Optional but recommended)
-                    </Label>
-                    <Textarea
-                      placeholder="Explain your rating..."
-                      className="resize-none h-20 text-sm"
-                      value={responses[q.id]?.reviewer_note || ""}
-                      onChange={(e) =>
-                        handleResponseChange(
-                          q.id,
-                          "reviewer_note",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Overall Assessment
-              </CardTitle>
-              <CardDescription>
-                Summarize your findings for the PSR committee.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Write your comprehensive review conclusion here. This will be visible to the ratification committee."
-                className="resize-none min-h-[150px]"
-                value={overallComment}
-                onChange={(e) => setOverallComment(e.target.value)}
-              />
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
@@ -306,7 +331,7 @@ export default function ScoreDraftPage() {
                   />
                   <circle
                     className={
-                      currentScore >= 70
+                      currentScore >= 75
                         ? "text-green-500"
                         : currentScore >= 40
                           ? "text-orange-500"
@@ -330,7 +355,7 @@ export default function ScoreDraftPage() {
               </div>
               <div className="text-center space-y-1">
                 <p className="text-sm font-medium">Evaluation Progress</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground font-semibold">
                   {
                     Object.values(responses).filter((r) => r.is_passed !== null)
                       .length
@@ -342,17 +367,17 @@ export default function ScoreDraftPage() {
             <CardFooter className="pt-0 p-4">
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full h-12 text-md font-semibold bg-primary hover:bg-primary/90"
+                disabled={submitMutation.isPending || checklistQuestions.length === 0}
+                className="w-full h-12 text-md font-semibold bg-primary hover:bg-primary/90 text-white shadow-md transition-all duration-200"
               >
-                {isSubmitting ? "Locking Evaluation..." : "Submit Final Score"}
+                {submitMutation.isPending ? "Locking Evaluation..." : "Submit Final Score"}
               </Button>
             </CardFooter>
           </Card>
 
-          <div className="bg-muted/50 rounded-lg p-4 text-xs text-muted-foreground border border-dashed flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-primary shrink-0" />
-            <p>
+          <div className="bg-muted/50 rounded-lg p-4 text-xs text-muted-foreground border border-dashed flex items-start gap-3 border-primary/10">
+            <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
               By submitting this evaluation, you finalize your expert review.
               The score will be recorded and aggregated with other reviewers for
               the PSR committee's ratification process.

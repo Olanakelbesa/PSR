@@ -36,41 +36,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
-import { policyApi, conceptNoteApi } from "@/api/client";
+import apiClient from "@/api/client";
+import { API_ENDPOINTS } from "@/api/endpoints";
+import { useConceptNotes } from "@/lib/queries/concept-notes";
+import { usePolicyDraft } from "@/lib/queries/policy-drafts";
 import { policyDocumentSchema, type PolicyDocumentFormData } from "@/lib/validations";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { POLICY_TYPES } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import type { ConceptNote } from "@/lib/types";
-
-const MOCK_CONCEPTS: any[] = [
-  {
-    id: "CN-2024-001",
-    title: "National Digital Literacy Framework 2025",
-    policyType: "policy",
-    background: "Addressing the digital divide in rural primary schools.",
-    status: "approved",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "CN-2024-002",
-    title: "Higher Education Quality Assurance Standards",
-    policyType: "standard",
-    background: "Standardizing accreditation processes for private universities.",
-    status: "approved",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "CN-2024-003",
-    title: "Vocational Training Integration Strategy",
-    policyType: "strategy",
-    background: "Aligning TVET programs with industrial market demands.",
-    status: "approved",
-    createdAt: new Date().toISOString(),
-  }
-];
 
 export default function EditPolicyDraftPage() {
   const params = useParams();
@@ -78,16 +53,17 @@ export default function EditPolicyDraftPage() {
   const id = params?.id as string;
   const { user } = useAuth();
 
-  const [isLoadingPolicy, setIsLoadingPolicy] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | { name: string; size: number; type: string } | null>(null);
-  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [approvedConcepts, setApprovedConcepts] = useState<ConceptNote[]>([]);
-  const [isLoadingConcepts, setIsLoadingConcepts] = useState(true);
   const [selectedConceptId, setSelectedConceptId] = useState<string>("");
+
+  const { data: approvedConceptsRaw, isLoading: isLoadingConcepts } = useConceptNotes({ current_status: "policy_draft_ready" });
+  const approvedConcepts = Array.isArray(approvedConceptsRaw) ? approvedConceptsRaw : (approvedConceptsRaw?.data || []);
+
+  const { data: rawDraft, isLoading: isLoadingPolicy } = usePolicyDraft(id);
 
   const form = useForm<PolicyDocumentFormData>({
     resolver: zodResolver(policyDocumentSchema),
@@ -99,75 +75,36 @@ export default function EditPolicyDraftPage() {
     },
   });
 
+  // Prepopulate form when draft details load
   useEffect(() => {
-    async function loadApprovedConcepts() {
-      try {
-        const response = await conceptNoteApi.getConceptNotes({ status: "approved" });
-        const apiConcepts = response?.data || [];
-        setApprovedConcepts([...apiConcepts, ...MOCK_CONCEPTS]);
-      } catch (error) {
-        console.error("Failed to load approved concepts:", error);
-        setApprovedConcepts(MOCK_CONCEPTS);
-      } finally {
-        setIsLoadingConcepts(false);
+    if (rawDraft) {
+      form.reset({
+        title: rawDraft.title || "",
+        description: rawDraft.overview?.executiveSummary || rawDraft.description || "",
+        type: (rawDraft.docType?.name ? rawDraft.docType.name.toLowerCase() : "policy") as any,
+        category: rawDraft.category || "Education",
+      });
+
+      if (rawDraft.overview?.file) {
+        setSelectedFile({
+          name: rawDraft.overview.file.split("/").pop() || "Draft_Document.pdf",
+          size: 0,
+          type: "application/pdf"
+        });
+      }
+
+      if (rawDraft.concept_note?.id || rawDraft.concept_note) {
+        setSelectedConceptId(String(rawDraft.concept_note.id || rawDraft.concept_note));
       }
     }
-    loadApprovedConcepts();
-  }, []);
-
-  useEffect(() => {
-    async function loadPolicy() {
-      if (!id) return;
-      try {
-        const response = await policyApi.getPolicy(id);
-        if (response.success && response.data) {
-          const policy = response.data;
-          form.reset({
-            title: policy.title,
-            description: policy.description || "",
-            type: policy.type,
-            category: policy.category || "Education",
-          });
-          
-          if (policy.attachments && policy.attachments.length > 0) {
-            const att = policy.attachments[0];
-            setSelectedFile({
-              name: att.name,
-              size: att.size,
-              type: att.type || "application/pdf",
-            });
-            setExistingAttachments(policy.attachments);
-          }
-
-          // Pre-populate matching concept note ID
-          const matchedConcept = approvedConcepts.find(c => c.title === policy.title);
-          if (matchedConcept) {
-            setSelectedConceptId(matchedConcept.id);
-          } else {
-            setSelectedConceptId("CN-2024-002"); // default mock fallback matching strategy/standards
-          }
-        } else {
-          toast.error("Policy draft not found");
-          router.push("/policies/drafts/my-drafts");
-        }
-      } catch (error) {
-        console.error("Failed to load policy draft:", error);
-        toast.error("Failed to load policy draft details");
-      } finally {
-        setIsLoadingPolicy(false);
-      }
-    }
-    if (!isLoadingConcepts) {
-      loadPolicy();
-    }
-  }, [id, form, router, isLoadingConcepts, approvedConcepts]);
+  }, [rawDraft, form]);
 
   const handleConceptSelect = (conceptId: string) => {
     setSelectedConceptId(conceptId);
-    const concept = approvedConcepts.find((c) => c.id === conceptId);
+    const concept = approvedConcepts.find((c) => String(c.id) === conceptId);
     if (concept) {
       form.setValue("title", concept.title);
-      form.setValue("type", concept.policyType);
+      form.setValue("type", (concept.docType?.name ? concept.docType.name.toLowerCase() : "policy") as any);
     }
   };
 
@@ -181,40 +118,66 @@ export default function EditPolicyDraftPage() {
 
     setIsSaving(true);
     try {
-      let attachments = existingAttachments;
-      
+      // 1. Submit PATCH to update draft metadata
+      const formData = new FormData();
+      formData.append("title", data.title);
       if (selectedFile instanceof File) {
-        attachments = [{
-          id: `att-${Date.now()}`,
-          name: selectedFile.name,
-          size: selectedFile.size,
-          type: selectedFile.type,
-          url: URL.createObjectURL(selectedFile),
-          createdAt: new Date().toISOString()
-        }];
-      } else if (!selectedFile) {
-        attachments = [];
+        formData.append("draft_file", selectedFile);
+      }
+      
+      // Send concept note fields if needed
+      if (selectedConceptId) {
+        formData.append("concept_note", selectedConceptId);
       }
 
-      const response = await policyApi.updatePolicy(id, {
-        ...data,
-        status: submitForReview ? "under_review" : "draft",
-        attachments: attachments as any,
+      await apiClient.patch(API_ENDPOINTS.POLICY_DRAFTS.UPDATE(id), formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-      
-      if (response.success) {
-        toast.success(
-          submitForReview
-            ? "Policy draft submitted for expert review"
-            : "Policy draft updated successfully"
-        );
-        router.push(`/policies/drafts/my-drafts/${id}`);
+
+      // 2. Promote to submit if requested
+      if (submitForReview) {
+        await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(id));
+        toast.success("Policy draft submitted for expert review");
+        router.push("/policies/drafts/my-drafts");
       } else {
-        toast.error(response.message || "Failed to update policy draft");
+        toast.success("Policy draft updated successfully");
+        router.push(`/policies/drafts/my-drafts/${id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update policy draft:", error);
-      toast.error("An error occurred while updating the policy draft");
+      
+      let errorMessage = "An error occurred while updating the policy draft";
+      const apiError = error.errors || error.response?.data?.error;
+      
+      if (apiError) {
+        if (apiError.details) {
+          const detailMessages = Object.entries(apiError.details)
+            .map(([field, msgs]) => {
+              const formattedField = field
+                .replace(/([A-Z])/g, " $1")
+                .replace(/^./, (str) => str.toUpperCase());
+              const messages = Array.isArray(msgs) ? msgs.join(", ") : String(msgs);
+              return `${formattedField}: ${messages}`;
+            })
+            .join("\n");
+          
+          if (detailMessages) {
+            errorMessage = detailMessages;
+          } else {
+            errorMessage = apiError.message || errorMessage;
+          }
+        } else {
+          errorMessage = apiError.message || errorMessage;
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message && error.message !== "[object Object]") {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -309,10 +272,10 @@ export default function EditPolicyDraftPage() {
                     <SelectContent>
                       {approvedConcepts.length > 0 ? (
                         approvedConcepts.map((concept) => (
-                          <SelectItem key={concept.id} value={concept.id}>
+                          <SelectItem key={concept.id} value={String(concept.id)}>
                             <div className="flex flex-col py-1">
                               <span className="font-bold">{concept.title}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase">{concept.id} · {POLICY_TYPES[concept.policyType]?.label || concept.policyType}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">{concept.id} · {concept.docType?.name || "Concept Note"}</span>
                             </div>
                           </SelectItem>
                         ))
@@ -480,8 +443,8 @@ export default function EditPolicyDraftPage() {
                     <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Requirements</h4>
                     <ul className="space-y-2">
                        <li className="flex items-center gap-2 text-xs text-slate-600">
-                          <div className={cn("h-4 w-4 rounded-full flex items-center justify-center", form.watch("title").length >= 10 ? "bg-green-100 text-green-600" : "bg-muted text-muted-foreground")}>
-                            {form.watch("title").length >= 10 ? <Plus className="h-3 w-3" /> : <div className="h-1 w-1 bg-current rounded-full" />}
+                          <div className={cn("h-4 w-4 rounded-full flex items-center justify-center", (form.watch("title") || "").length >= 10 ? "bg-green-100 text-green-600" : "bg-muted text-muted-foreground")}>
+                            {(form.watch("title") || "").length >= 10 ? <Plus className="h-3 w-3" /> : <div className="h-1 w-1 bg-current rounded-full" />}
                           </div>
                           Title (Min 10 chars)
                        </li>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,6 +11,11 @@ import {
   CheckCircle2,
   Clock,
   Users,
+  AlertTriangle,
+  MessageSquare,
+  Loader2,
+  ThumbsUp,
+  RotateCcw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,120 +33,181 @@ import { StatusBadge } from "@/components/shared";
 import { POLICY_TYPES } from "@/lib/constants";
 import type { PolicyStatus, PolicyType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
-
-// Mock Data structure aligned with DraftTabs component
-const getDraftMock = (id: string) => ({
-  id,
-  title: "Digital Health Strategy 2025-2030 Draft",
-  versionNumber: "v1.2.0",
-  type: "strategy" as PolicyType,
-  status: "under_review" as PolicyStatus,
-  submissionDate: "2024-05-02T10:00:00Z",
-  submittedBy: { firstName: "Yohannes", lastName: "Girma", role: "Director" },
-  conceptNoteId: "cn-002",
-  executiveSummary:
-    "This comprehensive draft expands upon the approved concept note, detailing the strategic implementation of digital health resources across national primary and secondary care centers. It includes robust budget forecasts, systemic integration plans, and a 5-year rollout timeline.",
-  draftFile: { name: "DHS_Draft_v1.2.pdf", size: "4.5 MB" },
-  versionHistory: [
-    { 
-      version: "v1.2.0", 
-      date: "2024-05-02T10:00:00Z", 
-      author: { firstName: "Yohannes", lastName: "Girma" }, 
-      description: "Comprehensive expansion of e-Health architecture and regional budget forecasting.", 
-      status: "current",
-      size: "4.5 MB"
-    },
-    { 
-      version: "v1.1.0", 
-      date: "2024-04-15T09:30:00Z", 
-      author: { firstName: "Yohannes", lastName: "Girma" }, 
-      description: "Initial draft structure incorporating core research findings and objectives.", 
-      status: "archived",
-      size: "3.2 MB"
-    },
-    { 
-      version: "v1.0.1", 
-      date: "2024-04-02T16:45:00Z", 
-      author: { firstName: "Yohannes", lastName: "Girma" }, 
-      description: "Pre-draft alignment with ratified concept note objectives.", 
-      status: "archived",
-      size: "1.8 MB"
-    }
-  ],
-  reviews: [
-    {
-      id: "REV-001",
-      version: "v1.2.0",
-      reviewer: { 
-        id: "r1", 
-        firstName: "Abebe", 
-        lastName: "Kebede", 
-        position: "Public Health Lead",
-        institution: "Federal Ministry of Health"
-      },
-      status: "completed",
-      score: 85,
-      comments: "The draft is technically sound and aligns well with the national e-Health architecture.",
-      createdAt: "2024-05-10T14:30:00Z",
-      checklist: [
-        { category: "Technical Alignment", passed: true, feedback: "Excellent alignment." },
-        { category: "Feasibility", passed: true, feedback: "Highly feasible." },
-        { category: "Strategic Impact", passed: true, feedback: "High impact." }
-      ]
-    },
-    {
-      id: "REV-002",
-      version: "v1.2.0",
-      reviewer: { 
-        id: "r2", 
-        firstName: "Sara", 
-        lastName: "Yohannes", 
-        position: "Digital Health Architect",
-        institution: "EPHI"
-      },
-      status: "completed",
-      score: 88,
-      comments: "Solid architecture. Recommend updating API docs.",
-      createdAt: "2024-05-12T09:15:00Z",
-      checklist: [
-        { category: "System Integration", passed: true, feedback: "Supports legacy protocols." },
-        { category: "Security Compliance", passed: true, feedback: "Meets guidelines." }
-      ]
-    },
-    {
-      id: "REV-003",
-      version: "v1.2.0",
-      reviewer: { 
-        id: "r3", 
-        firstName: "Tigist", 
-        lastName: "Haile", 
-        position: "Policy Consultant",
-        institution: "WHO Regional Office"
-      },
-      status: "pending",
-      score: null,
-      comments: null,
-      createdAt: "2024-05-13T11:00:00Z",
-      checklist: []
-    }
-  ],
-});
+import { usePolicyDraft, useAssignPSRDecision } from "@/lib/queries/policy-drafts";
+import { toast } from "sonner";
 
 export default function DraftDetailPage() {
   const params = useParams();
-  const [draft, setDraft] = useState<ReturnType<typeof getDraftMock>>(
-    getDraftMock((params as any)?.id || "d-001"),
-  );
-  const [isLoading, setIsLoading] = useState(true);
+  const draftId = (params as any)?.id;
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data: rawDraft, isLoading } = usePolicyDraft(draftId);
+  const decisionMutation = useAssignPSRDecision();
 
-  if (isLoading) {
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+  const [decision, setDecision] = useState<"psr_approved" | "resubmission_required">("psr_approved");
+  const [comments, setComments] = useState("");
+
+  const draft = useMemo(() => {
+    if (!rawDraft) return null;
+    
+    // 1. Basic status mapping
+    const statusMap: Record<string, string> = {
+      "draft": "draft",
+      "submitted": "submitted",
+      "under_review": "under_review",
+      "review_completed": "review_completed",
+      "psr_approved": "approved",
+      "repository_registered": "approved",
+      "resubmission_required": "resubmission_required",
+      "resubmitted": "resubmitted"
+    };
+
+    const statusValue = typeof rawDraft.currentStatus === "string" 
+      ? rawDraft.currentStatus 
+      : rawDraft.currentStatus?.status || rawDraft.current_status || "draft";
+      
+    const resolvedStatus = statusMap[String(statusValue).toLowerCase()] || "under_review";
+
+    // 2. Map expert reviews from expertFeedback
+    const reviewsList: any[] = [];
+    const expertFeedback = rawDraft.expertFeedback || [];
+    
+    expertFeedback.forEach((vFeed: any) => {
+      const version = vFeed.versionNumber || "v1.0.0";
+      const details = vFeed.feedbackDetail || [];
+      
+      details.forEach((det: any, index: number) => {
+        const reviewerName = det.expertReviewer?.fullName || "Anonymous Reviewer";
+        const [firstName, ...rest] = reviewerName.split(" ");
+        const lastName = rest.join(" ") || "Reviewer";
+        
+        const checklist = (det.checklistBreakdown || []).map((chk: any) => ({
+          category: chk.questionText || "Criterion",
+          passed: chk.isPassed || chk.fulfillment === "yes",
+          feedback: chk.reviewerNote || ""
+        }));
+
+        reviewsList.push({
+          id: String(det.id || `REV-${version}-${index}`),
+          version: version,
+          reviewer: {
+            id: String(det.expertReviewer?.id || `r-${index}`),
+            firstName: firstName,
+            lastName: lastName,
+            position: "Expert Evaluator",
+            institution: "PSR Council"
+          },
+          status: det.currentStatus === "graded" || det.finalDecisionStatus === "completed" ? "completed" : "pending",
+          score: det.score,
+          comments: det.comment,
+          createdAt: det.commentGivenAt || new Date().toISOString(),
+          checklist: checklist
+        });
+      });
+    });
+
+    // 3. Map version history
+    const versions = rawDraft.versions || [];
+    const versionHistory = versions.map((ver: any) => {
+      const authorName = ver.createdByName || "Author";
+      const [firstName, ...rest] = authorName.split(" ");
+      const lastName = rest.join(" ") || "";
+      
+      return {
+        version: ver.versionNumber || "v1.0.0",
+        date: ver.createdAt || new Date().toISOString(),
+        author: { firstName, lastName },
+        description: ver.isResubmission ? "Revised resubmission following expert feedback." : "Initial draft document submission.",
+        status: ver.isLatest ? "current" : "archived",
+        size: "Document File",
+        file: ver.file || ""
+      };
+    });
+
+    // 4. Map timeline
+    const timeline = (rawDraft.timeline || []).map((t: any) => ({
+      eventType: t.eventType,
+      title: t.title,
+      actor: t.actor,
+      actorPhoto: t.actorPhoto,
+      timestamp: t.timestamp,
+      version: t.version
+    }));
+
+    return {
+      id: String(rawDraft.id),
+      title: rawDraft.title || "Policy Draft",
+      versionNumber: rawDraft.currentStatus?.version || rawDraft.versionNumber || "v1.0.0",
+      type: (rawDraft.docType?.name ? rawDraft.docType.name.toLowerCase() : "policy") as any,
+      status: resolvedStatus as any,
+      submissionDate: rawDraft.submittedBy?.submittedAt || rawDraft.submissionDate || new Date().toISOString(),
+      submittedBy: {
+        firstName: rawDraft.submittedBy?.fullName?.split(" ")[0] || "Proposed",
+        lastName: rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") || "User",
+        role: "Submitter"
+      },
+      conceptNoteId: rawDraft.currentStatus?.conceptId || "CN",
+      executiveSummary: rawDraft.overview?.executiveSummary || rawDraft.executiveSummary || "No summary provided.",
+      draftFile: {
+        name: rawDraft.overview?.file?.split("/").pop() || "Draft_Document.pdf",
+        size: "PDF Document"
+      },
+      url: rawDraft.overview?.file || "",
+      versionHistory: versionHistory,
+      reviews: reviewsList,
+      timeline: timeline
+    };
+  }, [rawDraft]);
+
+  const handleSaveDecision = async () => {
+    try {
+      await decisionMutation.mutateAsync({
+        draftId: draftId,
+        psr_decision: decision,
+        psr_comments: comments,
+      });
+      toast.success(
+        decision === "psr_approved"
+          ? "Policy draft successfully approved!"
+          : "Revision request successfully recorded."
+      );
+      setIsApproveModalOpen(false);
+      setComments("");
+    } catch (error: any) {
+      // Axios interceptor normalizes errors to ApiError: { message, status, errors }
+      const errors = error.errors;
+      let errorMessage = "Failed to submit decision. Please try again.";
+
+      if (errors) {
+        if (errors.review) {
+          errorMessage = Array.isArray(errors.review) ? errors.review[0] : errors.review;
+        } else if (typeof errors === "object") {
+          const firstKey = Object.keys(errors)[0];
+          if (firstKey) {
+            const fieldError = errors[firstKey];
+            errorMessage = Array.isArray(fieldError) ? fieldError[0] : fieldError;
+          }
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
+    }
+  };
+
+  if (isLoading || !draft) {
     return (
       <PageContainer title="Loading Draft Details...">
         <div className="space-y-6">
@@ -161,23 +227,21 @@ export default function DraftDetailPage() {
       description={`Viewing Draft Document: ${draft.id}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild className="shadow-sm">
+          <Button variant="outline" size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
             <Link href="/policies/drafts/manage-drafts">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back 
             </Link>
           </Button>
-          <Button size="sm" asChild className="shadow-sm">
+          <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5" variant="outline">
             <Link href={`/policies/drafts/manage-drafts/${draft.id}/assign`}>
               <Users className="mr-2 h-4 w-4" />
               Assign Reviewers
             </Link>
           </Button>
-          <Button size="sm" asChild className="shadow-sm">
-            <Link href={`/policies/drafts/manage-drafts/${draft.id}/approve`}>
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-                Approve
-            </Link>
+          <Button size="sm" className="shadow-sm font-semibold" onClick={() => setIsApproveModalOpen(true)}>
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Approve / Review
           </Button>
         </div>
       }
@@ -188,7 +252,7 @@ export default function DraftDetailPage() {
         </div>
 
         <aside className="space-y-6">
-          <Card className="shadow-sm">
+          <Card className="shadow-sm border-primary/10">
             <CardHeader className="pb-4">
               <CardTitle className="text-base">Metadata</CardTitle>
             </CardHeader>
@@ -201,8 +265,8 @@ export default function DraftDetailPage() {
                 <span className="text-sm text-muted-foreground">
                   Document Type
                 </span>
-                <span className="text-sm font-medium">
-                  {POLICY_TYPES[draft.type]?.label || draft.type}
+                <span className="text-sm font-medium capitalize">
+                  {POLICY_TYPES[draft.type as PolicyType]?.label || draft.type}
                 </span>
               </div>
               <Separator />
@@ -228,7 +292,7 @@ export default function DraftDetailPage() {
                       href={`/policies/concept-notes/${draft.conceptNoteId}`}
                       className="text-sm font-semibold text-primary hover:underline"
                     >
-                      {draft.conceptNoteId}
+                      CN-{draft.conceptNoteId}
                     </Link>
                   </div>
                 </div>
@@ -250,7 +314,7 @@ export default function DraftDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
+          <Card className="shadow-sm border-primary/10">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center justify-between">
                 Expert Reviewers{" "}
@@ -270,7 +334,7 @@ export default function DraftDetailPage() {
                 draft.reviews.map((rev) => (
                   <div
                     key={rev.id}
-                    className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border"
+                    className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border border-primary/5"
                   >
                     <div className="flex items-center gap-3">
                       <AvatarUI className="h-8 w-8">
@@ -301,8 +365,8 @@ export default function DraftDetailPage() {
                     {rev.score !== null && (
                       <Badge
                         className={cn(
-                          "font-mono font-bold",
-                          rev.score >= 70 ? "bg-green-600" : "bg-orange-500",
+                          "font-mono font-bold text-white",
+                          rev.score >= 75 ? "bg-green-600 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-50"
                         )}
                       >
                         {rev.score}%
@@ -315,6 +379,95 @@ export default function DraftDetailPage() {
           </Card>
         </aside>
       </div>
+
+      {/* Decision Dialog */}
+      <Dialog open={isApproveModalOpen} onOpenChange={setIsApproveModalOpen}>
+        <DialogContent className="sm:max-w-[500px] border-primary/10">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-foreground">Record PSR Decision</DialogTitle>
+            <DialogDescription>
+              Record the final governance or institutional decision for this policy draft.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Elegant Decision Switcher Cards */}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setDecision("psr_approved")}
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all gap-2 text-center",
+                  decision === "psr_approved"
+                    ? "border-primary bg-primary/5 text-primary shadow-sm"
+                    : "border-primary/10 hover:border-primary/20 bg-background text-muted-foreground"
+                )}
+              >
+                <span className="text-sm font-semibold">Approve Draft</span>
+                <span className="text-[10px] leading-tight">Ready for registry</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDecision("resubmission_required")}
+                className={cn(
+                  "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all gap-2 text-center",
+                  decision === "resubmission_required"
+                    ? "border-orange-500 bg-orange-50/30 text-orange-950 shadow-sm"
+                    : "border-primary/10 hover:border-primary/20 bg-background text-muted-foreground"
+                )}
+              >
+                <span className="text-sm font-semibold">Request Revision</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">Proposer needs to update</span>
+              </button>
+            </div>
+
+            {/* Detailed feedback text area */}
+            <div className="space-y-2">
+              <label htmlFor="comments" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                Comments & Review Notes
+              </label>
+              <Textarea
+                id="comments"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                placeholder="Provide detailed feedback supporting your policy decision..."
+                className="min-h-[120px] focus-visible:ring-primary border-primary/15"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsApproveModalOpen(false);
+                setComments("");
+              }}
+              className="border border-primary/10 hover:bg-primary/5"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveDecision}
+              disabled={decisionMutation.isPending}
+              className={cn(
+                "font-semibold text-white",
+                decision === "psr_approved" ? "bg-primary hover:bg-primary/90" : "bg-orange-600 hover:bg-orange-700"
+              )}
+            >
+              {decisionMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording...
+                </>
+              ) : (
+                "Record Decision"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }

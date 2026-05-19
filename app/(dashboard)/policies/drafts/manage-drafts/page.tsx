@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
@@ -31,10 +31,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
-import { DataTable, StatusBadge } from "@/components/shared";
-import { policyApi } from "@/api/client";
-import { POLICY_TYPES, POLICY_STATUSES } from "@/lib/constants";
-import type { PolicyDocument, PolicyStatus, PolicyType } from "@/lib/types";
+import { DataTable } from "@/components/shared";
+import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
+import { POLICY_TYPES } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -46,7 +45,7 @@ import {
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 
-const columns: ColumnDef<PolicyDocument>[] = [
+const columns: ColumnDef<any>[] = [
   {
     accessorKey: "title",
     header: ({ column }) => (
@@ -64,21 +63,21 @@ const columns: ColumnDef<PolicyDocument>[] = [
       return (
         <div className="flex flex-col gap-1.5 py-2 min-w-[280px] max-w-[400px]">
           <Link
-            href={`/policies/drafts/${policy.id}`}
+            href={`/policies/drafts/manage-drafts/${policy.id}`}
             className="font-bold text-[14px] leading-tight text-foreground hover:text-primary transition-colors line-clamp-2"
             onClick={(e) => e.stopPropagation()}
           >
             {policy.title}
           </Link>
           <p className="text-[12px] text-muted-foreground line-clamp-1">
-            {policy.description}
+            {policy.organization?.name || "Department of Health Policy"}
           </p>
         </div>
       );
     },
   },
   {
-    accessorKey: "version",
+    accessorKey: "versionNumber",
     header: ({ column }) => (
       <Button
         variant="ghost"
@@ -90,16 +89,16 @@ const columns: ColumnDef<PolicyDocument>[] = [
       </Button>
     ),
     cell: ({ row }) => {
-      const version = row.getValue("version") as string;
+      const versionNumber = row.getValue("versionNumber") as string;
       return (
         <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20">
-          v{version || "1.0.0"}
+          {versionNumber || "V1"}
         </Badge>
       );
     },
   },
   {
-    accessorKey: "type",
+    accessorKey: "docType",
     header: ({ column }) => (
       <Button
         variant="ghost"
@@ -111,43 +110,40 @@ const columns: ColumnDef<PolicyDocument>[] = [
       </Button>
     ),
     cell: ({ row }) => {
-      const type = row.getValue("type") as PolicyType;
+      const docType = row.original.docType;
       return (
         <Badge
           variant="outline"
           className="text-[11px] font-medium bg-muted/50 text-muted-foreground"
         >
-          {POLICY_TYPES[type]?.label || type}
+          {docType?.name || "Policy"}
         </Badge>
       );
     },
     filterFn: (row, id, value) => {
-      return value === row.getValue(id);
+      return value === row.original.docType?.name;
     },
   },
   {
-    accessorKey: "assignedReviewers",
-    header: () => <span className="ml-4 font-semibold">Expert Reviewers</span>,
+    accessorKey: "submittedBy",
+    header: () => <span className="ml-4 font-semibold">Submitted By</span>,
     cell: ({ row }) => {
-      const reviewers = row.original.assignedReviewers;
-      if (!reviewers || reviewers.length === 0) {
-        return <span className="text-muted-foreground text-[12px] ml-4 font-medium italic">Pending Assignment</span>;
+      const submitter = row.original.submittedBy;
+      if (!submitter) {
+        return <span className="text-muted-foreground text-[12px] ml-4 font-medium italic">Anonymous</span>;
       }
       return (
-        <div className="flex -space-x-2 ml-4">
-          {reviewers.slice(0, 3).map((reviewer) => (
-            <Avatar key={reviewer.id} className="h-8 w-8 border-2 border-background shadow-sm ring-1 ring-border/50">
-              <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                {reviewer.firstName?.[0]}
-                {reviewer.lastName?.[0]}
-              </AvatarFallback>
-            </Avatar>
-          ))}
-          {reviewers.length > 3 && (
-            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold border-2 border-background shadow-sm ring-1 ring-border/50 text-muted-foreground">
-              +{reviewers.length - 3}
-            </div>
-          )}
+        <div className="flex items-center gap-2 ml-4">
+          <Avatar className="h-8 w-8 border shadow-sm ring-1 ring-border/50">
+            <AvatarImage src={submitter.photoUrl || undefined} />
+            <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+              {submitter.fullName?.split(" ").map((n: string) => n[0]).join("") || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-foreground leading-tight">{submitter.fullName}</span>
+            <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{submitter.email}</span>
+          </div>
         </div>
       );
     },
@@ -193,11 +189,30 @@ const columns: ColumnDef<PolicyDocument>[] = [
       </Button>
     ),
     cell: ({ row }) => {
-      const status = row.getValue("status") as PolicyStatus;
-      return <StatusBadge type="policy" status={status} />;
+      const status = row.original.currentStatus;
+      const display = row.original.currentStatusDisplay || status;
+      
+      let badgeStyles = "bg-slate-100 text-slate-800 border-slate-200/50 hover:bg-slate-100";
+      if (["submitted", "resubmitted"].includes(status)) {
+        badgeStyles = "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50";
+      } else if (["under_review", "review_completed"].includes(status)) {
+        badgeStyles = "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50";
+      } else if (status === "psr_approved") {
+        badgeStyles = "bg-green-50 text-green-700 border-green-200 hover:bg-green-50";
+      } else if (status === "repository_registered") {
+        badgeStyles = "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50";
+      } else if (status === "resubmission_required") {
+        badgeStyles = "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50";
+      }
+      
+      return (
+        <Badge variant="outline" className={`font-semibold text-xs py-0.5 px-2.5 rounded-full ${badgeStyles}`}>
+          {display}
+        </Badge>
+      );
     },
     filterFn: (row, id, value) => {
-      return value === row.getValue(id);
+      return value === row.original.currentStatus;
     },
   },
   {
@@ -260,47 +275,43 @@ const columns: ColumnDef<PolicyDocument>[] = [
   },
 ];
 
-const typeOptions = Object.entries(POLICY_TYPES).map(([value, { label }]) => ({
-  value,
-  label,
-}));
+
 
 const statusOptions = [
-  { value: "draft", label: "Drafting" },
+  { value: "submitted", label: "Submitted" },
   { value: "under_review", label: "Under Review" },
-  { value: "revision_requested", label: "Revision Requested" },
-  { value: "approved", label: "Approved" },
+  { value: "review_completed", label: "Review Completed" },
+  { value: "psr_approved", label: "PSR Approved" },
+  { value: "repository_registered", label: "Registered in Repository" },
+  { value: "resubmission_required", label: "Revision Requested" },
+  { value: "resubmitted", label: "Resubmitted" },
 ];
 
 export default function PolicyDraftsPage() {
   const router = useRouter();
-  const [policies, setPolicies] = useState<PolicyDocument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadPolicies() {
-      try {
-        const response = await policyApi.getPolicies({}, { page: 1, pageSize: 100 });
-        // Filter to show drafts and draft review statuses
-        const drafts = response.data.filter((p: PolicyDocument) =>
-          ["draft", "under_review", "revision_requested", "approved"].includes(p.status)
-        );
-        setPolicies(drafts);
-      } catch (error) {
-        console.error("Failed to load policies:", error);
-      } finally {
-        setIsLoading(false);
+  const { data: manageResponse, isLoading } = usePolicyDraftsManage();
+  const policies = manageResponse?.data || [];
+
+  const typeOptions = useMemo(() => {
+    const uniqueTypes = new Set<string>();
+    policies.forEach((p: any) => {
+      if (p.docType?.name) {
+        uniqueTypes.add(p.docType.name);
       }
-    }
-    loadPolicies();
-  }, []);
+    });
+    return Array.from(uniqueTypes).map((t) => ({
+      value: t,
+      label: t,
+    }));
+  }, [policies]);
 
   const stats = useMemo(() => {
     return {
       total: policies.length,
-      inReview: policies.filter((p) => p.status === "under_review").length,
-      revisions: policies.filter((p) => p.status === "revision_requested").length,
-      approved: policies.filter((p) => p.status === "approved").length,
+      inReview: policies.filter((p) => ["under_review", "review_completed"].includes(p.currentStatus)).length,
+      revisions: policies.filter((p) => p.currentStatus === "resubmission_required").length,
+      approved: policies.filter((p) => ["psr_approved", "repository_registered"].includes(p.currentStatus)).length,
     };
   }, [policies]);
 
@@ -412,7 +423,7 @@ export default function PolicyDraftsPage() {
             onRowClick={(policy) => router.push(`/policies/drafts/manage-drafts/${policy.id}`)}
             filterOptions={[
               {
-                key: "type",
+                key: "docType",
                 label: "Type",
                 options: typeOptions,
               },

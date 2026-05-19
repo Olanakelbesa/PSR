@@ -37,8 +37,9 @@ import {
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { policyApi } from "@/api/client";
 import { PolicyDocument } from "@/lib/types";
+import { usePolicyDrafts } from "@/lib/queries/policy-drafts";
+import { useRegisterPolicy } from "@/lib/queries/policy-repository";
 
 const READINESS = [
   { key: "title", label: "Policy title selected" },
@@ -70,36 +71,23 @@ export default function CreateRepositoryEntryPage() {
     publishNow: false,
   });
 
-  const [approvedDrafts, setApprovedDrafts] = useState<PolicyDocument[]>([]);
-  const [isLoadingDrafts, setIsLoadingDrafts] = useState(true);
+  const { data: approvedDraftsData = [], isLoading: isLoadingDrafts } = usePolicyDrafts({
+    current_status: "psr_approved",
+  });
 
-  useEffect(() => {
-    async function loadApprovedDrafts() {
-      try {
-        const response = await policyApi.getPolicies(
-          { status: "approved" },
-          { page: 1, pageSize: 100 },
-        );
-        setApprovedDrafts(response.data);
-      } catch (error) {
-        console.error("Failed to load approved drafts:", error);
-      } finally {
-        setIsLoadingDrafts(false);
-      }
-    }
-    loadApprovedDrafts();
-  }, []);
+  const approvedDrafts = approvedDraftsData || [];
+  const registerMutation = useRegisterPolicy();
 
   const handleDraftSelect = (draftId: string) => {
-    const draft = approvedDrafts.find((d) => d.id === draftId);
+    const draft = approvedDrafts.find((d) => String(d.id) === draftId);
     if (draft) {
       setForm((prev) => ({
         ...prev,
         title: draft.title,
-        type: draft.type,
-        organization: draft.createdBy?.institution || "Ministry of Education",
-        sourceDraft: draft.id,
-        description: draft.description,
+        type: draft.docType?.name || "",
+        organization: draft.organization?.name || "Addis Ababa Science and Technology University",
+        sourceDraft: String(draft.id),
+        description: `Executive summary for approved draft policy: ${draft.title}.`,
       }));
     }
   };
@@ -134,13 +122,22 @@ export default function CreateRepositoryEntryPage() {
     }
     setIsSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 1400));
+      await registerMutation.mutateAsync({
+        source_draft_id: Number(form.sourceDraft),
+        approval_date: form.approvalDate,
+        effective_date: form.effectiveDate,
+        next_review_date: form.nextReviewDate,
+        access_level: form.accessLevel.toLowerCase(),
+        publish_status: form.publishNow,
+        policy_document_source: selectedFile,
+      });
       toast.success(
         `Policy "${form.title}" has been registered in the repository.`,
       );
       router.push("/policies/repository");
-    } catch {
-      toast.error("Failed to register policy. Please try again.");
+    } catch (error: any) {
+      const serverMessage = error?.response?.data?.message || error?.message || "Failed to register policy. Please try again.";
+      toast.error(serverMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -203,11 +200,11 @@ export default function CreateRepositoryEntryPage() {
                   <SelectContent>
                     {approvedDrafts.length > 0 ? (
                       approvedDrafts.map((draft) => (
-                        <SelectItem key={draft.id} value={draft.id}>
-                          <div className="flex flex-col py-1">
+                        <SelectItem key={draft.id} value={String(draft.id)}>
+                          <div className="flex flex-col py-1 text-left">
                             <span className="font-bold">{draft.title}</span>
                             <span className="text-[10px] text-muted-foreground uppercase">
-                              {draft.id} · {draft.type}
+                              ID: {draft.id} · {draft.docType?.name || "Draft"}
                             </span>
                           </div>
                         </SelectItem>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { usePolicyDraft } from "@/lib/queries/policy-drafts";
 import {
   ArrowLeft,
   FileText,
@@ -31,117 +32,124 @@ import { cn } from "@/lib/utils";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
 
-// Mock Data structure aligned with DraftTabs component
-const getDraftMock = (id: string) => ({
-  id,
-  title: "Digital Health Strategy 2025-2030 Draft",
-  versionNumber: "v1.2.0",
-  type: "strategy" as PolicyType,
-  status: "under_review" as PolicyStatus,
-  submissionDate: "2024-05-02T10:00:00Z",
-  submittedBy: { firstName: "Yohannes", lastName: "Girma", role: "Director" },
-  conceptNoteId: "cn-002",
-  executiveSummary:
-    "This comprehensive draft expands upon the approved concept note, detailing the strategic implementation of digital health resources across national primary and secondary care centers. It includes robust budget forecasts, systemic integration plans, and a 5-year rollout timeline.",
-  draftFile: { name: "DHS_Draft_v1.2.pdf", size: "4.5 MB" },
-  versionHistory: [
-    { 
-      version: "v1.2.0", 
-      date: "2024-05-02T10:00:00Z", 
-      author: { firstName: "Yohannes", lastName: "Girma" }, 
-      description: "Comprehensive expansion of e-Health architecture and regional budget forecasting.", 
-      status: "current",
-      size: "4.5 MB"
-    },
-    { 
-      version: "v1.1.0", 
-      date: "2024-04-15T09:30:00Z", 
-      author: { firstName: "Yohannes", lastName: "Girma" }, 
-      description: "Initial draft structure incorporating core research findings and objectives.", 
-      status: "archived",
-      size: "3.2 MB"
-    },
-    { 
-      version: "v1.0.1", 
-      date: "2024-04-02T16:45:00Z", 
-      author: { firstName: "Yohannes", lastName: "Girma" }, 
-      description: "Pre-draft alignment with ratified concept note objectives.", 
-      status: "archived",
-      size: "1.8 MB"
-    }
-  ],
-  reviews: [
-    {
-      id: "REV-001",
-      version: "v1.2.0",
-      reviewer: { 
-        id: "r1", 
-        firstName: "Abebe", 
-        lastName: "Kebede", 
-        position: "Public Health Lead",
-        institution: "Federal Ministry of Health"
-      },
-      status: "completed",
-      score: 85,
-      comments: "The draft is technically sound and aligns well with the national e-Health architecture.",
-      createdAt: "2024-05-10T14:30:00Z",
-      checklist: [
-        { category: "Technical Alignment", passed: true, feedback: "Excellent alignment." },
-        { category: "Feasibility", passed: true, feedback: "Highly feasible." },
-        { category: "Strategic Impact", passed: true, feedback: "High impact." }
-      ]
-    },
-    {
-      id: "REV-002",
-      version: "v1.2.0",
-      reviewer: { 
-        id: "r2", 
-        firstName: "Sara", 
-        lastName: "Yohannes", 
-        position: "Digital Health Architect",
-        institution: "EPHI"
-      },
-      status: "completed",
-      score: 88,
-      comments: "Solid architecture. Recommend updating API docs.",
-      createdAt: "2024-05-12T09:15:00Z",
-      checklist: [
-        { category: "System Integration", passed: true, feedback: "Supports legacy protocols." },
-        { category: "Security Compliance", passed: true, feedback: "Meets guidelines." }
-      ]
-    },
-    {
-      id: "REV-003",
-      version: "v1.2.0",
-      reviewer: { 
-        id: "r3", 
-        firstName: "Tigist", 
-        lastName: "Haile", 
-        position: "Policy Consultant",
-        institution: "WHO Regional Office"
-      },
-      status: "pending",
-      score: null,
-      comments: null,
-      createdAt: "2024-05-13T11:00:00Z",
-      checklist: []
-    }
-  ],
-});
-
 export default function DraftDetailPage() {
   const params = useParams();
-  const [draft, setDraft] = useState<ReturnType<typeof getDraftMock>>(
-    getDraftMock((params as any)?.id || "d-001"),
-  );
-  const [isLoading, setIsLoading] = useState(true);
+  const draftId = (params as any)?.id;
+  const { data: rawDraft, isLoading } = usePolicyDraft(draftId);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const draft = useMemo(() => {
+    if (!rawDraft) return null;
+    
+    // 1. Basic status mapping
+    const statusMap: Record<string, string> = {
+      "draft": "draft",
+      "submitted": "submitted",
+      "under_review": "under_review",
+      "review_completed": "review_completed",
+      "psr_approved": "approved",
+      "repository_registered": "approved",
+      "resubmission_required": "resubmission_required",
+      "resubmitted": "resubmitted"
+    };
 
-  if (isLoading) {
+    const statusValue = typeof rawDraft.currentStatus === "string" 
+      ? rawDraft.currentStatus 
+      : rawDraft.currentStatus?.status || rawDraft.current_status || "draft";
+      
+    const resolvedStatus = statusMap[String(statusValue).toLowerCase()] || "under_review";
+
+    // 2. Map expert reviews from expertFeedback
+    const reviewsList: any[] = [];
+    const expertFeedback = rawDraft.expertFeedback || [];
+    
+    expertFeedback.forEach((vFeed: any) => {
+      const version = vFeed.versionNumber || "v1.0.0";
+      const details = vFeed.feedbackDetail || [];
+      
+      details.forEach((det: any, index: number) => {
+        const reviewerName = det.expertReviewer?.fullName || "Anonymous Reviewer";
+        const [firstName, ...rest] = reviewerName.split(" ");
+        const lastName = rest.join(" ") || "Reviewer";
+        
+        const checklist = (det.checklistBreakdown || []).map((chk: any) => ({
+          category: chk.questionText || "Criterion",
+          passed: chk.isPassed || chk.fulfillment === "yes",
+          feedback: chk.reviewerNote || ""
+        }));
+
+        reviewsList.push({
+          id: String(det.id || `REV-${version}-${index}`),
+          version: version,
+          reviewer: {
+            id: String(det.expertReviewer?.id || `r-${index}`),
+            firstName: firstName,
+            lastName: lastName,
+            position: "Expert Evaluator",
+            institution: "PSR Council"
+          },
+          status: det.currentStatus === "graded" || det.finalDecisionStatus === "completed" ? "completed" : "pending",
+          score: det.score,
+          comments: det.comment,
+          createdAt: det.commentGivenAt || new Date().toISOString(),
+          checklist: checklist
+        });
+      });
+    });
+
+    // 3. Map version history
+    const versions = rawDraft.versions || [];
+    const versionHistory = versions.map((ver: any) => {
+      const authorName = ver.createdByName || "Author";
+      const [firstName, ...rest] = authorName.split(" ");
+      const lastName = rest.join(" ") || "";
+      
+      return {
+        version: ver.versionNumber || "v1.0.0",
+        date: ver.createdAt || new Date().toISOString(),
+        author: { firstName, lastName },
+        description: ver.isResubmission ? "Revised resubmission following expert feedback." : "Initial draft document submission.",
+        status: ver.isLatest ? "current" : "archived",
+        size: "Document File",
+        file: ver.file || ""
+      };
+    });
+
+    // 4. Map timeline
+    const timeline = (rawDraft.timeline || []).map((t: any) => ({
+      eventType: t.eventType,
+      title: t.title,
+      actor: t.actor,
+      actorPhoto: t.actorPhoto,
+      timestamp: t.timestamp,
+      version: t.version
+    }));
+
+    return {
+      id: String(rawDraft.id),
+      title: rawDraft.title || "Policy Draft",
+      versionNumber: rawDraft.currentStatus?.version || rawDraft.versionNumber || "v1.0.0",
+      type: (rawDraft.docType?.name ? rawDraft.docType.name.toLowerCase() : "policy") as any,
+      status: resolvedStatus as any,
+      submissionDate: rawDraft.submittedBy?.submittedAt || rawDraft.submissionDate || new Date().toISOString(),
+      submittedBy: {
+        firstName: rawDraft.submittedBy?.fullName?.split(" ")[0] || "Proposed",
+        lastName: rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") || "User",
+        role: "Submitter"
+      },
+      conceptNoteId: rawDraft.currentStatus?.conceptId || "CN",
+      executiveSummary: rawDraft.overview?.executiveSummary || rawDraft.executiveSummary || "No summary provided.",
+      draftFile: {
+        name: rawDraft.overview?.file?.split("/").pop() || "Draft_Document.pdf",
+        size: "PDF Document"
+      },
+      url: rawDraft.overview?.file || "",
+      versionHistory: versionHistory,
+      reviews: reviewsList,
+      timeline: timeline
+    };
+  }, [rawDraft]);
+
+  if (isLoading || !draft) {
     return (
       <PageContainer title="Loading Draft Details...">
         <div className="space-y-6">
@@ -196,7 +204,7 @@ export default function DraftDetailPage() {
                   Document Type
                 </span>
                 <span className="text-sm font-medium">
-                  {POLICY_TYPES[draft.type]?.label || draft.type}
+                  {POLICY_TYPES[draft.type as PolicyType]?.label || draft.type}
                 </span>
               </div>
               <Separator />
