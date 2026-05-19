@@ -32,6 +32,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/landing/Footer";
 
 function RevealOnScroll({
   children,
@@ -118,73 +120,7 @@ export default function LandingPage() {
       />
 
       {/* Navigation */}
-      <header
-        className={cn(
-          "fixed top-0 w-full z-50 transition-all duration-300 h-20 border-b",
-          isScrolled
-            ? "bg-background/80 backdrop-blur-xl"
-            : "bg-transparent",
-        )}
-      >
-        <div className="container mx-auto px-4 h-full flex items-center justify-between">
-          <div className="flex items-center gap-2 group cursor-pointer">
-            <div
-              className={cn(
-                "rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20 transition-all duration-300 h-10 w-10",
-              )}
-            >
-              <FileText
-                className={cn("text-primary-foreground transition-all h-5 w-5")}
-              />
-            </div>
-            <div className="flex flex-col -space-y-0.5">
-              <span
-                className={cn(
-                  "font-bold tracking-tighter uppercase transition-all text-xl",
-                )}
-              >
-                PSR
-              </span>
-              {!isScrolled && (
-                <span className="text-[8px] font-bold text-muted-foreground tracking-[0.2em] uppercase">
-                  Platform
-                </span>
-              )}
-            </div>
-          </div>
-
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-muted-foreground/70">
-            {["Home", "About Us", "Thematic Areas", "Attachments", "Research Calls", "Manuals"].map((item) => (
-              <Link
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="hover:text-primary transition-colors relative group"
-              >
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="hidden sm:flex font-bold hover:bg-primary/5 rounded-full px-4 text-sm h-9"
-            >
-              <Link href="/login">Sign In</Link>
-            </Button>
-            <Button
-              size="sm"
-              asChild
-              className="h-9 px-6 font-bold shadow-md shadow-primary/10 hover:scale-105 active:scale-95 transition-all text-sm"
-            >
-              <Link href="/signup">Get Started</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       <main className="flex-1">
         {/* Hero Section */}
@@ -626,94 +562,7 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-background border-t border-white/5 py-24">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-16 lg:gap-8 mb-24">
-            <div className="lg:col-span-4 space-y-8">
-              <div className="flex items-center gap-2">
-                <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                  <FileText className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <span className="text-xl font-bold tracking-tighter uppercase">
-                  PSR <span className="text-primary">Global</span>
-                </span>
-              </div>
-              <p className="text-muted-foreground text-sm leading-relaxed font-bold max-w-xs">
-                The world's most advanced operating system for policy
-                intelligence and research lifecycles.
-              </p>
-              <div className="flex items-center gap-4">
-                {[Globe, Users, Lock, BookOpen].map((Icon, i) => (
-                  <div
-                    key={i}
-                    className="h-10 w-10 rounded-xl bg-muted/30 flex items-center justify-center hover:bg-primary hover:text-primary-foreground cursor-pointer transition-all duration-300"
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-8">
-              {[
-                {
-                  title: "Platform",
-                  links: [
-                    "Repository",
-                    "Grant Calls",
-                    "Review System",
-                    "Impact Labs",
-                  ],
-                },
-                {
-                  title: "Solutions",
-                  links: ["Government", "Education", "Health", "Enterprise"],
-                },
-                {
-                  title: "Resources",
-                  links: ["Docs", "Case Studies", "API", "Status"],
-                },
-                {
-                  title: "Company",
-                  links: ["About", "Contact", "Privacy", "Audits"],
-                },
-              ].map((col, i) => (
-                <div key={i} className="space-y-6">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
-                    {col.title}
-                  </h4>
-                  <ul className="space-y-4">
-                    {col.links.map((link, j) => (
-                      <li key={j}>
-                        <Link
-                          href="#"
-                          className="text-xs text-muted-foreground font-bold hover:text-primary transition-all flex items-center group"
-                        >
-                          {link}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-[9px] text-muted-foreground font-bold uppercase tracking-widest">
-            <p>© 2026 PSR Global Intelligence.</p>
-            <div className="flex items-center gap-10">
-              <Link href="#" className="hover:text-primary transition-colors">
-                Privacy
-              </Link>
-              <Link href="#" className="hover:text-primary transition-colors">
-                Terms
-              </Link>
-              <Link href="#" className="hover:text-primary transition-colors">
-                Security
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

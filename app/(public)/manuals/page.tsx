@@ -1,296 +1,401 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import dynamicImport from "next/dynamic";
-import { motion } from "framer-motion";
-import { Footer } from "@/components/landing/Footer";
-import {
-  Download,
-  ZoomIn,
-  ZoomOut,
-  BookOpen,
-  ArrowUp,
-  AlertTriangle,
-} from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { BookOpen, Download, Search, ChevronDown, Award, Users, BookOpen as BookIcon, ShieldCheck, HelpCircle, ArrowUp } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
-// Dynamically import react-pdf with SSR disabled to prevent DOMMatrix error
-const Document = dynamicImport(
-  () => import("react-pdf").then((mod) => mod.Document),
-  { ssr: false },
-);
+interface DocSection {
+  id: string;
+  title: string;
+  category: "Researcher Guide" | "Reviewer Guide" | "Administrator Guide";
+  description: string;
+  steps: string[];
+  tips?: string;
+}
 
-const Page = dynamicImport(() => import("react-pdf").then((mod) => mod.Page), {
-  ssr: false,
-});
-
-// Prevent prerendering - react-pdf requires browser APIs like DOMMatrix
-export const dynamic = "force-dynamic";
+const DOCUMENTATION_SECTIONS: DocSection[] = [
+  {
+    id: "res-01",
+    category: "Researcher Guide",
+    title: "1. Drafting and Submitting Concept Notes",
+    description: "Learn how to register and pitch your initial research project concept for institutional evaluation.",
+    steps: [
+      "Navigate to the dashboard and log in with your Researcher account credentials.",
+      "Click on 'Concept Notes' from the primary sidebar and select 'Create New Concept Note'.",
+      "Select the appropriate Research Call from the active calls list to automatically link the priority framework.",
+      "Complete the Title, Rationale, and Methodology fields. Ensure you select the relevant Sub-Thematic Area.",
+      "Upload your preliminary project timeline (PDF) and click 'Submit'. Your note status will update to 'Submitted'."
+    ],
+    tips: "Keep your concept note concise. Focus on the core policy impact and feasibility within the requested budget range."
+  },
+  {
+    id: "res-02",
+    category: "Researcher Guide",
+    title: "2. Formulating Full Research Proposals",
+    description: "Once your Concept Note is approved, compile the comprehensive research budget and milestones.",
+    steps: [
+      "Access your dashboard under 'Approved Concept Notes' and click 'Proceed to Full Proposal'.",
+      "Draft the detailed Literature Review and Research Methodology sections.",
+      "Under the 'Budget and Milestones' tab, divide your budget into installments (e.g. Inception, Mid-Term, Draft, Final Report).",
+      "Provide bank information and legal letters for co-investigators if applicable.",
+      "Attach research ethics clearance forms and click 'Submit Proposal' to initiate formal peer review."
+    ],
+    tips: "Ensure that each milestone cost matches the institutional standard rates guide available in the Attachments catalog."
+  },
+  {
+    id: "rev-01",
+    category: "Reviewer Guide",
+    title: "1. Accessing and Auditing Assigned Proposals",
+    description: "A step-by-step walkthrough for evaluating research proposals assigned to your domain.",
+    steps: [
+      "Log in as a Reviewer and click 'Assigned Reviews' on your portal homepage.",
+      "Click 'Open Proposal' to review the submitted abstract, methodology, and co-investigator credentials.",
+      "Download any supporting attachments directly from the document sidebar.",
+      "Use the evaluation rubric to assign grades (1 to 5) across Scientific Merit, Policy Relevance, and Financial Feasibility."
+    ],
+    tips: "Save draft comments if you need to double-check details before finalizing your evaluation. Comments cannot be edited after final submission."
+  },
+  {
+    id: "rev-02",
+    category: "Reviewer Guide",
+    title: "2. Submitting Feedback and Funding Recommendations",
+    description: "Submit your final scores and decide whether to recommend funding, revisions, or rejection.",
+    steps: [
+      "Provide a detailed rationale in the 'Review Comments' textbox outlining specific revisions required.",
+      "Select one of the recommendation states: Approved, Minor Revisions, Major Revisions, or Rejected.",
+      "Click 'Submit Evaluation' to push the proposal back to the PSR Officer review queue."
+    ]
+  },
+  {
+    id: "adm-01",
+    category: "Administrator Guide",
+    title: "1. Orchestrating Active Research Grant Calls",
+    description: "Guidelines for Administrators and PSR Officers to set up new institutional funding rounds.",
+    steps: [
+      "Log in as an Administrator/PSR Officer and navigate to 'Grant Management' > 'Create Grant Call'.",
+      "Define the Call Title, Category (e.g., Strategic, Specialized, Thematic), and Description.",
+      "Specify key dates: Open Date, Submission Deadline, and Review Completion Date.",
+      "Add priority research thematic areas and detail eligibility rules.",
+      "Click 'Publish Call' to immediately display it in the public index and open the portal for researcher submissions."
+    ]
+  },
+  {
+    id: "adm-02",
+    category: "Administrator Guide",
+    title: "2. User Registration and Verification Audits",
+    description: "Learn how to review, approve, and verify new users registered on the platform.",
+    steps: [
+      "Go to the 'User Directory' section of the Admin Dashboard.",
+      "Filter by 'Pending Verification' to view newly registered accounts.",
+      "Inspect uploaded institutional IDs and professional profiles.",
+      "Toggle status from 'Inactive' to 'Active' to allow researchers to submit proposals."
+    ],
+    tips: "Always check that the user's registered institution matches the official list of authorized universities."
+  }
+];
 
 export default function ManualsPage() {
-  const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
-  const [scale, setScale] = useState<number>(1.0);
-  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [expandedId, setExpandedId] = useState<string | null>("res-01");
+  const [downloading, setDownloading] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // Configure PDF.js worker on client-side using jsdelivr CDN (more reliable with Turbopack)
   useEffect(() => {
-    import("react-pdf").then((mod) => {
-      mod.pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.mjs`;
-    });
-
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 400);
-    };
+    const handleScroll = () => setShowScrollTop(window.scrollY > 400);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-    setNumPages(numPages);
-    setError(null);
-  }
+  const filteredDoc = useMemo(() => {
+    let result = DOCUMENTATION_SECTIONS;
 
-  function onDocumentLoadError(err: Error) {
-    console.error("Error loading PDF:", err);
-    setError("Failed to load PDF. Please verify the file exists.");
-  }
+    if (selectedCategory !== "All") {
+      result = result.filter((doc) => doc.category === selectedCategory);
+    }
 
-  const zoomIn = () => {
-    setScale((prev) => Math.min(prev + 0.2, 3.0));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (doc) =>
+          doc.title.toLowerCase().includes(q) ||
+          doc.description.toLowerCase().includes(q) ||
+          doc.steps.some((step) => step.toLowerCase().includes(q))
+      );
+    }
+
+    return result;
+  }, [searchQuery, selectedCategory]);
+
+  const handleDownload = () => {
+    setDownloading(true);
+    setTimeout(() => {
+      setDownloading(false);
+      // Trigger small mock file download representing the guide book
+      const element = document.createElement("a");
+      const file = new Blob(["PSR Platform Full System Documentation Guide Book (PDF Mock)"], { type: "text/plain" });
+      element.href = URL.createObjectURL(file);
+      element.download = "PSR_Platform_User_Manual.pdf";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    }, 1200);
   };
 
-  const zoomOut = () => {
-    setScale((prev) => Math.max(prev - 0.2, 0.5));
-  };
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case "Researcher Guide":
+        return <BookIcon className="w-4 h-4" />;
+      case "Reviewer Guide":
+        return <Award className="w-4 h-4" />;
+      default:
+        return <ShieldCheck className="w-4 h-4" />;
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="grow w-full">
         {/* Hero Section */}
-        <section className="relative w-full h-[450px] md:h-[550px] overflow-hidden">
-          <div className="absolute inset-0 bg-linear-to-br from-slate-900/90 via-slate-800/80 to-slate-900/90 dark:from-gray-950/95 dark:via-gray-900/90 dark:to-gray-950/95 z-10"></div>
-
-          {/* Animated Background Blobs */}
+        <section className="relative w-full h-[380px] md:h-[480px] overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 z-10 opacity-90" />
+          
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <motion.div
-              className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-primary/20 dark:bg-primary/30 rounded-full blur-3xl"
-              animate={{
-                x: [0, 50, 0],
-                y: [0, -30, 0],
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 20,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            ></motion.div>
+              className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl"
+              animate={{ x: [0, 20, 0], y: [0, -10, 0] }}
+              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+            />
             <motion.div
-              className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-accent/20 dark:bg-accent/30 rounded-full blur-3xl"
-              animate={{
-                x: [0, -40, 0],
-                y: [0, 40, 0],
-                scale: [1, 1.15, 1],
-              }}
-              transition={{
-                duration: 25,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 2,
-              }}
-            ></motion.div>
+              className="absolute bottom-[-10%] left-[-5%] w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-3xl"
+              animate={{ x: [0, -15, 0], y: [0, 15, 0] }}
+              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            />
           </div>
 
           <Image
-            alt="University library interior"
-            className="absolute inset-0 w-full h-full object-cover grayscale opacity-30 dark:opacity-20 z-0"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtgWFKZBVsEOSRkoLY3wofXYPogSclpr4XJi_LJd4PJKJajUAhkbVLRP1ISrqfT4tUXl-VLa50fsXGE2aKsaBeVv7f82AUHXQzkQHDjvtQH2Q6FwxeuRy6d-jJogv8paV9H9Pcs4tXNqv2197HzLN92bnLTlflxCOwN2DCkP04vt-Ph5FWxE3KMjI_jG1TqPDNICU0pV17idJVpcuGTezwgwxxEPEg6JhHdrD_1_cmREbRKPA5ZDE35bTvpZ3P4K59XlJorLRdpgo"
+            alt="Library interior"
+            className="absolute inset-0 w-full h-full object-cover opacity-15 z-0 grayscale"
+            src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&q=80&w=1920"
             width={1920}
             height={1080}
           />
-
+          
           <div className="relative z-20 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-accent/20 text-secondary dark:text-secondary text-sm font-medium mb-6"
+              transition={{ duration: 0.5 }}
+              className="space-y-4"
             >
-              <BookOpen className="w-4 h-4" />
-              Resource Center
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
+                User Manuals & <span className="text-primary">Guides</span>
+              </h1>
+              <p className="max-w-2xl text-base md:text-lg text-slate-350 leading-relaxed mx-auto">
+                Comprehensive step-by-step guides, walkthroughs, and tip sheets to master proposal drafting, reviews, and administration.
+              </p>
             </motion.div>
-
-            <motion.h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 tracking-tight"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <span className="text-accent">User Manuals & Guides</span>
-            </motion.h1>
-
-            <motion.p
-              className="max-w-2xl text-lg text-slate-300 leading-relaxed"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              Comprehensive resources and step-by-step guides for using the
-              research portal. Master all features with our detailed
-              documentation.
-            </motion.p>
           </div>
         </section>
 
-        {/* PDF Viewer Section */}
-        <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            {/* PDF Controls */}
-            <div className="flex flex-wrap items-center justify-between p-6 border-b border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900/50">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Portal Documentation
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-3 mt-4 sm:mt-0">
-                <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-1">
-                  <Button
-                    onClick={zoomOut}
-                    variant="ghost"
-                    size="icon"
-                    disabled={scale <= 0.5}
-                    className="h-9 w-9 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </Button>
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300 min-w-14 text-center">
-                    {Math.round(scale * 100)}%
-                  </span>
-                  <Button
-                    onClick={zoomIn}
-                    variant="ghost"
-                    size="icon"
-                    disabled={scale >= 3.0}
-                    className="h-9 w-9 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <Button
-                  asChild
-                  className="bg-primary hover:bg-primary/90 text-white rounded-lg shadow-md transition-all active:scale-95"
-                >
-                  <a href="/manualpi.pdf" download>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </a>
-                </Button>
-              </div>
-            </div>
-
-            {/* PDF Viewer - Scrollable */}
-            <div
-              className="overflow-y-auto bg-slate-100 dark:bg-gray-950 p-6 md:p-10"
-              style={{ maxHeight: "calc(100vh - 300px)", minHeight: "600px" }}
-            >
-              {error ? (
-                <div className="flex flex-col items-center justify-center h-[500px] text-red-500 space-y-4">
-                  <div className="p-4 rounded-full bg-red-50 dark:bg-red-900/20">
-                    <AlertTriangle className="w-12 h-12" />
+        {/* Catalog Section */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex flex-col lg:flex-row gap-8">
+            
+            {/* Left Sidebar - Navigation & Search */}
+            <div className="w-full lg:w-80 shrink-0 space-y-6">
+              <Card className="border border-white/5 bg-slate-900/30 p-6 rounded-2xl space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Search Guides</h3>
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                      type="text"
+                      placeholder="Search articles..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setExpandedId(null);
+                      }}
+                      className="pl-9 h-10 bg-muted/20 border-white/5 focus-visible:ring-primary rounded-xl"
+                    />
                   </div>
-                  <div className="text-center">
-                    <p className="text-xl font-bold">Failed to load PDF</p>
-                    <p className="text-slate-600 dark:text-slate-400 max-w-md mt-2">
-                      {error}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.location.reload()}
-                  >
-                    Try Again
-                  </Button>
                 </div>
-              ) : (
-                <Document
-                  file="/manualpi.pdf"
-                  onLoadSuccess={onDocumentLoadSuccess}
-                  onLoadError={onDocumentLoadError}
-                  loading={
-                    <div className="flex flex-col items-center justify-center h-[500px] space-y-4">
-                      <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                      <div className="text-slate-500 dark:text-slate-400 font-medium">
-                        Preparing document...
-                      </div>
-                    </div>
-                  }
-                  error={
-                    <div className="flex flex-col items-center justify-center h-[500px] text-red-500 space-y-4">
-                      <div className="p-4 rounded-full bg-red-50 dark:bg-red-900/20">
-                        <AlertTriangle className="w-12 h-12" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xl font-bold">Failed to load PDF</p>
-                        <p className="text-slate-600 dark:text-slate-400 mt-2">
-                          Please check the browser console for details
-                        </p>
-                      </div>
-                    </div>
-                  }
-                >
-                  <div className="flex flex-col items-center gap-8">
-                    {Array.from(new Array(numPages), (el, index) => (
-                      <motion.div
-                        key={`page_container_${index + 1}`}
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: index * 0.05 }}
-                        className="shadow-2xl rounded-lg overflow-hidden border border-slate-200 dark:border-gray-800"
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Select Profile</h3>
+                  <div className="flex flex-col gap-1">
+                    {["All", "Researcher Guide", "Reviewer Guide", "Administrator Guide"].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setExpandedId(null);
+                        }}
+                        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
+                          selectedCategory === cat
+                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
+                            : "hover:bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                        }`}
                       >
-                        <Page
-                          key={`page_${index + 1}`}
-                          pageNumber={index + 1}
-                          scale={scale}
-                          renderTextLayer={false}
-                          renderAnnotationLayer={false}
-                        />
-                      </motion.div>
+                        {getCategoryIcon(cat === "All" ? "Researcher Guide" : cat)}
+                        {cat}
+                      </button>
                     ))}
                   </div>
-                </Document>
+                </div>
+
+                <div className="pt-4 border-t border-white/5 space-y-3">
+                  <h4 className="text-xs font-bold text-foreground">Need Offline Copy?</h4>
+                  <Button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="w-full rounded-xl text-xs font-bold flex items-center justify-center gap-2 h-10"
+                  >
+                    {downloading ? (
+                      <>
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        Download Manual PDF
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Content - Documentation Cards */}
+            <div className="flex-grow space-y-4">
+              <AnimatePresence mode="popLayout">
+                {filteredDoc.map((doc) => {
+                  const isExpanded = expandedId === doc.id;
+                  
+                  return (
+                    <motion.div
+                      key={doc.id}
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : doc.id)}
+                          className="w-full flex items-start justify-between p-6 text-left hover:bg-white/[0.01] transition"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-primary/5 text-primary border border-primary/20 text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded">
+                                {doc.category}
+                              </Badge>
+                            </div>
+                            <h3 className="text-lg font-bold text-foreground leading-snug">
+                              {doc.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {doc.description}
+                            </p>
+                          </div>
+                          
+                          <ChevronDown
+                            className={`w-5 h-5 text-muted-foreground shrink-0 ml-4 transition-transform duration-300 ${
+                              isExpanded ? "rotate-180 text-primary" : ""
+                            }`}
+                          />
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0 }}
+                              animate={{ height: "auto" }}
+                              exit={{ height: 0 }}
+                              transition={{ duration: 0.2, ease: "easeInOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="px-6 pb-6 pt-2 border-t border-white/5 bg-slate-950/20 space-y-6">
+                                <div className="space-y-4">
+                                  <h4 className="text-xs font-bold text-foreground uppercase tracking-widest">
+                                    Step-by-Step Procedure
+                                  </h4>
+                                  <ol className="space-y-3">
+                                    {doc.steps.map((step, idx) => (
+                                      <li key={idx} className="flex gap-3 text-xs md:text-sm leading-relaxed text-muted-foreground">
+                                        <span className="flex items-center justify-center shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                                          {idx + 1}
+                                        </span>
+                                        <span className="pt-0.5">{step}</span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </div>
+
+                                {doc.tips && (
+                                  <div className="p-4 rounded-xl border border-primary/10 bg-primary/5 flex items-start gap-3">
+                                    <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                                    <div>
+                                      <h5 className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">Quick Pro-Tip</h5>
+                                      <p className="text-xs text-muted-foreground leading-relaxed">
+                                        {doc.tips}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {filteredDoc.length === 0 && (
+                <div className="py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
+                  <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-30" />
+                  <h3 className="text-lg font-bold text-foreground">No Help Articles Found</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
+                    No documentation pages match your search for "{searchQuery}". Try select a different user role or keyphrase.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("All");
+                    }}
+                    className="mt-4 border-white/5"
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
               )}
             </div>
+
           </div>
         </section>
+
       </main>
 
-      <Footer />
-
-      {/* Scroll to top */}
       {showScrollTop && (
-        <motion.button
-          onClick={scrollToTop}
-          className="fixed bottom-8 right-8 p-3 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 transition z-50"
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-8 right-8 p-3 rounded-full bg-primary text-white shadow-lg hover:scale-105 transition-all duration-200 z-50 hover:bg-primary/95"
         >
           <ArrowUp className="w-5 h-5" />
-        </motion.button>
+        </button>
       )}
     </div>
   );

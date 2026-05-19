@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
-import { Footer } from "@/components/landing/Footer";
 import Image from "next/image";
 
 export default function AboutPage() {
@@ -423,8 +422,6 @@ export default function AboutPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
 
       {showScrollTop && (
         <motion.button

@@ -5,35 +5,24 @@ import {
   Search,
   ArrowUp,
   ChevronDown,
-  Globe,
   Building2,
   Calendar,
   DollarSign,
   ExternalLink,
-  Info,
-  Tag,
-  Users,
-  Filter,
-  ArrowUpRight,
+  Badge,
   LayoutGrid,
   List,
-  Loader2,
   ChevronLeft,
   ChevronRight,
+  ArrowUpRight,
+  Sparkles
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Footer } from "@/components/landing/Footer";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
-import Link from "next/link";
-import { cn } from "@/lib/utils/cn";
-import {
-  ExternalGrantItem,
-  usePublicExternalGrants,
-} from "@/lib/queries/external-grant";
+import { cn } from "@/lib/utils";
 
 interface ExternalGrant {
   id: string;
@@ -46,23 +35,83 @@ interface ExternalGrant {
   description: string;
   source_url: string;
   eligibility: string;
-  start_date: string | null;
-  end_date: string | null;
 }
+
+const MOCK_EXTERNAL_GRANTS: ExternalGrant[] = [
+  {
+    id: "ext-01",
+    title: "Horizon Europe: Health Systems & Bio-Innovation Grants",
+    agency: "European Research Council",
+    deadline: "2024-11-30",
+    budget: "$2,500,000",
+    status: "Active",
+    category: "Research & Innovation",
+    description: "Funding for breakthrough research projects targeting health system resilience, diagnostic integrations, and clinical care innovations in emerging markets.",
+    source_url: "https://ec.europa.eu/info/research-and-innovation_en",
+    eligibility: "Accredited academic institutions and consortiums with local regional partners.",
+  },
+  {
+    id: "ext-02",
+    title: "Grand Challenges: AI-driven Diagnostics for Community Health Workers",
+    agency: "Bill & Melinda Gates Foundation",
+    deadline: "2024-09-15",
+    budget: "$400,000",
+    status: "Active",
+    category: "Digital Health",
+    description: "Supporting research projects developing and validating low-cost, offline-first artificial intelligence models to assist screening of tuberculosis and malaria.",
+    source_url: "https://gcgh.grandchallenges.org",
+    eligibility: "Researchers in Low-to-Middle Income Countries (LMICs) with verified institutional backing.",
+  },
+  {
+    id: "ext-03",
+    title: "Wellcome Trust: Climate Shifts and Vector-borne Epidemic Dynamics",
+    agency: "Wellcome Trust",
+    deadline: "2024-10-05",
+    budget: "$1,200,000",
+    status: "Active",
+    category: "Global Health",
+    description: "Research grants focused on analyzing geospatial transmission patterns of vector-borne illnesses under fluctuating temperature and humidity conditions.",
+    source_url: "https://wellcome.org/grant-funding",
+    eligibility: "Multi-disciplinary cohorts covering epidemiology, meteorology, and public health systems.",
+  },
+  {
+    id: "ext-04",
+    title: "USAID: Maternal & Neonatal Health Strategic Action Grants",
+    agency: "USAID",
+    deadline: "2024-08-20",
+    budget: "$850,000",
+    status: "Active",
+    category: "Maternal Health",
+    description: "Funding support for regional pilot programs evaluating referral transport systems and maternity waiting home integrations to reduce infant mortality.",
+    source_url: "https://www.usaid.gov/grants",
+    eligibility: "Public universities and health research bureaus in sub-Saharan African regions.",
+  },
+  {
+    id: "ext-05",
+    title: "WHO: Health Finance Reforms Policy Review Scholarships",
+    agency: "World Health Organization",
+    deadline: "2024-06-01",
+    budget: "Competitive",
+    status: "Closed",
+    category: "Policy Research",
+    description: "Evaluative research funding for policy scholars to compile lessons learned from national insurance schemes and decentralized health financing models.",
+    source_url: "https://www.who.int/careers/fellowships",
+    eligibility: "Post-doctoral health economists and policy analysts.",
+  }
+];
 
 export default function ExternalGrantsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [isLoading, setIsLoading] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  const { data: apiResponse, isLoading } = usePublicExternalGrants({
-    page,
-    page_size: pageSize,
-  });
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -70,176 +119,80 @@ export default function ExternalGrantsPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const grants = useMemo(() => {
-    if (!apiResponse?.data) return [];
-
-    return apiResponse.data.map((item: ExternalGrantItem) => {
-      const output = item.grant_output || "";
-      const sourceMatch = output.match(/Source:\s*(https?:\/\/[^\s\n]+)/i);
-      const eligibilityMatch = output.match(/Eligibility:\s*([^\n]+)/i);
-
-      let description = output;
-      if (sourceMatch) description = description.replace(sourceMatch[0], "");
-      if (eligibilityMatch)
-        description = description.replace(eligibilityMatch[0], "");
-      description = description.replace(/Source:|Eligibility:/gi, "").trim();
-
-      // Determine status
-      let status: "Active" | "Closed" | "Upcoming" = "Active";
-      if (item.end_date) {
-        const deadline = new Date(item.end_date);
-        const now = new Date();
-        if (deadline < now) {
-          status = "Closed";
-        }
-      }
-
-      const fundingAgent = typeof item.funding_agent === "object" && item.funding_agent !== null ? item.funding_agent : null;
-      return {
-        id: item.id.toString(),
-        title: item.title,
-        agency: fundingAgent?.name ?? "",
-        deadline: item.end_date || "Rolling",
-        budget:
-          item.allocated_budget && parseFloat(item.allocated_budget) > 0
-            ? `$${parseFloat(item.allocated_budget).toLocaleString()}`
-            : "Competitive",
-        status,
-        category: "Research & Innovation",
-        description: description || "No description available.",
-        source_url: fundingAgent?.website ?? sourceMatch?.[1] ?? "#",
-        eligibility: eligibilityMatch
-          ? eligibilityMatch[1].trim()
-          : "See description for details",
-        start_date: item.start_date,
-        end_date: item.end_date,
-      } as ExternalGrant;
-    });
-  }, [apiResponse]);
-
   const filteredGrants = useMemo(() => {
-    return grants.filter(
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return MOCK_EXTERNAL_GRANTS;
+    return MOCK_EXTERNAL_GRANTS.filter(
       (grant) =>
-        grant.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        grant.agency.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        grant.description.toLowerCase().includes(searchQuery.toLowerCase()),
+        grant.title.toLowerCase().includes(q) ||
+        grant.agency.toLowerCase().includes(q) ||
+        grant.description.toLowerCase().includes(q) ||
+        grant.category.toLowerCase().includes(q)
     );
-  }, [grants, searchQuery]);
+  }, [searchQuery]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="grow">
         {/* Hero Section */}
-        <section className="relative w-full h-[450px] md:h-[550px] overflow-hidden">
-          <div className="absolute inset-0 bg-linear-to-br from-slate-900/90 via-slate-800/80 to-slate-900/90 dark:from-gray-950/95 dark:via-gray-900/90 dark:to-gray-950/95 z-10"></div>
-
-          {/* Animated Background Blobs */}
+        <section className="relative w-full h-[380px] md:h-[480px] overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 z-10 opacity-90" />
+          
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <motion.div
-              className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-primary/20 dark:bg-primary/30 rounded-full blur-3xl"
-              animate={{
-                x: [0, 50, 0],
-                y: [0, -30, 0],
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 20,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-            ></motion.div>
+              className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl"
+              animate={{ x: [0, 20, 0], y: [0, -10, 0] }}
+              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+            />
             <motion.div
-              className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-accent/20 dark:bg-accent/30 rounded-full blur-3xl"
-              animate={{
-                x: [0, -40, 0],
-                y: [0, 40, 0],
-                scale: [1, 1.15, 1],
-              }}
-              transition={{
-                duration: 25,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 2,
-              }}
-            ></motion.div>
+              className="absolute bottom-[-10%] left-[-5%] w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-3xl"
+              animate={{ x: [0, -15, 0], y: [0, 15, 0] }}
+              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            />
           </div>
 
           <Image
             alt="Global Research Network"
-            className="absolute inset-0 w-full h-full object-cover grayscale opacity-30 dark:opacity-20 z-0"
+            className="absolute inset-0 w-full h-full object-cover opacity-15 z-0 grayscale"
             src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=1920"
             width={1920}
             height={1080}
           />
 
           <div className="relative z-20 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
-            <motion.h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 tracking-tight"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <span className="text-accent">Global Opportunities</span>
-            </motion.h1>
-
-            <motion.p
-              className="max-w-2xl text-lg text-slate-300 leading-relaxed mb-10"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              Discover and apply for international research funding,
-              fellowships, and innovation challenges from global partners and
-              organizations.
-            </motion.p>
-
-            {/* Search Bar in Hero */}
             <motion.div
-              className="w-full max-w-2xl relative"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-4"
             >
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                  <Search className="w-5 h-5 text-accent" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by title, funder, or keywords..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                />
-              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
+                Global Grant <span className="text-primary">Opportunities</span>
+              </h1>
+              <p className="max-w-2xl text-base md:text-lg text-slate-350 leading-relaxed mx-auto">
+                Discover and apply for international funding schemes, research partnerships, and innovation challenges curated from global donor portals.
+              </p>
             </motion.div>
           </div>
         </section>
 
-        {/* LIST SECTION */}
-        <section
-          ref={sectionRef}
-          className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8"
-        >
-          {/* View Toggle and Filters */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-slate-800/50 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mr-4">
-                Available Opportunities
-              </h2>
-              <Badge
-                variant="secondary"
-                className="bg-primary/10 text-primary border-none"
-              >
-                {filteredGrants.length} Calls
-              </Badge>
+        {/* List Section */}
+        <section ref={sectionRef} className="py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-8">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pb-6 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold text-foreground">Available Grants</h2>
+              <span className="text-xs bg-primary/15 text-primary border border-primary/25 font-bold uppercase px-2.5 py-0.5 rounded-md">
+                {filteredGrants.length} Found
+              </span>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="h-12 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center gap-1">
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* View toggle */}
+              <div className="h-10 p-1 bg-muted/20 border border-white/5 rounded-xl flex items-center gap-1">
                 <Button
                   variant={viewMode === "list" ? "secondary" : "ghost"}
                   size="icon"
-                  className="h-10 w-10 rounded-lg"
+                  className="h-8 w-8 rounded-lg"
                   onClick={() => setViewMode("list")}
                 >
                   <List className="w-4 h-4" />
@@ -247,335 +200,151 @@ export default function ExternalGrantsPage() {
                 <Button
                   variant={viewMode === "grid" ? "secondary" : "ghost"}
                   size="icon"
-                  className="h-10 w-10 rounded-lg"
+                  className="h-8 w-8 rounded-lg"
                   onClick={() => setViewMode("grid")}
                 >
                   <LayoutGrid className="w-4 h-4" />
                 </Button>
               </div>
+
+              {/* Search bar */}
+              <div className="relative w-full sm:w-64 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input
+                  type="text"
+                  placeholder="Search agency, title..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10 bg-muted/30 border-white/5 focus-visible:ring-primary rounded-xl"
+                />
+              </div>
             </div>
           </div>
 
-          <div
-            className={cn(
-              "grid gap-6",
-              viewMode === "grid"
-                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                : "grid-cols-1",
-            )}
-          >
-            {isLoading ? (
-              <div className="col-span-full flex flex-col items-center justify-center py-32 gap-4">
-                <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                <p className="text-slate-500 animate-pulse font-medium">
-                  Fetching latest opportunities...
-                </p>
-              </div>
-            ) : (
-              <>
-                <AnimatePresence mode="popLayout">
-                  {filteredGrants.map((grant) => (
-                    <motion.div
-                      layout
-                      key={grant.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
+          {isLoading ? (
+            <div className="py-24 text-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+              <p className="text-muted-foreground text-sm mt-4 animate-pulse">Syncing donor portals...</p>
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-6",
+                viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+              )}
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredGrants.map((grant) => (
+                  <motion.div
+                    key={grant.id}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Card
+                      className={cn(
+                        "border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300 cursor-pointer h-full flex flex-col justify-between"
+                      )}
+                      onClick={() => setExpandedId(expandedId === grant.id ? null : grant.id)}
                     >
-                      <Card
-                        className={cn(
-                          "group border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 rounded-3xl overflow-hidden cursor-pointer",
-                          expandedId === grant.id && "ring-2 ring-primary/20",
-                        )}
-                        onClick={() =>
-                          setExpandedId(
-                            expandedId === grant.id ? null : grant.id,
-                          )
-                        }
-                      >
-                        <CardContent className="p-0">
-                          <div
+                      <CardContent className="p-6 space-y-4">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <Badge className="bg-primary/5 text-primary border border-primary/20 text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md">
+                            {grant.category}
+                          </Badge>
+                          <Badge
                             className={cn(
-                              "p-6 sm:p-8 flex flex-col gap-6",
-                              viewMode === "list" &&
-                                "lg:flex-row lg:items-center",
+                              "text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded border border-white/5",
+                              grant.status === "Active"
+                                ? "bg-emerald-500/10 text-emerald-500"
+                                : "bg-slate-500/10 text-slate-500"
                             )}
                           >
-                            <div className="flex-1 space-y-5">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge
-                                  variant="secondary"
-                                  className="bg-primary/5 text-primary border-primary/10 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold"
-                                >
-                                  {grant.category}
-                                </Badge>
-                                <Badge
-                                  className={cn(
-                                    "px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold border-none",
-                                    grant.status === "Active"
-                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                      : grant.status === "Upcoming"
-                                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                                        : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
-                                  )}
-                                >
-                                  <span
-                                    className={cn(
-                                      "w-1.5 h-1.5 rounded-full mr-2 inline-block animate-pulse",
-                                      grant.status === "Active"
-                                        ? "bg-emerald-500"
-                                        : grant.status === "Upcoming"
-                                          ? "bg-blue-500"
-                                          : "bg-slate-500",
-                                    )}
-                                  />
-                                  {grant.status}
-                                </Badge>
-                              </div>
+                            {grant.status}
+                          </Badge>
+                        </div>
 
-                              <div className="space-y-2">
-                                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors line-clamp-2 leading-tight">
-                                  {grant.title}
-                                </h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-2 leading-relaxed max-w-3xl">
-                                  {grant.description}
-                                </p>
-                              </div>
+                        <div className="space-y-1.5">
+                          <h3 className="text-lg font-bold text-foreground leading-snug hover:text-primary transition-colors">
+                            {grant.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                            {grant.description}
+                          </p>
+                        </div>
 
-                              <div className="flex flex-wrap gap-y-3 gap-x-8 pt-2">
-                                <div className="flex items-center gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-900 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                    <Building2 className="w-4 h-4" />
-                                  </div>
-                                  <span className="truncate max-w-[200px]">
-                                    {grant.agency}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-900 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                    <Calendar className="w-4 h-4" />
-                                  </div>
-                                  {grant.deadline}
-                                </div>
-                                <div className="flex items-center gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-900 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                    <DollarSign className="w-4 h-4" />
-                                  </div>
-                                  {grant.budget}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div
-                              className={cn(
-                                "flex items-center gap-4 shrink-0",
-                                viewMode === "list"
-                                  ? "lg:flex-col lg:justify-center lg:items-end lg:min-w-[180px]"
-                                  : "justify-between pt-4 border-t border-slate-100 dark:border-slate-700",
-                              )}
-                            >
-                              <Button
-                                variant="default"
-                                className="rounded-2xl h-12 px-8 bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/20 transition-all active:scale-95 z-10 w-full sm:w-auto"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(grant.source_url, "_blank");
-                                }}
-                              >
-                                Apply Now
-                                <ArrowUpRight className="w-4 h-4 ml-2" />
-                              </Button>
-
-                              <Button
-                                variant="ghost"
-                                className="rounded-2xl h-12 px-4 text-slate-500 hover:text-primary hover:bg-primary/5 transition-all font-bold text-xs uppercase tracking-widest"
-                              >
-                                {expandedId === grant.id ? "Close" : "Details"}
-                                <ChevronDown
-                                  className={cn(
-                                    "w-4 h-4 ml-2 transition-transform duration-300",
-                                    expandedId === grant.id && "rotate-180",
-                                  )}
-                                />
-                              </Button>
-                            </div>
+                        <div className="pt-2 border-t border-white/5 flex flex-wrap gap-y-2 gap-x-6 text-xs text-muted-foreground font-semibold">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-primary" />
+                            <span>{grant.agency}</span>
                           </div>
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-primary" />
+                            <span>Deadline: {grant.deadline}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <DollarSign className="w-3.5 h-3.5 text-primary" />
+                            <span>{grant.budget}</span>
+                          </div>
+                        </div>
 
-                          <AnimatePresence>
-                            {expandedId === grant.id && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="border-t border-slate-100 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/20"
-                              >
-                                <div className="p-8 space-y-8">
-                                  <div className={cn("grid grid-cols-1 gap-8")}>
-                                    <div className="space-y-4">
-                                      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                                        Call Overview
-                                      </h4>
-                                      <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-base">
-                                        {grant.description}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex pt-6 border-t border-slate-100 dark:border-slate-700/50">
-                                    <Button
-                                      variant="link"
-                                      className="text-primary p-0 h-auto font-bold hover:no-underline group text-sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        window.open(grant.source_url, "_blank");
-                                      }}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <ExternalLink className="w-4 h-4" />
-                                        Visit Official Grant Portal
-                                        <ArrowUpRight className="w-4 h-4 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
-                                      </div>
-                                    </Button>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                        <AnimatePresence>
+                          {expandedId === grant.id && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden pt-4 border-t border-white/5 space-y-4"
+                            >
+                              <div className="space-y-2">
+                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-foreground">Eligibility Criteria</h4>
+                                <p className="text-xs text-muted-foreground leading-relaxed">{grant.eligibility}</p>
+                              </div>
 
-                {/* Pagination Controls */}
-                {apiResponse?.meta && apiResponse.meta.pages > 1 && (
-                  <div className="col-span-full flex items-center justify-between bg-white dark:bg-slate-800/50 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 mt-4">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                      Showing{" "}
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {(page - 1) * pageSize + 1}
-                      </span>{" "}
-                      to{" "}
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {Math.min(page * pageSize, apiResponse.meta.count)}
-                      </span>{" "}
-                      of{" "}
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {apiResponse.meta.count}
-                      </span>{" "}
-                      results
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-lg h-10 w-10"
-                        onClick={() => {
-                          setPage((p) => Math.max(1, p - 1));
-                          sectionRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                          });
-                        }}
-                        disabled={page === 1}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
+                              <div className="flex justify-end gap-2 pt-2">
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(grant.source_url, "_blank");
+                                  }}
+                                  className="rounded-xl font-bold text-xs h-9 px-4 flex items-center gap-1.5 shadow-lg shadow-primary/10"
+                                >
+                                  Apply on Donor Site
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
 
-                      <div className="flex items-center gap-1">
-                        {Array.from(
-                          { length: apiResponse.meta.pages },
-                          (_, i) => i + 1,
-                        )
-                          .filter(
-                            (p) =>
-                              p === 1 ||
-                              p === apiResponse.meta.pages ||
-                              (p >= page - 1 && p <= page + 1),
-                          )
-                          .map((p, i, arr) => (
-                            <div key={p} className="flex items-center">
-                              {i > 0 && arr[i - 1] !== p - 1 && (
-                                <span className="px-2 text-slate-400">...</span>
-                              )}
-                              <Button
-                                variant={page === p ? "default" : "ghost"}
-                                className={cn(
-                                  "h-10 w-10 rounded-lg font-bold",
-                                  page === p
-                                    ? "bg-primary text-white"
-                                    : "text-slate-600 dark:text-slate-400",
-                                )}
-                                onClick={() => {
-                                  setPage(p);
-                                  sectionRef.current?.scrollIntoView({
-                                    behavior: "smooth",
-                                  });
-                                }}
-                              >
-                                {p}
-                              </Button>
-                            </div>
-                          ))}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-lg h-10 w-10"
-                        onClick={() => {
-                          setPage((p) =>
-                            Math.min(apiResponse.meta.pages, p + 1),
-                          );
-                          sectionRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                          });
-                        }}
-                        disabled={page === apiResponse.meta.pages}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {!isLoading && filteredGrants.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="col-span-full text-center py-20 bg-white dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700"
-              >
-                <div className="size-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Search className="w-10 h-10 text-slate-300" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  No results found
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                  We couldn&apos;t find any grants matching your search
-                  criteria. Try adjusting your keywords.
-                </p>
-                <Button
-                  variant="outline"
-                  className="mt-6 rounded-lg"
-                  onClick={() => setSearchQuery("")}
-                >
-                  Clear Search
-                </Button>
-              </motion.div>
-            )}
-          </div>
+          {!isLoading && filteredGrants.length === 0 && (
+            <div className="py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
+              <Search className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-bold text-foreground">No Opportunities Found</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
+                No external grant directories match your search for "{searchQuery}". Try a different keyword.
+              </p>
+            </div>
+          )}
         </section>
       </main>
 
-      <Footer />
-
-      {/* Scroll to top */}
       {showScrollTop && (
         <button
+          type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-8 right-8 p-3 rounded-full bg-slate-900 text-white shadow-lg hover:bg-slate-800 transition z-50"
+          className="fixed bottom-8 right-8 p-3 rounded-full bg-primary text-white shadow-lg hover:scale-105 transition-all duration-200 z-50 hover:bg-primary/95"
         >
           <ArrowUp className="w-5 h-5" />
         </button>
