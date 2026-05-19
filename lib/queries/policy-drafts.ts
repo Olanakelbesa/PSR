@@ -99,6 +99,41 @@ export function usePolicyDraftsManage(filters?: PolicyDraftFilters) {
   });
 }
 
+export interface ChecklistTemplateItem {
+  id: number;
+  name: string;
+  doc_type: number;
+  pass_rule_type: string;
+  is_active: boolean;
+}
+
+export function useChecklistTemplates(docTypeId?: number) {
+  return useQuery<ChecklistTemplateItem[]>({
+    queryKey: ["checklist-templates", docTypeId],
+    queryFn: async () => {
+      const { data } = await api.get(API_ENDPOINTS.REFERENCE.CHECKLIST_TEMPLATES, {
+        params: {
+          doc_type: docTypeId,
+          is_active: true,
+        },
+      });
+      return data.data as ChecklistTemplateItem[];
+    },
+    enabled: !!docTypeId,
+  });
+}
+
+export function useAssignedDraftReviewers(draftId: string | number) {
+  return useQuery<{ reviewerIds: number[]; reviewers: any[]; checklist_template_id?: number | null }>({
+    queryKey: ["policy-drafts-assigned-reviewers", String(draftId)],
+    queryFn: async () => {
+      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.ASSIGNED_REVIEWERS(draftId));
+      return data.data || data;
+    },
+    enabled: !!draftId,
+  });
+}
+
 export function useAssignDraftReviewers() {
   const queryClient = useQueryClient();
 
@@ -106,18 +141,24 @@ export function useAssignDraftReviewers() {
     mutationFn: async ({
       draftId,
       reviewers,
+      checklistTemplateId,
     }: {
       draftId: string | number;
       reviewers: number[];
+      checklistTemplateId?: number;
     }) => {
-      const { data } = await api.post(
+      const { data } = await api.patch(
         API_ENDPOINTS.POLICY_DRAFTS.ASSIGN_REVIEWERS(draftId),
-        { reviewers }
+        {
+          reviewers,
+          ...(checklistTemplateId !== undefined && { checklist_template_id: checklistTemplateId }),
+        }
       );
       return data;
     },
     onSuccess: (_data, { draftId }) => {
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-assigned-reviewers", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
     },

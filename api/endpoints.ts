@@ -46,6 +46,7 @@ export const API_ENDPOINTS = {
     OFFICE_LEVELS: "/v1/office-levels",
     OFFICES: "/v1/offices",
     INTERNAL_USERS: "/v1/internal-users",
+    CHECKLIST_TEMPLATES: "/v1/checklisttemplates/",
   },
 
   // ── Concept Notes ─────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ export const API_ENDPOINTS = {
     SUBMIT:          (id: string | number) => `/v1/concept-notes/${id}/submit/`,
     REVIEW:          (id: string | number) => `/v1/concept-notes/${id}/review/`,
     ASSIGN_REVIEWER: (id: string | number) => `/v1/concept-notes/${id}/assign-reviewer/`,
+    ASSIGNED_REVIEWERS: (id: string | number) => `/v1/concept-notes/${id}/assigned-reviewers/`,
     APPROVAL:        (id: string | number) => `/v1/concept-notes/${id}/psr-approval/`,
     MY_REVIEWS:      "/v1/concept-notes/my-reviews/",
     MY_REVIEW_DETAIL: (id: string | number) => `/v1/concept-notes/${id}/my-reviews/`,
@@ -73,6 +75,7 @@ export const API_ENDPOINTS = {
     UPDATE:          (id: string | number) => `/v1/policy-drafts/${id}/`,
     SUBMIT:          (id: string | number) => `/v1/policy-drafts/${id}/submit/`,
     ASSIGN_REVIEWERS: (id: string | number) => `/v1/policy-drafts/${id}/assign-reviewers/`,
+    ASSIGNED_REVIEWERS: (id: string | number) => `/v1/policy-drafts/${id}/assigned-reviewers/`,
     PSR_DECISION: (id: string | number) => `/v1/policy-drafts/${id}/psr-decision/`,
     MY_REVIEWS: "/v1/policy-drafts/my-reviews/",
     MY_REVIEW_DETAIL: (id: string | number) => `/v1/policy-drafts/${id}/my-reviews/`,

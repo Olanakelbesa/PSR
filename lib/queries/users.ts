@@ -18,6 +18,18 @@ export interface UserSelectorItem {
   unit: { id: number; name: string } | null;
 }
 
+export interface AssignedReviewerItem {
+  id: number;
+  fullName: string;
+  email: string;
+  avatar: string | null;
+}
+
+export interface AssignedReviewersData {
+  reviewerIds: number[];
+  reviewers: AssignedReviewerItem[];
+}
+
 // ── GET /v1/users/selector/ ───────────────────────────────────────────────────
 export function useUserSelector(backendToken?: string | null) {
   return useQuery<UserSelectorItem[]>({
@@ -51,7 +63,28 @@ export function useAssignReviewer() {
     onSuccess: (_data, { conceptNoteId }) => {
       // Invalidate both the manage list and the specific note detail
       queryClient.invalidateQueries({ queryKey: ["concept-notes-manage"] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", String(conceptNoteId)] });
+      queryClient.invalidateQueries({
+        queryKey: ["concept-note-manage-detail", String(conceptNoteId)],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["concept-notes-assigned-reviewers", String(conceptNoteId)],
+      });
     },
+  });
+}
+
+// ── GET /v1/concept-notes/:id/assigned-reviewers/ ───────────────────────────
+export function useAssignedReviewers(conceptNoteId?: string | number) {
+  return useQuery<AssignedReviewersData>({
+    queryKey: ["concept-notes-assigned-reviewers", String(conceptNoteId)],
+    queryFn: async () => {
+      const { data } = await api.get(
+        API_ENDPOINTS.CONCEPT_NOTES.ASSIGNED_REVIEWERS(
+          conceptNoteId as string | number,
+        ),
+      );
+      return data.data as AssignedReviewersData;
+    },
+    enabled: !!conceptNoteId,
   });
 }

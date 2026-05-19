@@ -29,7 +29,19 @@ import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUserSelector } from "@/lib/queries/users";
-import { usePolicyDraft, useAssignDraftReviewers } from "@/lib/queries/policy-drafts";
+import {
+  usePolicyDraft,
+  useAssignDraftReviewers,
+  useAssignedDraftReviewers,
+  useChecklistTemplates,
+} from "@/lib/queries/policy-drafts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PAGE_SIZE = 5;
 
@@ -44,17 +56,38 @@ export default function AssignExpertsPage() {
 
   const { data: draft, isLoading: isLoadingDraft } = usePolicyDraft(id);
   const { data: rawUsers, isLoading: isLoadingUsers } = useUserSelector();
+  const { data: assignedData, isLoading: isLoadingAssigned } = useAssignedDraftReviewers(id);
   const users = rawUsers || [];
 
-  // Initialize selectedIds when draft is loaded
+  const docTypeId = draft?.docType?.id;
+  const { data: templates = [], isLoading: isLoadingTemplates } = useChecklistTemplates(docTypeId);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+
+  // Initialize selectedIds when assigned reviewers or draft is loaded
   useEffect(() => {
-    if (draft) {
+    if (assignedData?.reviewerIds) {
+      setSelectedIds(assignedData.reviewerIds);
+    } else if (draft) {
       const existingIds = draft.reviewers?.map((r: any) => typeof r === "object" ? r.id : r) 
                        || draft.assignedReviewers?.map((r: any) => typeof r === "object" ? r.id : r) 
                        || [];
       setSelectedIds(existingIds);
     }
-  }, [draft]);
+  }, [assignedData, draft]);
+
+  // Initialize selectedTemplateId
+  useEffect(() => {
+    if (assignedData?.checklist_template_id) {
+      setSelectedTemplateId(assignedData.checklist_template_id);
+    } else if (templates && templates.length > 0 && selectedTemplateId === null) {
+      const active = templates.find((t) => t.is_active);
+      if (active) {
+        setSelectedTemplateId(active.id);
+      } else {
+        setSelectedTemplateId(templates[0].id);
+      }
+    }
+  }, [assignedData, templates, selectedTemplateId]);
 
   // Reset to first page when search changes
   useEffect(() => {
@@ -102,6 +135,7 @@ export default function AssignExpertsPage() {
       await assignMutation.mutateAsync({
         draftId: id,
         reviewers: selectedIds,
+        checklistTemplateId: selectedTemplateId || undefined,
       });
       toast.success(`Successfully assigned ${assignedCount} expert(s) to this draft. They have been notified.`);
       router.push(`/policies/drafts/manage-drafts`);
@@ -115,7 +149,7 @@ export default function AssignExpertsPage() {
     return users.filter((u: any) => selectedIds.includes(u.id));
   }, [users, selectedIds]);
 
-  const isLoading = isLoadingDraft || isLoadingUsers;
+  const isLoading = isLoadingDraft || isLoadingUsers || isLoadingAssigned;
 
   if (isLoading) {
     return (
@@ -320,8 +354,58 @@ export default function AssignExpertsPage() {
           </Card>
         </div>
 
-        {/* Assignment Summary */}
+        {/* Sidebar Controls */}
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
+          {/* Evaluation Checklist Selector */}
+          <Card className="shadow-sm border-primary/10 bg-card">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                Evaluation Checklist
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {isLoadingTemplates ? (
+                <div className="space-y-2">
+                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                  <div className="h-9 w-full bg-muted animate-pulse rounded" />
+                </div>
+              ) : templates.length > 0 ? (
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Select Checklist Template
+                  </label>
+                  <Select
+                    value={selectedTemplateId ? String(selectedTemplateId) : ""}
+                    onValueChange={(val) => setSelectedTemplateId(Number(val))}
+                  >
+                    <SelectTrigger className="w-full border-primary/10 focus:ring-primary">
+                      <SelectValue placeholder="Choose a template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((tpl) => (
+                        <SelectItem key={tpl.id} value={String(tpl.id)}>
+                          {tpl.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Experts will use the selected checklist criteria to grade and review this policy draft.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded border border-amber-100 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <span>
+                    No specific checklist template registered for this document type. The system default active template will be automatically used.
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Assignment Summary */}
           <Card className="shadow-sm border-primary/20 bg-primary/5">
             <CardHeader className="pb-3 border-b border-primary/10">
               <CardTitle className="text-base text-primary flex items-center justify-between">

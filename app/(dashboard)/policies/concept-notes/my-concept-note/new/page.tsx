@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useState, useRef, type ChangeEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -61,6 +61,37 @@ import { useAuth } from "@/hooks/useAuth";
 const MAX_TITLE_LENGTH = 500;
 const MAX_SUMMARY_WORDS = 250;
 
+const MOCK_UNITS_BY_ORG: Record<string, { id: string; name: string }[]> = {
+  "Addis Ababa University": [
+    { id: "aau-cs", name: "Department of Computer Science" },
+    { id: "aau-math", name: "Department of Mathematics" },
+    { id: "aau-phys", name: "Department of Physics" },
+    { id: "aau-chem", name: "Department of Chemistry" },
+  ],
+  "Ministry of Education": [
+    { id: "moe-curriculum", name: "Curriculum Development Directorate" },
+    { id: "moe-ict", name: "ICT & Digital Education Unit" },
+    { id: "moe-higher-ed", name: "Higher Education Affairs" },
+  ],
+  "Ministry of Health": [
+    { id: "moh-public-health", name: "Public Health Directorate" },
+    { id: "moh-disease-control", name: "Disease Prevention & Control" },
+    { id: "moh-clinical", name: "Clinical Services Directorate" },
+  ],
+  "Ministry of Innovation and Technology": [
+    { id: "mint-tech", name: "Technology Transfer & Development" },
+    { id: "mint-rnd", name: "Research & Innovation Division" },
+    { id: "mint-standards", name: "Quality & Standards Assurance" },
+  ],
+};
+
+const DEFAULT_MOCK_UNITS = [
+  { id: "generic-unit-1", name: "Policy & Planning Department" },
+  { id: "generic-unit-2", name: "Research & Development Division" },
+  { id: "generic-unit-3", name: "Monitoring and Evaluation Unit" },
+  { id: "generic-unit-4", name: "Human Resource & Admin Services" },
+];
+
 export default function NewConceptNotePage() {
   const router = useRouter();
   const { backendToken } = useAuth();
@@ -96,6 +127,7 @@ export default function NewConceptNotePage() {
       executiveSummary: "",
       documentType: undefined,
       organization: [],
+      unit: "",
       thematicAreas: [],
       documentCategory: "new",
       file: undefined,
@@ -107,12 +139,48 @@ export default function NewConceptNotePage() {
   const selectedDocumentType = form.watch("documentType");
   const selectedDocumentCategory = form.watch("documentCategory");
   const selectedOrganizationIds = form.watch("organization") || [];
+  const selectedUnit = form.watch("unit") || "";
   const selectedThematicIds = form.watch("thematicAreas") || [];
   const selectedFile = form.watch("file") as File | undefined;
 
   const selectedOrganizationsList = organizations.filter((org) =>
     selectedOrganizationIds.includes(String(org.id)),
   );
+
+  const unitsOptions = useMemo(() => {
+    if (selectedOrganizationsList.length === 0) return [];
+    
+    let combinedUnits: { id: string; name: string }[] = [];
+    selectedOrganizationsList.forEach((org) => {
+      const orgUnits = MOCK_UNITS_BY_ORG[org.name] || MOCK_UNITS_BY_ORG[String(org.id)];
+      if (orgUnits) {
+        combinedUnits = [...combinedUnits, ...orgUnits];
+      }
+    });
+
+    if (combinedUnits.length === 0) {
+      return DEFAULT_MOCK_UNITS;
+    }
+    
+    const seen = new Set();
+    return combinedUnits.filter((u) => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id);
+      return true;
+    });
+  }, [selectedOrganizationsList]);
+
+  // Reset selected unit if it is no longer valid for the selected organizations
+  useEffect(() => {
+    if (selectedUnit && unitsOptions.length > 0) {
+      const isValid = unitsOptions.some((u) => u.id === selectedUnit);
+      if (!isValid) {
+        form.setValue("unit", "");
+      }
+    } else if (unitsOptions.length === 0) {
+      form.setValue("unit", "");
+    }
+  }, [unitsOptions, selectedUnit, form]);
   const selectedAreas = thematicAreas.filter((area) =>
     selectedThematicIds.includes(String(area.id)),
   );
@@ -245,6 +313,7 @@ export default function NewConceptNotePage() {
       val1.executiveSummary !== val2.executiveSummary ||
       val1.documentType !== val2.documentType ||
       val1.documentCategory !== val2.documentCategory ||
+      val1.unit !== val2.unit ||
       JSON.stringify(val1.organization) !== JSON.stringify(val2.organization) ||
       JSON.stringify(val1.thematicAreas) !==
         JSON.stringify(val2.thematicAreas) ||
@@ -314,6 +383,7 @@ export default function NewConceptNotePage() {
     formValues.executiveSummary,
     formValues.documentType,
     formValues.documentCategory,
+    formValues.unit,
     organizationDep,
     thematicDep,
     formValues.file,
@@ -519,6 +589,7 @@ export default function NewConceptNotePage() {
                           <SelectContent>
                             <SelectItem value="new">New Policy</SelectItem>
                             <SelectItem value="revision">Revision</SelectItem>
+                            <SelectItem value="old">Old Policy</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormDescription>
@@ -647,6 +718,48 @@ export default function NewConceptNotePage() {
                       </FormItem>
                     );
                   }}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="unit"
+                  render={({ field }) => (
+                    <FormItem className="pt-2">
+                      <FormLabel>Unit / Department</FormLabel>
+                      <Select
+                        disabled={selectedOrganizationsList.length === 0}
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-11">
+                            <SelectValue
+                              placeholder={
+                                selectedOrganizationsList.length === 0
+                                  ? "Select organization(s) first"
+                                  : "Select a unit/department..."
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {unitsOptions.map((unitOption) => (
+                            <SelectItem
+                              key={unitOption.id}
+                              value={unitOption.id}
+                            >
+                              {unitOption.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Specify the specific department or unit within the selected
+                        organization context.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -33,8 +33,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserSelector } from "@/lib/queries/users";
-import { useAssignReviewer } from "@/lib/queries/users";
+import {
+  useUserSelector,
+  useAssignReviewer,
+  useAssignedReviewers,
+} from "@/lib/queries/users";
 
 const PAGE_SIZE = 6;
 
@@ -45,13 +48,27 @@ export default function AssignConceptNoteReviewersPage() {
   const conceptNoteId = params.id as string;
 
   // ── Data fetching ────────────────────────────────────────────────────────────
-  const { data: users = [], isLoading, isError, refetch } = useUserSelector(backendToken);
+  const {
+    data: users = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useUserSelector(backendToken);
+  const { data: assignedData, isLoading: isLoadingAssigned } =
+    useAssignedReviewers(conceptNoteId);
   const assignMutation = useAssignReviewer();
 
   // ── Local state ──────────────────────────────────────────────────────────────
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Sync assigned reviewer
+  useEffect(() => {
+    if (assignedData?.reviewerIds && assignedData.reviewerIds.length > 0) {
+      setSelectedId(assignedData.reviewerIds[0]);
+    }
+  }, [assignedData]);
 
   // ── Filtered & paginated ────────────────────────────────────────────────────
   const filteredUsers = useMemo(() => {
@@ -89,8 +106,12 @@ export default function AssignConceptNoteReviewersPage() {
         reviewerId: selectedId,
       });
       const assignedUser = users.find((u) => u.id === selectedId);
-      toast.success(`${assignedUser?.fullName ?? "Reviewer"} assigned successfully.`);
-      router.push(`/policies/concept-notes/manage-concept-notes/${conceptNoteId}`);
+      toast.success(
+        `${assignedUser?.fullName ?? "Reviewer"} assigned successfully.`,
+      );
+      router.push(
+        `/policies/concept-notes/manage-concept-notes/${conceptNoteId}`,
+      );
     } catch (error: any) {
       const msg =
         error?.response?.data?.error?.message ??
@@ -101,7 +122,7 @@ export default function AssignConceptNoteReviewersPage() {
   };
 
   // ── Loading skeleton ────────────────────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading || isLoadingAssigned) {
     return (
       <PageContainer title="Assign Reviewer">
         <div className="grid gap-6 lg:grid-cols-4 items-start">
@@ -141,7 +162,9 @@ export default function AssignConceptNoteReviewersPage() {
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild className="shadow-sm">
-            <Link href={`/policies/concept-notes/manage-concept-notes/${conceptNoteId}`}>
+            <Link
+              href={`/policies/concept-notes/manage-concept-notes/${conceptNoteId}`}
+            >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Cancel
             </Link>
@@ -166,7 +189,8 @@ export default function AssignConceptNoteReviewersPage() {
                 <div>
                   <CardTitle className="text-lg">Select a Reviewer</CardTitle>
                   <CardDescription>
-                    Choose one user from the platform to review this concept note.
+                    Choose one user from the platform to review this concept
+                    note.
                   </CardDescription>
                 </div>
                 <div className="relative w-full sm:w-72">
@@ -202,7 +226,9 @@ export default function AssignConceptNoteReviewersPage() {
                         <button
                           key={user.id}
                           type="button"
-                          onClick={() => setSelectedId(isSelected ? null : user.id)}
+                          onClick={() =>
+                            setSelectedId(isSelected ? null : user.id)
+                          }
                           className={cn(
                             "flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/30",
                             isSelected && "bg-primary/5 hover:bg-primary/10",
@@ -212,10 +238,15 @@ export default function AssignConceptNoteReviewersPage() {
                             <Avatar
                               className={cn(
                                 "h-10 w-10 border-2 shadow-sm",
-                                isSelected ? "border-primary" : "border-transparent",
+                                isSelected
+                                  ? "border-primary"
+                                  : "border-transparent",
                               )}
                             >
-                              <AvatarImage src={user.photoUrl ?? undefined} alt={user.fullName} />
+                              <AvatarImage
+                                src={user.photoUrl ?? undefined}
+                                alt={user.fullName}
+                              />
                               <AvatarFallback
                                 className={cn(
                                   "text-xs font-bold",
@@ -232,7 +263,9 @@ export default function AssignConceptNoteReviewersPage() {
                               <span className="font-semibold text-sm leading-tight">
                                 {user.fullName}
                               </span>
-                              <span className="text-xs text-muted-foreground">{user.email}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {user.email}
+                              </span>
                               <div className="flex items-center gap-2 flex-wrap mt-0.5">
                                 {user.organization && (
                                   <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary/70 uppercase tracking-wide">
@@ -273,20 +306,28 @@ export default function AssignConceptNoteReviewersPage() {
                     <div className="flex items-center justify-between gap-3 border-t bg-muted/10 p-4">
                       <p className="text-xs text-muted-foreground">
                         Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                        {Math.min(currentPage * PAGE_SIZE, filteredUsers.length)} of{" "}
-                        {filteredUsers.length} users
+                        {Math.min(
+                          currentPage * PAGE_SIZE,
+                          filteredUsers.length,
+                        )}{" "}
+                        of {filteredUsers.length} users
                       </p>
                       <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
                           disabled={currentPage === 1}
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((p) => (
                           <Button
                             key={p}
                             variant={currentPage === p ? "default" : "outline"}
@@ -301,7 +342,9 @@ export default function AssignConceptNoteReviewersPage() {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
                           disabled={currentPage === totalPages}
                         >
                           <ChevronRight className="h-4 w-4" />
@@ -329,12 +372,21 @@ export default function AssignConceptNoteReviewersPage() {
                     <Avatar className="h-14 w-14 border-2 border-primary shadow-sm">
                       <AvatarImage src={selectedUser.photoUrl ?? undefined} />
                       <AvatarFallback className="bg-primary/10 text-primary font-bold text-base">
-                        {selectedUser.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                        {selectedUser.fullName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold text-sm leading-tight">{selectedUser.fullName}</p>
-                      <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
+                      <p className="font-semibold text-sm leading-tight">
+                        {selectedUser.fullName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedUser.email}
+                      </p>
                     </div>
                   </div>
 
@@ -343,14 +395,20 @@ export default function AssignConceptNoteReviewersPage() {
                   <div className="space-y-2 text-xs">
                     {selectedUser.organization && (
                       <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Organization</span>
-                        <span className="font-medium text-right">{selectedUser.organization.name}</span>
+                        <span className="text-muted-foreground">
+                          Organization
+                        </span>
+                        <span className="font-medium text-right">
+                          {selectedUser.organization.name}
+                        </span>
                       </div>
                     )}
                     {selectedUser.unit && (
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground">Unit</span>
-                        <span className="font-medium text-right">{selectedUser.unit.name}</span>
+                        <span className="font-medium text-right">
+                          {selectedUser.unit.name}
+                        </span>
                       </div>
                     )}
                     {selectedUser.sex && (
@@ -367,7 +425,9 @@ export default function AssignConceptNoteReviewersPage() {
                     disabled={assignMutation.isPending}
                   >
                     <Shield className="mr-2 h-4 w-4" />
-                    {assignMutation.isPending ? "Assigning..." : "Confirm Assignment"}
+                    {assignMutation.isPending
+                      ? "Assigning..."
+                      : "Confirm Assignment"}
                   </Button>
                 </>
               ) : (
@@ -380,9 +440,16 @@ export default function AssignConceptNoteReviewersPage() {
 
           <Card className="shadow-sm border-muted">
             <CardContent className="pt-4 text-xs text-muted-foreground space-y-1.5">
-              <p className="font-medium text-foreground text-sm">How it works</p>
-              <p>Only one reviewer can be assigned per concept note at a time.</p>
-              <p>The reviewer will be notified and given access to evaluate this concept note.</p>
+              <p className="font-medium text-foreground text-sm">
+                How it works
+              </p>
+              <p>
+                Only one reviewer can be assigned per concept note at a time.
+              </p>
+              <p>
+                The reviewer will be notified and given access to evaluate this
+                concept note.
+              </p>
             </CardContent>
           </Card>
         </div>
