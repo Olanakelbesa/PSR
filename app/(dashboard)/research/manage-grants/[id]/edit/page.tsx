@@ -41,10 +41,11 @@ import {
   callForProposalSchema,
   type CallForProposalFormData,
 } from "@/lib/validations";
-import { callsApi } from "@/api/client";
+// keep mock data import for local defaults in absence of backend
 import { mockCalls } from "@/lib/api/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { updateGrantCall } from "@/api/services/grant-calls.service";
 
 export default function EditCallPage() {
   const router = useRouter();
@@ -91,25 +92,20 @@ export default function EditCallPage() {
 
     setIsLoading(true);
     try {
-      const response = await callsApi.updateCall(id, {
+      const payload: any = {
         title: data.title,
         description: data.description,
-        eligibilityCriteria: data.eligibilityCriteria,
-        priorityAreas: data.priorityAreas,
-        budgetRange: {
-          min: data.budgetMin,
-          max: data.budgetMax,
-        },
-        submissionDeadline: data.submissionDeadline,
-        reviewDeadline: data.reviewDeadline || undefined,
-      });
+        eligibility_criteria: data.eligibilityCriteria,
+        // best-effort mapping for budget: use max value
+        budget: data.budgetMax,
+        open_date: data.submissionDeadline || null,
+        close_date: data.reviewDeadline || null,
+      };
 
-      if (response.success) {
-        toast.success("Research call updated successfully");
-        router.push(`/research/calls/${id}`);
-      } else {
-        toast.error(response.message || "Failed to update research call");
-      }
+      const updated = await updateGrantCall(id, payload);
+
+      toast.success("Research call updated successfully");
+      router.push(`/research/manage-grants/${id}`);
     } catch (error) {
       console.error("Error updating call:", error);
       toast.error("An unexpected error occurred");
@@ -155,7 +151,7 @@ export default function EditCallPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_350px] xl:items-start">
         <div className="space-y-6">
           <Form {...form}>
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
               <Card className="shadow-sm border-primary/10">
                 <CardHeader className="bg-muted/30 border-b pb-4">
                   <div className="flex items-center gap-2">
@@ -393,72 +389,33 @@ export default function EditCallPage() {
                   </div>
                 </CardContent>
               </Card>
+              <div className="pt-6 flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
             </form>
           </Form>
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-20 xl:h-fit">
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="pb-3 border-b">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Current Call
-              </CardTitle>
+          <Card>
+            <CardHeader>
+              <CardTitle>Call Summary</CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Status</span>
-                <Badge
-                  variant={call.status === "open" ? "default" : "secondary"}
-                >
-                  {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Created By</span>
-                <span className="font-medium text-right">
-                  {call.createdBy.firstName} {call.createdBy.lastName}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Priority Areas</span>
-                <span className="font-medium">{call.priorityAreas.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Attachments</span>
-                <span className="font-medium">{call.attachments.length}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  disabled={isLoading}
-                  className="flex-1"
-                  onClick={() => router.push(`/research/calls/${id}`)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={form.handleSubmit(onSubmit)}
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
-                </Button>
-              </div>
-
-              <div className="pt-2 border-t">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    Changes are applied to the local mock dataset in this
-                    frontend-only flow.
-                  </p>
-                </div>
+            <CardContent>
+              <div className="space-y-2">
+                <p className="font-bold">{call.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {call.description}
+                </p>
               </div>
             </CardContent>
           </Card>

@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
   Clock,
-  FileText,
   Plus,
   Search,
   Filter,
   ExternalLink,
-  Pencil,
   Edit,
+  FileText,
 } from "lucide-react";
+import { format, isAfter, isBefore, parseISO } from "date-fns";
 
 import {
   Card,
@@ -32,40 +32,68 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
-import { mockCalls } from "@/lib/api/mock-data";
-import type { CallForProposal } from "@/lib/types";
-import { PRIORITY_AREAS } from "@/lib/constants";
-import { useAuth } from "@/hooks/useAuth";
 import Image from "next/image";
+import { useGrantCalls } from "@/lib/queries/grant-calls";
+import type { GrantCall } from "@/types/grant-call";
 
 const statusConfig: Record<
-  CallForProposal["status"],
+  string,
   { label: string; variant: "default" | "secondary" | "outline" }
 > = {
   draft: { label: "Draft", variant: "secondary" },
+  published: { label: "Published", variant: "default" },
   open: { label: "Open", variant: "default" },
-  closing_soon: { label: "Closing Soon", variant: "default" },
   closed: { label: "Closed", variant: "outline" },
-  cancelled: { label: "Cancelled", variant: "secondary" },
+  archived: { label: "Archived", variant: "outline" },
 };
 
-function CallCard({ call }: { call: CallForProposal }) {
-  const { user } = useAuth();
-  const isOpen = call.status === "open";
-  const isPi = user?.role === "researcher";
-  const isAdmin = user?.role === "system_admin";
-  const deadline = new Date(call.submissionDeadline);
-  const daysRemaining = Math.ceil(
-    (deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-  );
-  const status = statusConfig[call.status];
-  const budgetLabel = `ETB ${call.budgetRange.min.toLocaleString()} - ${call.budgetRange.max.toLocaleString()}`;
+function isCallOpen(call: GrantCall) {
+  const status = (call.status ?? "").toLowerCase();
+  if (status && status !== "published" && status !== "open") return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (call.openDate) {
+    const openDate = parseISO(call.openDate);
+    openDate.setHours(0, 0, 0, 0);
+    if (isBefore(today, openDate)) return false;
+  }
+
+  if (call.closeDate) {
+    const closeDate = parseISO(call.closeDate);
+    closeDate.setHours(23, 59, 59, 999);
+    if (isAfter(today, closeDate)) return false;
+  }
+
+  return true;
+}
+
+function formatBudget(budget: GrantCall["budget"]) {
+  if (budget === null || budget === undefined || budget === "")
+    return "Not specified";
+  const numericBudget = typeof budget === "string" ? Number(budget) : budget;
+  if (Number.isNaN(numericBudget)) return String(budget);
+  return `ETB ${numericBudget.toLocaleString()}`;
+}
+
+function CallCard({ call }: { call: GrantCall }) {
+  const isOpen = isCallOpen(call);
+  const deadline = call.closeDate ? parseISO(call.closeDate) : null;
+  const daysRemaining = deadline
+    ? Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const status = statusConfig[(call.status ?? "").toLowerCase()] ?? {
+    label: call.status ?? "Unknown",
+    variant: "secondary" as const,
+  };
+  const proposalTypes = call.proposalTypes ?? [];
 
   return (
     <Card className="hover:shadow-md transition-shadow border-border/60 h-full flex flex-col overflow-hidden">
       <div className="relative h-60 w-full bg-muted">
         <Image
-          src="/grant-call.png"
+          src={call.thumbnailImage || "/grant-call.png"}
           alt={call.title}
           fill
           className="object-cover"
@@ -79,7 +107,9 @@ function CallCard({ call }: { call: CallForProposal }) {
               {call.title}
             </CardTitle>
             <CardDescription className="line-clamp-2">
-              {call.description}
+              {call.shortDescription ||
+                call.description ||
+                "No description available"}
             </CardDescription>
           </div>
           <Badge variant={status.variant}>{status.label}</Badge>
@@ -87,30 +117,40 @@ function CallCard({ call }: { call: CallForProposal }) {
       </CardHeader>
       <CardContent className="pt-0 flex flex-1 flex-col">
         <div className="flex flex-wrap gap-2 mb-4">
-          {call.priorityAreas.slice(0, 3).map((area: string) => (
-            <Badge key={area} variant="outline" className="text-xs">
-              {PRIORITY_AREAS.includes(area) ? area : area}
+          {proposalTypes.slice(0, 3).map((proposalType) => (
+            <Badge key={proposalType.id} variant="outline" className="text-xs">
+              {proposalType.name}
             </Badge>
           ))}
-          {call.priorityAreas.length > 3 && (
+          {proposalTypes.length > 3 && (
             <Badge variant="outline" className="text-xs">
-              +{call.priorityAreas.length - 3} more
+              +{proposalTypes.length - 3} more
             </Badge>
           )}
         </div>
 
         <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-          {call.eligibilityCriteria}
+          {call.currentYear
+            ? `Current year: ${call.currentYear}`
+            : call.eligibilityCriteria || ""}
         </p>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-4 w-4" />
-            <span>Deadline: {deadline.toLocaleDateString()}</span>
+            <span>
+              {deadline
+                ? `Deadline: ${format(deadline, "MMM d, yyyy")}`
+                : "Deadline not set"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>{formatBudget(call.budget)}</span>
           </div>
         </div>
 
-        {isOpen && daysRemaining > 0 && (
+        {isOpen && daysRemaining > 0 && deadline && (
           <div className="mt-3 flex items-center gap-2 text-sm">
             <Clock
               className={`h-4 w-4 ${daysRemaining <= 7 ? "text-amber-500" : "text-muted-foreground"}`}
@@ -147,33 +187,86 @@ function CallCard({ call }: { call: CallForProposal }) {
 }
 
 export default function CallsForProposalsPage() {
-  const [calls] = useState<CallForProposal[]>(mockCalls);
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [currentYearFilter, setCurrentYearFilter] = useState("");
+  const [proposalTypeFilter, setProposalTypeFilter] = useState("");
+  const [ordering, setOrdering] = useState("-created_at");
   const [searchQuery, setSearchQuery] = useState("");
+  const limit = 9;
 
-  const filteredCalls = calls.filter((call) => {
-    if (statusFilter !== "all" && call.status !== statusFilter) return false;
-    const query = searchQuery.toLowerCase();
-    if (
-      query &&
-      ![
-        call.title,
-        call.description,
-        call.eligibilityCriteria,
-        ...call.priorityAreas,
-      ].some((value) => value.toLowerCase().includes(query))
-    )
-      return false;
-    return true;
-  });
+  const queryParams = useMemo(() => {
+    return {
+      page,
+      limit,
+      search: searchQuery.trim() || undefined,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      current_year: currentYearFilter.trim() || undefined,
+      proposal_types: proposalTypeFilter
+        ? Number(proposalTypeFilter)
+        : undefined,
+      ordering,
+    };
+  }, [
+    currentYearFilter,
+    limit,
+    ordering,
+    page,
+    proposalTypeFilter,
+    searchQuery,
+    statusFilter,
+  ]);
 
-  const openCalls = calls.filter((c) => c.status === "open").length;
-  const closedCalls = calls.filter((c) => c.status === "closed").length;
+  const { data, isLoading, isError } = useGrantCalls(queryParams);
+  const calls: GrantCall[] = data?.data ?? [];
+  const meta = data?.meta;
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    statusFilter,
+    currentYearFilter,
+    proposalTypeFilter,
+    ordering,
+    searchQuery,
+  ]);
+
+  const openCalls =
+    meta?.statistics?.openCalls ?? calls.filter(isCallOpen).length;
+  const closedCalls =
+    meta?.statistics?.closedCalls ??
+    Math.max((meta?.total ?? calls.length) - openCalls, 0);
+  const filteredCalls = calls;
+
+  const currentYears = useMemo(() => {
+    return Array.from(
+      new Set(calls.map((call) => call.currentYear).filter(Boolean)),
+    ) as string[];
+  }, [calls]);
+
+  const proposalTypeOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    calls.forEach((call) => {
+      (call.proposalTypes ?? []).forEach((proposalType) => {
+        options.set(String(proposalType.id), proposalType.name);
+      });
+    });
+    return Array.from(options.entries()).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  }, [calls]);
+
+  const handleFilterChange =
+    (setter: (value: string) => void) => (value: string) => {
+      setter(value);
+      setPage(1);
+    };
 
   return (
     <PageContainer
-      title="Calls for Proposals"
-      description="Browse and apply to open research funding opportunities"
+      title="Manage Grant Calls"
+      description="Browse, filter, and maintain grant funding opportunities"
       actions={
         <Button asChild>
           <Link href="/research/manage-grants/new">
@@ -193,7 +286,9 @@ export default function CallsForProposalsPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Calls</p>
-                <p className="text-2xl font-bold">{calls.length}</p>
+                <p className="text-2xl font-bold">
+                  {isLoading ? "-" : (meta?.total ?? calls.length)}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -204,7 +299,9 @@ export default function CallsForProposalsPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Open Calls</p>
-                <p className="text-2xl font-bold">{openCalls}</p>
+                <p className="text-2xl font-bold">
+                  {isLoading ? "-" : openCalls}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -215,39 +312,114 @@ export default function CallsForProposalsPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Closed Calls</p>
-                <p className="text-2xl font-bold">{closedCalls}</p>
+                <p className="text-2xl font-bold">
+                  {isLoading ? "-" : closedCalls}
+                </p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="grid gap-4 lg:grid-cols-5">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search calls..."
+              placeholder="Search grant calls..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40">
+          <Select
+            value={statusFilter}
+            onValueChange={handleFilterChange(setStatusFilter)}
+          >
+            <SelectTrigger className="w-full">
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
               <SelectItem value="open">Open</SelectItem>
               <SelectItem value="closed">Closed</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={currentYearFilter || "all"}
+            onValueChange={(value) =>
+              handleFilterChange(setCurrentYearFilter)(
+                value === "all" ? "" : value,
+              )
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filter by year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {currentYears.map((year) => (
+                <SelectItem key={year} value={year}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={proposalTypeFilter || "all"}
+            onValueChange={(value) =>
+              handleFilterChange(setProposalTypeFilter)(
+                value === "all" ? "" : value,
+              )
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Filter by proposal type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Proposal Types</SelectItem>
+              {proposalTypeOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={ordering}
+            onValueChange={handleFilterChange(setOrdering)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Order by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="-created_at">Newest</SelectItem>
+              <SelectItem value="created_at">Oldest</SelectItem>
+              <SelectItem value="title">Title A-Z</SelectItem>
+              <SelectItem value="-title">Title Z-A</SelectItem>
+              <SelectItem value="open_date">Open date ascending</SelectItem>
+              <SelectItem value="-open_date">Open date descending</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Calls Grid */}
-        {filteredCalls.length > 0 ? (
+        {isError ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Unable to load grant calls
+              </h3>
+              <p className="text-muted-foreground">
+                Please try again after the backend connection is restored.
+              </p>
+            </CardContent>
+          </Card>
+        ) : filteredCalls.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCalls.map((call) => (
               <CallCard key={call.id} call={call} />
@@ -259,13 +431,42 @@ export default function CallsForProposalsPage() {
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No calls found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchQuery || statusFilter !== "all"
+                {searchQuery ||
+                statusFilter !== "all" ||
+                currentYearFilter ||
+                proposalTypeFilter
                   ? "Try adjusting your search or filter criteria"
-                  : "There are no calls for proposals at this time"}
+                  : "There are no grant calls available at this time"}
               </p>
             </CardContent>
           </Card>
         )}
+
+        {meta?.totalPages ? (
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Page {meta.page} of {meta.totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                disabled={page <= 1 || isLoading}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setPage((current) => Math.min(current + 1, meta.totalPages))
+                }
+                disabled={page >= meta.totalPages || isLoading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </PageContainer>
   );

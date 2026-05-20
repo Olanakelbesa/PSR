@@ -13,7 +13,7 @@ import { API_ENDPOINTS } from "@/api/endpoints";
 const LookupItemSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -28,6 +28,22 @@ const LookupListSchema = z.object({
     })
     .optional(),
 });
+
+const ProposalTypesResponseSchema = z.union([
+  LookupListSchema,
+  z.object({
+    success: z.boolean().optional(),
+    data: z.array(LookupItemSchema),
+    meta: z
+      .object({
+        page: z.number(),
+        limit: z.number(),
+        total: z.number(),
+        totalPages: z.number(),
+      })
+      .optional(),
+  }),
+]);
 
 // ─── Thematic Area Schema ─────────────────────────────────────────────────────
 const ThematicAreaSchema = z.object({
@@ -83,7 +99,9 @@ export async function getOrganizations(): Promise<LookupItem[]> {
 
 // ─── GET /v1/policydocumenttypes/ ─────────────────────────────────────────────
 export async function getPolicyDocumentTypes(): Promise<LookupItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.POLICY_DOCUMENT_TYPES);
+  const res = await apiClient.get(
+    API_ENDPOINTS.REFERENCE.POLICY_DOCUMENT_TYPES,
+  );
   const parsed = LookupListSchema.safeParse(res.data);
   return parsed.success ? parsed.data.data : [];
 }
@@ -105,8 +123,17 @@ export async function getTeamMemberRoles(): Promise<LookupItem[]> {
 // ─── GET /v1/proposal-types ───────────────────────────────────────────────────
 export async function getProposalTypes(): Promise<LookupItem[]> {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.PROPOSAL_TYPES);
-  const parsed = LookupListSchema.safeParse(res.data);
-  return parsed.success ? parsed.data.data : [];
+  const parsed = ProposalTypesResponseSchema.safeParse(res.data);
+
+  if (!parsed.success) {
+    console.error(
+      "[reference.service] Invalid proposal-types response",
+      res.data,
+    );
+    throw new Error("Invalid proposal-types response shape");
+  }
+
+  return parsed.data.data;
 }
 
 // ─── GET /v1/subcalltypes ─────────────────────────────────────────────────────

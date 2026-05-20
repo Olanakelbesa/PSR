@@ -18,9 +18,10 @@ import {
   Upload,
   Info,
   Check,
-  FileUp,
   FileText,
   ChevronsUpDown,
+  ChevronsDown,
+  ChevronDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -70,20 +71,16 @@ import { PageContainer } from "@/components/layout";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import RichTextEditor from "@/components/RichTextEditor";
-
-const PROPOSAL_TYPES = [
-  { value: "research", label: "Research" },
-  { value: "innovation", label: "Innovation" },
-  { value: "community", label: "Community Engagement" },
-  { value: "consultancy", label: "Consultancy" },
-  { value: "capacity-building", label: "Capacity Building" },
-  { value: "policy-review", label: "Policy Review" },
-];
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { createGrantCall } from "@/api/services/grant-calls.service";
+import { useProposalTypes } from "@/lib/queries/proposal-type";
 
 export default function NewGrantPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("<p></p>");
   const [eligibilityCriteria, setEligibilityCriteria] = useState("<p></p>");
+  const [status, setStatus] = useState("");
   const [openDate, setOpenDate] = useState("2025-01-01");
   const [closeDate, setCloseDate] = useState("2025-06-01");
 
@@ -93,11 +90,13 @@ export default function NewGrantPage() {
     { id: 3, percentage: 30 },
   ]);
 
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([
-    "research",
-    "innovation",
-  ]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  const {
+    data: proposalTypes = [],
+    isLoading: proposalTypesLoading,
+    error: proposalTypesError,
+  } = useProposalTypes();
 
   // Image Upload State
   const [thumbnail, setThumbnail] = useState<File | null>(null);
@@ -105,13 +104,9 @@ export default function NewGrantPage() {
   const [banner, setBanner] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
-  // Supporting Documents State
-  const [documents, setDocuments] = useState<{ id: string; file: File }[]>([]);
-
   // Refs for hidden inputs
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const documentInputRef = useRef<HTMLInputElement>(null);
 
   // Helper to normalize rich-text HTML into visible text.
   const getCleanText = (html: string) => {
@@ -201,21 +196,6 @@ export default function NewGrantPage() {
     }
   };
 
-  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newDocs = Array.from(files).map((file) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        file,
-      }));
-      setDocuments((prev) => [...prev, ...newDocs]);
-    }
-  };
-
-  const removeDocument = (id: string) => {
-    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
-  };
-
   const removeImage = (type: "thumbnail" | "banner") => {
     if (type === "thumbnail") {
       setThumbnail(null);
@@ -231,6 +211,37 @@ export default function NewGrantPage() {
       prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
     );
   };
+
+  const router = useRouter();
+  const [currentYear, setCurrentYear] = useState("2025");
+
+  async function handleSubmit() {
+    const payload = {
+      title,
+      description,
+      eligibility_criteria: eligibilityCriteria,
+      proposal_types: selectedTypes,
+      status: status || "",
+      current_year: currentYear,
+      open_date: openDate || null,
+      close_date: closeDate || null,
+      thumbnail_image: thumbnail ?? null,
+      banner_image: banner ?? null,
+      installment_plans: installments.map((it, idx) => ({
+        installment_number: idx + 1,
+        percentage: it.percentage,
+      })),
+    };
+
+    try {
+      const created = await createGrantCall(payload as any);
+      toast.success("Grant call created");
+      router.push(`/research/manage-grants/${created.id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create grant call");
+    }
+  }
 
   return (
     <PageContainer
@@ -280,7 +291,10 @@ export default function NewGrantPage() {
                   <Label htmlFor="year" className="text-sm font-semibold">
                     Current Year
                   </Label>
-                  <Select defaultValue="2025">
+                  <Select
+                    value={currentYear}
+                    onValueChange={(v) => setCurrentYear(v)}
+                  >
                     <SelectTrigger id="year" className="h-11">
                       <SelectValue placeholder="Select Year" />
                     </SelectTrigger>
@@ -291,6 +305,24 @@ export default function NewGrantPage() {
                       <SelectItem value="2028">2028</SelectItem>
                       <SelectItem value="2029">2029</SelectItem>
                       <SelectItem value="2030">2030</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status" className="text-sm font-semibold">
+                    Status
+                  </Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger id="status" className="h-11">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="open">Open for Submission</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -312,9 +344,11 @@ export default function NewGrantPage() {
                         <span className="truncate">
                           {selectedTypes.length > 0
                             ? `${selectedTypes.length} types selected`
-                            : "Select proposal types..."}
+                            : proposalTypesLoading
+                              ? "Loading proposal types..."
+                              : "Select proposal types..."}
                         </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
@@ -327,26 +361,32 @@ export default function NewGrantPage() {
                           className="h-9"
                         />
                         <CommandList>
-                          <CommandEmpty>No proposal type found.</CommandEmpty>
+                          <CommandEmpty>
+                            {proposalTypesLoading
+                              ? "Loading proposal types..."
+                              : proposalTypesError
+                                ? "Unable to load proposal types. Please sign in again or refresh."
+                                : "No proposal type found."}
+                          </CommandEmpty>
                           <CommandGroup>
-                            {PROPOSAL_TYPES.map((type) => (
+                            {proposalTypes.map((type) => (
                               <CommandItem
-                                key={type.value}
-                                value={type.value}
-                                onSelect={() => toggleType(type.value)}
+                                key={type.id}
+                                value={type.name}
+                                onSelect={() => toggleType(type.id)}
                                 className="cursor-pointer"
                               >
                                 <div
                                   className={cn(
                                     "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-colors",
-                                    selectedTypes.includes(type.value)
+                                    selectedTypes.includes(type.id)
                                       ? "bg-primary text-primary-foreground"
                                       : "opacity-50 [&_svg]:invisible",
                                   )}
                                 >
                                   <Check className={cn("h-3 w-3")} />
                                 </div>
-                                <span>{type.label}</span>
+                                <span>{type.name}</span>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -355,19 +395,24 @@ export default function NewGrantPage() {
                     </PopoverContent>
                   </Popover>
 
+                  {proposalTypesError && !proposalTypesLoading && (
+                    <p className="text-xs text-destructive">
+                      Proposal types could not be loaded. Your session may have
+                      expired.
+                    </p>
+                  )}
+
                   {selectedTypes.length > 0 && (
-                    <div className="flex flex-wrap gap-2 p-3 bg-muted/20 rounded-xl border border-border/40 min-h-[50px]">
+                    <div className="flex flex-wrap gap-2 p-3 bg-muted/20 rounded-xl border border-border/40 min-h-12.5">
                       {selectedTypes.map((val) => {
-                        const type = PROPOSAL_TYPES.find(
-                          (t) => t.value === val,
-                        );
+                        const type = proposalTypes.find((t) => t.id === val);
                         return (
                           <Badge
                             key={val}
                             variant="secondary"
                             className="bg-background hover:bg-background border-border/40 text-xs py-1 px-2 flex items-center gap-1 group"
                           >
-                            {type?.label}
+                            {type?.name ?? val}
                             <button
                               onClick={() => toggleType(val)}
                               className="ml-1 rounded-full outline-hidden hover:bg-muted p-0.5"
@@ -467,7 +512,7 @@ export default function NewGrantPage() {
                   ) : (
                     <div
                       onClick={() => thumbnailInputRef.current?.click()}
-                      className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group min-h-[160px] bg-muted/10"
+                      className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group min-h-40 bg-muted/10"
                     >
                       <div className="p-3 rounded-full bg-background border shadow-xs group-hover:scale-110 transition-transform">
                         <Upload className="h-6 w-6 text-primary/70" />
@@ -523,7 +568,7 @@ export default function NewGrantPage() {
                   ) : (
                     <div
                       onClick={() => bannerInputRef.current?.click()}
-                      className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group min-h-[160px] bg-muted/10"
+                      className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group min-h-40 bg-muted/10"
                     >
                       <div className="p-3 rounded-full bg-background border shadow-xs group-hover:scale-110 transition-transform">
                         <ImageIcon className="h-6 w-6 text-primary/70" />
@@ -538,82 +583,6 @@ export default function NewGrantPage() {
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Supporting Documents */}
-          <Card className="shadow-sm border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold tracking-tight">
-                Supporting Documents
-              </CardTitle>
-              <CardDescription>
-                Upload relevant guidelines, templates, or policy documents
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <input
-                type="file"
-                ref={documentInputRef}
-                className="hidden"
-                multiple
-                onChange={handleDocumentUpload}
-              />
-
-              <div
-                onClick={() => documentInputRef.current?.click()}
-                className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-muted/30 hover:border-primary/40 transition-all cursor-pointer group bg-muted/10"
-              >
-                <div className="p-3 rounded-full bg-background border shadow-xs group-hover:scale-110 transition-transform">
-                  <FileUp className="h-6 w-6 text-primary/70" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium">
-                    Click to upload documents
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PDF, DOCX, XLSX (Max 10MB each)
-                  </p>
-                </div>
-              </div>
-
-              {documents.length > 0 && (
-                <div className="space-y-3">
-                  <Label className="text-sm font-semibold px-1">
-                    Uploaded Files
-                  </Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-background/50 hover:bg-muted/20 transition-colors shadow-xs group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <FileText className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium truncate max-w-[240px] sm:max-w-md">
-                              {doc.file.name}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                              {(doc.file.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeDocument(doc.id)}
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -659,111 +628,11 @@ export default function NewGrantPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Installment Plan */}
-          <Card className="shadow-sm border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <div>
-                <CardTitle className="text-lg font-bold tracking-tight">
-                  Installment Plan
-                </CardTitle>
-                <CardDescription>
-                  Configure the grant disbursement schedule
-                </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addInstallment}
-                className="h-9 shadow-xs hover:bg-primary/5"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Installment
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-xl border border-border/40 overflow-hidden shadow-xs">
-                <Table>
-                  <TableHeader className="bg-muted/30">
-                    <TableRow>
-                      <TableHead className="w-32 pl-6">Installment</TableHead>
-                      <TableHead>Percentage (%)</TableHead>
-                      <TableHead className="w-20 pr-6 text-right"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {installments.map((inst, index) => (
-                      <TableRow
-                        key={inst.id}
-                        className="hover:bg-muted/10 transition-colors"
-                      >
-                        <TableCell className="font-medium pl-6">
-                          [{index + 1}]
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Input
-                              type="number"
-                              value={inst.percentage}
-                              onChange={(e) =>
-                                updatePercentage(inst.id, e.target.value)
-                              }
-                              className="w-24 h-9 bg-background"
-                            />
-                            <div className="flex-1 max-w-[200px] hidden sm:block">
-                              <Progress
-                                value={inst.percentage}
-                                className="h-1.5"
-                              />
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="pr-6 text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeInstallment(inst.id)}
-                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/20 p-5 rounded-xl border border-border/40">
-                <div className="flex items-center gap-4">
-                  <div
-                    className={cn(
-                      "px-5 py-2.5 rounded-lg font-bold border-2 shadow-sm transition-all",
-                      totalPercentage === 100
-                        ? "bg-primary/10 text-green-600 border-green-200"
-                        : "bg-destructive/10 text-destructive border-destructive/20",
-                    )}
-                  >
-                    Total = {totalPercentage}%
-                  </div>
-                  {totalPercentage !== 100 && (
-                    <span className="text-sm text-destructive">
-                      Sum must be 100%
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                  <Info className="h-3.5 w-3.5" />
-                  Remaining: {100 - totalPercentage}%
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Column - Status Panel */}
-        <div >
-          <Card className="xl:sticky xl:top-2 shadow-md border-primary/10 overflow-hidden bg-gradient-to-b from-background to-muted/20 -py-6">
+        <div>
+          <Card className="xl:sticky xl:top-2 shadow-md border-primary/10 overflow-hidden bg-linear-to-b from-background to-muted/20 -py-6">
             <div className=" bg-primary w-full" />
             <CardHeader className="bg-primary/5 pb-6 -mt-6">
               <CardTitle className="text-xs font-bold uppercase tracking-[0.2em] text-primary/80">
@@ -869,16 +738,20 @@ export default function NewGrantPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4 pt-2 grid grid-cols-2 gap-4 ">
                 <Button
                   variant="outline"
                   className="w-full justify-start h-12 border-border/60 hover:bg-primary/5 hover:border-primary/30 transition-all shadow-xs group font-bold"
+                  onClick={() => handleSubmit()}
                 >
                   <Save className="mr-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   Save Draft
                 </Button>
-                <Button className="w-full justify-start h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group font-black text-sm">
+                <Button
+                  className="w-full justify-start h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group font-black text-sm"
+                  onClick={() => handleSubmit()}
+                >
                   <Send className="mr-3 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                   Publish Call
                 </Button>

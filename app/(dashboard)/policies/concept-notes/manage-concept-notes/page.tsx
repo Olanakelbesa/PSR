@@ -35,12 +35,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -52,26 +47,62 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
-import { useManageConceptNotes, type ConceptNoteItem } from "@/lib/queries/concept-notes";
+import {
+  useManageConceptNotes,
+  type ConceptNoteItem,
+} from "@/lib/queries/concept-notes";
 import { useAuth } from "@/hooks/useAuth";
 
 // ── Status display helpers ─────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft:                { label: "Draft",               className: "bg-slate-100 text-slate-600 border-slate-200" },
-  submitted:            { label: "Submitted",           className: "bg-blue-100 text-blue-700 border-blue-200" },
-  under_review:         { label: "Under Review",        className: "bg-amber-100 text-amber-700 border-amber-200" },
-  accepted:             { label: "Accepted",            className: "bg-green-100 text-green-700 border-green-200" },
-  partially_accepted:   { label: "Partially Accepted",  className: "bg-orange-100 text-orange-700 border-orange-200" },
-  not_accepted:         { label: "Not Accepted",        className: "bg-red-100 text-red-700 border-red-200" },
-  revision_required:    { label: "Revision Required",   className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  resubmitted:          { label: "Resubmitted",         className: "bg-purple-100 text-purple-700 border-purple-200" },
-  policy_draft_ready:   { label: "Policy Draft Ready",  className: "bg-teal-100 text-teal-700 border-teal-200" },
+  draft: {
+    label: "Draft",
+    className: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  submitted: {
+    label: "Submitted",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  under_review: {
+    label: "Under Review",
+    className: "bg-amber-100 text-amber-700 border-amber-200",
+  },
+  accepted: {
+    label: "Accepted",
+    className: "bg-green-100 text-green-700 border-green-200",
+  },
+  partially_accepted: {
+    label: "Partially Accepted",
+    className: "bg-orange-100 text-orange-700 border-orange-200",
+  },
+  not_accepted: {
+    label: "Not Accepted",
+    className: "bg-red-100 text-red-700 border-red-200",
+  },
+  revision_required: {
+    label: "Revision Required",
+    className: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  },
+  resubmitted: {
+    label: "Resubmitted",
+    className: "bg-purple-100 text-purple-700 border-purple-200",
+  },
+  policy_draft_ready: {
+    label: "Policy Draft Ready",
+    className: "bg-teal-100 text-teal-700 border-teal-200",
+  },
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, className: "bg-muted text-muted-foreground border-border" };
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status,
+    className: "bg-muted text-muted-foreground border-border",
+  };
   return (
-    <Badge variant="outline" className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 ${cfg.className}`}>
+    <Badge
+      variant="outline"
+      className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 ${cfg.className}`}
+    >
       {cfg.label}
     </Badge>
   );
@@ -83,8 +114,11 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     id: "title",
     accessorKey: "title",
     header: ({ column }) => (
-      <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent">
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="h-8 font-semibold hover:bg-transparent"
+      >
         Title <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
       </Button>
     ),
@@ -145,8 +179,11 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     id: "currentStatus",
     accessorKey: "currentStatus",
     header: ({ column }) => (
-      <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent">
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="h-8 font-semibold hover:bg-transparent"
+      >
         Status <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
       </Button>
     ),
@@ -157,7 +194,10 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     accessorKey: "versionNumber",
     header: () => <span className="font-semibold text-sm">Version</span>,
     cell: ({ row }) => (
-      <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20">
+      <Badge
+        variant="outline"
+        className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20"
+      >
         {row.original.versionNumber ?? "—"}
       </Badge>
     ),
@@ -165,7 +205,9 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
   {
     id: "submittedBy",
     accessorKey: "submittedBy",
-    header: () => <span className="ml-1 font-semibold text-sm">Submitted By</span>,
+    header: () => (
+      <span className="ml-1 font-semibold text-sm">Submitted By</span>
+    ),
     cell: ({ row }) => {
       const author = row.original.submittedBy;
       const initials = author.fullName
@@ -177,7 +219,10 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
       return (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8 border-2 border-background shadow-sm ring-1 ring-border/50">
-            <AvatarImage src={author.photoUrl ?? undefined} alt={author.fullName} />
+            <AvatarImage
+              src={author.photoUrl ?? undefined}
+              alt={author.fullName}
+            />
             <AvatarFallback className="text-[11px] font-bold bg-muted text-muted-foreground">
               {initials}
             </AvatarFallback>
@@ -186,7 +231,9 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
             <span className="text-[13px] font-semibold leading-none text-foreground">
               {author.fullName}
             </span>
-            <span className="text-[11px] text-muted-foreground mt-0.5">{author.email}</span>
+            <span className="text-[11px] text-muted-foreground mt-0.5">
+              {author.email}
+            </span>
           </div>
         </div>
       );
@@ -196,8 +243,11 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     id: "submissionDate",
     accessorKey: "submissionDate",
     header: ({ column }) => (
-      <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent">
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="h-8 font-semibold hover:bg-transparent"
+      >
         Submitted <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
       </Button>
     ),
@@ -206,7 +256,9 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
         <Calendar className="h-3.5 w-3.5" />
         <span className="text-[13px] font-medium">
           {new Date(row.original.submissionDate).toLocaleDateString("en-US", {
-            month: "short", day: "numeric", year: "numeric",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
           })}
         </span>
       </div>
@@ -220,12 +272,18 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full">
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full"
+              >
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px] p-1 shadow-xl border-muted-foreground/20">
+            <DropdownMenuContent
+              align="end"
+              className="w-[180px] p-1 shadow-xl border-muted-foreground/20"
+            >
               <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5 font-normal uppercase tracking-wider">
                 Actions
               </DropdownMenuLabel>
@@ -246,7 +304,8 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
                   Assign Expert
                 </Link>
               </DropdownMenuItem>
-              {(note.currentStatus === "submitted" || note.currentStatus === "under_review") && (
+              {(note.currentStatus === "submitted" ||
+                note.currentStatus === "under_review") && (
                 <>
                   <DropdownMenuSeparator className="bg-muted/50" />
                   <DropdownMenuItem asChild>
@@ -268,25 +327,70 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
 ];
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+function BackendErrorMessage({
+  errorPayload,
+  className,
+}: {
+  errorPayload: any;
+  className?: string;
+}) {
+  if (!errorPayload) return null;
+
+  // Try several shapes: raw envelope, axios error with response.data, or plain message
+  const envelope =
+    errorPayload?.response?.data ??
+    (errorPayload?.data && typeof errorPayload?.data === "object"
+      ? errorPayload.data
+      : null) ??
+    (errorPayload?.error ? errorPayload : null);
+
+  const message =
+    envelope?.error?.message ??
+    envelope?.message ??
+    errorPayload?.message ??
+    null;
+  const detail =
+    envelope?.error?.details?.detail ?? envelope?.error?.details ?? null;
+
+  if (!message && !detail) return null;
+
+  return (
+    <div className={className}>
+      {message && (
+        <p className="text-sm font-medium text-destructive/90">{message}</p>
+      )}
+      {detail && <p className="text-sm text-muted-foreground mt-1">{detail}</p>}
+    </div>
+  );
+}
+
 export default function ManageConceptNotesPage() {
   const router = useRouter();
   const { backendToken } = useAuth();
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isError, refetch, isFetching } = useManageConceptNotes(
-    { limit: 100, page },
-    backendToken,
-  );
+  const { data, isLoading, isError, error, refetch, isFetching } =
+    useManageConceptNotes({ limit: 100, page }, backendToken);
 
   const notes = data?.data ?? [];
   const meta = data?.meta as any;
   const statistics = meta?.statistics ?? {};
 
   const stats = {
-    total:      statistics.totalConceptNote ?? notes.length,
-    draft:      statistics.inDraft          ?? notes.filter((n) => n.currentStatus === "draft").length,
-    review:     statistics.underReview      ?? notes.filter((n) => ["submitted", "under_review"].includes(n.currentStatus)).length,
-    approved:   statistics.approved         ?? notes.filter((n) => ["accepted", "policy_draft_ready"].includes(n.currentStatus)).length,
+    total: statistics.totalConceptNote ?? notes.length,
+    draft:
+      statistics.inDraft ??
+      notes.filter((n) => n.currentStatus === "draft").length,
+    review:
+      statistics.underReview ??
+      notes.filter((n) =>
+        ["submitted", "under_review"].includes(n.currentStatus),
+      ).length,
+    approved:
+      statistics.approved ??
+      notes.filter((n) =>
+        ["accepted", "policy_draft_ready"].includes(n.currentStatus),
+      ).length,
   };
 
   return (
@@ -302,7 +406,9 @@ export default function ManageConceptNotesPage() {
             disabled={isFetching}
             className="gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
         </div>
@@ -346,8 +452,12 @@ export default function ManageConceptNotesPage() {
         ].map(({ label, value, icon, iconBg, border, sub }) => (
           <Card key={label} className={border}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-              <div className={`h-8 w-8 rounded-full ${iconBg} flex items-center justify-center`}>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {label}
+              </CardTitle>
+              <div
+                className={`h-8 w-8 rounded-full ${iconBg} flex items-center justify-center`}
+              >
                 {icon}
               </div>
             </CardHeader>
@@ -355,7 +465,9 @@ export default function ManageConceptNotesPage() {
               <div className="text-2xl font-bold">
                 {isLoading ? <Skeleton className="h-8 w-12" /> : value}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 font-medium">{sub}</p>
+              <p className="text-[11px] text-muted-foreground mt-1 font-medium">
+                {sub}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -379,11 +491,20 @@ export default function ManageConceptNotesPage() {
             </div>
           </div>
         ) : isError ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-12 text-center">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
             <AlertCircle className="h-10 w-10 text-destructive/60 mx-auto mb-3" />
-            <p className="font-semibold text-destructive">Failed to load concept notes</p>
-            <p className="text-sm text-muted-foreground mt-1">Check your connection or try refreshing.</p>
-            <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+            <p className="font-semibold text-destructive">
+              Failed to load concept notes
+            </p>
+            <BackendErrorMessage
+              className="mt-2"
+              errorPayload={error ?? data}
+            />
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => refetch()}
+            >
               <RefreshCw className="mr-2 h-4 w-4" /> Try Again
             </Button>
           </div>
@@ -394,13 +515,17 @@ export default function ManageConceptNotesPage() {
             searchKey="title"
             searchPlaceholder="Search concept notes..."
             onRowClick={(note) =>
-              router.push(`/policies/concept-notes/manage-concept-notes/${note.id}`)
+              router.push(
+                `/policies/concept-notes/manage-concept-notes/${note.id}`,
+              )
             }
             filterOptions={[
               {
                 key: "currentStatus",
                 label: "Status",
-                options: Object.entries(STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
+                options: Object.entries(STATUS_CONFIG).map(
+                  ([value, { label }]) => ({ value, label }),
+                ),
               },
             ]}
           />

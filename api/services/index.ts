@@ -10,3 +10,4 @@ export * from "./concept-notes.service";
 export * from "./reference.service";
 export * from "./proposals.service";
 export * from "./grants-projects.service";
+export * from "./grant-calls.service";
