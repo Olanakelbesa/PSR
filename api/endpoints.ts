@@ -127,14 +127,14 @@ export const API_ENDPOINTS = {
 
   // ── Research Proposals ────────────────────────────────────────────────────
   PROPOSALS: {
-    LIST: "/proposals",
-    DETAIL: (id: string) => `/proposals/${id}`,
-    CREATE: "/proposals",
-    UPDATE: (id: string) => `/proposals/${id}`,
-    SUBMIT: (id: string) => `/proposals/${id}/submit`,
-    ASSIGN_REVIEWERS: (id: string) => `/proposals/${id}/assign-reviewers`,
-    REVIEWS: (id: string) => `/proposals/${id}/reviews`,
-    OPTIONS: "/proposals/options",
+    LIST: "/v1/proposals",
+    DETAIL: (id: string) => `/v1/proposals/${id}`,
+    CREATE: "/v1/proposals",
+    UPDATE: (id: string) => `/v1/proposals/${id}`,
+    SUBMIT: (id: string) => `/v1/proposals/${id}/submit`,
+    ASSIGN_REVIEWERS: (id: string) => `/v1/proposals/${id}/assign-reviewers`,
+    REVIEWS: (id: string) => `/v1/proposals/${id}/reviews`,
+    OPTIONS: "/v1/proposals/options",
   },
 
   // ── Proposal Template Sections ────────────────────────────────────────────
