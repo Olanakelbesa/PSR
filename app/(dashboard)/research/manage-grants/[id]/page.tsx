@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { useGrantCall } from "@/lib/queries/grant-calls";
 import type { GrantCall } from "@/types/grant-call";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 function isCallOpen(call: GrantCall) {
   const status = (call.status ?? "").toLowerCase();
@@ -157,9 +158,10 @@ export default function CallDetailPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-relaxed text-muted-foreground">
+                <HtmlContentRenderer content=
                 {call.description ||
                   call.shortDescription ||
-                  "No description provided."}
+                  "No description provided."}/>
               </p>
             </CardContent>
           </Card>
@@ -174,7 +176,7 @@ export default function CallDetailPage() {
                   Eligibility Criteria
                 </h4>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {call.eligibilityCriteria || "Not specified."}
+                  <HtmlContentRenderer content={call.eligibilityCriteria || "Not specified."} />
                 </p>
               </div>
               <div className="border-t pt-6">

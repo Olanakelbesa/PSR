@@ -122,6 +122,7 @@ export const API_ENDPOINTS = {
   GRANT_CALLS: {
     LIST: "/v1/grant-calls/",
     DETAIL: (id: string | number) => `/v1/grant-calls/${id}/`,
+    PUBLISH: (id: string | number) => `/v1/grant-calls/${id}/publish/`,
   },
 
   // ── Research Proposals ────────────────────────────────────────────────────

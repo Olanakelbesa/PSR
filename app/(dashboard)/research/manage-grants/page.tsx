@@ -35,6 +35,7 @@ import { PageContainer } from "@/components/layout";
 import Image from "next/image";
 import { useGrantCalls } from "@/lib/queries/grant-calls";
 import type { GrantCall } from "@/types/grant-call";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 const statusConfig: Record<
   string,
@@ -107,9 +108,13 @@ function CallCard({ call }: { call: GrantCall }) {
               {call.title}
             </CardTitle>
             <CardDescription className="line-clamp-2">
-              {call.shortDescription ||
-                call.description ||
-                "No description available"}
+              <HtmlContentRenderer 
+                content={
+                  call.shortDescription ||
+                  call.description ||
+                  "No description available"
+                }
+              />
             </CardDescription>
           </div>
           <Badge variant={status.variant}>{status.label}</Badge>

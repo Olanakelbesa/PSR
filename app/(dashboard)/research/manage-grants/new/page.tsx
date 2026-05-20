@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -73,13 +73,18 @@ import { cn } from "@/lib/utils";
 import RichTextEditor from "@/components/RichTextEditor";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createGrantCall } from "@/api/services/grant-calls.service";
+import {
+  createGrantCall,
+  updateGrantCall,
+  publishGrantCall,
+} from "@/api/services/grant-calls.service";
 import { useProposalTypes } from "@/lib/queries/proposal-type";
 
 export default function NewGrantPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("<p></p>");
   const [eligibilityCriteria, setEligibilityCriteria] = useState("<p></p>");
+  const [budget, setBudget] = useState<string>("");
   const [status, setStatus] = useState("");
   const [openDate, setOpenDate] = useState("2025-01-01");
   const [closeDate, setCloseDate] = useState("2025-06-01");
@@ -89,6 +94,8 @@ export default function NewGrantPage() {
     { id: 2, percentage: 30 },
     { id: 3, percentage: 30 },
   ]);
+  const [errors, setErrors] = useState<any>(null);
+  const [grantCallId, setGrantCallId] = useState<string | number | null>(null);
 
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -107,6 +114,13 @@ export default function NewGrantPage() {
   // Refs for hidden inputs
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
+  const saveInFlightRef = useRef(false);
+  const queuedPayloadRef = useRef<{
+    payload: ReturnType<typeof buildGrantCallPayload>;
+    mode: "autosave" | "manual" | "publish";
+  } | null>(null);
+  const lastSavedSignatureRef = useRef("");
 
   // Helper to normalize rich-text HTML into visible text.
   const getCleanText = (html: string) => {
@@ -215,8 +229,8 @@ export default function NewGrantPage() {
   const router = useRouter();
   const [currentYear, setCurrentYear] = useState("2025");
 
-  async function handleSubmit() {
-    const payload = {
+  function buildGrantCallPayload() {
+    return {
       title,
       description,
       eligibility_criteria: eligibilityCriteria,
@@ -231,17 +245,152 @@ export default function NewGrantPage() {
         installment_number: idx + 1,
         percentage: it.percentage,
       })),
+      budget: budget ? Number(budget) : null,
     };
+  }
+
+  function serializeGrantCallPayload(
+    payload: ReturnType<typeof buildGrantCallPayload>,
+  ) {
+    return JSON.stringify({
+      ...payload,
+      thumbnail_image:
+        payload.thumbnail_image instanceof File
+          ? `${payload.thumbnail_image.name}:${payload.thumbnail_image.size}:${payload.thumbnail_image.lastModified}`
+          : payload.thumbnail_image,
+      banner_image:
+        payload.banner_image instanceof File
+          ? `${payload.banner_image.name}:${payload.banner_image.size}:${payload.banner_image.lastModified}`
+          : payload.banner_image,
+    });
+  }
+
+  async function persistGrantCall(
+    mode: "autosave" | "manual" | "publish",
+    payloadOverride?: ReturnType<typeof buildGrantCallPayload>,
+  ) {
+    const payload = payloadOverride ?? buildGrantCallPayload();
+    const signature = serializeGrantCallPayload(payload);
+
+    if (mode === "autosave" && signature === lastSavedSignatureRef.current) {
+      return grantCallId;
+    }
+
+    if (saveInFlightRef.current) {
+      queuedPayloadRef.current = { payload, mode };
+      return grantCallId;
+    }
+
+    saveInFlightRef.current = true;
 
     try {
-      const created = await createGrantCall(payload as any);
-      toast.success("Grant call created");
-      router.push(`/research/manage-grants/${created.id}`);
+      setErrors(null);
+      const saved = grantCallId
+        ? await updateGrantCall(grantCallId, payload)
+        : await createGrantCall(payload);
+
+      if (!grantCallId) {
+        setGrantCallId(saved.id);
+      }
+
+      lastSavedSignatureRef.current = signature;
+
+      if (mode !== "autosave") {
+        toast.success("Grant call saved");
+      }
+
+      return saved.id;
     } catch (err) {
       console.error(err);
-      toast.error("Failed to create grant call");
+      const envelope =
+        (err as any)?.response?.data ?? (err as any)?.data ?? err;
+      setErrors(envelope);
+      const msg =
+        envelope?.error?.message ??
+        envelope?.message ??
+        "Failed to save grant call";
+      if (mode !== "autosave") {
+        toast.error(msg);
+      }
+      throw err;
+    } finally {
+      saveInFlightRef.current = false;
+
+      const queued = queuedPayloadRef.current;
+      queuedPayloadRef.current = null;
+
+      if (queued) {
+        const queuedSignature = serializeGrantCallPayload(queued.payload);
+        if (queuedSignature !== lastSavedSignatureRef.current) {
+          void persistGrantCall(queued.mode, queued.payload).catch((err) => {
+            if (queued.mode !== "autosave") {
+              console.error(err);
+            }
+          });
+        }
+      }
     }
   }
+
+  async function handleSubmit() {
+    return persistGrantCall("manual");
+  }
+
+  async function handlePublish() {
+    try {
+      const savedId = await persistGrantCall("publish");
+      if (!savedId) return;
+      await publishGrantCall(savedId);
+      toast.success("Grant call published");
+      router.push(`/research/manage-grants/${savedId}`);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const canAutosave =
+    title.trim().length > 0 &&
+    hasMeaningfulContent(description) &&
+    openDate.trim().length > 0 &&
+    closeDate.trim().length > 0 &&
+    budget.trim().length > 0 &&
+    totalPercentage === 100;
+
+  useEffect(() => {
+    if (!canAutosave) return;
+
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+
+    const payload = buildGrantCallPayload();
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void persistGrantCall("autosave", payload).catch(() => {
+        // autosave errors are surfaced through inline validation state
+      });
+    }, 900);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        window.clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [
+    canAutosave,
+    title,
+    description,
+    eligibilityCriteria,
+    budget,
+    status,
+    openDate,
+    closeDate,
+    installments,
+    selectedTypes,
+    thumbnail,
+    banner,
+    currentYear,
+    totalPercentage,
+  ]);
 
   return (
     <PageContainer
@@ -426,6 +575,25 @@ export default function NewGrantPage() {
                   )}
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="budget" className="text-sm font-semibold">
+                  Budget (UGX) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="budget"
+                  placeholder="e.g. 10000000"
+                  className="h-11"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  type="number"
+                />
+                {errors?.error?.details?.budget && (
+                  <p className="text-xs text-destructive mt-1">
+                    {(errors.error.details.budget as string[]).join(" ")}
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -456,6 +624,131 @@ export default function NewGrantPage() {
                 content={eligibilityCriteria}
                 onChange={(html) => setEligibilityCriteria(html)}
               />
+            </CardContent>
+          </Card>
+
+          {/* Dates */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Application Dates
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="open-date" className="text-sm font-semibold">
+                    Open Date
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="open-date"
+                      type="date"
+                      value={openDate}
+                      onChange={(e) => setOpenDate(e.target.value)}
+                      className="pl-10 h-11 bg-muted/10"
+                    />
+                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="close-date" className="text-sm font-semibold">
+                    Close Date
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="close-date"
+                      type="date"
+                      value={closeDate}
+                      onChange={(e) => setCloseDate(e.target.value)}
+                      className="pl-10 h-11 bg-muted/10"
+                    />
+                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Installment Plan */}
+          <Card className="shadow-sm border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold tracking-tight">
+                Installment Plan
+              </CardTitle>
+              <CardDescription>
+                Define payment breakdown for the grant call
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3">
+                  {installments.map((it, idx) => {
+                    const installmentErrors =
+                      errors?.error?.details?.installmentPlans?.[idx] ?? null;
+                    const percentageErrors =
+                      installmentErrors?.percentage ?? null;
+                    return (
+                      <div key={it.id} className="flex items-center gap-3">
+                        <div className="w-24">
+                          <Label className="text-xs font-semibold">
+                            Installment
+                          </Label>
+                          <Input value={idx + 1} readOnly className="h-10" />
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-xs font-semibold">
+                            Percentage
+                          </Label>
+                          <Input
+                            type="number"
+                            value={String(it.percentage)}
+                            onChange={(e) =>
+                              updatePercentage(it.id, e.target.value)
+                            }
+                            className="h-10"
+                          />
+                          {percentageErrors && (
+                            <p className="text-xs text-destructive mt-1">
+                              {percentageErrors.join(" ")}
+                            </p>
+                          )}
+                        </div>
+                        <div className="w-28 shrink-0 flex items-center mt-3 ">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeInstallment(it.id)}
+                          >
+                            <Trash2 className="h-4 w-4 " />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Total: {totalPercentage}%
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addInstallment}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Installment
+                    </Button>
+                  </div>
+                </div>
+
+                {errors?.error?.details?.installmentPlans && (
+                  <div className="text-xs text-destructive">
+                    Please fix the highlighted installment errors above.
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -585,49 +878,6 @@ export default function NewGrantPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Dates */}
-          <Card className="shadow-sm border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg font-bold tracking-tight">
-                Application Dates
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="open-date" className="text-sm font-semibold">
-                    Open Date
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="open-date"
-                      type="date"
-                      value={openDate}
-                      onChange={(e) => setOpenDate(e.target.value)}
-                      className="pl-10 h-11 bg-muted/10"
-                    />
-                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="close-date" className="text-sm font-semibold">
-                    Close Date
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="close-date"
-                      type="date"
-                      value={closeDate}
-                      onChange={(e) => setCloseDate(e.target.value)}
-                      className="pl-10 h-11 bg-muted/10"
-                    />
-                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Column - Status Panel */}
@@ -750,7 +1000,7 @@ export default function NewGrantPage() {
                 </Button>
                 <Button
                   className="w-full justify-start h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group font-black text-sm"
-                  onClick={() => handleSubmit()}
+                  onClick={() => handlePublish()}
                 >
                   <Send className="mr-3 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                   Publish Call

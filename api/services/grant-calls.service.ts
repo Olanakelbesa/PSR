@@ -171,3 +171,8 @@ export async function updateGrantCall(
   );
   return GrantCallSchema.parse(data?.data ?? data);
 }
+
+export async function publishGrantCall(id: string | number) {
+  const { data } = await apiClient.post(API_ENDPOINTS.GRANT_CALLS.PUBLISH(id));
+  return GrantCallSchema.parse(data?.data ?? data);
+}

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useGrantCall } from "@/lib/queries/grant-calls";
 import type { GrantCall } from "@/types/grant-call";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 function formatBudget(budget: GrantCall["budget"]) {
   if (budget === null || budget === undefined || budget === "")
@@ -147,9 +148,13 @@ export default function CallDetailPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {call.description ||
-                  call.shortDescription ||
-                  "No description provided."}
+                <HtmlContentRenderer
+                  content={
+                    call.description ||
+                    call.shortDescription ||
+                    "No description provided."
+                  }
+                />
               </p>
             </CardContent>
           </Card>
@@ -164,7 +169,11 @@ export default function CallDetailPage() {
                   Eligibility Criteria
                 </h4>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {call.eligibilityCriteria || "Not specified."}
+                  <HtmlContentRenderer
+                    content={
+                      call.eligibilityCriteria || "Not specified."
+                    }
+                  />
                 </p>
               </div>
               <div className="border-t pt-6">
