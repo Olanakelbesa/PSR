@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -191,6 +192,49 @@ function CallCard({ call }: { call: GrantCall }) {
   );
 }
 
+function CallCardSkeleton() {
+  return (
+    <Card className="border-border/60 h-full flex flex-col overflow-hidden">
+      <Skeleton className="h-60 w-full rounded-none" />
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-5 w-4/5" />
+            <Skeleton className="h-5 w-2/3" />
+            <div className="space-y-1.5 pt-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+            </div>
+          </div>
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 flex flex-1 flex-col">
+        <div className="flex gap-2 mb-4">
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-5 w-14" />
+        </div>
+        <Skeleton className="h-4 w-3/4 mb-4" />
+        <div className="grid grid-cols-1 gap-3 mt-auto">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-4 rounded-full" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <div className="mt-6 flex gap-2">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 flex-1" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CallsForProposalsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -291,9 +335,13 @@ export default function CallsForProposalsPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Calls</p>
-                <p className="text-2xl font-bold">
-                  {isLoading ? "-" : (meta?.total ?? calls.length)}
-                </p>
+                <div className="text-2xl font-bold h-8 flex items-center mt-1">
+                  {isLoading ? (
+                    <Skeleton className="h-7 w-12" />
+                  ) : (
+                    meta?.total ?? calls.length
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -304,9 +352,13 @@ export default function CallsForProposalsPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Open Calls</p>
-                <p className="text-2xl font-bold">
-                  {isLoading ? "-" : openCalls}
-                </p>
+                <div className="text-2xl font-bold h-8 flex items-center mt-1">
+                  {isLoading ? (
+                    <Skeleton className="h-7 w-12" />
+                  ) : (
+                    openCalls
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -317,9 +369,13 @@ export default function CallsForProposalsPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Closed Calls</p>
-                <p className="text-2xl font-bold">
-                  {isLoading ? "-" : closedCalls}
-                </p>
+                <div className="text-2xl font-bold h-8 flex items-center mt-1">
+                  {isLoading ? (
+                    <Skeleton className="h-7 w-12" />
+                  ) : (
+                    closedCalls
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -424,6 +480,12 @@ export default function CallsForProposalsPage() {
               </p>
             </CardContent>
           </Card>
+        ) : isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <CallCardSkeleton key={i} />
+            ))}
+          </div>
         ) : filteredCalls.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCalls.map((call) => (

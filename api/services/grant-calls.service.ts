@@ -101,7 +101,10 @@ function appendFormData(formData: FormData, key: string, value: unknown): void {
   if (typeof value === "object") {
     Object.entries(value as Record<string, unknown>).forEach(
       ([nestedKey, nestedValue]) => {
-        appendFormData(formData, `${key}[${nestedKey}]`, nestedValue);
+        const nextKey = key.endsWith("]")
+          ? `${key}${nestedKey}`
+          : `${key}.${nestedKey}`;
+        appendFormData(formData, nextKey, nestedValue);
       },
     );
     return;
@@ -109,6 +112,7 @@ function appendFormData(formData: FormData, key: string, value: unknown): void {
 
   formData.append(key, String(value));
 }
+
 
 function buildGrantCallPayload(payload: GrantCallWriteInput) {
   const hasFiles =
@@ -145,8 +149,16 @@ export async function getGrantCalls(
 export async function getGrantCallById(
   id: string | number,
 ): Promise<GrantCall> {
-  const { data } = await apiClient.get(API_ENDPOINTS.GRANT_CALLS.DETAIL(id));
-  return GrantCallSchema.parse(data?.data ?? data);
+  try {
+    const { data } = await apiClient.get(API_ENDPOINTS.GRANT_CALLS.DETAIL(id));
+    console.log("getGrantCallById response raw:", data);
+    const parsed = GrantCallSchema.parse(data?.data ?? data);
+    console.log("getGrantCallById parsed:", parsed);
+    return parsed;
+  } catch (err) {
+    console.error("getGrantCallById error:", err);
+    throw err;
+  }
 }
 
 export async function createGrantCall(payload: GrantCallWriteInput) {

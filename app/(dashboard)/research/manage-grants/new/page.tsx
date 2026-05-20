@@ -85,7 +85,7 @@ export default function NewGrantPage() {
   const [description, setDescription] = useState("<p></p>");
   const [eligibilityCriteria, setEligibilityCriteria] = useState("<p></p>");
   const [budget, setBudget] = useState<string>("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("draft");
   const [openDate, setOpenDate] = useState("2025-01-01");
   const [closeDate, setCloseDate] = useState("2025-06-01");
 
@@ -116,6 +116,7 @@ export default function NewGrantPage() {
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const saveInFlightRef = useRef(false);
+  const activeSavePromiseRef = useRef<Promise<any> | null>(null);
   const queuedPayloadRef = useRef<{
     payload: ReturnType<typeof buildGrantCallPayload>;
     mode: "autosave" | "manual" | "publish";
@@ -227,7 +228,7 @@ export default function NewGrantPage() {
   };
 
   const router = useRouter();
-  const [currentYear, setCurrentYear] = useState("2025");
+  const [currentYear, setCurrentYear] = useState("2026");
 
   function buildGrantCallPayload() {
     return {
@@ -268,7 +269,7 @@ export default function NewGrantPage() {
   async function persistGrantCall(
     mode: "autosave" | "manual" | "publish",
     payloadOverride?: ReturnType<typeof buildGrantCallPayload>,
-  ) {
+  ): Promise<string | number | null> {
     const payload = payloadOverride ?? buildGrantCallPayload();
     const signature = serializeGrantCallPayload(payload);
 
@@ -277,13 +278,21 @@ export default function NewGrantPage() {
     }
 
     if (saveInFlightRef.current) {
-      queuedPayloadRef.current = { payload, mode };
-      return grantCallId;
+      if (mode !== "autosave") {
+        try {
+          await activeSavePromiseRef.current;
+        } catch {
+          // ignore error from previous request to retry
+        }
+      } else {
+        queuedPayloadRef.current = { payload, mode };
+        return grantCallId;
+      }
     }
 
     saveInFlightRef.current = true;
 
-    try {
+    const savePromise = (async () => {
       setErrors(null);
       const saved = grantCallId
         ? await updateGrantCall(grantCallId, payload)
@@ -295,11 +304,18 @@ export default function NewGrantPage() {
 
       lastSavedSignatureRef.current = signature;
 
-      if (mode !== "autosave") {
+      if (mode !== "autosave" && mode !== "publish") {
         toast.success("Grant call saved");
       }
 
       return saved.id;
+    })();
+
+    activeSavePromiseRef.current = savePromise;
+
+    try {
+      const savedId = await savePromise;
+      return savedId;
     } catch (err) {
       console.error(err);
       const envelope =
@@ -312,9 +328,15 @@ export default function NewGrantPage() {
       if (mode !== "autosave") {
         toast.error(msg);
       }
+      if (err && typeof err === "object") {
+        (err as any)._persistFailed = true;
+      }
       throw err;
     } finally {
-      saveInFlightRef.current = false;
+      if (activeSavePromiseRef.current === savePromise) {
+        saveInFlightRef.current = false;
+        activeSavePromiseRef.current = null;
+      }
 
       const queued = queuedPayloadRef.current;
       queuedPayloadRef.current = null;
@@ -345,6 +367,18 @@ export default function NewGrantPage() {
       router.push(`/research/manage-grants/${savedId}`);
     } catch (err) {
       console.error(err);
+      // If persistGrantCall failed, it already showed a toast error (since mode !== "autosave").
+      // But if publishGrantCall failed (which happened after savedId was successfully returned),
+      // we need to toast the publish error:
+      if (err && (err as any)._persistFailed === undefined) {
+        const envelope =
+          (err as any)?.response?.data ?? (err as any)?.data ?? err;
+        const msg =
+          envelope?.error?.message ??
+          envelope?.message ??
+          "Failed to publish grant call";
+        toast.error(msg);
+      }
     }
   }
 
@@ -448,7 +482,6 @@ export default function NewGrantPage() {
                       <SelectValue placeholder="Select Year" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2025">2025</SelectItem>
                       <SelectItem value="2026">2026</SelectItem>
                       <SelectItem value="2027">2027</SelectItem>
                       <SelectItem value="2028">2028</SelectItem>
@@ -578,7 +611,7 @@ export default function NewGrantPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="budget" className="text-sm font-semibold">
-                  Budget (UGX) <span className="text-destructive">*</span>
+                  Budget (ETB) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="budget"

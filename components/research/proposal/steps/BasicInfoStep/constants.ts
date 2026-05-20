@@ -1,7 +1,7 @@
 import type { GrantCall } from "@/types";
 
 // Mock grant calls data (should match the one in grant-calls page)
-export const MOCK_GRANT_CALLS: GrantCall[] = [
+export const MOCK_GRANT_CALLS: any[] = [
   {
     id: 1,
     title: "2025 Research Excellence Grant",
