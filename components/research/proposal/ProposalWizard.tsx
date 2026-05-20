@@ -777,7 +777,7 @@ export function ProposalWizard({
 
       // Redirect to proposals page and refresh
       setTimeout(() => {
-        router.push("/internal/proposals/my-proposals");
+        router.push("/research/proposals/my-proposals");
         // Refresh the page after navigation to ensure latest data is loaded
         setTimeout(() => {
           router.refresh();
@@ -807,7 +807,7 @@ export function ProposalWizard({
             <div className="text-center space-y-4">
               <p className="text-destructive">Failed to load proposal data.</p>
               <Button
-                onClick={() => router.push("/internal/proposals/my-proposals")}
+                onClick={() => router.push("/research/proposals/my-proposals")}
               >
                 Back to Proposals
               </Button>

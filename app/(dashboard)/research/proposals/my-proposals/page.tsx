@@ -39,7 +39,6 @@ import {
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { proposalsApi } from "@/api/client";
-import { mockProposals } from "@/lib/api/mock-data";
 import type { ResearchProposal } from "@/lib/types";
 import { PROPOSAL_STATUSES, THEMATIC_AREAS } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,7 +80,7 @@ const columns: ColumnDef<ProposalRow>[] = [
     header: "Reference #",
     cell: ({ row }) => (
       <Link
-        href={`/research/proposals/${row.original.id}`}
+        href={`/research/proposals/my-proposals/${row.original.id}`}
         className="font-medium text-primary hover:underline"
       >
         {row.original.referenceNumber}
@@ -189,29 +188,70 @@ export default function ProposalsPage() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const mapToProposalRow = (proposal: ResearchProposal): ProposalRow => ({
-    ...proposal,
-    referenceNumber: proposal.id.replace("prop-", "PRP-").toUpperCase(),
-    thematicArea: proposal.researchArea,
-  });
+  const mapToProposalRow = (proposal: any): ProposalRow => {
+    const thematicArea =
+      proposal.thematicAreas && proposal.thematicAreas.length > 0
+        ? proposal.thematicAreas.map((ta: any) => ta.name).join(", ")
+        : "N/A";
+
+    const firstName = proposal.createdBy?.firstName || "";
+    const lastName = proposal.createdBy?.lastName || "";
+
+    return {
+      ...proposal,
+      id: String(proposal.id),
+      referenceNumber: proposal.referenceNumber || `PRP-${proposal.id}`,
+      title: proposal.title || "Untitled Proposal",
+      abstract: proposal.shortAbstract || "",
+      background: "",
+      objectives: "",
+      methodology: "",
+      expectedOutcomes: "",
+      ethicalConsiderations: "",
+      principalInvestigator: {
+        id: String(proposal.createdBy?.id || ""),
+        email: proposal.createdBy?.email || "",
+        firstName,
+        lastName,
+        role: "researcher",
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
+      },
+      coInvestigators: [],
+      institution: proposal.Organization?.name || "N/A",
+      researchArea: thematicArea,
+      budget: {
+        personnel: 0,
+        equipment: 0,
+        consumables: 0,
+        travel: 0,
+        other: 0,
+        total: 0,
+      },
+      timeline: [],
+      status: proposal.status || "draft",
+      attachments: [],
+      reviews: [],
+      submittedAt: proposal.submittedAt || undefined,
+      createdAt: proposal.createdAt || "",
+      updatedAt: proposal.updatedAt || "",
+      thematicArea,
+    };
+  };
 
   useEffect(() => {
     async function loadProposals() {
       setIsLoading(true);
       try {
-        const response = await proposalsApi.getProposals(
-          {},
-          { page: 1, pageSize: 100 },
-        );
-
-        if (response.data.length > 0) {
-          setProposals(response.data.map(mapToProposalRow));
-        } else {
-          setProposals(mockProposals.map(mapToProposalRow));
-        }
+        const response = await proposalsApi.getProposals({
+          limit: 100,
+        });
+        const proposalsData = response.data || [];
+        setProposals(proposalsData.map(mapToProposalRow));
       } catch (error) {
         console.error("Failed to load proposals:", error);
-        setProposals(mockProposals.map(mapToProposalRow));
+        setProposals([]);
       } finally {
         setIsLoading(false);
       }

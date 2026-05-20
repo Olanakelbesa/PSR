@@ -54,30 +54,30 @@ export const conceptNoteApi = {
 export const proposalsApi = {
   getProposals: async (...args: any[]) =>
     (
-      await apiClient.get("/v1/proposals", {
+      await apiClient.get("/v1/proposals/", {
         params: Object.assign({}, ...args),
       })
     ).data,
   getProposal: async (id: string) =>
-    (await apiClient.get(`/v1/proposals/${id}`)).data,
+    (await apiClient.get(`/v1/proposals/${id}/`)).data,
   getById: async (id: string) =>
-    (await apiClient.get(`/v1/proposals/${id}`)).data,
+    (await apiClient.get(`/v1/proposals/${id}/`)).data,
   createProposal: async (data: any) =>
-    (await apiClient.post("/v1/proposals", data)).data,
+    (await apiClient.post("/v1/proposals/", data)).data,
   updateProposal: async (id: string, data: any) =>
-    (await apiClient.patch(`/v1/proposals/${id}`, data)).data,
+    (await apiClient.patch(`/v1/proposals/${id}/`, data)).data,
   deleteProposal: async (id: string) =>
-    (await apiClient.delete(`/v1/proposals/${id}`)).data,
+    (await apiClient.delete(`/v1/proposals/${id}/`)).data,
   submitProposal: async (id: string) =>
-    (await apiClient.post(`/v1/proposals/${id}/submit`)).data,
+    (await apiClient.post(`/v1/proposals/${id}/submit/`)).data,
   assignReviewers: async (id: string, reviewerIds: string[]) =>
     (
-      await apiClient.post(`/v1/proposals/${id}/assign-reviewers`, {
+      await apiClient.post(`/v1/proposals/${id}/assign-reviewers/`, {
         reviewerIds,
       })
     ).data,
   submitReview: async (id: string, data: any) =>
-    (await apiClient.post(`/v1/proposals/${id}/reviews`, data)).data,
+    (await apiClient.post(`/v1/proposals/${id}/reviews/`, data)).data,
 };
 
 export const taxonomyApi = {
