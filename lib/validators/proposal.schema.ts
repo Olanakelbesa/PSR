@@ -22,6 +22,7 @@ export interface ProposalFormInput {
   budgetRequested?: number;
   submissionLevel?: string;
   officeToSubmit?: string;
+  strategic_objectives?: string[];
   teamMembers?: any[];
   stakeholders?: any[];
   technicalProposal?: unknown;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, useEffect } from "react";
+import React, { useCallback } from "react";
 import { useFormContext } from "react-hook-form";
 import {
   FormField,
@@ -22,25 +22,33 @@ import {
 import { cn } from "@/lib/utils";
 import { useOrganizationsForSelect } from "@/lib/queries/organizations";
 import { useUnitsForSelect } from "@/lib/queries/units";
+import { useOfficesForSelect } from "@/lib/queries/office";
 
 export function SubmissionInformationSection() {
   const form = useFormContext<ProposalFormInput>();
-  const grantCallId = form.watch("grantCallId");
   const submissionLevel = form.watch("submissionLevel");
+
+  const useReceivingOfficeOptions = useCallback(
+    (params?: { search?: string; limit?: number }) => {
+      return useOfficesForSelect(params);
+    },
+    [],
+  );
 
   const useOfficeSubmitOptions = useCallback(
     (params?: { search?: string; limit?: number }) => {
       return useUnitsForSelect({ ...params, organization: submissionLevel });
     },
-    [submissionLevel]
+    [submissionLevel],
   );
 
   const handleSubmissionLevelChange = useCallback(
     (value: string) => {
       form.setValue("submissionLevel", value);
       form.setValue("officeToSubmit", undefined);
+      form.setValue("receivingOffice", undefined);
     },
-    [form]
+    [form],
   );
 
   return (
@@ -55,7 +63,7 @@ export function SubmissionInformationSection() {
               Submission Information
             </CardTitle>
             <CardDescription className="mt-1">
-              Select the organization and unit where you will submit
+              Select the organization and receiving office for this proposal
             </CardDescription>
           </div>
         </div>
@@ -111,6 +119,34 @@ export function SubmissionInformationSection() {
                     }
                     searchPlaceholder="Search units..."
                     emptyMessage="No units found"
+                    className={cn(
+                      fieldState.error &&
+                        "border-destructive focus:border-destructive focus:ring-destructive",
+                    )}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="receivingOffice"
+            render={({ field, fieldState }) => (
+              <FormItem>
+                <FormLabel>Receiving Office *</FormLabel>
+                <FormControl>
+                  <SearchableSelect
+                    key="receiving-office"
+                    value={String(field.value || "")}
+                    onValueChange={field.onChange}
+                    useQueryHook={useReceivingOfficeOptions}
+                    getOptionValue={(office: any) => String(office.id)}
+                    getOptionLabel={(office: any) => office.name}
+                    placeholder="Select Receiving Office"
+                    searchPlaceholder="Search offices..."
+                    emptyMessage="No offices found"
                     className={cn(
                       fieldState.error &&
                         "border-destructive focus:border-destructive focus:ring-destructive",

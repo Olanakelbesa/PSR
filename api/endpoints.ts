@@ -40,12 +40,12 @@ export const API_ENDPOINTS = {
     POLICY_DOCUMENT_TYPES: "/v1/policydocumenttypes/",
     THEMATIC_AREAS: "/v1/thematicareas",
     SUB_THEMATIC_AREAS: "/v1/subthematicareas",
-    TEAM_MEMBER_ROLES: "/v1/team-member-roles",
+    TEAM_MEMBER_ROLES: "/v1/teammemberroles/",
     PROPOSAL_TYPES: "/v1/proposaltypes/",
     SUB_CALL_TYPES: "/v1/subcalltypes",
     OFFICE_LEVELS: "/v1/office-levels",
     OFFICES: "/v1/offices",
-    INTERNAL_USERS: "/v1/internal-users",
+    INTERNAL_USERS: "/v1/users/selector/",
     CHECKLIST_TEMPLATES: "/v1/checklisttemplates/",
   },
 
@@ -135,6 +135,14 @@ export const API_ENDPOINTS = {
     ASSIGN_REVIEWERS: (id: string) => `/v1/proposals/${id}/assign-reviewers/`,
     REVIEWS: (id: string) => `/v1/proposals/${id}/reviews/`,
     OPTIONS: "/v1/proposals/options/",
+  },
+
+  PROPOSAL_TEAM_MEMBERS: {
+    LIST: "/v1/proposalteammembers/",
+    CREATE: "/v1/proposalteammembers/",
+    DETAIL: (id: string | number) => `/v1/proposalteammembers/${id}/`,
+    UPDATE: (id: string | number) => `/v1/proposalteammembers/${id}/`,
+    DELETE: (id: string | number) => `/v1/proposalteammembers/${id}/`,
   },
 
   // ── Proposal Template Sections ────────────────────────────────────────────

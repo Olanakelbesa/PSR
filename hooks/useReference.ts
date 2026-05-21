@@ -37,7 +37,7 @@ export const referenceKeys = {
 export function useTitles() {
   return useQuery({
     queryKey: referenceKeys.titles,
-    queryFn: getTitles,
+    queryFn: () => getTitles(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -45,7 +45,7 @@ export function useTitles() {
 export function useOrganizationTypes() {
   return useQuery({
     queryKey: referenceKeys.organizationTypes,
-    queryFn: getOrganizationTypes,
+    queryFn: () => getOrganizationTypes(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -53,15 +53,49 @@ export function useOrganizationTypes() {
 export function useUnits() {
   return useQuery({
     queryKey: referenceKeys.units,
-    queryFn: getUnits,
+    queryFn: () => getUnits(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
 
-export function useOrganizations() {
+export function useOrganizations(params?: {
+  search?: string;
+  limit?: number;
+  page?: number;
+  ordering?: string;
+  org_type?: string | number;
+}) {
   return useQuery({
-    queryKey: referenceKeys.organizations,
-    queryFn: getOrganizations,
+    queryKey: ["reference", "organizations", params ?? {}] as const,
+    queryFn: () =>
+      getOrganizations({
+        ...params,
+        org_type:
+          params?.org_type !== undefined && params?.org_type !== null
+            ? String(params.org_type)
+            : undefined,
+      }),
+    staleTime: REFERENCE_STALE_TIME,
+  });
+}
+
+export function useUnitsWithParams(params?: {
+  search?: string;
+  limit?: number;
+  page?: number;
+  ordering?: string;
+  organization?: string | number;
+}) {
+  return useQuery({
+    queryKey: ["reference", "units", params ?? {}] as const,
+    queryFn: () =>
+      getUnits({
+        ...params,
+        organization:
+          params?.organization !== undefined && params?.organization !== null
+            ? String(params.organization)
+            : undefined,
+      }),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -69,7 +103,7 @@ export function useOrganizations() {
 export function usePolicyDocumentTypes() {
   return useQuery({
     queryKey: referenceKeys.policyDocumentTypes,
-    queryFn: getPolicyDocumentTypes,
+    queryFn: () => getPolicyDocumentTypes(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -77,7 +111,7 @@ export function usePolicyDocumentTypes() {
 export function useThematicAreas() {
   return useQuery({
     queryKey: referenceKeys.thematicAreas,
-    queryFn: getThematicAreas,
+    queryFn: () => getThematicAreas(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -93,7 +127,7 @@ export function useThematicArea(id: string | number | undefined) {
 export function useTeamMemberRoles() {
   return useQuery({
     queryKey: referenceKeys.teamMemberRoles,
-    queryFn: getTeamMemberRoles,
+    queryFn: () => getTeamMemberRoles(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -101,7 +135,7 @@ export function useTeamMemberRoles() {
 export function useProposalTypes() {
   return useQuery({
     queryKey: referenceKeys.proposalTypes,
-    queryFn: getProposalTypes,
+    queryFn: () => getProposalTypes(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -109,7 +143,7 @@ export function useProposalTypes() {
 export function useSubCallTypes() {
   return useQuery({
     queryKey: referenceKeys.subCallTypes,
-    queryFn: getSubCallTypes,
+    queryFn: () => getSubCallTypes(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
@@ -117,7 +151,7 @@ export function useSubCallTypes() {
 export function useInternalUsers() {
   return useQuery({
     queryKey: referenceKeys.internalUsers,
-    queryFn: getInternalUsers,
+    queryFn: () => getInternalUsers(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }

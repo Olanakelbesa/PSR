@@ -105,7 +105,9 @@ export async function getOrganizations(params?: {
   page?: number;
   org_type?: string;
 }) {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ORGANIZATIONS, { params });
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ORGANIZATIONS, {
+    params,
+  });
   const parsed = LookupListSchema.safeParse(res.data);
   return {
     data: parsed.success ? parsed.data.data : [],
@@ -145,7 +147,10 @@ export async function getSubThematicAreas(params?: {
       id: z.union([z.string(), z.number()]).transform(String),
       name: z.string(),
       description: z.string().nullable().optional(),
-      thematicArea: z.union([z.string(), z.number()]).transform(Number).optional(),
+      thematicArea: z
+        .union([z.string(), z.number()])
+        .transform(Number)
+        .optional(),
     })
     .transform((val) => ({
       id: val.id,
@@ -153,7 +158,6 @@ export async function getSubThematicAreas(params?: {
       description: val.description,
       thematic_area: val.thematicArea,
     }));
-
 
   const SubThematicAreasResponseSchema = z.object({
     data: z.array(SubThematicAreaSchema),
@@ -173,7 +177,6 @@ export async function getSubThematicAreas(params?: {
     meta: parsed.success ? parsed.data.meta : undefined,
   };
 }
-
 
 // ─── GET /v1/team-member-roles ────────────────────────────────────────────────
 export async function getTeamMemberRoles(): Promise<LookupItem[]> {
@@ -215,8 +218,22 @@ export async function getSubCallTypes(): Promise<LookupItem[]> {
 }
 
 // ─── GET /v1/internal-users ───────────────────────────────────────────────────
-export async function getInternalUsers(): Promise<LookupItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.INTERNAL_USERS);
+export async function getInternalUsers(params?: {
+  search?: string;
+  limit?: number;
+  organization?: string | number;
+  unit?: string | number;
+  ordering?: string;
+}) {
+  const res = await apiClient.get(API_ENDPOINTS.USERS.SELECTOR, { params });
   const parsed = LookupListSchema.safeParse(res.data);
-  return parsed.success ? parsed.data.data : [];
+  if (parsed.success) {
+    return parsed.data.data;
+  }
+
+  const fallbackData = Array.isArray(res.data)
+    ? res.data
+    : (res.data?.data ?? res.data?.results ?? []);
+
+  return Array.isArray(fallbackData) ? fallbackData : [];
 }

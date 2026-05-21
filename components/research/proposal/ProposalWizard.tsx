@@ -103,6 +103,8 @@ function buildDefaultValuesFromSections(
 const serializeFormValues = (values: ProposalFormInput): string => {
   try {
     const clone = { ...values };
+    delete (clone as any).teamMembers;
+    delete (clone as any).stakeholders;
     if (clone.technicalProposal instanceof File) {
       clone.technicalProposal = {
         name: clone.technicalProposal.name,
@@ -206,9 +208,11 @@ const buildProposalFormData = (values: ProposalFormInput): FormData => {
       "Unit",
       String(parseInt(String(values.officeToSubmit), 10)),
     );
+  }
+  if (values.receivingOffice) {
     formData.append(
       "receiving_office",
-      String(parseInt(String(values.officeToSubmit), 10)),
+      String(parseInt(String(values.receivingOffice), 10)),
     );
   }
   if (values.subThematicArea) {
@@ -266,28 +270,6 @@ const buildProposalFormData = (values: ProposalFormInput): FormData => {
     }
   }
 
-  if (Array.isArray(values.teamMembers) && values.teamMembers.length > 0) {
-    const formattedTeamMembers = values.teamMembers.map((tm: any) => ({
-      member_type: "internal",
-      internal_member_user_id: parseInt(String(tm.userId), 10),
-      role: parseInt(String(tm.role), 10),
-    }));
-    formData.append("team_members_json", JSON.stringify(formattedTeamMembers));
-  }
-
-  if (Array.isArray(values.stakeholders) && values.stakeholders.length > 0) {
-    const formattedStakeholders = values.stakeholders.map((sh: any) => ({
-      member_type: "external",
-      role: sh.role ? parseInt(String(sh.role), 10) : null,
-      organization_name: sh.organizationName || "",
-      stakeholder_name: sh.stakeholderName || "",
-      position: sh.position || "",
-      phone_number: sh.phoneNumber || "",
-      email: sh.email || "",
-    }));
-    formData.append("stakeholders_json", JSON.stringify(formattedStakeholders));
-  }
-
   return formData;
 };
 
@@ -323,8 +305,6 @@ const getModifiedFields = (
     "subProposalTypeId",
     "grantCallId",
     "submissionType",
-    "teamMembers",
-    "stakeholders",
     "technicalProposal",
     "budgetFile",
     "signature",
@@ -507,10 +487,12 @@ const buildModifiedProposalFormData = (
         ? String(parseInt(String(values.officeToSubmit), 10))
         : "",
     );
+  }
+  if (values.receivingOffice !== undefined) {
     formData.append(
       "receiving_office",
-      values.officeToSubmit
-        ? String(parseInt(String(values.officeToSubmit), 10))
+      values.receivingOffice
+        ? String(parseInt(String(values.receivingOffice), 10))
         : "",
     );
   }
@@ -574,42 +556,6 @@ const buildModifiedProposalFormData = (
     });
     if (sectionResponses.length > 0) {
       formData.append("section_responses", JSON.stringify(sectionResponses));
-    }
-  }
-
-  if (values.teamMembers !== undefined) {
-    if (Array.isArray(values.teamMembers)) {
-      const formattedTeamMembers = values.teamMembers.map((tm: any) => ({
-        member_type: "internal",
-        internal_member_user_id: parseInt(String(tm.userId), 10),
-        role: parseInt(String(tm.role), 10),
-      }));
-      formData.append(
-        "team_members_json",
-        JSON.stringify(formattedTeamMembers),
-      );
-    } else {
-      formData.append("team_members_json", "[]");
-    }
-  }
-
-  if (values.stakeholders !== undefined) {
-    if (Array.isArray(values.stakeholders)) {
-      const formattedStakeholders = values.stakeholders.map((sh: any) => ({
-        member_type: "external",
-        role: sh.role ? parseInt(String(sh.role), 10) : null,
-        organization_name: sh.organizationName || "",
-        stakeholder_name: sh.stakeholderName || "",
-        position: sh.position || "",
-        phone_number: sh.phoneNumber || "",
-        email: sh.email || "",
-      }));
-      formData.append(
-        "stakeholders_json",
-        JSON.stringify(formattedStakeholders),
-      );
-    } else {
-      formData.append("stakeholders_json", "[]");
     }
   }
 
@@ -968,15 +914,18 @@ export function ProposalWizard({
           ? String(proposal.Unit.id)
           : proposal.unit?.id
             ? String(proposal.unit.id)
-            : proposal.receivingOffice?.id
-              ? String(proposal.receivingOffice.id)
-              : proposal.receiving_office?.id
-                ? String(proposal.receiving_office.id)
-                : typeof proposal.submitting_office === "object"
-                  ? String(proposal.submitting_office?.id ?? "")
-                  : proposal.submitting_office
-                    ? String(proposal.submitting_office)
-                    : "",
+            : typeof proposal.submitting_office === "object"
+              ? String(proposal.submitting_office?.id ?? "")
+              : proposal.submitting_office
+                ? String(proposal.submitting_office)
+                : "",
+        receivingOffice: proposal.receivingOffice?.id
+          ? String(proposal.receivingOffice.id)
+          : proposal.receiving_office?.id
+            ? String(proposal.receiving_office.id)
+            : proposal.receiving_office
+              ? String(proposal.receiving_office)
+              : "",
         thematicArea: proposal.thematicAreas?.[0]?.id
           ? String(proposal.thematicAreas[0].id)
           : proposal.thematicArea?.id
@@ -1019,6 +968,7 @@ export function ProposalWizard({
         const internalMembers = rawTeamMembers
           .filter((tm: any) => tm.member_type === "internal")
           .map((tm: any) => ({
+            backendId: tm.id,
             userId: tm.internal_member_user_id
               ? String(tm.internal_member_user_id)
               : tm.member_details?.id
@@ -1039,6 +989,7 @@ export function ProposalWizard({
         const externalMembers = rawTeamMembers
           .filter((tm: any) => tm.member_type === "external")
           .map((tm: any) => ({
+            backendId: tm.id,
             role:
               tm.role && typeof tm.role === "object"
                 ? String(tm.role.id)
@@ -1545,7 +1496,9 @@ export function ProposalWizard({
                       })()}
                     />
                   )}
-                  {currentStep === 2 && <ProposalTeamStep />}
+                  {currentStep === 2 && (
+                    <ProposalTeamStep proposalId={queryProposalId} />
+                  )}
                   {currentStep === 3 && <ProposalFilesStep />}
                   {currentStep === 4 && <ProposalBudgetStep />}
                   {currentStep === 5 && (

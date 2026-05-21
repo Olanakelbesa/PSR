@@ -1,11 +1,12 @@
 "use client";
 
 import React, {
+  useEffect,
   useState,
   useMemo,
-  useCallback,
   createContext,
   useContext,
+  useRef,
 } from "react";
 import { useFormContext, useFieldArray, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -30,12 +31,17 @@ import {
   useInternalUsers,
   useInternalUserById,
 } from "@/lib/queries/internal-users";
-import { useColleges, useDepartments } from "@/lib/queries/reference-data";
+import { useOrganizations, useUnitsWithParams } from "@/hooks/useReference";
 import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
 import type { InternalUser } from "@/types/internal-user";
 import type { TeamMemberRole } from "@/types/team-member-role";
-import type { College, Department } from "@/types/reference-data";
+import type {
+  College as OrganizationOption,
+  Department as UnitOption,
+} from "@/types/reference-data";
 import { cn } from "@/lib/utils";
+import apiClient from "@/api/client";
+import { API_ENDPOINTS } from "@/api/endpoints";
 
 type TeamMemberFormValue = {
   userId: string;
@@ -46,11 +52,11 @@ type ProposalTeamFormInput = {
   teamMembers: TeamMemberFormValue[];
 };
 
-/** Context so the team-member SearchableSelect hook can use college/department filters for server-side requests */
+/** Context so the team-member SearchableSelect hook can use organization/unit filters for server-side requests */
 const MemberFilterContext = createContext<{
-  selectedCollege: string;
-  selectedDepartment: string;
-}>({ selectedCollege: "all", selectedDepartment: "all" });
+  selectedOrganization: string;
+  selectedUnit: string;
+}>({ selectedOrganization: "all", selectedUnit: "all" });
 
 /**
  * Hook used by SearchableSelect for team members. Sends search, limit, ordering,
@@ -61,15 +67,15 @@ function useInternalUsersForSelect(params?: {
   limit?: number;
   ordering?: string;
 }) {
-  const { selectedCollege, selectedDepartment } =
+  const { selectedOrganization, selectedUnit } =
     useContext(MemberFilterContext);
   return useInternalUsers({
     search: params?.search,
     limit: params?.limit,
     ordering: params?.ordering,
-    college: selectedCollege !== "all" ? Number(selectedCollege) : undefined,
-    department:
-      selectedDepartment !== "all" ? Number(selectedDepartment) : undefined,
+    organization:
+      selectedOrganization !== "all" ? Number(selectedOrganization) : undefined,
+    unit: selectedUnit !== "all" ? Number(selectedUnit) : undefined,
   });
 }
 
@@ -84,6 +90,10 @@ function TeamMemberUserIdField({
   setSelectedOrdering: (v: string) => void;
 }) {
   const form = useFormContext<ProposalTeamFormInput>();
+  const watchedMember = useWatch({
+    control: form.control,
+    name: `teamMembers.${index}` as const,
+  }) as any;
   const watchedUserId = useWatch({
     control: form.control,
     name: `teamMembers.${index}.userId` as const,
@@ -102,9 +112,72 @@ function TeamMemberUserIdField({
     if (selectedUser)
       return `${selectedUser.full_name ?? ""} (${selectedUser.email ?? ""})`.trim();
     if (watchedUserId && isLoadingSelected) return "Loading...";
-    if (watchedUserId) return `User #${watchedUserId}`;
     return undefined;
   }, [selectedUser, watchedUserId, isLoadingSelected]);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedRef = useRef<string>("");
+  const initializedRef = useRef(false);
+
+  const serializedMember = useMemo(
+    () =>
+      JSON.stringify({
+        userId: watchedMember?.userId ?? "",
+        role: watchedMember?.role ?? "",
+      }),
+    [watchedMember],
+  );
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      lastSavedRef.current = serializedMember;
+      initializedRef.current = true;
+      return;
+    }
+
+    const teamMemberId = watchedMember?.backendId as
+      | string
+      | number
+      | undefined;
+
+    if (!teamMemberId) {
+      lastSavedRef.current = serializedMember;
+      return;
+    }
+
+    if (serializedMember === lastSavedRef.current) {
+      return;
+    }
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (serializedMember === lastSavedRef.current || !teamMemberId) {
+        return;
+      }
+
+      try {
+        await apiClient.patch(
+          API_ENDPOINTS.PROPOSAL_TEAM_MEMBERS.UPDATE(teamMemberId),
+          {
+            member_type: "internal",
+            member: watchedMember?.userId || null,
+            role: watchedMember?.role || null,
+          },
+        );
+        lastSavedRef.current = serializedMember;
+      } catch (error) {
+        console.error("Failed to auto-save internal team member", error);
+      }
+    }, 1200);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [serializedMember, watchedMember]);
 
   return (
     <FormField
@@ -164,52 +237,54 @@ export function InternalMembersSection() {
   });
 
   // Shared filter state for all members (sent to server with user search)
-  const [selectedCollege, setSelectedCollege] = useState<string>("all");
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [selectedOrganization, setSelectedOrganization] =
+    useState<string>("all");
+  const [selectedUnit, setSelectedUnit] = useState<string>("all");
   const [selectedOrdering, setSelectedOrdering] =
     useState<string>("first_name");
 
   const filterContextValue = useMemo(
-    () => ({ selectedCollege, selectedDepartment }),
-    [selectedCollege, selectedDepartment],
+    () => ({ selectedOrganization, selectedUnit }),
+    [selectedOrganization, selectedUnit],
   );
 
-  // Fetch reference data for College/Department filter dropdowns (client-side filter in Select)
-  const { data: collegesData = [] } = useColleges();
-  const { data: departmentsData = [] } = useDepartments();
+  // Fetch reference data for Organization/Unit filter dropdowns (client-side filter in Select)
+  const { data: organizationsResponse } = useOrganizations();
+  const { data: unitsResponse } = useUnitsWithParams({
+    organization:
+      selectedOrganization !== "all" ? Number(selectedOrganization) : undefined,
+  });
+  const organizationsData = organizationsResponse?.data ?? [];
+  const unitsData = unitsResponse?.data ?? [];
 
-  const useCollegesWithFilter = useMemo(
+  const useOrganizationsWithFilter = useMemo(
     () => (params?: { search?: string; limit?: number }) => {
-      let result = collegesData || [];
+      let result: OrganizationOption[] = organizationsData || [];
       if (params?.search) {
         const searchLower = params.search.toLowerCase();
-        result = result.filter(
-          (college) =>
-            college.name.toLowerCase().includes(searchLower) ||
-            college.Amharic_name?.toLowerCase().includes(searchLower),
+        result = result.filter((organization) =>
+          organization.name.toLowerCase().includes(searchLower),
         );
       }
       if (params?.limit) result = result.slice(0, params.limit);
       return { data: result, isLoading: false, isError: false };
     },
-    [collegesData],
+    [organizationsData],
   );
 
-  const useDepartmentsWithFilter = useMemo(
+  const useUnitsWithFilter = useMemo(
     () => (params?: { search?: string; limit?: number }) => {
-      let result = departmentsData || [];
+      let result: UnitOption[] = unitsData || [];
       if (params?.search) {
         const searchLower = params.search.toLowerCase();
-        result = result.filter(
-          (dept) =>
-            dept.name.toLowerCase().includes(searchLower) ||
-            dept.Amharic_name?.toLowerCase().includes(searchLower),
+        result = result.filter((unit) =>
+          unit.name.toLowerCase().includes(searchLower),
         );
       }
       if (params?.limit) result = result.slice(0, params.limit);
       return { data: result, isLoading: false, isError: false };
     },
-    [departmentsData],
+    [unitsData],
   );
 
   return (
@@ -265,24 +340,24 @@ export function InternalMembersSection() {
                   <FormLabel className="text-xs text-muted-foreground">
                     Organization
                   </FormLabel>
-                  <SearchableSelect<College>
-                    value={selectedCollege}
+                  <SearchableSelect<OrganizationOption>
+                    value={selectedOrganization}
                     onValueChange={(value) => {
-                      setSelectedCollege(value);
+                      setSelectedOrganization(value);
                     }}
-                    useQueryHook={useCollegesWithFilter}
+                    useQueryHook={useOrganizationsWithFilter}
                     extractData={(data) => {
                       // Add "all" option at the beginning
                       const allOption = {
                         id: "all",
-                        name: "All Colleges",
+                        name: "All Organizations",
                       } as any;
                       return Array.isArray(data)
                         ? [allOption, ...data]
                         : [allOption];
                     }}
-                    getOptionValue={(college) => String(college.id)}
-                    getOptionLabel={(college) => college.name}
+                    getOptionValue={(organization) => String(organization.id)}
+                    getOptionLabel={(organization) => organization.name}
                     placeholder="All Organizations"
                     searchPlaceholder="Search organizations..."
                     emptyMessage="No organizations available"
@@ -295,24 +370,24 @@ export function InternalMembersSection() {
                   <FormLabel className="text-xs text-muted-foreground">
                     Unit
                   </FormLabel>
-                  <SearchableSelect<Department>
-                    value={selectedDepartment}
+                  <SearchableSelect<UnitOption>
+                    value={selectedUnit}
                     onValueChange={(value) => {
-                      setSelectedDepartment(value);
+                      setSelectedUnit(value);
                     }}
-                    useQueryHook={useDepartmentsWithFilter}
+                    useQueryHook={useUnitsWithFilter}
                     extractData={(data) => {
                       // Add "all" option at the beginning
                       const allOption = {
                         id: "all",
-                        name: "All Departments",
+                        name: "All Units",
                       } as any;
                       return Array.isArray(data)
                         ? [allOption, ...data]
                         : [allOption];
                     }}
-                    getOptionValue={(dept) => String(dept.id)}
-                    getOptionLabel={(dept) => dept.name}
+                    getOptionValue={(unit) => String(unit.id)}
+                    getOptionLabel={(unit) => unit.name}
                     placeholder="All Units"
                     searchPlaceholder="Search units..."
                     emptyMessage="No units available"
@@ -352,7 +427,7 @@ export function InternalMembersSection() {
                             value={field.value || ""}
                             onValueChange={field.onChange}
                             useQueryHook={useTeamMemberRoles}
-                            extractData={(response) => response?.data ?? []}
+                            extractData={(response) => response ?? []}
                             getOptionValue={(role) => String(role.id)}
                             getOptionLabel={(role) => role.name}
                             placeholder="Select role"

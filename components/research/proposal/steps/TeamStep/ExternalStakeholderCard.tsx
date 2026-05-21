@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormContext } from "react-hook-form";
+import { useEffect, useMemo, useRef } from "react";
+import { useFormContext, useWatch } from "react-hook-form";
 import {
   FormField,
   FormItem,
@@ -29,6 +30,9 @@ import { X, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+import apiClient from "@/api/client";
+import { API_ENDPOINTS } from "@/api/endpoints";
+import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
 
 interface ExternalStakeholderCardProps {
   index: number;
@@ -40,6 +44,82 @@ export function ExternalStakeholderCard({
   onRemove,
 }: ExternalStakeholderCardProps) {
   const form = useFormContext<ProposalFormInput>();
+  const watchedStakeholder = useWatch({
+    control: form.control,
+    name: `stakeholders.${index}` as const,
+  }) as any;
+  const stakeholderId = useWatch({
+    control: form.control,
+    name: `stakeholders.${index}.backendId` as const,
+  }) as string | number | undefined;
+  const { data: roleOptions = [] } = useTeamMemberRoles();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedRef = useRef<string>("");
+  const initializedRef = useRef(false);
+
+  const serializedStakeholder = useMemo(
+    () =>
+      JSON.stringify({
+        role: watchedStakeholder?.role ?? "",
+        organizationName: watchedStakeholder?.organizationName ?? "",
+        stakeholderName: watchedStakeholder?.stakeholderName ?? "",
+        position: watchedStakeholder?.position ?? "",
+        phoneNumber: watchedStakeholder?.phoneNumber ?? "",
+        email: watchedStakeholder?.email ?? "",
+      }),
+    [watchedStakeholder],
+  );
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      lastSavedRef.current = serializedStakeholder;
+      initializedRef.current = true;
+      return;
+    }
+
+    if (!stakeholderId) {
+      lastSavedRef.current = serializedStakeholder;
+      return;
+    }
+
+    if (serializedStakeholder === lastSavedRef.current) {
+      return;
+    }
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (serializedStakeholder === lastSavedRef.current || !stakeholderId) {
+        return;
+      }
+
+      try {
+        await apiClient.patch(
+          API_ENDPOINTS.PROPOSAL_TEAM_MEMBERS.UPDATE(stakeholderId),
+          {
+            member_type: "external",
+            role: watchedStakeholder?.role || null,
+            organization_name: watchedStakeholder?.organizationName || "",
+            stakeholder_name: watchedStakeholder?.stakeholderName || "",
+            position: watchedStakeholder?.position || "",
+            phone_number: watchedStakeholder?.phoneNumber || "",
+            email: watchedStakeholder?.email || "",
+          },
+        );
+        lastSavedRef.current = serializedStakeholder;
+      } catch (error) {
+        console.error("Failed to auto-save external stakeholder", error);
+      }
+    }, 1200);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [serializedStakeholder, stakeholderId, watchedStakeholder]);
 
   return (
     <Card className="border-2 transition-all duration-300 hover:shadow-lg hover:border-primary/20">
@@ -234,11 +314,11 @@ export function ExternalStakeholderCard({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="co_pi">
-                      Co-Principal Investigator
-                    </SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="consultant">Consultant</SelectItem>
+                    {roleOptions.map((role: any) => (
+                      <SelectItem key={role.id} value={String(role.id)}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
