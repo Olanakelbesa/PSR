@@ -335,38 +335,41 @@ export type TeamMemberFormData = z.infer<typeof teamMemberSchema>;
 export type BudgetFormData = z.infer<typeof budgetSchema>;
 export type TimelineItemFormData = z.infer<typeof timelineItemSchema>;
 
-export const proposalSchema = z.object({
-  title: z
-    .string()
-    .min(1, "Title is required")
-    .min(10, "Title must be at least 10 characters")
-    .max(300, "Title must be less than 300 characters"),
-  abstract: z
-    .string()
-    .min(1, "Abstract is required")
-    .max(2000, "Abstract is too long"),
-  background: z
-    .string()
-    .min(1, "Background is required")
-    .min(100, "Background must be at least 100 characters"),
-  objectives: z
-    .string()
-    .min(1, "Objectives are required")
-    .min(50, "Objectives must be at least 50 characters"),
-  methodology: z
-    .string()
-    .min(1, "Methodology is required")
-    .min(100, "Methodology must be at least 100 characters"),
-  expectedOutcomes: z
-    .string()
-    .min(1, "Expected outcomes are required")
-    .min(50, "Expected outcomes must be at least 50 characters"),
-  thematicArea: z.string().min(1, "Thematic area is required"),
-  studyType: z.string().min(1, "Study type is required"),
-  studyRegions: z.array(z.string()).optional(),
-  budget: z.number().min(0, "Budget must be a positive number"),
-  duration: z.number().min(1, "Duration must be at least 1 month"),
-});
+export const proposalSchema = z
+  .object({
+    title: z.string().min(1, "Title is required"),
+    abstract: z.string().min(1, "Abstract is required"),
+    keywords: z.string().optional(),
+    startDate: z.date().optional(),
+    endDate: z.date().optional(),
+    budgetRequested: z.number().optional(),
+    proposalType: z.string().optional(),
+    subProposalTypeId: z.string().optional(),
+    grantCallId: z.string().optional(),
+    submissionLevel: z.string().optional(),
+    officeToSubmit: z.string().optional(),
+    receivingOffice: z.string().optional(),
+    thematicArea: z.string().optional(),
+    thematicAreas: z.array(z.string()).optional(),
+    subThematicArea: z.string().optional(),
+    strategic_objectives: z.array(z.string()).optional(),
+    strategicObjectives: z.array(z.string()).optional(),
+    proposalFile: z.any().optional(),
+    supportingDocs: z.any().optional(),
+    technicalProposal: z.any().optional(),
+    budgetFile: z.any().optional(),
+    teamMembers: z.array(z.any()).optional(),
+    stakeholders: z.array(z.any()).optional(),
+    submissionType: z.enum(["on_site", "document_upload"]).optional(),
+    hasStakeholder: z.boolean().optional(),
+    organizationName: z.string().optional(),
+    stakeholderName: z.string().optional(),
+    position: z.string().optional(),
+    phoneNumber: z.string().optional(),
+    customSections: z.array(z.any()).optional(),
+    sectionConfig: z.array(z.any()).optional(),
+  })
+  .passthrough();
 
 export type ProposalFormData = z.infer<typeof proposalSchema>;
 

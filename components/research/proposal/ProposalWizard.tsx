@@ -79,6 +79,7 @@ function buildDefaultValuesFromSections(
     submissionLevel: "",
     officeToSubmit: "",
     thematicArea: "",
+    thematicAreas: [],
     teamMembers: [],
     hasStakeholder: false,
     organizationName: "",
@@ -233,12 +234,17 @@ const buildProposalFormData = (values: ProposalFormInput): FormData => {
     });
   }
 
-  if (values.thematicArea) {
-    const thematicAreaVal = parseInt(String(values.thematicArea), 10);
+  const thematicAreaValues = Array.isArray(values.thematicAreas)
+    ? values.thematicAreas
+    : values.thematicArea
+      ? [values.thematicArea]
+      : [];
+  thematicAreaValues.forEach((thematicAreaValue) => {
+    const thematicAreaVal = parseInt(String(thematicAreaValue), 10);
     if (!isNaN(thematicAreaVal)) {
       formData.append("thematic_areas", String(thematicAreaVal));
     }
-  }
+  });
 
   const needsIrb = values.needsIrb ?? values.needs_irb;
   if (needsIrb !== undefined && needsIrb !== null) {
@@ -300,6 +306,7 @@ const getModifiedFields = (
     "submissionLevel",
     "officeToSubmit",
     "thematicArea",
+    "thematicAreas",
     "subThematicArea",
     "proposalType",
     "subProposalTypeId",
@@ -520,14 +527,17 @@ const buildModifiedProposalFormData = (
     }
   }
 
-  if (values.thematicArea !== undefined) {
-    const thematicAreaVal = parseInt(String(values.thematicArea), 10);
+  const thematicAreaValues = Array.isArray(values.thematicAreas)
+    ? values.thematicAreas
+    : values.thematicArea
+      ? [values.thematicArea]
+      : [];
+  thematicAreaValues.forEach((thematicAreaValue) => {
+    const thematicAreaVal = parseInt(String(thematicAreaValue), 10);
     if (!isNaN(thematicAreaVal)) {
       formData.append("thematic_areas", String(thematicAreaVal));
-    } else {
-      formData.append("thematic_areas", "");
     }
-  }
+  });
 
   const needsIrb = values.needsIrb ?? values.needs_irb;
   if (needsIrb !== undefined && needsIrb !== null) {
@@ -936,6 +946,19 @@ export function ProposalWizard({
               : proposal.thematic_area
                 ? String(proposal.thematic_area)
                 : "",
+        thematicAreas: Array.isArray(proposal.thematicAreas)
+          ? proposal.thematicAreas
+              .map((thematicArea: any) =>
+                thematicArea?.id ? String(thematicArea.id) : "",
+              )
+              .filter(Boolean)
+          : proposal.thematicArea?.id
+            ? [String(proposal.thematicArea.id)]
+            : proposal.thematic_area && typeof proposal.thematic_area === "object"
+              ? [String(proposal.thematic_area.id)]
+              : proposal.thematic_area
+                ? [String(proposal.thematic_area)]
+                : [],
         subThematicArea: proposal.subThematicArea?.id
           ? String(proposal.subThematicArea.id)
           : proposal.sub_thematic_area?.id
@@ -1184,7 +1207,7 @@ export function ProposalWizard({
           "endDate",
           "submissionLevel",
           "officeToSubmit",
-          "thematicArea",
+          "thematicAreas",
           "subThematicArea",
         ];
         break;

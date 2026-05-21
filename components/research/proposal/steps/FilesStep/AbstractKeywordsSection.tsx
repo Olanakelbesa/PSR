@@ -16,15 +16,9 @@ import RichTextEditor from "@/components/RichTextEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useStrategicObjectives } from "@/lib/queries/strategic-objective";
 
 export function AbstractKeywordsSection() {
-  const strategicOptions = [
-    { id: "so-1", name: "Improve health system governance" },
-    { id: "so-2", name: "Strengthen health workforce" },
-    { id: "so-3", name: "Enhance service delivery" },
-    { id: "so-4", name: "Promote research and innovation" },
-  ];
-
   const form = useFormContext<ProposalFormInput>();
   const selectedStrategicObjectives =
     (useWatch({
@@ -32,6 +26,15 @@ export function AbstractKeywordsSection() {
       name: "strategic_objectives",
       defaultValue: [],
     }) as string[]) ?? [];
+
+  const { data: strategicObjectivesData = [] } = useStrategicObjectives({
+    limit: 1000,
+  });
+
+  const strategicOptions = strategicObjectivesData.map((objective) => ({
+    id: String(objective.id),
+    name: objective.name,
+  }));
 
   return (
     <>

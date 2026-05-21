@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
     ORGANIZATION_TYPES: "/v1/organizationtypes/",
     UNITS: "/v1/units/",
     ORGANIZATIONS: "/v1/organizations/",
+    STRATEGIC_OBJECTIVES: "/v1/strategicobjectives",
     POLICY_DOCUMENT_TYPES: "/v1/policydocumenttypes/",
     THEMATIC_AREAS: "/v1/thematicareas",
     SUB_THEMATIC_AREAS: "/v1/subthematicareas",

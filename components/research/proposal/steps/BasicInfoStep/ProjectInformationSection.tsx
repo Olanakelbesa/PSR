@@ -9,8 +9,10 @@ import {
   FormControl,
   FormMessage,
 } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Target } from "lucide-react";
+import { Target, X } from "lucide-react";
 import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
 import {
   Card,
@@ -45,8 +47,11 @@ export function ProjectInformationSection() {
     isError: isThematicAreasError,
   } = useThematicAreas();
 
-  // Get thematic area from form value (comes from proposal response in edit mode)
-  const thematicAreaId = form.watch("thematicArea");
+  // Get thematic areas from form value (comes from proposal response in edit mode)
+  const thematicAreasValue = form.watch("thematicAreas");
+  const thematicAreaId = Array.isArray(thematicAreasValue)
+    ? thematicAreasValue[0]
+    : form.watch("thematicArea");
   const subThematicAreaId = form.watch("subThematicArea");
 
   // Fetch sub thematic areas filtered by selected thematic area
@@ -78,15 +83,6 @@ export function ProjectInformationSection() {
       };
     },
     [subThematicAreasData, isLoadingSubThematicAreas],
-  );
-
-  // Handle thematic area change - clear sub thematic area
-  const handleThematicAreaChange = useCallback(
-    (value: string) => {
-      form.setValue("thematicArea", value);
-      form.setValue("subThematicArea", undefined);
-    },
-    [form],
   );
 
   // Wrapper hook with frontend filtering for SearchableSelect
@@ -148,7 +144,10 @@ export function ProjectInformationSection() {
       lengthChanged &&
       !hasProcessedThematicAreaRef.current
     ) {
-      const currentValue = form.getValues("thematicArea");
+      const currentValues = form.getValues("thematicAreas");
+      const currentValue = Array.isArray(currentValues)
+        ? currentValues[0]
+        : form.getValues("thematicArea");
       if (currentValue) {
         // Check if value exists in options
         const option = thematicAreas.find(
@@ -162,6 +161,11 @@ export function ProjectInformationSection() {
           // Use requestAnimationFrame to avoid state update during render
           requestAnimationFrame(() => {
             form.setValue("thematicArea", currentValue, {
+              shouldValidate: false,
+              shouldDirty: false,
+              shouldTouch: false,
+            });
+            form.setValue("thematicAreas", [currentValue], {
               shouldValidate: false,
               shouldDirty: false,
               shouldTouch: false,
@@ -199,19 +203,27 @@ export function ProjectInformationSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="thematicArea"
+            name="thematicAreas"
             render={({ field, fieldState }) => (
               <FormItem>
-                <FormLabel>Thematic Area *</FormLabel>
+                <FormLabel>Thematic Areas *</FormLabel>
                 <FormControl>
                   <SearchableSelect<Theme>
                     key={`thematic-area-${thematicAreasData?.data?.length || 0}-${thematicAreaId || ""}`}
-                    value={field.value || ""}
-                    onValueChange={handleThematicAreaChange}
+                    value=""
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      const currentValues = Array.isArray(field.value)
+                        ? (field.value as string[])
+                        : [];
+                      if (currentValues.includes(value)) return;
+                      field.onChange([...currentValues, value]);
+                      form.setValue("thematicArea", value);
+                    }}
                     useQueryHook={useThematicAreasOptions}
                     getOptionValue={(theme) => String(theme.id)}
                     getOptionLabel={(theme) => theme.name}
-                    placeholder="Please select Thematic area"
+                    placeholder="Add thematic area"
                     searchPlaceholder="Search thematic areas..."
                     emptyMessage={
                       isThematicAreasError
@@ -228,6 +240,40 @@ export function ProjectInformationSection() {
                     )}
                   />
                 </FormControl>
+                {Array.isArray(field.value) && field.value.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {field.value.map((value: string) => {
+                      const label =
+                        thematicAreasData?.data?.find(
+                          (theme) => String(theme.id) === String(value),
+                        )?.name || value;
+
+                      return (
+                        <Badge key={value} variant="secondary" className="gap-1 pr-1">
+                          <span>{label}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-4 w-4 shrink-0 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              const nextValues = (field.value as string[]).filter(
+                                (item) => item !== value,
+                              );
+                              field.onChange(nextValues);
+                              form.setValue(
+                                "thematicArea",
+                                nextValues[0] || "",
+                              );
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <FormMessage />
               </FormItem>
             )}
