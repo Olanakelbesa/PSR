@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 type NamedEntity = {
   id: number;
@@ -362,9 +363,11 @@ export default function ProposalDetailPage() {
                   <FileText className="h-4 w-4 text-primary" />
                   <h2 className="text-base font-bold">Abstract</h2>
                 </div>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                  {proposal.abstract || "No abstract provided."}
-                </p>
+                <div className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                  <HtmlContentRenderer
+                    content={proposal.abstract || "No abstract provided."}
+                  />
+                </div>
               </div>
 
               {proposal.keywords?.length ? (

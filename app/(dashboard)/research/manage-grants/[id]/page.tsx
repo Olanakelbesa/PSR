@@ -157,12 +157,15 @@ export default function CallDetailPage() {
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                <HtmlContentRenderer content=
-                {call.description ||
-                  call.shortDescription ||
-                  "No description provided."}/>
-              </p>
+              <div className="text-sm leading-relaxed text-muted-foreground">
+                <HtmlContentRenderer
+                  content={
+                    call.description ||
+                    call.shortDescription ||
+                    "No description provided."
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -175,9 +178,11 @@ export default function CallDetailPage() {
                 <h4 className="font-semibold mb-3 text-lg">
                   Eligibility Criteria
                 </h4>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  <HtmlContentRenderer content={call.eligibilityCriteria || "Not specified."} />
-                </p>
+                <div className="text-sm leading-relaxed text-muted-foreground">
+                  <HtmlContentRenderer
+                    content={call.eligibilityCriteria || "Not specified."}
+                  />
+                </div>
               </div>
               <div className="border-t pt-6">
                 <h4 className="font-semibold mb-3 text-lg">Proposal Types</h4>
