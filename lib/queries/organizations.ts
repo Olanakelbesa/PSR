@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { getOrganizations } from "@/api/services/reference.service";
 
 export interface Organization {
   id: number;
@@ -25,5 +26,15 @@ export function useOrganizations() {
         return [] as Organization[];
       }
     },
+  });
+}
+
+export function useOrganizationsForSelect(params?: {
+  search?: string;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ["organizations", "select", params],
+    queryFn: () => getOrganizations(params),
   });
 }

@@ -99,6 +99,178 @@ function buildDefaultValuesFromSections(
   return defaults;
 }
 
+const serializeFormValues = (values: ProposalFormInput): string => {
+  try {
+    const clone = { ...values };
+    if (clone.technicalProposal instanceof File) {
+      clone.technicalProposal = {
+        name: clone.technicalProposal.name,
+        size: clone.technicalProposal.size,
+      } as any;
+    } else if (clone.technicalProposal) {
+      clone.technicalProposal = String((clone.technicalProposal as any).name || (clone.technicalProposal as any).file || "");
+    }
+    if (clone.budgetFile instanceof File) {
+      clone.budgetFile = {
+        name: clone.budgetFile.name,
+        size: clone.budgetFile.size,
+      } as any;
+    } else if (clone.budgetFile) {
+      clone.budgetFile = String((clone.budgetFile as any).name || (clone.budgetFile as any).file || "");
+    }
+    if (clone.signature instanceof File) {
+      clone.signature = {
+        name: clone.signature.name,
+        size: clone.signature.size,
+      } as any;
+    } else if (clone.signature) {
+      clone.signature = String((clone.signature as any).name || (clone.signature as any).file || "");
+    }
+    return JSON.stringify(clone);
+  } catch {
+    return "";
+  }
+};
+
+const buildProposalFormData = (values: ProposalFormInput): FormData => {
+  const formData = new FormData();
+
+  if (values.title) {
+    formData.append("title", values.title);
+  }
+  if (values.abstract) {
+    formData.append("abstract", values.abstract);
+  }
+  
+  if (values.startDate) {
+    try {
+      const formattedStartDate = new Date(values.startDate).toISOString().split('T')[0];
+      formData.append("start_date", formattedStartDate);
+    } catch (e) {
+      console.warn("Invalid start date", values.startDate);
+    }
+  }
+  if (values.endDate) {
+    try {
+      const formattedEndDate = new Date(values.endDate).toISOString().split('T')[0];
+      formData.append("end_date", formattedEndDate);
+    } catch (e) {
+      console.warn("Invalid end date", values.endDate);
+    }
+  }
+
+  if (values.budgetRequested !== undefined && values.budgetRequested !== null) {
+    formData.append("budget_requested", String(values.budgetRequested));
+  }
+
+  if (values.technicalProposal instanceof File) {
+    formData.append("proposal_file", values.technicalProposal);
+  }
+  if (values.budgetFile instanceof File) {
+    formData.append("supporting_docs", values.budgetFile);
+  }
+  if (values.signature instanceof File) {
+    formData.append("signature", values.signature);
+  }
+
+  if (values.proposalType) {
+    formData.append("proposal_type", String(parseInt(String(values.proposalType), 10)));
+  }
+  if (values.grantCallId) {
+    formData.append("call", String(parseInt(String(values.grantCallId), 10)));
+  }
+  if (values.submissionLevel) {
+    formData.append("Organization", String(parseInt(String(values.submissionLevel), 10)));
+  }
+  if (values.officeToSubmit) {
+    formData.append("Unit", String(parseInt(String(values.officeToSubmit), 10)));
+    formData.append("receiving_office", String(parseInt(String(values.officeToSubmit), 10)));
+  }
+  if (values.subThematicArea) {
+    formData.append("sub_thematic_area", String(parseInt(String(values.subThematicArea), 10)));
+  }
+
+  if (values.keywords) {
+    const keywordsArray = String(values.keywords)
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    
+    keywordsArray.forEach((kw) => {
+      formData.append("keywords", kw);
+    });
+  }
+
+  if (values.thematicArea) {
+    const thematicAreaVal = parseInt(String(values.thematicArea), 10);
+    if (!isNaN(thematicAreaVal)) {
+      formData.append("thematic_areas", String(thematicAreaVal));
+    }
+  }
+
+  const needsIrb = values.needsIrb ?? values.needs_irb;
+  if (needsIrb !== undefined && needsIrb !== null) {
+    formData.append("needs_irb", String(needsIrb));
+  }
+
+  if (Array.isArray(values.strategic_objectives)) {
+    values.strategic_objectives.forEach((so) => {
+      formData.append("strategic_objectives", String(parseInt(String(so), 10)));
+    });
+  }
+
+  if (values.submissionType === "on_site") {
+    const sectionResponses: Array<{ template_section: number; content: string }> = [];
+    Object.keys(values).forEach((key) => {
+      const isSectionId = /^\d+$/.test(key);
+      if (isSectionId && values[key]) {
+        sectionResponses.push({
+          template_section: parseInt(key, 10),
+          content: String(values[key]),
+        });
+      }
+    });
+    if (sectionResponses.length > 0) {
+      formData.append("section_responses", JSON.stringify(sectionResponses));
+    }
+  }
+
+  if (Array.isArray(values.teamMembers) && values.teamMembers.length > 0) {
+    const formattedTeamMembers = values.teamMembers.map((tm: any) => ({
+      member_type: "internal",
+      internal_member_user_id: parseInt(String(tm.userId), 10),
+      role: parseInt(String(tm.role), 10),
+    }));
+    formData.append("team_members_json", JSON.stringify(formattedTeamMembers));
+  }
+
+  if (Array.isArray(values.stakeholders) && values.stakeholders.length > 0) {
+    const formattedStakeholders = values.stakeholders.map((sh: any) => ({
+      member_type: "external",
+      role: sh.role ? parseInt(String(sh.role), 10) : null,
+      organization_name: sh.organizationName || "",
+      stakeholder_name: sh.stakeholderName || "",
+      position: sh.position || "",
+      phone_number: sh.phoneNumber || "",
+      email: sh.email || "",
+    }));
+    formData.append("stakeholders_json", JSON.stringify(formattedStakeholders));
+  }
+
+  return formData;
+};
+
+const hasRequiredFieldsForCreate = (values: ProposalFormInput): boolean => {
+  return !!(
+    values.title &&
+    values.proposalType &&
+    values.grantCallId &&
+    values.submissionLevel &&
+    values.officeToSubmit &&
+    values.technicalProposal
+  );
+};
+
 export function ProposalWizard({
   grantCallId,
   proposalId,
@@ -119,13 +291,30 @@ export function ProposalWizard({
       queryFn: () => Promise<T>;
     }) => queryFn(),
   };
+  const [activeProposalId, setActiveProposalId] = useState(() => {
+    return (proposalId && proposalId !== "undefined") ? proposalId : "";
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Update activeProposalId if proposalId prop changes
+  useEffect(() => {
+    if (proposalId && proposalId !== "undefined") {
+      setActiveProposalId(proposalId);
+    }
+  }, [proposalId]);
+
   const createProposalMutation = useCreateProposal();
   const updateProposalMutation = useUpdateProposal();
   const isSubmitting =
-    createProposalMutation.isPending || updateProposalMutation.isPending;
+    createProposalMutation.isPending || updateProposalMutation.isPending || isSaving;
 
-  // Fetch existing proposal if proposalId is provided (edit mode)
-  const proposalQuery = useProposal(proposalId || "");
+  // Fetch existing proposal if activeProposalId or proposalId is provided (edit mode)
+  const queryProposalId = (activeProposalId && activeProposalId !== "undefined")
+    ? activeProposalId
+    : (proposalId && proposalId !== "undefined")
+      ? proposalId
+      : "";
+  const proposalQuery = useProposal(queryProposalId);
   const existingProposal: any = proposalQuery.data;
   const isLoadingProposal = proposalQuery.isLoading;
   const proposalError = proposalQuery.error;
@@ -143,6 +332,14 @@ export function ProposalWizard({
   const isResettingRef = useRef(false);
   const mountedRef = useRef(true);
   const formDataRef = useRef<Partial<ProposalFormInput> | null>(null);
+  const lastSavedDataRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!proposalId || proposalId === "undefined") {
+      lastSavedDataRef.current = serializeFormValues(form.getValues());
+    }
+  }, [proposalId]);
+
 
   // Reset population flag when proposalId changes
   useEffect(() => {
@@ -169,18 +366,81 @@ export function ProposalWizard({
     shouldUnregister: false,
   });
 
+  const watchedValues = form.watch();
+  const serializedValues = serializeFormValues(watchedValues);
+
+  useEffect(() => {
+    if (isSaving || isResettingRef.current) return;
+    if (serializedValues === lastSavedDataRef.current) return;
+
+    const timer = setTimeout(async () => {
+      let currentId = (activeProposalId && activeProposalId !== "undefined") ? activeProposalId : "";
+      if (!currentId && proposalId && proposalId !== "undefined") {
+        currentId = proposalId;
+      }
+
+      if (currentId) {
+        // Auto-save PATCH
+        setIsSaving(true);
+        try {
+          const formData = buildProposalFormData(watchedValues);
+          await apiClient.patch(`/v1/proposals/${currentId}/`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          lastSavedDataRef.current = serializedValues;
+        } catch (error) {
+          console.error("Auto-save PATCH failed:", error);
+        } finally {
+          setIsSaving(false);
+        }
+      } else {
+        // Check if required fields are filled for initial POST
+        if (hasRequiredFieldsForCreate(watchedValues)) {
+          setIsSaving(true);
+          try {
+            const formData = buildProposalFormData(watchedValues);
+            const res = await apiClient.post("/v1/proposals/", formData, {
+              headers: { "Content-Type": "multipart/form-data" },
+            });
+            const rawId = res.data?.data?.id ?? res.data?.id;
+            if (rawId) {
+              const newId = String(rawId);
+              setActiveProposalId(newId);
+
+              // Update URL with ?edit=newId seamlessly without page reload
+              const newUrl = `${window.location.pathname}?edit=${newId}`;
+              window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, "", newUrl);
+
+              lastSavedDataRef.current = serializedValues;
+            }
+          } catch (error) {
+            console.error("Auto-save POST failed:", error);
+          } finally {
+            setIsSaving(false);
+          }
+        }
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [serializedValues, activeProposalId, proposalId, isSaving]);
+
+
   // Populate form with existing proposal data when in edit mode
   useEffect(() => {
     // Only populate once per proposal and if not already resetting
     if (
       existingProposal &&
       proposalId &&
+      proposalId !== "undefined" &&
       !hasPopulatedFormRef.current &&
       !isResettingRef.current
     ) {
+      const proposal = existingProposal.data || existingProposal;
+
       // If it's an on_site submission, wait for sectionsData to load so we can match responses by title
       // since the backend might not return the template section IDs directly in section_responses
-      if (existingProposal.submission_type === "on_site" && isLoadingSections) {
+      if (proposal.submission_type === "on_site" && isLoadingSections) {
         return;
       }
 
@@ -191,98 +451,98 @@ export function ProposalWizard({
       // Map backend data to form fields
       // Store in ref to persist across re-renders
       const formData: Partial<ProposalFormInput> = {
-        title: existingProposal.title || "",
+        title: proposal.title || "",
         // Handle both old and new backend response formats
-        grantCallId: existingProposal.grant_call?.id
-          ? String(existingProposal.grant_call.id)
-          : existingProposal.call && typeof existingProposal.call === "object"
-            ? String((existingProposal.call as any)?.id ?? "")
-            : existingProposal.call
-              ? String(existingProposal.call)
+        grantCallId: proposal.grant_call?.id
+          ? String(proposal.grant_call.id)
+          : proposal.call && typeof proposal.call === "object"
+            ? String((proposal.call as any)?.id ?? "")
+            : proposal.call
+              ? String(proposal.call)
               : "",
-        proposalType: existingProposal.grant_call?.proposal_type?.id
-          ? String(existingProposal.grant_call.proposal_type.id)
-          : existingProposal.proposal_type &&
-              typeof existingProposal.proposal_type === "object"
-            ? String((existingProposal.proposal_type as any)?.id ?? "")
-            : existingProposal.proposal_type
-              ? String(existingProposal.proposal_type)
+        proposalType: proposal.grant_call?.proposal_type?.id
+          ? String(proposal.grant_call.proposal_type.id)
+          : proposal.proposal_type &&
+              typeof proposal.proposal_type === "object"
+            ? String((proposal.proposal_type as any)?.id ?? "")
+            : proposal.proposal_type
+              ? String(proposal.proposal_type)
               : "",
-        subProposalTypeId: existingProposal.grant_call?.sub_call_type?.id
-          ? String(existingProposal.grant_call.sub_call_type.id)
-          : existingProposal.subcall &&
-              typeof existingProposal.subcall === "object"
-            ? String((existingProposal.subcall as any)?.id ?? "")
-            : existingProposal.subcall
-              ? String(existingProposal.subcall)
+        subProposalTypeId: proposal.grant_call?.sub_call_type?.id
+          ? String(proposal.grant_call.sub_call_type.id)
+          : proposal.subcall &&
+              typeof proposal.subcall === "object"
+            ? String((proposal.subcall as any)?.id ?? "")
+            : proposal.subcall
+              ? String(proposal.subcall)
               : "",
         // Handle nested dates object or flat structure
-        startDate: existingProposal.dates?.start_date
-          ? new Date(existingProposal.dates.start_date)
-          : existingProposal.start_date
-            ? new Date(existingProposal.start_date)
+        startDate: proposal.dates?.start_date
+          ? new Date(proposal.dates.start_date)
+          : proposal.start_date
+            ? new Date(proposal.start_date)
             : undefined,
-        endDate: existingProposal.dates?.end_date
-          ? new Date(existingProposal.dates.end_date)
-          : existingProposal.end_date
-            ? new Date(existingProposal.end_date)
+        endDate: proposal.dates?.end_date
+          ? new Date(proposal.dates.end_date)
+          : proposal.end_date
+            ? new Date(proposal.end_date)
             : undefined,
         // Handle nested budget object or flat structure
-        budgetRequested: existingProposal.budget?.requested_amount
-          ? Number(existingProposal.budget.requested_amount)
-          : existingProposal.budget_requested
-            ? Number(existingProposal.budget_requested)
+        budgetRequested: proposal.budget?.requested_amount
+          ? Number(proposal.budget.requested_amount)
+          : proposal.budget_requested
+            ? Number(proposal.budget_requested)
             : undefined,
 
         // Handle submission_level - check root object, direct ID, or nested office_level
-        submissionLevel: existingProposal.submitting_office?.office_level?.id
-          ? String(existingProposal.submitting_office.office_level.id)
-          : existingProposal.submission_level &&
-              typeof existingProposal.submission_level === "object"
-            ? String(existingProposal.submission_level.id)
-            : existingProposal.submission_level
-              ? String(existingProposal.submission_level)
+        submissionLevel: proposal.submitting_office?.office_level?.id
+          ? String(proposal.submitting_office.office_level.id)
+          : proposal.submission_level &&
+              typeof proposal.submission_level === "object"
+            ? String(proposal.submission_level.id)
+            : proposal.submission_level
+              ? String(proposal.submission_level)
               : "",
 
         // Handle officeToSubmit - check root object or direct ID
-        officeToSubmit: existingProposal.submitting_office?.id
-          ? String(existingProposal.submitting_office.id)
-          : typeof existingProposal.submitting_office === "number"
-            ? String(existingProposal.submitting_office)
+        officeToSubmit: proposal.submitting_office?.id
+          ? String(proposal.submitting_office.id)
+          : typeof proposal.submitting_office === "number"
+            ? String(proposal.submitting_office)
             : "",
 
         // Handle thematic_area - check root object or direct ID
         thematicArea:
-          existingProposal.thematic_area &&
-          typeof existingProposal.thematic_area === "object"
-            ? String(existingProposal.thematic_area.id)
-            : existingProposal.thematic_area
-              ? String(existingProposal.thematic_area)
+          proposal.thematic_area &&
+          typeof proposal.thematic_area === "object"
+            ? String(proposal.thematic_area.id)
+            : proposal.thematic_area
+              ? String(proposal.thematic_area)
               : "",
         subThematicArea:
-          (existingProposal as any).sub_thematic_area &&
-          typeof (existingProposal as any).sub_thematic_area === "object"
-            ? String((existingProposal as any).sub_thematic_area.id)
-            : (existingProposal as any).sub_thematic_area
-              ? String((existingProposal as any).sub_thematic_area)
+          (proposal as any).sub_thematic_area &&
+          typeof (proposal as any).sub_thematic_area === "object"
+            ? String((proposal as any).sub_thematic_area.id)
+            : (proposal as any).sub_thematic_area
+              ? String((proposal as any).sub_thematic_area)
               : "",
-        submissionType: (existingProposal.submission_type ||
+        submissionType: (proposal.submission_type ||
           "document_upload") as "on_site" | "document_upload",
-        keywords: Array.isArray(existingProposal.keywords)
-          ? existingProposal.keywords.join(", ")
-          : existingProposal.keywords || "",
-        abstract: existingProposal.abstract || "",
+        keywords: Array.isArray(proposal.keywords)
+          ? proposal.keywords.join(", ")
+          : proposal.keywords || "",
+        abstract: proposal.abstract || "",
       };
 
       // Map team members
       if (
-        existingProposal.team_members &&
-        existingProposal.team_members.length > 0
+        proposal.team_members &&
+        proposal.team_members.length > 0
       ) {
         const teamMembers =
-          existingProposal.team_members as ExistingProposalTeamMember[];
+          proposal.team_members as ExistingProposalTeamMember[];
 
-        const internalMembers = existingProposal.team_members
+        const internalMembers = proposal.team_members
           .filter(
             (tm: ExistingProposalTeamMember) => tm.member_type === "internal",
           )
@@ -329,11 +589,11 @@ export function ProposalWizard({
       // Map files
       if (
         proposalId &&
-        existingProposal.files &&
-        existingProposal.files.length > 0
+        proposal.files &&
+        proposal.files.length > 0
       ) {
         // Find technical proposal by file_type or description
-        const technicalProposal = existingProposal.files.find(
+        const technicalProposal = proposal.files.find(
           (f: any) =>
             f.file_type === "proposal" || f.description === "proposal",
         );
@@ -349,7 +609,7 @@ export function ProposalWizard({
         }
 
         // Find budget file by file_type or description
-        const budgetFile = existingProposal.files.find(
+        const budgetFile = proposal.files.find(
           (f: any) => f.file_type === "budget" || f.description === "budget",
         );
         if (budgetFile) {
@@ -365,9 +625,9 @@ export function ProposalWizard({
 
       // Populate section responses for on_site submissions
       const sectionResponses =
-        existingProposal.section_responses || existingProposal.sectionResponses;
+        proposal.section_responses || proposal.sectionResponses;
       if (
-        existingProposal.submission_type === "on_site" &&
+        proposal.submission_type === "on_site" &&
         sectionResponses &&
         sectionResponses.length > 0
       ) {
@@ -559,7 +819,7 @@ export function ProposalWizard({
           }
 
           // Note: Thematic area is taken from proposal response, not prefetched separately
-          // The value is already set in formData from existingProposal.thematic_area.id
+          // The value is already set in formData from proposal.thematic_area.id
 
           // All options are loaded, now reset form
           if (!mountedRef.current || !formDataRef.current) {
@@ -569,6 +829,7 @@ export function ProposalWizard({
 
           const dataToReset = formDataRef.current;
           form.reset(dataToReset);
+          lastSavedDataRef.current = serializeFormValues(dataToReset as any);
           isResettingRef.current = false;
         } catch (error) {
           console.error("Error waiting for options:", error);
@@ -579,6 +840,7 @@ export function ProposalWizard({
           }
           const dataToReset = formDataRef.current;
           form.reset(dataToReset);
+          lastSavedDataRef.current = serializeFormValues(dataToReset as any);
           isResettingRef.current = false;
         }
       };
@@ -662,6 +924,8 @@ export function ProposalWizard({
     status: "draft" | "submitted" = "submitted",
   ) => {
     try {
+      setIsSaving(true);
+
       // Get all form values including section fields (not in schema)
       const allFormValues = form.getValues();
 
@@ -719,24 +983,21 @@ export function ProposalWizard({
       }
 
       // Clean file objects - only send File instances, remove metadata objects
-      // If file is an object with metadata (from existing proposal), only send if it's a new File
-      // Otherwise, don't send it (backend will keep existing file)
       const cleanTechnicalProposal =
         data.technicalProposal instanceof File
           ? data.technicalProposal
-          : undefined; // Don't send file metadata objects, only new File instances
+          : undefined;
 
       const cleanBudgetFile =
-        data.budgetFile instanceof File ? data.budgetFile : undefined; // Don't send file metadata objects, only new File instances
+        data.budgetFile instanceof File ? data.budgetFile : undefined;
 
       const cleanSignature =
         data.signature instanceof File ? data.signature : undefined;
 
       // Merge validated data with cleaned form values to include section content
-      // IMPORTANT: Use cleanedData (not data) to prevent metadata objects from being included
       const submissionData = {
-        ...cleanedFormValues, // Use cleaned form values (metadata objects removed)
-        ...cleanedData, // Use cleaned data (metadata objects removed)
+        ...cleanedFormValues,
+        ...cleanedData,
         grantCallId: cleanedData.grantCallId || cleanedFormValues.grantCallId,
         proposalType:
           cleanedData.proposalType || cleanedFormValues.proposalType,
@@ -746,46 +1007,67 @@ export function ProposalWizard({
           cleanedData.stakeholders || cleanedFormValues.stakeholders || [],
         sections: sectionsData,
         status,
-        // Replace file objects with clean File instances only (or undefined if not changed)
         technicalProposal: cleanTechnicalProposal,
         budgetFile: cleanBudgetFile,
         signature: cleanSignature,
       };
 
-      // Use update mutation if in edit mode, otherwise create
-      if (proposalId) {
-        await updateProposalMutation.mutateAsync({
-          id: proposalId,
-          data: submissionData,
+      let currentId = (activeProposalId && activeProposalId !== "undefined") ? activeProposalId : "";
+      if (!currentId && proposalId && proposalId !== "undefined") {
+        currentId = proposalId;
+      }
+      const formData = buildProposalFormData(submissionData);
+
+      if (!currentId) {
+        // Create first if missing
+        const res = await apiClient.post("/v1/proposals/", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
+        const rawId = res.data?.data?.id ?? res.data?.id;
+        if (rawId) {
+          currentId = String(rawId);
+          setActiveProposalId(currentId);
+        } else {
+          throw new Error("Failed to retrieve proposal ID from create response.");
+        }
       } else {
-        await createProposalMutation.mutateAsync(submissionData);
+        // Save latest edits
+        await apiClient.patch(`/v1/proposals/${currentId}/`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
 
-      if (status === "draft") {
+
+      // Update the lastSavedDataRef to match currently saved values
+      lastSavedDataRef.current = serializeFormValues(allFormValues);
+
+      if (status === "submitted") {
+        // Custom submit endpoint
+        await apiClient.post(`/v1/proposals/${currentId}/submit/`);
+        toast.success("Proposal submitted successfully!");
+      } else {
         toast.success(
-          proposalId
+          (activeProposalId || proposalId)
             ? "Proposal updated successfully!"
             : "Proposal saved as draft!",
           {
             description: "You can continue editing your proposal later.",
           },
         );
-      } else {
-        toast.success("Proposal submitted successfully!");
       }
 
       // Redirect to proposals page and refresh
       setTimeout(() => {
         router.push("/research/proposals/my-proposals");
-        // Refresh the page after navigation to ensure latest data is loaded
         setTimeout(() => {
           router.refresh();
         }, 500);
       }, 1000);
-    } catch (error) {
-      // Error is already handled by the mutation's onError
+    } catch (error: any) {
       console.error("Proposal submission error:", error);
+      toast.error(error?.message || "Failed to submit proposal. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 

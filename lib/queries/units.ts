@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { getUnits } from "@/api/services/reference.service";
 
 export interface Unit {
   id: number;
@@ -57,5 +58,17 @@ export function useUnits(organizationIds?: Array<number | string> | null) {
     enabled:
       normalizedOrganizationIds.length === 0 ||
       normalizedOrganizationIds.length > 0,
+  });
+}
+
+export function useUnitsForSelect(params?: {
+  search?: string;
+  limit?: number;
+  organization?: string;
+}) {
+  return useQuery({
+    queryKey: ["units", "select", params],
+    queryFn: () => getUnits(params),
+    enabled: !params || !("organization" in params) || Boolean(params.organization),
   });
 }

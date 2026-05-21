@@ -84,17 +84,33 @@ export async function getOrganizationTypes(): Promise<LookupItem[]> {
 }
 
 // ─── GET /v1/units/ ───────────────────────────────────────────────────────────
-export async function getUnits(): Promise<LookupItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.UNITS);
+export async function getUnits(params?: {
+  search?: string;
+  limit?: number;
+  page?: number;
+  organization?: string;
+}) {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.UNITS, { params });
   const parsed = LookupListSchema.safeParse(res.data);
-  return parsed.success ? parsed.data.data : [];
+  return {
+    data: parsed.success ? parsed.data.data : [],
+    meta: parsed.success ? parsed.data.meta : undefined,
+  };
 }
 
 // ─── GET /v1/organizations/ ───────────────────────────────────────────────────
-export async function getOrganizations(): Promise<LookupItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ORGANIZATIONS);
+export async function getOrganizations(params?: {
+  search?: string;
+  limit?: number;
+  page?: number;
+  org_type?: string;
+}) {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ORGANIZATIONS, { params });
   const parsed = LookupListSchema.safeParse(res.data);
-  return parsed.success ? parsed.data.data : [];
+  return {
+    data: parsed.success ? parsed.data.data : [],
+    meta: parsed.success ? parsed.data.meta : undefined,
+  };
 }
 
 // ─── GET /v1/policydocumenttypes/ ─────────────────────────────────────────────
@@ -113,6 +129,52 @@ export async function getThematicAreas(): Promise<ThematicArea[]> {
   return parsed.success ? parsed.data.data : [];
 }
 
+// ─── GET /v1/subthematicareas ─────────────────────────────────────────────────
+export async function getSubThematicAreas(params?: {
+  search?: string;
+  limit?: number;
+  page?: number;
+  thematic_area?: number;
+}) {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.SUB_THEMATIC_AREAS, {
+    params,
+  });
+
+  const SubThematicAreaSchema = z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+      description: z.string().nullable().optional(),
+      thematicArea: z.union([z.string(), z.number()]).transform(Number).optional(),
+    })
+    .transform((val) => ({
+      id: val.id,
+      name: val.name,
+      description: val.description,
+      thematic_area: val.thematicArea,
+    }));
+
+
+  const SubThematicAreasResponseSchema = z.object({
+    data: z.array(SubThematicAreaSchema),
+    meta: z
+      .object({
+        page: z.number(),
+        limit: z.number(),
+        total: z.number(),
+        totalPages: z.number(),
+      })
+      .optional(),
+  });
+
+  const parsed = SubThematicAreasResponseSchema.safeParse(res.data);
+  return {
+    data: parsed.success ? parsed.data.data : [],
+    meta: parsed.success ? parsed.data.meta : undefined,
+  };
+}
+
+
 // ─── GET /v1/team-member-roles ────────────────────────────────────────────────
 export async function getTeamMemberRoles(): Promise<LookupItem[]> {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.TEAM_MEMBER_ROLES);
@@ -121,8 +183,14 @@ export async function getTeamMemberRoles(): Promise<LookupItem[]> {
 }
 
 // ─── GET /v1/proposal-types ───────────────────────────────────────────────────
-export async function getProposalTypes(): Promise<LookupItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.PROPOSAL_TYPES);
+export async function getProposalTypes(params?: {
+  search?: string;
+  limit?: number;
+  page?: number;
+}) {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.PROPOSAL_TYPES, {
+    params,
+  });
   const parsed = ProposalTypesResponseSchema.safeParse(res.data);
 
   if (!parsed.success) {
@@ -133,7 +201,10 @@ export async function getProposalTypes(): Promise<LookupItem[]> {
     throw new Error("Invalid proposal-types response shape");
   }
 
-  return parsed.data.data;
+  return {
+    data: parsed.data.data,
+    meta: parsed.data.meta,
+  };
 }
 
 // ─── GET /v1/subcalltypes ─────────────────────────────────────────────────────

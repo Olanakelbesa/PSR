@@ -6,8 +6,21 @@ import type { LookupItem } from "@/api/services/reference.service";
 export function useProposalTypes() {
   return useQuery<LookupItem[]>({
     queryKey: ["proposal-types"],
-    queryFn: getProposalTypes,
+    queryFn: async () => {
+      const res = await getProposalTypes();
+      return res.data;
+    },
     staleTime: 1_000 * 60 * 30,
+  });
+}
+
+export function useProposalTypesForSelect(params?: {
+  search?: string;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ["proposal-types", "select", params],
+    queryFn: () => getProposalTypes(params),
   });
 }
 

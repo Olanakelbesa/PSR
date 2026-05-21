@@ -19,11 +19,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  useOpenGrantCallsForSelect,
-  useGrantCall,
-} from "@/lib/queries/grant-calls";
+import { useOpenGrantCallsForSelect, useGrantCall } from "@/lib/queries/grant-calls";
 import { useProposalOptions } from "@/lib/queries/proposal-options";
+import { useProposalTypesForSelect } from "@/lib/queries/proposal-type";
 import type { GrantCall } from "@/types/grant-call";
 import type { ProposalOption } from "@/lib/queries/proposal-options";
 import { useSearchParams } from "next/navigation";
@@ -102,20 +100,6 @@ export function GrantCallInformationSection({
    * 2️⃣ Fast filter callbacks (pure + memoized)
    * ------------------------------------------------------------------ */
 
-  const getProposalTypeOptions = useCallback(
-    (params?: { search?: string }) => {
-      const q = params?.search?.toLowerCase().trim();
-
-      return {
-        data: q
-          ? proposalTypeOptions.filter((o) => o.name.toLowerCase().includes(q))
-          : proposalTypeOptions,
-        isLoading,
-        isError: false,
-      };
-    },
-    [proposalTypeOptions, isLoading],
-  );
 
   const getSubcallOptions = useCallback(
     (params?: { search?: string }) => {
@@ -225,7 +209,7 @@ export function GrantCallInformationSection({
                   <SearchableSelect
                     value={field.value}
                     onValueChange={handleProposalTypeChange}
-                    useQueryHook={getProposalTypeOptions}
+                    useQueryHook={useProposalTypesForSelect}
                     additionalOptions={initialProposalTypeOptions}
                     getOptionValue={(o) => String(o.id)}
                     getOptionLabel={(o) => o.name}
