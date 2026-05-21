@@ -121,11 +121,11 @@ export function ProposalReviewStep({
   const { data: allUsersData } = useInternalUsers({ limit: 1000 });
   const { data: allRolesData } = useTeamMemberRoles({ limit: 100 });
 
-  const users = (allUsersData?.results ?? []) as Array<{
+  const users = (allUsersData ?? []) as Array<{
     id: string | number;
-    full_name?: string;
+    fullName?: string;
   }>;
-  const roles = (allRolesData?.data ?? []) as Array<{
+  const roles = (allRolesData ?? []) as Array<{
     id: string | number;
     name?: string;
   }>;
@@ -134,7 +134,7 @@ export function ProposalReviewStep({
     const matchedUser = users.find(
       (user) => String(user.id) === String(userId || ""),
     );
-    return matchedUser?.full_name || userId || "Unknown User";
+    return matchedUser?.fullName || userId || "Unknown User";
   };
 
   const getRoleDisplayName = (roleId?: string) => {
@@ -544,22 +544,21 @@ export function ProposalReviewStep({
                     <p className="text-sm text-muted-foreground">
                       Draw your signature below, then click Save Signature.
                     </p>
-                 
-                      <SignaturePad
-                        onSave={(file) => {
-                          field.onChange(file);
-                          form.setValue("signature", file, {
-                            shouldValidate: true,
-                          });
-                        }}
-                        onClear={() => {
-                          field.onChange(undefined);
-                          form.setValue("signature", undefined, {
-                            shouldValidate: true,
-                          });
-                        }}
-                      />
 
+                    <SignaturePad
+                      onSave={(file) => {
+                        field.onChange(file);
+                        form.setValue("signature", file, {
+                          shouldValidate: true,
+                        });
+                      }}
+                      onClear={() => {
+                        field.onChange(undefined);
+                        form.setValue("signature", undefined, {
+                          shouldValidate: true,
+                        });
+                      }}
+                    />
 
                     {signatureFile && (
                       <div className="border rounded-md p-3">
