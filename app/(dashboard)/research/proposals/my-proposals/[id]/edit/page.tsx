@@ -1,11 +1,15 @@
-import { ProposalWizard } from "@/components/proposal/ProposalWizard";
+import { ProposalWizard } from "@/components/research/proposal/ProposalWizard";
+
+export const dynamic = "force-dynamic";
 
 export default async function EditProposalPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ callId?: string; edit?: string }>;
+  params: { id: string } | Promise<{ id: string }>;
+  searchParams:
+    | { callId?: string; edit?: string }
+    | Promise<{ callId?: string; edit?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const proposalId = query.edit ?? id;
