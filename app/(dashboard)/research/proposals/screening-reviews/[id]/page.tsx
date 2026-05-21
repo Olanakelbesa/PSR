@@ -57,8 +57,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/layout";
-import { proposalsApi } from "@/api/client";
-import type { ResearchProposal } from "@/lib/types";
+import {
+  ensureScreeningForProposal,
+  getManagedProposalById,
+  updateScreening,
+} from "@/api/services";
+import type { Attachment } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { THEMATIC_AREAS } from "@/lib/constants";
@@ -67,13 +71,19 @@ import {
   type ProposalScreeningFormData,
 } from "@/lib/validations";
 
+type ManagedTeamMember = Awaited<
+  ReturnType<typeof getManagedProposalById>
+>["teamMembers"][number];
+
 export default function ScreeningDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [proposal, setProposal] = useState<ResearchProposal | null>(null);
+  const [proposal, setProposal] = useState<any>(null);
+  const [screeningId, setScreeningId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStartingReview, setIsStartingReview] = useState(false);
 
   const form = useForm<ProposalScreeningFormData>({
     resolver: zodResolver(proposalScreeningSchema),
@@ -86,19 +96,135 @@ export default function ScreeningDetailPage() {
 
   const recommendation = form.watch("recommendation");
 
+  const screeningStatusByRecommendation = {
+    approve: "screening_approved",
+    revise: "screening_under_review",
+    reject: "screening_rejected",
+  } as const;
+
+  const mapManagedProposalToProposal = (
+    detail: Awaited<ReturnType<typeof getManagedProposalById>>,
+  ) => {
+    const firstName = detail.createdBy?.firstName || "Unknown";
+    const lastName = detail.createdBy?.lastName || "";
+
+    const attachments: Attachment[] = [];
+    if (detail.proposalFile) {
+      attachments.push({
+        id: `${detail.id}-proposal-file`,
+        name: detail.proposalFile.split("/").pop() || "Proposal File",
+        type: "application/pdf",
+        size: 0,
+        url: detail.proposalFile,
+        uploadedAt:
+          detail.lastSubmittedAt ||
+          detail.createdAt ||
+          new Date().toISOString(),
+      });
+    }
+
+    return {
+      id: detail.id,
+      callId: detail.call?.id || "",
+      call: detail.call || undefined,
+      title: detail.title,
+      abstract: detail.abstract || "",
+      background: "",
+      objectives: "",
+      methodology: "",
+      expectedOutcomes: "",
+      ethicalConsiderations: "",
+      principalInvestigator: {
+        id: detail.createdBy?.id || "",
+        image: undefined,
+        email: detail.createdBy?.email || "",
+        firstName,
+        lastName,
+        role: "researcher",
+        status: "active",
+        createdAt: detail.createdAt || new Date().toISOString(),
+        updatedAt:
+          detail.lastSubmittedAt ||
+          detail.createdAt ||
+          new Date().toISOString(),
+      },
+      coInvestigators: (detail.teamMembers || []).map(
+        (member: ManagedTeamMember, index: number) => ({
+          id: member.id,
+          userId: member.member ? String(member.member) : undefined,
+          name:
+            member.memberName ||
+            member.stakeholderName ||
+            member.organizationName ||
+            `Team Member ${index + 1}`,
+          email: member.memberEmail || member.email || "",
+          role: String(member.roleName || member.memberType || "researcher")
+            .toLowerCase()
+            .includes("co")
+            ? "co_pi"
+            : "researcher",
+          institution: member.organizationName || "",
+          expertise: member.position || member.userType || "",
+        }),
+      ),
+      institution: detail.Organization?.name || "",
+      researchArea: detail.thematicAreas?.[0]?.name || "",
+      budget: {
+        personnel: 0,
+        equipment: 0,
+        consumables: 0,
+        travel: 0,
+        other: 0,
+        total: Number(detail.budgetRequested || 0),
+      },
+      timeline: [],
+      status: detail.status,
+      attachments,
+      reviews: [],
+      submittedAt:
+        detail.submittedAt ||
+        detail.lastSubmittedAt ||
+        detail.firstSubmittedAt ||
+        undefined,
+      createdAt:
+        detail.createdAt || detail.firstSubmittedAt || new Date().toISOString(),
+      updatedAt:
+        detail.lastSubmittedAt || detail.createdAt || new Date().toISOString(),
+      referenceNumber: detail.referenceNumber || `PRP-${detail.id}`,
+      keywords: detail.keywords || [],
+      strategicObjectives: detail.strategicObjectives || [],
+      receivingOffice: detail.receivingOffice || null,
+      Organization: detail.Organization || null,
+      Unit: detail.Unit || null,
+      teamMembers: detail.teamMembers || [],
+      reviewHistory: detail.reviewHistory,
+      startDate: detail.startDate || undefined,
+      endDate: detail.endDate || undefined,
+      budgetRequested: detail.budgetRequested || null,
+      proposalFile: detail.proposalFile || null,
+      updatedProposal: detail.updatedProposal || null,
+      supportingDocs: detail.supportingDocs,
+      version: detail.version || null,
+      resubmissionCount: detail.resubmissionCount || null,
+      rejectionReason: detail.rejectionReason || null,
+      needsIrb: detail.needsIrb || null,
+      firstSubmittedAt: detail.firstSubmittedAt || null,
+      lastSubmittedAt: detail.lastSubmittedAt || null,
+      signature: detail.signature,
+      workflowState: detail.workflowState || null,
+      subThematicArea: detail.subThematicArea || null,
+    };
+  };
+
   useEffect(() => {
     async function loadProposal() {
       try {
-        const response = await proposalsApi.getById(id as string);
-        if (response.success && response.data) {
-          setProposal(response.data);
-        } else {
-          toast.error("Proposal not found");
-          router.push("/research/proposals/screening-reviews");
-        }
+        const response = await getManagedProposalById(id as string);
+        setProposal(mapManagedProposalToProposal(response));
       } catch (error) {
         console.error("Error loading proposal:", error);
         toast.error("Failed to load proposal details");
+        router.push("/research/proposals/screening-reviews");
       } finally {
         setIsLoading(false);
       }
@@ -106,23 +232,68 @@ export default function ScreeningDetailPage() {
     loadProposal();
   }, [id, router]);
 
+  async function handleStartReview() {
+    if (!proposal) return;
+
+    setIsStartingReview(true);
+    try {
+      const proposalId = Number(proposal.id);
+      const screening = await ensureScreeningForProposal(
+        Number.isNaN(proposalId) ? proposal.id : proposalId,
+        {
+          proposal: Number.isNaN(proposalId) ? proposal.id : proposalId,
+          status: "screening_under_review",
+          decision_remarks: "",
+        },
+      );
+
+      setScreeningId(screening.id);
+      setProposal((current: any) =>
+        current ? { ...current, status: "screening_under_review" } : current,
+      );
+      setIsReviewOpen(true);
+    } catch (error) {
+      console.error("Error starting screening review:", error);
+      toast.error("Failed to start screening review");
+    } finally {
+      setIsStartingReview(false);
+    }
+  }
+
   async function onSubmit(data: ProposalScreeningFormData) {
     setIsSubmitting(true);
     try {
-      const response = await proposalsApi.submitReview(id as string, data);
+      const proposalId = Number(proposal.id);
+      const status = screeningStatusByRecommendation[data.recommendation];
+      const screening =
+        screeningId ||
+        (
+          await ensureScreeningForProposal(
+            Number.isNaN(proposalId) ? proposal.id : proposalId,
+            {
+              proposal: Number.isNaN(proposalId) ? proposal.id : proposalId,
+              status: "screening_under_review",
+              decision_remarks: "",
+            },
+          )
+        ).id;
 
-      if (response.success) {
-        toast.success("Screening submitted successfully");
-        setIsReviewOpen(false);
-        form.reset({
-          comments: "",
-          recommendation: "approve",
-          assignedReviewers: [],
-        });
-        router.push("/research/proposals/screening-reviews");
-      } else {
-        toast.error(response.message || "Failed to submit screening review");
-      }
+      await updateScreening(screening, {
+        proposal: Number.isNaN(proposalId) ? proposal.id : proposalId,
+        status,
+        decision_remarks: data.comments || "",
+      });
+      toast.success("Screening submitted successfully");
+      setIsReviewOpen(false);
+      form.reset({
+        comments: "",
+        recommendation: "approve",
+        assignedReviewers: [],
+      });
+      setProposal((current: any) =>
+        current ? { ...current, status } : current,
+      );
+      router.push("/research/proposals/screening-reviews");
     } catch (error) {
       console.error("Error submitting screening review:", error);
       toast.error("An unexpected error occurred");
@@ -146,6 +317,17 @@ export default function ScreeningDetailPage() {
 
   if (!proposal) return null;
 
+  const coInvestigators = proposal.coInvestigators as Array<{
+    name: string;
+    institution: string;
+    role: string;
+  }>;
+  const attachments = proposal.attachments as Array<{
+    id: string;
+    name: string;
+    size: number;
+  }>;
+
   const statusColors: Record<string, string> = {
     draft: "bg-slate-100 text-slate-700 border-slate-200",
     submitted: "bg-blue-100 text-blue-700 border-blue-200",
@@ -158,7 +340,7 @@ export default function ScreeningDetailPage() {
   return (
     <PageContainer
       title={proposal.title}
-      description={`Reference: ${proposal.id.replace("prop-", "PRP-").toUpperCase()}`}
+      description={`Reference: ${proposal.referenceNumber || `PRP-${proposal.id}`}`}
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -172,7 +354,8 @@ export default function ScreeningDetailPage() {
           {proposal.status === "submitted" && (
             <Button
               className="bg-primary hover:bg-primary/90"
-              onClick={() => setIsReviewOpen(true)}
+              onClick={handleStartReview}
+              disabled={isStartingReview || isSubmitting}
             >
               <ClipboardCheck className="mr-2 h-4 w-4" />
               Review
@@ -227,7 +410,7 @@ export default function ScreeningDetailPage() {
                       Technical Abstract
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.abstract}
+                      {proposal.abstract || "No abstract provided."}
                     </p>
                   </div>
                   <div className="pt-4 border-t border-dashed">
@@ -235,7 +418,7 @@ export default function ScreeningDetailPage() {
                       Research Background & Rationale
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.background}
+                      {proposal.background || "No background provided."}
                     </p>
                   </div>
                 </CardContent>
@@ -250,7 +433,7 @@ export default function ScreeningDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {proposal.objectives}
+                    {proposal.objectives || "No objectives provided."}
                   </p>
                 </CardContent>
               </Card>
@@ -267,7 +450,7 @@ export default function ScreeningDetailPage() {
                 <CardContent className="space-y-6">
                   <div>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.methodology}
+                      {proposal.methodology || "No methodology provided."}
                     </p>
                   </div>
                   <div className="pt-6 border-t border-dashed">
@@ -275,7 +458,7 @@ export default function ScreeningDetailPage() {
                       Ethical Considerations
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed italic">
-                      "{proposal.ethicalConsiderations}"
+                      "{proposal.ethicalConsiderations || "Not specified."}"
                     </p>
                   </div>
                 </CardContent>
@@ -349,8 +532,8 @@ export default function ScreeningDetailPage() {
                   <CardContent className="space-y-4">
                     <div className="p-3 rounded-lg border border-primary/10 bg-primary/5 flex items-start gap-3">
                       <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black shrink-0">
-                        {proposal.principalInvestigator.firstName[0]}
-                        {proposal.principalInvestigator.lastName[0]}
+                        {proposal.principalInvestigator.firstName?.[0] || "U"}
+                        {proposal.principalInvestigator.lastName?.[0] || ""}
                       </div>
                       <div>
                         <p className="text-sm font-bold">
@@ -367,7 +550,7 @@ export default function ScreeningDetailPage() {
                       <h4 className="text-[10px] font-bold uppercase text-muted-foreground px-1">
                         Co-Investigators ({proposal.coInvestigators.length})
                       </h4>
-                      {proposal.coInvestigators.map((member, idx) => (
+                      {coInvestigators.map((member, idx) => (
                         <div
                           key={idx}
                           className="flex items-center justify-between p-2 rounded border border-muted/50 hover:bg-muted/30 transition-colors"
@@ -487,7 +670,7 @@ export default function ScreeningDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 p-0">
-              {proposal.attachments.map((file) => (
+              {attachments.map((file) => (
                 <button
                   key={file.id}
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-0 group"

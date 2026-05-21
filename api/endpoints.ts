@@ -129,13 +129,21 @@ export const API_ENDPOINTS = {
   // ── Research Proposals ────────────────────────────────────────────────────
   PROPOSALS: {
     LIST: "/v1/proposals",
+    MANAGE: "/v1/proposals/manage/",
     DETAIL: (id: string) => `/v1/proposals/${id}/`,
+    MANAGE_DETAIL: (id: string | number) => `/v1/proposals/${id}/manage/`,
     CREATE: "/v1/proposals/",
     UPDATE: (id: string) => `/v1/proposals/${id}/`,
     SUBMIT: (id: string) => `/v1/proposals/${id}/submit/`,
     ASSIGN_REVIEWERS: (id: string) => `/v1/proposals/${id}/assign-reviewers/`,
     REVIEWS: (id: string) => `/v1/proposals/${id}/reviews/`,
     OPTIONS: "/v1/proposals/options/",
+  },
+
+  // ── Screenings ───────────────────────────────────────────────────────────
+  SCREENINGS: {
+    LIST: "/v1/screenings/",
+    DETAIL: (id: string | number) => `/v1/screenings/${id}/`,
   },
 
   PROPOSAL_TEAM_MEMBERS: {

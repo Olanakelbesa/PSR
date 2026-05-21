@@ -6,8 +6,23 @@ import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 
 export const ProposalStatusSchema = z.enum([
-  "draft", "submitted", "under_review", "revision_requested",
-  "approved", "rejected", "contracted", "in_progress", "completed", "terminated",
+  "draft",
+  "submitted",
+  "under_review",
+  "revision_requested",
+  "approved",
+  "rejected",
+  "contracted",
+  "in_progress",
+  "completed",
+  "terminated",
+]);
+
+export const ScreeningStatusSchema = z.enum([
+  "submitted",
+  "screening_under_review",
+  "screening_approved",
+  "screening_rejected",
 ]);
 
 export const ProposalSchema = z.object({
@@ -27,23 +42,252 @@ export const ProposalSchema = z.object({
   submittedAt: z.string().optional(),
 });
 
+const ManagedProposalUserSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  firstName: z.string().nullable().optional(),
+  lastName: z.string().nullable().optional(),
+  email: z.string().email().optional(),
+});
+
+const ManagedProposalQueueItemSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  referenceNumber: z.string(),
+  title: z.string(),
+  shortAbstract: z.string().optional().default(""),
+  thematicAreas: z
+    .array(
+      z.object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
+  receivingOffice: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  status: ScreeningStatusSchema,
+  call: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      title: z.string(),
+    })
+    .optional()
+    .nullable(),
+  Organization: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  Unit: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  submittedAt: z.string().optional(),
+  proposalType: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  createdBy: ManagedProposalUserSchema.optional().nullable(),
+});
+
+const ManagedProposalTeamMemberSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  memberType: z.string().nullable().optional(),
+  userType: z.string().nullable().optional(),
+  organizationName: z.string().nullable().optional(),
+  stakeholderName: z.string().nullable().optional(),
+  position: z.string().nullable().optional(),
+  phoneNumber: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  member: z.union([z.string(), z.number()]).nullable().optional(),
+  memberName: z.string().nullable().optional(),
+  memberEmail: z.string().nullable().optional(),
+  role: z.union([z.string(), z.number()]).nullable().optional(),
+  roleName: z.string().nullable().optional(),
+});
+
+const ManagedProposalDetailSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  referenceNumber: z.string().optional().default(""),
+  title: z.string(),
+  abstract: z.string().optional().default(""),
+  keywords: z.array(z.string()).optional().default([]),
+  thematicAreas: z
+    .array(
+      z.object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      }),
+    )
+    .default([]),
+  strategicObjectives: z
+    .array(
+      z.object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
+  receivingOffice: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  call: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      title: z.string(),
+    })
+    .optional()
+    .nullable(),
+  Organization: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  Unit: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  submittedAt: z.string().optional().nullable(),
+  proposalType: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  subThematicArea: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      name: z.string(),
+    })
+    .optional()
+    .nullable(),
+  createdBy: ManagedProposalUserSchema.optional().nullable(),
+  teamMembers: z.array(ManagedProposalTeamMemberSchema).optional().default([]),
+  reviewHistory: z.unknown().nullable().optional(),
+  title: z.string(),
+  abstract: z.string().optional().default(""),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  budgetRequested: z.string().optional().nullable(),
+  proposalFile: z.string().nullable().optional(),
+  updatedProposal: z.string().nullable().optional(),
+  supportingDocs: z.unknown().nullable().optional(),
+  version: z.number().optional().nullable(),
+  resubmissionCount: z.number().optional().nullable(),
+  rejectionReason: z.string().optional().nullable(),
+  needsIrb: z.boolean().optional().nullable(),
+  createdAt: z.string().optional().nullable(),
+  firstSubmittedAt: z.string().optional().nullable(),
+  lastSubmittedAt: z.string().optional().nullable(),
+  signature: z.unknown().nullable().optional(),
+  workflowState: z.string().optional().nullable(),
+  status: ScreeningStatusSchema,
+});
+
 const ProposalsListSchema = z.object({
   data: z.array(ProposalSchema),
-  meta: z.object({ page: z.number(), limit: z.number(), total: z.number(), totalPages: z.number() }).optional(),
-  pagination: z.object({ page: z.number(), pageSize: z.number(), total: z.number(), totalPages: z.number() }).optional(),
+  meta: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+    })
+    .optional(),
+  pagination: z
+    .object({
+      page: z.number(),
+      pageSize: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+    })
+    .optional(),
+});
+
+const ManagedProposalsListSchema = z.object({
+  success: z.boolean().optional(),
+  data: z.array(ManagedProposalQueueItemSchema),
+  meta: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+      statistics: z
+        .object({
+          totalProposals: z.number(),
+          approved: z.number(),
+          underReview: z.number(),
+          drafts: z.number(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type Proposal = z.infer<typeof ProposalSchema>;
 export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
+export type ScreeningStatus = z.infer<typeof ScreeningStatusSchema>;
 export type ProposalsList = z.infer<typeof ProposalsListSchema>;
+export type ManagedProposalQueueItem = z.infer<
+  typeof ManagedProposalQueueItemSchema
+>;
+export type ManagedProposalDetail = z.infer<typeof ManagedProposalDetailSchema>;
+export type ManagedProposalsList = z.infer<typeof ManagedProposalsListSchema>;
 
 export interface ProposalFilters {
-  page?: number; pageSize?: number; search?: string; status?: ProposalStatus;
+  page?: number;
+  pageSize?: number;
+  limit?: number;
+  search?: string;
+  status?: ProposalStatus;
+  ordering?: string;
+  Organization?: number;
+  Unit?: number;
+  call?: number;
+  receiving_office?: number;
 }
 
-export async function getProposals(filters: ProposalFilters = {}): Promise<ProposalsList> {
-  const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.LIST, { params: filters });
+export async function getProposals(
+  filters: ProposalFilters = {},
+): Promise<ProposalsList> {
+  const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.LIST, {
+    params: filters,
+  });
   return ProposalsListSchema.parse(res.data);
+}
+
+export async function getManagedProposals(
+  filters: ProposalFilters = {},
+): Promise<ManagedProposalsList> {
+  const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.MANAGE, {
+    params: filters,
+  });
+  return ManagedProposalsListSchema.parse(res.data);
 }
 
 export async function getProposalById(id: string): Promise<Proposal> {
@@ -51,12 +295,24 @@ export async function getProposalById(id: string): Promise<Proposal> {
   return ProposalSchema.parse(res.data?.data ?? res.data);
 }
 
-export async function createProposal(data: Partial<Proposal>): Promise<Proposal> {
+export async function getManagedProposalById(
+  id: string | number,
+): Promise<ManagedProposalDetail> {
+  const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.MANAGE_DETAIL(id));
+  return ManagedProposalDetailSchema.parse(res.data?.data ?? res.data);
+}
+
+export async function createProposal(
+  data: Partial<Proposal>,
+): Promise<Proposal> {
   const res = await apiClient.post(API_ENDPOINTS.PROPOSALS.CREATE, data);
   return ProposalSchema.parse(res.data?.data ?? res.data);
 }
 
-export async function updateProposal(id: string, data: Partial<Proposal>): Promise<Proposal> {
+export async function updateProposal(
+  id: string,
+  data: Partial<Proposal>,
+): Promise<Proposal> {
   const res = await apiClient.patch(API_ENDPOINTS.PROPOSALS.UPDATE(id), data);
   return ProposalSchema.parse(res.data?.data ?? res.data);
 }
@@ -66,10 +322,18 @@ export async function submitProposal(id: string): Promise<Proposal> {
   return ProposalSchema.parse(res.data?.data ?? res.data);
 }
 
-export async function assignReviewers(id: string, reviewerIds: string[]): Promise<void> {
-  await apiClient.post(API_ENDPOINTS.PROPOSALS.ASSIGN_REVIEWERS(id), { reviewerIds });
+export async function assignReviewers(
+  id: string,
+  reviewerIds: string[],
+): Promise<void> {
+  await apiClient.post(API_ENDPOINTS.PROPOSALS.ASSIGN_REVIEWERS(id), {
+    reviewerIds,
+  });
 }
 
-export async function submitReview(id: string, reviewData: Record<string, unknown>): Promise<void> {
+export async function submitReview(
+  id: string,
+  reviewData: Record<string, unknown>,
+): Promise<void> {
   await apiClient.post(API_ENDPOINTS.PROPOSALS.REVIEWS(id), reviewData);
 }
