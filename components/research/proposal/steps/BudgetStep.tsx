@@ -62,6 +62,7 @@ export function ProposalBudgetStep() {
                     fieldState.error &&
                     "border-destructive focus:border-destructive focus:ring-destructive"
                   )}
+                  
                 />
               </div>
             </FormControl>

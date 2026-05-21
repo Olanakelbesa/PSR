@@ -51,14 +51,6 @@ export function useProposal(id: string): {
       return;
     }
 
-    // Try mock first
-    const mock = mockProposals.find((proposal) => proposal.id === id);
-    if (mock) {
-      setData(mock as unknown as ProposalDetail);
-      setIsLoading(false);
-      return;
-    }
-
     let active = true;
     setIsLoading(true);
     setError(null);
@@ -71,8 +63,17 @@ export function useProposal(id: string): {
         }
       })
       .catch((err) => {
-        if (active) {
-          setError(err);
+        // Fallback to mock data if API fails
+        const mock = mockProposals.find((proposal) => String(proposal.id) === String(id));
+        if (mock) {
+          console.warn("API failed, falling back to mock proposal:", err);
+          if (active) {
+            setData(mock as unknown as ProposalDetail);
+          }
+        } else {
+          if (active) {
+            setError(err);
+          }
         }
       })
       .finally(() => {
