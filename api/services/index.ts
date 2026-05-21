@@ -9,6 +9,18 @@ export * from "./users.service";
 export * from "./concept-notes.service";
 export * from "./reference.service";
 export * from "./proposals.service";
-export * from "./screenings.service";
 export * from "./grants-projects.service";
 export * from "./grant-calls.service";
+export {
+  createScreening,
+  updateScreening,
+  getScreenings,
+  getScreeningById,
+  findScreeningByProposal,
+  ensureScreeningForProposal,
+  ScreeningStatusSchema as ScreeningWorkflowStatusSchema,
+} from "./screenings.service";
+export type { ScreeningStatus as ScreeningWorkflowStatus } from "./screenings.service";
+export type { ScreeningStatus as ProposalScreeningStatus } from "./proposals.service";
+
+export { ScreeningStatusSchema as ProposalScreeningStatusSchema } from "./proposals.service";

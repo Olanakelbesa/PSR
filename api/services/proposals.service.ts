@@ -188,8 +188,6 @@ const ManagedProposalDetailSchema = z.object({
   createdBy: ManagedProposalUserSchema.optional().nullable(),
   teamMembers: z.array(ManagedProposalTeamMemberSchema).optional().default([]),
   reviewHistory: z.unknown().nullable().optional(),
-  title: z.string(),
-  abstract: z.string().optional().default(""),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   budgetRequested: z.string().optional().nullable(),
