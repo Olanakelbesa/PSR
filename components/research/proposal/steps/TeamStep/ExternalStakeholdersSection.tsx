@@ -12,7 +12,13 @@ import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
 import { Plus, Building2 } from "lucide-react";
 import { ExternalStakeholderCard } from "./ExternalStakeholderCard";
 
-export function ExternalStakeholdersSection() {
+interface ExternalStakeholdersSectionProps {
+  proposalId?: string;
+}
+
+export function ExternalStakeholdersSection({
+  proposalId,
+}: ExternalStakeholdersSectionProps) {
   const form = useFormContext<ProposalFormInput>();
   const {
     fields: stakeholderFields,
@@ -70,6 +76,7 @@ export function ExternalStakeholdersSection() {
         <ExternalStakeholderCard
           key={field.id}
           index={index}
+          proposalId={proposalId}
           onRemove={() => removeStakeholder(index)}
         />
       ))}

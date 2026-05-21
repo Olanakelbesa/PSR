@@ -30,17 +30,21 @@ import { X, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
-import apiClient from "@/api/client";
-import { API_ENDPOINTS } from "@/api/endpoints";
 import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
+import {
+  deleteProposalTeamMember,
+  upsertProposalTeamMember,
+} from "./teamMemberAutosave";
 
 interface ExternalStakeholderCardProps {
   index: number;
+  proposalId?: string;
   onRemove: () => void;
 }
 
 export function ExternalStakeholderCard({
   index,
+  proposalId,
   onRemove,
 }: ExternalStakeholderCardProps) {
   const form = useFormContext<ProposalFormInput>();
@@ -56,10 +60,25 @@ export function ExternalStakeholderCard({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const initializedRef = useRef(false);
+  const normalizedProposalId =
+    proposalId && proposalId !== "undefined" ? proposalId : "";
+
+  const handleRemove = async () => {
+    if (stakeholderId) {
+      try {
+        await deleteProposalTeamMember(stakeholderId);
+      } catch (error) {
+        console.error("Failed to delete external stakeholder", error);
+      }
+    }
+
+    onRemove();
+  };
 
   const serializedStakeholder = useMemo(
     () =>
       JSON.stringify({
+        proposalId: normalizedProposalId,
         role: watchedStakeholder?.role ?? "",
         organizationName: watchedStakeholder?.organizationName ?? "",
         stakeholderName: watchedStakeholder?.stakeholderName ?? "",
@@ -67,7 +86,15 @@ export function ExternalStakeholderCard({
         phoneNumber: watchedStakeholder?.phoneNumber ?? "",
         email: watchedStakeholder?.email ?? "",
       }),
-    [watchedStakeholder],
+    [
+      normalizedProposalId,
+      watchedStakeholder?.role,
+      watchedStakeholder?.organizationName,
+      watchedStakeholder?.stakeholderName,
+      watchedStakeholder?.position,
+      watchedStakeholder?.phoneNumber,
+      watchedStakeholder?.email,
+    ],
   );
 
   useEffect(() => {
@@ -77,7 +104,15 @@ export function ExternalStakeholderCard({
       return;
     }
 
-    if (!stakeholderId) {
+    const stakeholderIdWatched = stakeholderId as string | number | undefined;
+    const hasRequiredData =
+      Boolean(normalizedProposalId) &&
+      Boolean(watchedStakeholder?.role) &&
+      Boolean(watchedStakeholder?.organizationName) &&
+      Boolean(watchedStakeholder?.stakeholderName) &&
+      Boolean(watchedStakeholder?.email || watchedStakeholder?.phoneNumber);
+
+    if (!hasRequiredData) {
       lastSavedRef.current = serializedStakeholder;
       return;
     }
@@ -91,23 +126,38 @@ export function ExternalStakeholderCard({
     }
 
     saveTimeoutRef.current = setTimeout(async () => {
-      if (serializedStakeholder === lastSavedRef.current || !stakeholderId) {
+      if (serializedStakeholder === lastSavedRef.current || !hasRequiredData) {
         return;
       }
 
       try {
-        await apiClient.patch(
-          API_ENDPOINTS.PROPOSAL_TEAM_MEMBERS.UPDATE(stakeholderId),
-          {
-            member_type: "external",
-            role: watchedStakeholder?.role || null,
+        const result = await upsertProposalTeamMember({
+          proposalId: normalizedProposalId,
+          backendId: stakeholderIdWatched,
+          memberType: "external",
+          payload: {
+            role: watchedStakeholder?.role
+              ? Number(watchedStakeholder.role)
+              : null,
             organization_name: watchedStakeholder?.organizationName || "",
             stakeholder_name: watchedStakeholder?.stakeholderName || "",
             position: watchedStakeholder?.position || "",
             phone_number: watchedStakeholder?.phoneNumber || "",
             email: watchedStakeholder?.email || "",
           },
-        );
+        });
+
+        if (
+          result?.id &&
+          String(result.id) !== String(stakeholderIdWatched ?? "")
+        ) {
+          form.setValue(`stakeholders.${index}.backendId`, result.id, {
+            shouldDirty: false,
+            shouldTouch: false,
+            shouldValidate: false,
+          });
+        }
+
         lastSavedRef.current = serializedStakeholder;
       } catch (error) {
         console.error("Failed to auto-save external stakeholder", error);
@@ -119,7 +169,14 @@ export function ExternalStakeholderCard({
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [serializedStakeholder, stakeholderId, watchedStakeholder]);
+  }, [
+    normalizedProposalId,
+    serializedStakeholder,
+    stakeholderId,
+    watchedStakeholder,
+    form,
+    index,
+  ]);
 
   return (
     <Card className="border-2 transition-all duration-300 hover:shadow-lg hover:border-primary/20">
@@ -142,7 +199,7 @@ export function ExternalStakeholderCard({
             type="button"
             variant="ghost"
             size="icon"
-            onClick={onRemove}
+            onClick={handleRemove}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           >
             <X className="h-4 w-4" />

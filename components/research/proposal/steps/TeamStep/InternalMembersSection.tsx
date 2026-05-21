@@ -40,8 +40,10 @@ import type {
   Department as UnitOption,
 } from "@/types/reference-data";
 import { cn } from "@/lib/utils";
-import apiClient from "@/api/client";
-import { API_ENDPOINTS } from "@/api/endpoints";
+import {
+  deleteProposalTeamMember,
+  upsertProposalTeamMember,
+} from "./teamMemberAutosave";
 
 type TeamMemberFormValue = {
   userId: string;
@@ -82,10 +84,12 @@ function useInternalUsersForSelect(params?: {
 /** Fetches selected user by ID (GET /users/internal/{id}/) and passes label + option so input always shows the name */
 function TeamMemberUserIdField({
   index,
+  proposalId,
   selectedOrdering,
   setSelectedOrdering,
 }: {
   index: number;
+  proposalId?: string;
   selectedOrdering: string;
   setSelectedOrdering: (v: string) => void;
 }) {
@@ -117,14 +121,17 @@ function TeamMemberUserIdField({
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>("");
   const initializedRef = useRef(false);
+  const normalizedProposalId =
+    proposalId && proposalId !== "undefined" ? proposalId : "";
 
   const serializedMember = useMemo(
     () =>
       JSON.stringify({
+        proposalId: normalizedProposalId,
         userId: watchedMember?.userId ?? "",
         role: watchedMember?.role ?? "",
       }),
-    [watchedMember],
+    [normalizedProposalId, watchedMember?.userId, watchedMember?.role],
   );
 
   useEffect(() => {
@@ -138,8 +145,12 @@ function TeamMemberUserIdField({
       | string
       | number
       | undefined;
+    const hasRequiredData =
+      Boolean(normalizedProposalId) &&
+      Boolean(watchedMember?.userId) &&
+      Boolean(watchedMember?.role);
 
-    if (!teamMemberId) {
+    if (!hasRequiredData) {
       lastSavedRef.current = serializedMember;
       return;
     }
@@ -153,19 +164,29 @@ function TeamMemberUserIdField({
     }
 
     saveTimeoutRef.current = setTimeout(async () => {
-      if (serializedMember === lastSavedRef.current || !teamMemberId) {
+      if (serializedMember === lastSavedRef.current || !hasRequiredData) {
         return;
       }
 
       try {
-        await apiClient.patch(
-          API_ENDPOINTS.PROPOSAL_TEAM_MEMBERS.UPDATE(teamMemberId),
-          {
-            member_type: "internal",
-            member: watchedMember?.userId || null,
-            role: watchedMember?.role || null,
+        const result = await upsertProposalTeamMember({
+          proposalId: normalizedProposalId,
+          backendId: teamMemberId,
+          memberType: "internal",
+          payload: {
+            member: watchedMember?.userId ? Number(watchedMember.userId) : null,
+            role: watchedMember?.role ? Number(watchedMember.role) : null,
           },
-        );
+        });
+
+        if (result?.id && String(result.id) !== String(teamMemberId ?? "")) {
+          form.setValue(`teamMembers.${index}.backendId` as any, result.id, {
+            shouldDirty: false,
+            shouldTouch: false,
+            shouldValidate: false,
+          });
+        }
+
         lastSavedRef.current = serializedMember;
       } catch (error) {
         console.error("Failed to auto-save internal team member", error);
@@ -177,7 +198,7 @@ function TeamMemberUserIdField({
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [serializedMember, watchedMember]);
+  }, [normalizedProposalId, serializedMember, watchedMember, form, index]);
 
   return (
     <FormField
@@ -225,7 +246,13 @@ function TeamMemberUserIdField({
   );
 }
 
-export function InternalMembersSection() {
+interface InternalMembersSectionProps {
+  proposalId?: string;
+}
+
+export function InternalMembersSection({
+  proposalId,
+}: InternalMembersSectionProps) {
   const form = useFormContext<ProposalTeamFormInput>();
   const { fields, append, remove } = useFieldArray<
     ProposalTeamFormInput,
@@ -408,6 +435,7 @@ export function InternalMembersSection() {
                   {/* Team Member: user by ID (GET /users/internal/{id}/) so input shows name */}
                   <TeamMemberUserIdField
                     index={index}
+                    proposalId={proposalId}
                     selectedOrdering={selectedOrdering}
                     setSelectedOrdering={setSelectedOrdering}
                   />
@@ -454,7 +482,24 @@ export function InternalMembersSection() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => remove(index)}
+                      onClick={async () => {
+                        const teamMemberBackendId = form.getValues(
+                          `teamMembers.${index}.backendId` as any,
+                        ) as string | number | undefined;
+
+                        if (teamMemberBackendId) {
+                          try {
+                            await deleteProposalTeamMember(teamMemberBackendId);
+                          } catch (error) {
+                            console.error(
+                              "Failed to delete team member",
+                              error,
+                            );
+                          }
+                        }
+
+                        remove(index);
+                      }}
                       className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     >
                       <X className="h-4 w-4" />

@@ -1,18 +1,13 @@
+"use client";
+
+import { useParams, useSearchParams } from "next/navigation";
 import { ProposalWizard } from "@/components/research/proposal/ProposalWizard";
 
-export const dynamic = "force-dynamic";
-
-export default async function EditProposalPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string } | Promise<{ id: string }>;
-  searchParams:
-    | { callId?: string; edit?: string }
-    | Promise<{ callId?: string; edit?: string }>;
-}) {
-  const [{ id }, query] = await Promise.all([params, searchParams]);
-  const proposalId = query.edit ?? id;
+export default function EditProposalPage() {
+  const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const proposalId = searchParams.get("edit") ?? params?.id;
+  const callId = searchParams.get("callId") ?? undefined;
 
   return (
     <div className="space-y-8 rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur sm:p-8">
@@ -25,7 +20,7 @@ export default async function EditProposalPage({
         </p>
       </div>
 
-      <ProposalWizard grantCallId={query.callId} proposalId={proposalId} />
+      <ProposalWizard grantCallId={callId} proposalId={proposalId} />
     </div>
   );
 }

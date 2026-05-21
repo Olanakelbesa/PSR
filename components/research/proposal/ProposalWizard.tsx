@@ -35,6 +35,7 @@ import { useProposalTemplateSections } from "@/lib/queries/proposal-template-sec
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import type { ProposalDetail } from "@/types";
+import { upsertProposalTeamMember } from "./steps/TeamStep/teamMemberAutosave";
 
 interface ProposalWizardProps {
   grantCallId?: string;
@@ -603,6 +604,7 @@ export function ProposalWizard({
   const lastSavedValuesRef = useRef<Partial<ProposalFormInput>>({});
   const isSavingRequestRef = useRef(false);
   const nextSaveValuesRef = useRef<ProposalFormInput | null>(null);
+  const syncedProposalTeamMembersRef = useRef<string>("");
 
   // Update activeProposalId if proposalId prop changes
   useEffect(() => {
@@ -714,6 +716,100 @@ export function ProposalWizard({
     }
   };
 
+  const syncProposalTeamMembers = async (
+    savedProposalId: string,
+    values: ProposalFormInput,
+  ) => {
+    if (!savedProposalId) return;
+    if (syncedProposalTeamMembersRef.current === savedProposalId) return;
+
+    const internalMembers = Array.isArray(values.teamMembers)
+      ? values.teamMembers
+      : [];
+    const externalStakeholders = Array.isArray(values.stakeholders)
+      ? values.stakeholders
+      : [];
+
+    let hasError = false;
+
+    for (let index = 0; index < internalMembers.length; index += 1) {
+      const member = internalMembers[index] as any;
+      if (!member?.userId || !member?.role) continue;
+
+      try {
+        const result = await upsertProposalTeamMember({
+          proposalId: savedProposalId,
+          backendId: member?.backendId ?? null,
+          memberType: "internal",
+          payload: {
+            member: Number(member.userId),
+            role: Number(member.role),
+          },
+        });
+
+        if (
+          result?.id &&
+          String(result.id) !== String(member?.backendId ?? "")
+        ) {
+          form.setValue(`teamMembers.${index}.backendId` as any, result.id, {
+            shouldDirty: false,
+            shouldTouch: false,
+            shouldValidate: false,
+          });
+        }
+      } catch (error) {
+        hasError = true;
+        console.error("Failed to sync internal team member", error);
+      }
+    }
+
+    for (let index = 0; index < externalStakeholders.length; index += 1) {
+      const stakeholder = externalStakeholders[index] as any;
+      if (
+        !stakeholder?.role ||
+        !stakeholder?.organizationName ||
+        !stakeholder?.stakeholderName ||
+        !(stakeholder?.email || stakeholder?.phoneNumber)
+      ) {
+        continue;
+      }
+
+      try {
+        const result = await upsertProposalTeamMember({
+          proposalId: savedProposalId,
+          backendId: stakeholder?.backendId ?? null,
+          memberType: "external",
+          payload: {
+            role: Number(stakeholder.role),
+            organization_name: stakeholder.organizationName || "",
+            stakeholder_name: stakeholder.stakeholderName || "",
+            position: stakeholder.position || "",
+            phone_number: stakeholder.phoneNumber || "",
+            email: stakeholder.email || "",
+          },
+        });
+
+        if (
+          result?.id &&
+          String(result.id) !== String(stakeholder?.backendId ?? "")
+        ) {
+          form.setValue(`stakeholders.${index}.backendId` as any, result.id, {
+            shouldDirty: false,
+            shouldTouch: false,
+            shouldValidate: false,
+          });
+        }
+      } catch (error) {
+        hasError = true;
+        console.error("Failed to sync external stakeholder", error);
+      }
+    }
+
+    if (!hasError) {
+      syncedProposalTeamMembersRef.current = savedProposalId;
+    }
+  };
+
   const performSaveRequest = async (values: ProposalFormInput) => {
     isSavingRequestRef.current = true;
     setSaveStatus("saving");
@@ -771,6 +867,8 @@ export function ProposalWizard({
               "",
               newUrl,
             );
+
+            await syncProposalTeamMembers(newId, values);
           }
         } else {
           setSaveStatus("idle");
@@ -954,7 +1052,8 @@ export function ProposalWizard({
               .filter(Boolean)
           : proposal.thematicArea?.id
             ? [String(proposal.thematicArea.id)]
-            : proposal.thematic_area && typeof proposal.thematic_area === "object"
+            : proposal.thematic_area &&
+                typeof proposal.thematic_area === "object"
               ? [String(proposal.thematic_area.id)]
               : proposal.thematic_area
                 ? [String(proposal.thematic_area)]
@@ -1332,6 +1431,8 @@ export function ProposalWizard({
               "",
               newUrl,
             );
+
+            await syncProposalTeamMembers(currentId, values);
           } else {
             throw new Error(
               "Failed to retrieve proposal ID from create response.",
@@ -1352,6 +1453,11 @@ export function ProposalWizard({
           throw new Error("Cannot submit a proposal that has not been saved.");
         }
         await apiClient.post(API_ENDPOINTS.PROPOSALS.SUBMIT(currentId));
+
+        if (!proposalId || proposalId === "undefined") {
+          await syncProposalTeamMembers(currentId, values);
+        }
+
         toast.success("Proposal submitted successfully!");
       } else {
         toast.success(
