@@ -351,7 +351,7 @@ export default function ScreeningDetailPage() {
             Back to List
           </Button>
 
-          {proposal.status === "submitted" && (
+          {proposal.status === "screening_under_review" && (
             <Button
               className="bg-primary hover:bg-primary/90"
               onClick={handleStartReview}

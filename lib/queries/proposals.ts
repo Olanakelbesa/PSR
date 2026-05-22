@@ -64,7 +64,9 @@ export function useProposal(id: string): {
       })
       .catch((err) => {
         // Fallback to mock data if API fails
-        const mock = mockProposals.find((proposal) => String(proposal.id) === String(id));
+        const mock = mockProposals.find(
+          (proposal) => String(proposal.id) === String(id),
+        );
         if (mock) {
           console.warn("API failed, falling back to mock proposal:", err);
           if (active) {

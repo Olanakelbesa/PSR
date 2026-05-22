@@ -239,10 +239,10 @@ export default function ScreeningReviewsPage() {
         return (
           <Badge
             variant={config.variant}
-            className="gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase"
+            className="gap-1.5 px-2 py-0.5 text-[10px] font-medium"
           >
             <Icon className="h-3 w-3" />
-            {config.label}
+            {row.original.status.replace(/_/g, " ").toUpperCase()}
           </Badge>
         );
       },
