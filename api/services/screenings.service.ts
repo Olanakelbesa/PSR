@@ -12,16 +12,93 @@ export const ScreeningStatusSchema = z.enum([
   "screening_rejected",
 ]);
 
-const ScreeningSchema = z.object({
+const ScreeningUserSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  proposal: z.any(),
-  status: ScreeningStatusSchema,
-  decision_remarks: z.string().optional().default(""),
-  created_at: z.string().nullable().optional(),
-  updated_at: z.string().nullable().optional(),
+  firstName: z.string().nullable().optional(),
+  lastName: z.string().nullable().optional(),
+  email: z.string().email().optional(),
 });
 
+const ScreeningProposalSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    referenceNumber: z.string().optional().default(""),
+    title: z.string().optional().default("Untitled Proposal"),
+    shortAbstract: z.string().optional().default(""),
+    thematicAreas: z
+      .array(
+        z.object({
+          id: z.union([z.string(), z.number()]).transform(String),
+          name: z.string(),
+        }),
+      )
+      .optional()
+      .default([]),
+    receivingOffice: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    status: ScreeningStatusSchema.optional(),
+    call: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        title: z.string(),
+      })
+      .optional()
+      .nullable(),
+    Organization: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    Unit: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    submittedAt: z.string().optional().nullable(),
+    proposalType: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    createdBy: ScreeningUserSchema.optional().nullable(),
+  })
+  .passthrough();
+
+const ScreeningSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    individualReviewId: z
+      .union([z.string(), z.number()])
+      .transform(String)
+      .nullable()
+      .optional(),
+    proposal: ScreeningProposalSchema,
+    status: ScreeningStatusSchema,
+    decisionRemarks: z.string().optional().default(""),
+    assignedReviewersPresent: z.boolean().optional().default(false),
+    assignedReviewersCount: z.number().optional().default(0),
+    assignedReviewerIds: z
+      .array(z.union([z.string(), z.number()]).transform(String))
+      .optional()
+      .default([]),
+    createdAt: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
+  })
+  .passthrough();
+
 const ScreeningsListSchema = z.object({
+  success: z.boolean().optional(),
   data: z.array(ScreeningSchema),
   meta: z
     .object({
@@ -52,6 +129,36 @@ export interface ScreeningWritePayload {
   decision_remarks?: string;
 }
 
+export interface AssignReviewersPayload {
+  reviewer_ids: Array<string | number>;
+}
+
+const ScreeningAssignedReviewerSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(Number),
+    fullName: z.string().optional().default(""),
+    email: z.string().email().optional().default(""),
+    role: z.string().optional().default(""),
+  })
+  .passthrough();
+
+const ScreeningAssignedReviewersSchema = z.object({
+  screeningId: z.union([z.string(), z.number()]).transform(Number),
+  status: ScreeningStatusSchema,
+  reviewerIds: z
+    .array(z.union([z.string(), z.number()]).transform(Number))
+    .optional()
+    .default([]),
+  reviewers: z.array(ScreeningAssignedReviewerSchema).optional().default([]),
+});
+
+export type ScreeningAssignedReviewer = z.infer<
+  typeof ScreeningAssignedReviewerSchema
+>;
+export type ScreeningAssignedReviewers = z.infer<
+  typeof ScreeningAssignedReviewersSchema
+>;
+
 export async function getScreenings(
   filters: ScreeningFilters = {},
 ): Promise<ScreeningsList> {
@@ -66,6 +173,28 @@ export async function getScreeningById(
 ): Promise<Screening> {
   const res = await apiClient.get(API_ENDPOINTS.SCREENINGS.DETAIL(id));
   return ScreeningSchema.parse(res.data?.data ?? res.data);
+}
+
+export async function assignReviewers(
+  screeningId: string | number,
+  reviewerIds: Array<string | number>,
+): Promise<unknown> {
+  const res = await apiClient.post(
+    API_ENDPOINTS.SCREENINGS.ASSIGN_REVIEWERS(screeningId),
+    {
+      reviewer_ids: reviewerIds,
+    } satisfies AssignReviewersPayload,
+  );
+  return res.data?.data ?? res.data;
+}
+
+export async function getAssignedReviewers(
+  screeningId: string | number,
+): Promise<ScreeningAssignedReviewers> {
+  const res = await apiClient.get(
+    API_ENDPOINTS.SCREENINGS.ASSIGN_REVIEWERS(screeningId),
+  );
+  return ScreeningAssignedReviewersSchema.parse(res.data?.data ?? res.data);
 }
 
 export async function findScreeningByProposal(

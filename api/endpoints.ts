@@ -144,6 +144,8 @@ export const API_ENDPOINTS = {
   SCREENINGS: {
     LIST: "/v1/screenings/",
     DETAIL: (id: string | number) => `/v1/screenings/${id}/`,
+    ASSIGN_REVIEWERS: (id: string | number) =>
+      `/v1/screenings/${id}/assign-reviewers/`,
   },
 
   PROPOSAL_TEAM_MEMBERS: {

@@ -13,6 +13,8 @@ export * from "./grants-projects.service";
 export * from "./grant-calls.service";
 export {
   createScreening,
+  assignReviewers,
+  getAssignedReviewers,
   updateScreening,
   getScreenings,
   getScreeningById,
@@ -20,6 +22,7 @@ export {
   ensureScreeningForProposal,
   ScreeningStatusSchema as ScreeningWorkflowStatusSchema,
 } from "./screenings.service";
+export type { Screening } from "./screenings.service";
 export type { ScreeningStatus as ScreeningWorkflowStatus } from "./screenings.service";
 export type { ScreeningStatus as ProposalScreeningStatus } from "./proposals.service";
 
