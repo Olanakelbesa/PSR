@@ -227,7 +227,20 @@ export async function getIndividualReviewById(
   id: string | number,
 ): Promise<IndividualReviewDetail> {
   const res = await apiClient.get(API_ENDPOINTS.INDIVIDUAL_REVIEWS.DETAIL(id));
-  return IndividualReviewDetailSchema.parse(res.data?.data ?? res.data);
+  const raw = res.data?.data ?? res.data;
+
+  const safe = {
+    ...raw,
+    responses: (raw.responses ?? []).map((r: any) => ({
+      id: r.id,
+      question: r.question,
+      // normalize backend field → frontend field
+      question_id: r.question?.id,
+      points_earned: r.pointsEarned ?? 0,
+    })),
+  };
+
+  return IndividualReviewDetailSchema.parse(safe);
 }
 
 export interface ReviewQuestion {
@@ -269,17 +282,32 @@ export interface IndividualReviewPayload {
   screening?: number;
 }
 
-export async function getReviewQuestions(params?: Record<string, any>): Promise<ReviewQuestionsResponse> {
-  const res = await apiClient.get(API_ENDPOINTS.REVIEW_QUESTIONS.LIST, { params });
+export async function getReviewQuestions(
+  params?: Record<string, any>,
+): Promise<ReviewQuestionsResponse> {
+  const res = await apiClient.get(API_ENDPOINTS.REVIEW_QUESTIONS.LIST, {
+    params,
+  });
   return res.data;
 }
 
-export async function createIndividualReview(payload: IndividualReviewPayload): Promise<any> {
-  const res = await apiClient.post(API_ENDPOINTS.INDIVIDUAL_REVIEWS.LIST, payload);
+export async function createIndividualReview(
+  payload: IndividualReviewPayload,
+): Promise<any> {
+  const res = await apiClient.post(
+    API_ENDPOINTS.INDIVIDUAL_REVIEWS.LIST,
+    payload,
+  );
   return res.data;
 }
 
-export async function updateIndividualReview(id: string | number, payload: Partial<IndividualReviewPayload>): Promise<any> {
-  const res = await apiClient.patch(API_ENDPOINTS.INDIVIDUAL_REVIEWS.DETAIL(id), payload);
+export async function updateIndividualReview(
+  id: string | number,
+  payload: Partial<IndividualReviewPayload>,
+): Promise<any> {
+  const res = await apiClient.patch(
+    API_ENDPOINTS.INDIVIDUAL_REVIEWS.DETAIL(id),
+    payload,
+  );
   return res.data;
 }

@@ -202,31 +202,6 @@ export default function TechnicalReviewDetailPage() {
               <Card className="shadow-sm border-primary/5 bg-primary/[0.02]">
                 <CardContent className="pt-6">
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] uppercase font-bold"
-                      >
-                        {proposalReference}
-                      </Badge>
-                      <Badge
-                        className={cn(
-                          "text-[10px] font-bold uppercase border",
-                          statusColors[proposalStatus] ||
-                            statusColors.screening_under_review,
-                        )}
-                      >
-                        {proposalStatus.replace(/_/g, " ")}
-                      </Badge>
-                      <Badge
-                        variant={reviewBadge.variant}
-                        className="text-[10px] font-bold uppercase gap-1.5"
-                      >
-                        <reviewBadge.icon className="h-3 w-3" />
-                        {reviewBadge.label}
-                      </Badge>
-                    </div>
-
                     <div>
                       <p className="text-xs tracking-widest text-muted-foreground mb-1">
                         Proposal Title
@@ -315,7 +290,7 @@ export default function TechnicalReviewDetailPage() {
                       </p>
                     </div>
                     <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         Submitted Date
                       </p>
                       <p className="text-sm font-bold text-foreground">
@@ -461,7 +436,7 @@ export default function TechnicalReviewDetailPage() {
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <CalendarClock className="h-4 w-4" />
                   <div className="text-xs">
-                    <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
+                    <p className="font-semibold text-foreground text-xs">
                       Submitted Date
                     </p>
                     <p className="font-medium">{formatDate(submittedAt)}</p>
