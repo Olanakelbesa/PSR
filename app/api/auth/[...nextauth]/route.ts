@@ -39,7 +39,7 @@ declare module "next-auth" {
 
 const BACKEND_URL =
   process.env.BACKEND_URL ??
-  "https://psr-policyresearchmanagmentsystem.onrender.com";
+  "http://localhost:8000"; /* Default for development; should be overridden in production via .env.local */
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -125,7 +125,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Default to now + 8h if the field is missing (old session cookies).
       // Using ?? 0 would make every old session immediately attempt a refresh and fail.
       const tokenExpires =
-        typeof token.backendTokenExpires === "number" && token.backendTokenExpires > 0
+        typeof token.backendTokenExpires === "number" &&
+        token.backendTokenExpires > 0
           ? (token.backendTokenExpires as number)
           : now + 1000 * 60 * 60 * 8;
 
