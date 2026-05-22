@@ -32,7 +32,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
@@ -471,54 +470,31 @@ export default function AssignReviewersDetailPage() {
 
     setLoading(true);
     try {
-      const screeningResponse = await getScreeningById(screeningId);
-      setScreening(screeningResponse);
-      setSelectedReviewerIds(
-        (screeningResponse.assignedReviewerIds || []).map((value) =>
-          Number(value),
-        ),
-      );
+      // Load screening (proposal) details
+      const screeningRes = await getScreeningById(screeningId);
+      setScreening(screeningRes);
 
-      try {
-        const assignedResponse = await getAssignedReviewers(screeningId);
-        const assigned = (assignedResponse.reviewers || []).map(
-          (item) =>
-            ({
-              id: Number(item.id),
-              fullName: item.fullName || `Reviewer #${item.id}`,
-              email: item.email || "",
-              title: item.role || "",
-              organization: "Assigned reviewer",
-              unit: "",
-              organizationType: "",
-            }) satisfies Reviewer,
-        );
+      // Load assigned reviewers for this screening
+      const assignedRes = await getAssignedReviewers(screeningId);
+      const assigned = (assignedRes.reviewers || []).map(mapReviewer);
+      setAssignedReviewers(assigned);
+      setSelectedReviewerIds(assigned.map((r) => Number(r.id)));
 
-        setAssignedReviewers(assigned);
-        setSelectedReviewerIds(
-          (assignedResponse.reviewerIds?.length
-            ? assignedResponse.reviewerIds
-            : screeningResponse.assignedReviewerIds || []
-          ).map((value) => Number(value)),
-        );
-
-        setReviewerLookup((previous) => {
-          const next = { ...previous };
-          assigned.forEach((reviewer) => {
-            next[reviewer.id] = reviewer;
-          });
-          return next;
+      // Populate reviewer lookup for fast access
+      setReviewerLookup((prev) => {
+        const next = { ...prev };
+        assigned.forEach((rev) => {
+          next[rev.id] = rev;
         });
-      } catch (assignmentError) {
-        console.warn("No assigned reviewers payload found:", assignmentError);
-      }
+        return next;
+      });
     } catch (error) {
       console.error("Failed to load assignment data:", error);
       toast.error("Failed to load assignment data");
     } finally {
       setLoading(false);
     }
-  }, [screeningId]);
+  }, [screeningId, mapReviewer]);
 
   useEffect(() => {
     loadData();

@@ -148,6 +148,17 @@ export const API_ENDPOINTS = {
       `/v1/screenings/${id}/assign-reviewers/`,
   },
 
+  // ── Individual Reviews ───────────────────────────────────────────────────
+  INDIVIDUAL_REVIEWS: {
+    LIST: "/v1/individual-reviews/",
+    DETAIL: (id: string | number) => `/v1/individual-reviews/${id}/`,
+  },
+
+  // ── Review Questions ──────────────────────────────────────────────────────
+  REVIEW_QUESTIONS: {
+    LIST: "/v1/reviewquestions/",
+  },
+
   PROPOSAL_TEAM_MEMBERS: {
     LIST: "/v1/proposalteammembers/",
     CREATE: "/v1/proposalteammembers/",

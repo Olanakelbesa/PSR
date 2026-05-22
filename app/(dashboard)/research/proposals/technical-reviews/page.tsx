@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,6 +14,9 @@ import {
   AlertCircle,
   Microscope,
   ShieldCheck,
+  User,
+  Building2,
+  Layers,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 
@@ -28,107 +31,149 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { proposalsApi } from "@/api/client";
-import { mockProposals } from "@/lib/api/mock-data";
-import type { ResearchProposal } from "@/lib/types";
+import { getIndividualReviews, type IndividualReview } from "@/api/services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-type ProposalRow = ResearchProposal & {
-  referenceNumber: string;
+const reviewStatusConfig: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+    icon: any;
+  }
+> = {
+  pending_review: { label: "Pending Review", variant: "outline", icon: Clock },
+  reviewed: { label: "Reviewed", variant: "secondary", icon: CheckCircle2 },
 };
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
-  under_review: { label: "Under Review", variant: "default", icon: Microscope },
-  approved: { label: "Approved", variant: "secondary", icon: CheckCircle2 },
-  rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
-  revision_requested: { label: "Revision Requested", variant: "outline", icon: AlertCircle },
+const proposalStatusConfig: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
+    icon: any;
+  }
+> = {
+  screening_approved: {
+    label: "Screening Approved",
+    variant: "secondary",
+    icon: CheckCircle2,
+  },
+  screening_under_review: {
+    label: "Screening In Progress",
+    variant: "outline",
+    icon: Microscope,
+  },
+  screening_rejected: {
+    label: "Screening Rejected",
+    variant: "destructive",
+    icon: XCircle,
+  },
+};
+
+type ReviewRow = IndividualReview & {
+  organizationName: string;
+  unitName: string;
+  scoreLabel: string;
 };
 
 export default function TechnicalReviewsPage() {
   const router = useRouter();
-  const [proposals, setProposals] = useState<ProposalRow[]>([]);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const mapToProposalRow = (proposal: ResearchProposal): ProposalRow => ({
-    ...proposal,
-    referenceNumber: proposal.id.replace("prop-", "PRP-").toUpperCase(),
+  const mapToReviewRow = (review: IndividualReview): ReviewRow => ({
+    ...review,
+    organizationName: review.organization?.name || "—",
+    unitName: review.unit?.name || "—",
+    scoreLabel:
+      typeof review.totalScore === "number" ? `${review.totalScore}` : "0",
   });
 
   useEffect(() => {
-    async function loadProposals() {
+    async function loadReviews() {
       setIsLoading(true);
       try {
-        const response = await proposalsApi.getProposals(
-          { status: "under_review" },
-          { page: 1, pageSize: 100 }
-        );
-        if (response.data.length > 0) {
-          setProposals(response.data.map(mapToProposalRow));
-        } else {
-          const filteredMock = mockProposals
-            .filter(p => p.status === "under_review" || p.status === "approved" || p.status === "revision_requested")
-            .map(mapToProposalRow);
-          setProposals(filteredMock);
-        }
+        const response = await getIndividualReviews({
+          page: 1,
+          limit: 100,
+          ordering: "-id",
+        });
+        setReviews((response.data || []).map(mapToReviewRow));
       } catch (error) {
-        console.error("Failed to load proposals for technical review:", error);
-        setProposals(mockProposals.filter(p => p.status === "under_review").map(mapToProposalRow));
+        console.error("Failed to load individual reviews:", error);
+        setReviews([]);
       } finally {
         setIsLoading(false);
       }
     }
-    loadProposals();
+
+    loadReviews();
   }, []);
 
-  const stats = [
-    {
-      label: "Awaiting Review",
-      value: proposals.filter(p => p.status === "under_review").length,
-      icon: Clock,
-      color: "text-amber-600",
-      bg: "bg-amber-50/50",
-    },
-    {
-      label: "In Progress",
-      value: proposals.filter(p => p.status === "under_review").length,
-      icon: Microscope,
-      color: "text-blue-600",
-      bg: "bg-blue-50/50",
-    },
-    {
-      label: "Approved",
-      value: proposals.filter(p => p.status === "approved").length,
-      icon: CheckCircle2,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50/50",
-    },
-    {
-      label: "Total Reviewed",
-      value: 63,
-      icon: ShieldCheck,
-      color: "text-slate-600",
-      bg: "bg-slate-50/50",
-    },
-  ];
+  const stats = useMemo(
+    () => [
+      {
+        label: "Pending Reviews",
+        value: reviews.filter(
+          (review) => review.reviewStatus === "pending_review",
+        ).length,
+        icon: Clock,
+        color: "text-amber-600",
+        bg: "bg-amber-50/50",
+      },
+      {
+        label: "Completed",
+        value: reviews.filter((review) => review.reviewStatus === "reviewed")
+          .length,
+        icon: CheckCircle2,
+        color: "text-emerald-600",
+        bg: "bg-emerald-50/50",
+      },
+      {
+        label: "Screening Approved",
+        value: reviews.filter(
+          (review) => review.proposalStatus === "screening_approved",
+        ).length,
+        icon: Microscope,
+        color: "text-blue-600",
+        bg: "bg-blue-50/50",
+      },
+      {
+        label: "Total Reviews",
+        value: reviews.length,
+        icon: ShieldCheck,
+        color: "text-slate-600",
+        bg: "bg-slate-50/50",
+      },
+    ],
+    [reviews],
+  );
 
-  const columns: ColumnDef<ProposalRow>[] = [
+  const columns: ColumnDef<ReviewRow>[] = [
     {
       accessorKey: "referenceNumber",
       header: "Reference #",
       cell: ({ row }) => (
-        <span className="font-bold text-primary">{row.original.referenceNumber}</span>
+        <span className="font-bold text-primary">
+          {row.original.referenceNumber}
+        </span>
       ),
     },
     {
-      accessorKey: "title",
+      accessorKey: "proposalTitle",
       header: "Proposal Title",
       cell: ({ row }) => (
         <div className="max-w-[380px]">
-          <p className="font-semibold text-sm line-clamp-1">{row.original.title}</p>
+          <p className="font-semibold text-sm line-clamp-1">
+            {row.original.proposalTitle}
+          </p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">{row.original.institution}</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase line-clamp-1">
+              {row.original.principalInvestigator || "—"}
+            </span>
           </div>
         </div>
       ),
@@ -139,20 +184,49 @@ export default function TechnicalReviewsPage() {
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="text-sm font-medium">
-            {row.original.principalInvestigator.firstName} {row.original.principalInvestigator.lastName}
+            {row.original.principalInvestigator || "—"}
           </span>
-          <span className="text-[10px] text-muted-foreground font-bold uppercase">{row.original.researchArea}</span>
+          <span className="text-[10px] text-muted-foreground font-bold uppercase">
+            {row.original.reviewStatus === "reviewed"
+              ? "Completed Review"
+              : "Awaiting Evaluation"}
+          </span>
         </div>
       ),
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: "organizationName",
+      header: "Organization",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground whitespace-pre-line break-word">
+          {row.original.organizationName}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "unitName",
+      header: "Unit",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground whitespace-pre-line break-word">
+          {row.original.unitName}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "proposalStatus",
+      header: "Proposal Status",
       cell: ({ row }) => {
-        const config = statusConfig[row.original.status] || statusConfig.under_review;
+        const config = proposalStatusConfig[row.original.proposalStatus] ?? {
+          label: row.original.proposalStatus || "Unknown",
+          variant: "outline" as const,
+          icon: AlertCircle,
+        };
         const Icon = config.icon;
         return (
-          <Badge variant={config.variant} className="gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase">
+          <Badge
+            variant={config.variant}
+            className="gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase"
+          >
             <Icon className="h-3 w-3" />
             {config.label}
           </Badge>
@@ -160,11 +234,43 @@ export default function TechnicalReviewsPage() {
       },
     },
     {
-      accessorKey: "submittedAt",
+      accessorKey: "reviewStatus",
+      header: "Review Status",
+      cell: ({ row }) => {
+        const config = reviewStatusConfig[row.original.reviewStatus] ?? {
+          label: row.original.reviewStatus || "Unknown",
+          variant: "outline" as const,
+          icon: AlertCircle,
+        };
+        const Icon = config.icon;
+        return (
+          <Badge
+            variant={config.variant}
+            className="gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase"
+          >
+            <Icon className="h-3 w-3" />
+            {config.label}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "scoreLabel",
+      header: "Total Score",
+      cell: ({ row }) => (
+        <span className="text-sm font-bold text-foreground">
+          {row.original.scoreLabel}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "submittedDate",
       header: "Submitted Date",
       cell: ({ row }) => (
         <span className="text-xs font-medium text-muted-foreground">
-          {row.original.submittedAt ? new Date(row.original.submittedAt).toLocaleDateString() : "—"}
+          {row.original.submittedDate
+            ? new Date(row.original.submittedDate).toLocaleDateString()
+            : "—"}
         </span>
       ),
     },
@@ -179,14 +285,19 @@ export default function TechnicalReviewsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem asChild>
-              <Link href={`/research/proposals/technical-reviews/${row.original.id}`}>
+              <Link
+                href={`/research/proposals/technical-reviews/${row.original.id}`}
+              >
                 <Eye className="h-4 w-4 mr-2" />
-                View Proposal
+                View Review
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href={`/research/proposals/technical-reviews/${row.original.id}/review`} className="text-primary font-medium">
+              <Link
+                href={`/research/proposals/technical-reviews/${row.original.id}/review`}
+                className="text-primary font-medium"
+              >
                 <ClipboardList className="h-4 w-4 mr-2" />
                 Technical Review
               </Link>
@@ -200,10 +311,9 @@ export default function TechnicalReviewsPage() {
   return (
     <PageContainer
       title="Technical Reviews"
-      description="Conduct detailed technical evaluation of screened research proposals through the ROC board."
+      description="Review individual screening-assigned technical evaluations from the backend review register."
     >
       <div className="space-y-8">
-        {/* Stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
@@ -221,7 +331,12 @@ export default function TechnicalReviewsPage() {
                   key={i}
                   className="group relative overflow-hidden border-none shadow-md hover:shadow-lg transition-all"
                 >
-                  <div className={cn("absolute inset-y-0 left-0 w-1", stat.bg.replace("/50", ""))} />
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-0 w-1",
+                      stat.bg.replace("/50", ""),
+                    )}
+                  />
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                       {stat.label}
@@ -241,24 +356,42 @@ export default function TechnicalReviewsPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={proposals}
-              searchKey="title"
-              searchPlaceholder="Search by proposal title or PI..."
+              data={reviews}
+              searchKey="proposalTitle"
+              searchPlaceholder="Search by title or PI..."
               filterOptions={[
                 {
-                  key: "status",
-                  label: "Status",
+                  key: "reviewStatus",
+                  label: "Review Status",
                   options: [
-                    { value: "under_review", label: "Under Review" },
-                    { value: "approved", label: "Approved" },
-                    { value: "revision_requested", label: "Revision Requested" },
-                    { value: "rejected", label: "Rejected" },
+                    { value: "pending_review", label: "Pending Review" },
+                    { value: "reviewed", label: "Reviewed" },
+                  ],
+                },
+                {
+                  key: "proposalStatus",
+                  label: "Proposal Status",
+                  options: [
+                    {
+                      value: "screening_approved",
+                      label: "Screening Approved",
+                    },
+                    {
+                      value: "screening_under_review",
+                      label: "Screening In Progress",
+                    },
+                    {
+                      value: "screening_rejected",
+                      label: "Screening Rejected",
+                    },
                   ],
                 },
               ]}
-              onRowClick={(row) => router.push(`/research/proposals/technical-reviews/${row.id}`)}
-              emptyMessage="No proposals found for technical review"
-              emptyDescription="No proposals have passed administrative screening yet."
+              onRowClick={(row) =>
+                router.push(`/research/proposals/technical-reviews/${row.id}`)
+              }
+              emptyMessage="No technical reviews found"
+              emptyDescription="No individual reviews were returned from the backend yet."
             />
           )}
         </div>

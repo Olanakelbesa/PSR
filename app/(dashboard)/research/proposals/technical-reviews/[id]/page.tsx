@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Building2,
@@ -15,6 +16,9 @@ import {
   Wallet,
   ClipboardList,
   ChevronRight,
+  CalendarClock,
+  BadgeCheck,
+  Paperclip,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,66 +26,135 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageContainer } from "@/components/layout";
-import { proposalsApi } from "@/api/client";
-import type { ResearchProposal } from "@/lib/types";
+import {
+  getIndividualReviewById,
+  type IndividualReviewDetail,
+} from "@/api/services";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { THEMATIC_AREAS } from "@/lib/constants";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function TechnicalReviewDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [proposal, setProposal] = useState<ResearchProposal | null>(null);
+  const [review, setReview] = useState<IndividualReviewDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadProposal() {
+    async function loadReview() {
       try {
-        const response = await proposalsApi.getById(id as string);
-        if (response.success && response.data) {
-          setProposal(response.data);
-        } else {
-          toast.error("Proposal not found");
-          router.push("/research/proposals/technical-reviews");
-        }
+        const response = await getIndividualReviewById(id as string);
+        setReview(response);
       } catch (error) {
-        console.error("Error loading proposal:", error);
-        toast.error("Failed to load proposal details");
+        console.error("Error loading individual review:", error);
+        toast.error("Failed to load technical review details");
+        router.push("/research/proposals/technical-reviews");
       } finally {
         setIsLoading(false);
       }
     }
-    loadProposal();
+
+    loadReview();
   }, [id, router]);
+
+  const proposal = review?.screening?.proposal;
+
+  const statusColors: Record<string, string> = {
+    screening_under_review: "bg-amber-100 text-amber-700 border-amber-200",
+    screening_approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    screening_rejected: "bg-rose-100 text-rose-700 border-rose-200",
+  };
+
+  const reviewBadge =
+    review?.reviewStatus === "reviewed"
+      ? {
+          label: "Reviewed",
+          variant: "secondary" as const,
+          icon: CheckCircle2,
+        }
+      : {
+          label: "Pending Review",
+          variant: "outline" as const,
+          icon: Clock,
+        };
+
+  const proposalReference =
+    proposal?.referenceNumber || `PRP-${proposal?.id ?? id}`;
+  const proposalTitle = proposal?.title || "Untitled Proposal";
+  const proposalStatus =
+    proposal?.status || review?.screening?.status || "screening_under_review";
+  const thematicArea = proposal?.thematicAreas?.[0]?.name || "Unspecified Area";
+  const organizationName = proposal?.Organization?.name || "—";
+  const unitName = proposal?.Unit?.name || "—";
+  const callTitle = proposal?.call?.title || "—";
+  const submittedAt =
+    proposal?.submittedAt || review?.screening?.createdAt || null;
+  const principalInvestigator = proposal?.createdBy
+    ? [proposal.createdBy.firstName, proposal.createdBy.lastName]
+        .filter(Boolean)
+        .join(" ") ||
+      proposal.createdBy.email ||
+      "—"
+    : "—";
+  const responses = review?.responses || [];
+  const thematicAreaLabel =
+    THEMATIC_AREAS.find(
+      (area) => area.value === proposal?.thematicAreas?.[0]?.name,
+    )?.label || thematicArea;
 
   if (isLoading) {
     return (
       <PageContainer title="Loading Proposal...">
         <div className="h-96 flex flex-col items-center justify-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           <p className="text-sm text-muted-foreground animate-pulse">
-            Fetching proposal for technical review...
+            Fetching individual review details...
           </p>
         </div>
       </PageContainer>
     );
   }
 
-  if (!proposal) return null;
-
-  const statusColors: Record<string, string> = {
-    draft: "bg-slate-100 text-slate-700 border-slate-200",
-    submitted: "bg-blue-100 text-blue-700 border-blue-200",
-    under_review: "bg-amber-100 text-amber-700 border-amber-200",
-    approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    rejected: "bg-rose-100 text-rose-700 border-rose-200",
-    revision_requested: "bg-amber-50 text-amber-600 border-amber-200",
-  };
+  if (!review || !proposal) {
+    return (
+      <PageContainer
+        title="Review Not Found"
+        description="The requested individual review could not be found."
+      >
+        <Button
+          onClick={() => router.push("/research/proposals/technical-reviews")}
+        >
+          Back to List
+        </Button>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer
-      title={proposal.title}
-      description={`Reference: ${proposal.id.replace("prop-", "PRP-").toUpperCase()}`}
+      title={proposalTitle}
+      description={`Reference: ${proposalReference}`}
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -91,26 +164,17 @@ export default function TechnicalReviewDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to List
           </Button>
-
-          {proposal.status === "under_review" && (
-            <Button
-              className="bg-primary hover:bg-primary/90"
-              onClick={() =>
-                router.push(
-                  `/research/proposals/technical-reviews/${id}/review`,
-                )
-              }
-            >
+          <Button className="bg-primary hover:bg-primary/90" asChild>
+            <Link href={`/research/proposals/technical-reviews/${id}/review`}>
               <ClipboardList className="mr-2 h-4 w-4" />
-              Review
+              Open Review Form
               <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          )}
+            </Link>
+          </Button>
         </div>
       }
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_350px]">
-        {/* Main Content */}
         <div className="space-y-6">
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-8">
@@ -118,314 +182,289 @@ export default function TechnicalReviewDetailPage() {
                 value="overview"
                 className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
               >
-                Proposal Content
+                Review Overview
               </TabsTrigger>
               <TabsTrigger
-                value="methodology"
+                value="screening"
                 className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
               >
-                Methodology
+                Screening Decision
               </TabsTrigger>
               <TabsTrigger
-                value="budget"
+                value="responses"
                 className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
               >
-                Budget & Team
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Review History
+                Review Responses
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="pt-6 space-y-6">
+              <Card className="shadow-sm border-primary/5 bg-primary/[0.02]">
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] uppercase font-bold"
+                      >
+                        {proposalReference}
+                      </Badge>
+                      <Badge
+                        className={cn(
+                          "text-[10px] font-bold uppercase border",
+                          statusColors[proposalStatus] ||
+                            statusColors.screening_under_review,
+                        )}
+                      >
+                        {proposalStatus.replace(/_/g, " ")}
+                      </Badge>
+                      <Badge
+                        variant={reviewBadge.variant}
+                        className="text-[10px] font-bold uppercase gap-1.5"
+                      >
+                        <reviewBadge.icon className="h-3 w-3" />
+                        {reviewBadge.label}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <p className="text-xs tracking-widest text-muted-foreground mb-1">
+                        Proposal Title
+                      </p>
+                      <h3 className="text-lg font-bold leading-tight text-primary">
+                        {proposalTitle}
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-4 border-t border-primary/5">
+                      <div>
+                        <p className="text-[10px] tracking-widest text-muted-foreground mb-1">
+                          Principal Investigator
+                        </p>
+                        <p className="text-sm font-bold">
+                          {principalInvestigator}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-widest text-muted-foreground mb-1">
+                          Total Score
+                        </p>
+                        <p className="text-sm font-bold">{review.totalScore}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-widest text-muted-foreground mb-1">
+                          Review Status
+                        </p>
+                        <p className="text-sm font-bold capitalize">
+                          {review.reviewStatus.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="shadow-sm border-primary/5">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" />
-                    Abstract & Background
+                    Abstract & Proposal Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
                     <h4 className="text-sm font-bold text-foreground mb-2">
-                      Technical Abstract
+                      Short Abstract
                     </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.abstract}
-                    </p>
+                    <div className="text-sm text-muted-foreground leading-relaxed">
+                      <HtmlContentRenderer
+                        content={proposal.shortAbstract || ""}
+                      />
+                    </div>
                   </div>
                   <div className="pt-4 border-t border-dashed">
                     <h4 className="text-sm font-bold text-foreground mb-2">
-                      Research Background & Rationale
+                      Proposal Summary
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.background}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm border-primary/5">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    Research Objectives
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {proposal.objectives}
-                  </p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="methodology" className="pt-6 space-y-6">
-              <Card className="shadow-sm border-primary/5">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                    Methodology & Approach
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.methodology}
-                    </p>
-                  </div>
-                  <div className="pt-6 border-t border-dashed">
-                    <h4 className="text-sm font-bold text-foreground mb-2">
-                      Ethical Considerations
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed italic">
-                      "{proposal.ethicalConsiderations}"
+                      {callTitle} · {thematicArea}
                     </p>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="budget" className="pt-6 space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card className="shadow-sm border-primary/5">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-emerald-600" />
-                      Budget Breakdown
+            <TabsContent value="screening" className="pt-6 space-y-6">
+              <Card className="shadow-sm border-primary/5">
+                <CardHeader className="bg-muted/30 border-b pb-4">
+                  <div className="flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-base">
+                      Screening Decision
                     </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      {[
-                        {
-                          label: "Personnel",
-                          value: proposal.budget.personnel,
-                        },
-                        {
-                          label: "Equipment",
-                          value: proposal.budget.equipment,
-                        },
-                        {
-                          label: "Travel & Fieldwork",
-                          value: proposal.budget.travel,
-                        },
-                        {
-                          label: "Consumables",
-                          value: proposal.budget.consumables,
-                        },
-                        {
-                          label: "Other / Institutional",
-                          value: proposal.budget.other,
-                        },
-                      ].map((item) => (
-                        <div
-                          key={item.label}
-                          className="flex justify-between items-center py-2 border-b border-muted/30 last:border-0"
-                        >
-                          <span className="text-sm text-muted-foreground">
-                            {item.label}
-                          </span>
-                          <span className="text-sm font-bold">
-                            ETB {item.value.toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between items-center py-3 mt-2 bg-primary/5 rounded-lg px-3 border border-primary/10">
-                        <span className="text-sm font-black text-primary uppercase">
-                          Total Requested
-                        </span>
-                        <span className="text-base font-black text-primary">
-                          ETB {proposal.budget.total.toLocaleString()}
-                        </span>
-                      </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Screening ID
+                      </p>
+                      <p className="text-sm font-bold text-foreground">
+                        {review.screening.id}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Submitted Date
+                      </p>
+                      <p className="text-sm font-bold text-foreground">
+                        {formatDateTime(submittedAt)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Organization
+                      </p>
+                      <p className="text-sm font-bold text-foreground">
+                        {organizationName}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Unit
+                      </p>
+                      <p className="text-sm font-bold text-foreground">
+                        {unitName}
+                      </p>
+                    </div>
+                  </div>
 
-                <Card className="shadow-sm border-primary/5">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="h-4 w-4 text-primary" />
-                      Research Team
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-3 rounded-lg border border-primary/10 bg-primary/5 flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black shrink-0">
-                        {proposal.principalInvestigator.firstName[0]}
-                        {proposal.principalInvestigator.lastName[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">
-                          {proposal.principalInvestigator.firstName}{" "}
-                          {proposal.principalInvestigator.lastName}
-                        </p>
-                        <p className="text-[10px] text-primary font-bold uppercase tracking-wider">
-                          Principal Investigator
-                        </p>
-                      </div>
+                  <div className="rounded-xl border border-dashed bg-muted/30 p-5">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
+                      Decision Remarks
+                    </p>
+                    <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">
+                      {review.screening.decisionRemarks ||
+                        "No screening remarks provided."}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="responses" className="pt-6 space-y-6">
+              <Card className="shadow-sm border-primary/5">
+                <CardHeader className="bg-muted/30 border-b pb-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      <CardTitle className="text-base">
+                        Review Responses
+                      </CardTitle>
                     </div>
-                    <div className="space-y-3 pt-2">
-                      <h4 className="text-[10px] font-bold uppercase text-muted-foreground px-1">
-                        Co-Investigators ({proposal.coInvestigators.length})
-                      </h4>
-                      {proposal.coInvestigators.map((member, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2 rounded border border-muted/50 hover:bg-muted/30 transition-colors"
-                        >
-                          <div>
-                            <p className="text-sm font-medium">{member.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {member.institution}
-                            </p>
-                          </div>
+                    <Badge className="bg-primary text-primary-foreground font-bold">
+                      {responses.length} response
+                      {responses.length === 1 ? "" : "s"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  {responses.length > 0 ? (
+                    responses.map((response) => (
+                      <div
+                        key={response.id}
+                        className="rounded-xl border border-border bg-card p-4 space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <p className="text-sm font-semibold text-foreground">
+                            {response.question?.text ||
+                              `Question ${response.question_id ?? response.id}`}
+                          </p>
                           <Badge
-                            variant="secondary"
-                            className="text-[9px] uppercase"
+                            variant="outline"
+                            className="text-[10px] uppercase font-bold"
                           >
-                            {member.role.replace("_", " ")}
+                            {response.points_earned} /{" "}
+                            {response.question?.maxPoints ?? 0}
                           </Badge>
                         </div>
-                      ))}
+                        {response.question?.category?.name && (
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            {response.question.category.name}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                      <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <h3 className="font-bold text-muted-foreground">
+                        No Review Responses Yet
+                      </h3>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                        This individual review has not recorded scored responses
+                        yet.
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="history" className="pt-6">
-              {proposal.reviews && proposal.reviews.length > 0 ? (
-                <div className="space-y-4">
-                  {proposal.reviews.map((review, idx) => (
-                    <Card key={idx} className="shadow-sm border-primary/5">
-                      <CardContent className="p-5">
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <p className="text-sm font-bold">
-                              ROC Reviewer {idx + 1}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {new Date(review.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xl font-black text-primary">
-                              {review.overallScore}/100
-                            </p>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                              Overall Score
-                            </p>
-                          </div>
-                        </div>
-                        <div className="space-y-3">
-                          <div>
-                            <h4 className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mb-1">
-                              <CheckCircle2 className="h-3 w-3" /> Strengths
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                              {review.strengths}
-                            </p>
-                          </div>
-                          <div>
-                            <h4 className="text-[10px] font-bold text-rose-700 uppercase flex items-center gap-1 mb-1">
-                              <AlertCircle className="h-3 w-3" /> Weaknesses
-                            </h4>
-                            <p className="text-xs text-muted-foreground">
-                              {review.weaknesses}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
-                  <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <h3 className="font-bold text-muted-foreground">
-                    No Reviews Yet
-                  </h3>
-                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    No technical evaluations have been submitted for this
-                    proposal yet.
-                  </p>
-                </div>
-              )}
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
 
-        {/* Sidebar Info */}
         <aside className="space-y-6">
           <Card className="shadow-sm border-primary/10 overflow-hidden">
             <CardHeader className="bg-muted/50 border-b py-4">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Proposal Metadata
+                Review Metadata
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Status</span>
+                <span className="text-sm font-medium">Review Status</span>
                 <Badge
-                  className={cn(
-                    "px-3 py-1 border shadow-none uppercase text-[10px] font-bold",
-                    statusColors[proposal.status],
-                  )}
+                  variant={reviewBadge.variant}
+                  className="gap-1.5 px-3 py-1 border shadow-none uppercase text-[10px] font-bold"
                 >
-                  {proposal.status.replace("_", " ")}
+                  <reviewBadge.icon className="h-3 w-3" />
+                  {reviewBadge.label}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Thematic Area</span>
+                <span className="text-sm font-medium">Proposal Status</span>
                 <Badge
                   variant="outline"
-                  className="font-bold border-primary/20"
+                  className={cn(
+                    "font-bold uppercase text-[10px]",
+                    statusColors[proposalStatus] ||
+                      statusColors.screening_under_review,
+                  )}
                 >
-                  {THEMATIC_AREAS.find((a) => a.value === proposal.researchArea)
-                    ?.label || proposal.researchArea}
+                  {proposalStatus.replace(/_/g, " ")}
                 </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Response Count</span>
+                <span className="text-sm font-bold text-foreground">
+                  {responses.length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Total Score</span>
+                <span className="text-sm font-bold text-foreground">
+                  {review.totalScore}
+                </span>
               </div>
               <div className="pt-4 border-t">
                 <div className="flex items-center gap-3 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
+                  <CalendarClock className="h-4 w-4" />
                   <div className="text-xs">
                     <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
                       Submitted Date
                     </p>
-                    <p className="font-medium">
-                      {new Date(
-                        proposal.submittedAt || proposal.createdAt,
-                      ).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
+                    <p className="font-medium">{formatDate(submittedAt)}</p>
                   </div>
                 </div>
               </div>
@@ -435,7 +474,7 @@ export default function TechnicalReviewDetailPage() {
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="py-4 border-b">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Primary Institution
+                Proposal Context
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
@@ -443,10 +482,32 @@ export default function TechnicalReviewDetailPage() {
                 <Building2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold leading-tight">
-                    {proposal.institution}
+                    {organizationName}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Lead Research Institution
+                    Primary Institution
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold leading-tight">
+                    {principalInvestigator}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Principal Investigator
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <BarChart3 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold leading-tight">
+                    {thematicAreaLabel}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Thematic Area
                   </p>
                 </div>
               </div>
@@ -456,32 +517,33 @@ export default function TechnicalReviewDetailPage() {
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="py-4 border-b">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Uploaded Documents
+                Attachments
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 p-0">
-              {proposal.attachments.map((file) => (
-                <button
-                  key={file.id}
+              {review.attachment ? (
+                <a
+                  href={review.attachment}
+                  target="_blank"
+                  rel="noreferrer"
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-0 group"
                 >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform" />
-                    <div className="text-left">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Paperclip className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                    <div className="text-left min-w-0">
                       <p className="text-xs font-bold truncate max-w-[140px]">
-                        {file.name}
+                        Review Attachment
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {(file.size / (1024 * 1024)).toFixed(1)} MB
+                        Open attached file
                       </p>
                     </div>
                   </div>
                   <Download className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                </button>
-              ))}
-              {proposal.attachments.length === 0 && (
+                </a>
+              ) : (
                 <div className="p-8 text-center text-xs text-muted-foreground italic">
-                  No files attached
+                  No attachment uploaded
                 </div>
               )}
             </CardContent>
