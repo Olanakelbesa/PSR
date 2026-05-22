@@ -1,21 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   MoreHorizontal,
   Eye,
-  CheckCircle2,
   DollarSign,
-  FileText,
-  ClipboardCheck,
-  Microscope,
-  TrendingUp,
   Clock,
-  ArrowUpRight,
+  TrendingUp,
   ShieldCheck,
-  ChevronRight,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 
@@ -30,137 +23,164 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { proposalsApi } from "@/api/client";
-import { mockProposals } from "@/lib/api/mock-data";
-import type { ResearchProposal } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-type ProposalRow = ResearchProposal & { referenceNumber: string };
+import { readyForFundingService } from "@/api/services/ready-for-funding.service";
+
+// ============================================================================
+// Types (backend DTO)
+// ============================================================================
+
+type ReadyForFundingItem = {
+  screeningId: number;
+  proposalId: number;
+  proposalTitle: string;
+  referenceNumber: string;
+  proposalType: string;
+  organization: string;
+  unit: string;
+  thematicAreas: string[];
+  budgetRequested: number;
+  submittedAt: string;
+  screeningDecisionRemarks: string;
+  averageScore: number;
+  averageScorePercentage: number;
+  pi: {
+    id: number;
+    fullName: string;
+    email: string;
+  };
+};
 
 export default function ReadyForFundingPage() {
   const router = useRouter();
-  const [proposals, setProposals] = useState<ProposalRow[]>([]);
+
+  const [rows, setRows] = useState<ReadyForFundingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const mapToRow = (p: ResearchProposal): ProposalRow => ({
-    ...p,
-    referenceNumber: p.id.replace("prop-", "PRP-").toUpperCase(),
-  });
-
+  // ==========================================================================
+  // Load data from backend
+  // ==========================================================================
   useEffect(() => {
-    async function loadProposals() {
+    async function load() {
       setIsLoading(true);
       try {
-        const response = await proposalsApi.getProposals(
-          { status: "approved" },
-          { page: 1, pageSize: 100 }
-        );
-        if (response.data.length > 0) {
-          setProposals(response.data.map(mapToRow));
-        } else {
-          setProposals(mockProposals.filter(p => p.status === "approved").map(mapToRow));
-        }
-      } catch {
-        setProposals(mockProposals.filter(p => p.status === "approved").map(mapToRow));
+        const res = await readyForFundingService.list({
+          page: 1,
+          limit: 100,
+        });
+
+        setRows(res.data ?? []);
+      } catch (err) {
+        console.error("Failed to load ready-for-funding:", err);
+        setRows([]);
       } finally {
         setIsLoading(false);
       }
     }
-    loadProposals();
+
+    load();
   }, []);
 
+  // ==========================================================================
+  // Stats
+  // ==========================================================================
   const stats = [
     {
-      label: "Ready for Authorization",
-      value: proposals.length,
+      label: "Ready for Funding",
+      value: rows.length,
       icon: ShieldCheck,
       color: "text-blue-600",
       bg: "bg-blue-600",
-      desc: "Passed technical review"
+      desc: "Passed screening stage",
     },
     {
-      label: "Pending Funding",
-      value: proposals.length,
+      label: "Pending Decisions",
+      value: rows.length,
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-600",
-      desc: "Decision expected this week"
+      desc: "Awaiting approval",
     },
     {
-      label: "Total Funding Goal",
-      value: `ETB ${(proposals.reduce((sum, p) => sum + (p.budget?.total || 0), 0) / 1000000).toFixed(1)}M`,
+      label: "Total Funding Requested",
+      value: `ETB ${(rows.reduce((s, r) => s + (r.budgetRequested || 0), 0) / 1_000_000).toFixed(1)}`,
       icon: DollarSign,
       color: "text-emerald-600",
       bg: "bg-emerald-600",
-      desc: "Combined budget requested"
+      desc: "Combined request",
     },
     {
-      label: "ROC Approval Rate",
-      value: "68%",
+      label: "Avg Score",
+      value:
+        rows.length > 0
+          ? `${(rows.reduce((s, r) => s + r.averageScore, 0) / rows.length).toFixed(1)}`
+          : "0",
       icon: TrendingUp,
       color: "text-primary",
       bg: "bg-primary",
-      desc: "Fiscal year average"
+      desc: "Screening average",
     },
   ];
 
-  const columns: ColumnDef<ProposalRow>[] = [
+  // ==========================================================================
+  // Table columns
+  // ==========================================================================
+  const columns: ColumnDef<ReadyForFundingItem>[] = [
     {
       accessorKey: "referenceNumber",
-      header: "Reference #",
+      header: "Reference",
       cell: ({ row }) => (
-        <span className="font-bold text-primary tracking-tight">{row.original.referenceNumber}</span>
+        <span className="font-bold text-primary">
+          {row.original.referenceNumber}
+        </span>
       ),
     },
     {
-      accessorKey: "title",
-      header: "Proposal Details",
+      accessorKey: "proposalTitle",
+      header: "Proposal",
       cell: ({ row }) => (
-        <div className="max-w-[420px] py-1">
-          <p className="font-bold text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2">
-            {row.original.title}
+        <div className="max-w-[420px]">
+          <p className="font-bold text-sm line-clamp-2">
+            {row.original.proposalTitle}
           </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{row.original.institution}</span>
-            <span className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-            <span className="text-[10px] font-bold text-primary/70 uppercase tracking-tighter">{row.original.researchArea}</span>
-          </div>
+          <p className="text-[10px] text-muted-foreground uppercase mt-1 whitespace-pre-line">
+            {row.original.organization}
+          </p>
         </div>
       ),
     },
     {
-      accessorKey: "principalInvestigator",
+      accessorKey: "pi",
       header: "Principal Investigator",
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="text-sm font-bold">
-            {row.original.principalInvestigator.firstName} {row.original.principalInvestigator.lastName}
+            {row.original.pi.fullName}
           </span>
-          <span className="text-[10px] text-muted-foreground font-medium italic">{row.original.principalInvestigator.email}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {row.original.pi.email}
+          </span>
         </div>
       ),
     },
     {
-      accessorKey: "budget",
-      header: "Budget Requested",
+      accessorKey: "budgetRequested",
+      header: "Budget",
       cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-black text-slate-900">
-            ETB {row.original.budget?.total?.toLocaleString() || "—"}
-          </span>
-          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Full Grant</span>
+        <div className="font-bold">
+          ETB {row.original.budgetRequested?.toLocaleString() || 0}
         </div>
       ),
     },
     {
-      accessorKey: "status",
-      header: "Funding Status",
-      cell: () => (
-        <Badge className="bg-blue-50 text-blue-700 border-blue-200 border text-[10px] font-black uppercase tracking-wider shadow-none px-2 py-0.5">
-          <Clock className="h-3 w-3 mr-1" />
-          Pending Auth
+      accessorKey: "averageScore",
+      header: "Score",
+      cell: ({ row }) => (
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+          {row.original.averageScorePercentage}%
         </Badge>
       ),
     },
@@ -169,22 +189,35 @@ export default function ReadyForFundingPage() {
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5">
+            <Button variant="ghost" size="icon">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 shadow-xl border-primary/10">
-            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/research/ready-for-funding/${row.original.id}`)}>
-              <Eye className="h-4 w-4 mr-2 text-muted-foreground" />
-              View Proposal
+
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(
+                  `/research/ready-for-funding/${row.original.screeningId}`,
+                )
+              }
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              View
             </DropdownMenuItem>
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              className="text-emerald-600 font-bold cursor-pointer hover:bg-emerald-50 focus:bg-emerald-50"
-              onClick={() => router.push(`/research/ready-for-funding/${row.original.id}/approve`)}
+
+            <DropdownMenuItem
+              className="text-emerald-600"
+              onClick={() =>
+                router.push(
+                  `/research/ready-for-funding/${row.original.screeningId}`,
+                )
+              }
             >
               <DollarSign className="h-4 w-4 mr-2" />
-              Funding Authorization
+              Funding Decision
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -192,62 +225,66 @@ export default function ReadyForFundingPage() {
     },
   ];
 
+
   return (
     <PageContainer
       title="Ready for Funding"
-      description="Technically approved research proposals awaiting final financial authorization and contracting."
+      description="Screened proposals awaiting funding decision"
     >
       <div className="space-y-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="border-none shadow-sm">
-                  <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
-                  <CardContent><Skeleton className="h-8 w-16" /></CardContent>
-                </Card>
-              ))
-            : stats.map((stat, i) => (
-                <Card key={i} className="group relative overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300">
-                  <div className={cn("absolute inset-y-0 left-0 w-1 opacity-80 group-hover:opacity-100 transition-opacity", stat.bg)} />
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground">
-                      {stat.label}
-                    </CardTitle>
-                    <div className={cn("p-1.5 rounded-lg opacity-80", stat.bg.replace("bg-", "bg-") + "/10")}>
-                      <stat.icon className={cn("h-4 w-4", stat.color)} />
-                    </div>
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="h-4 w-24" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-black tracking-tight">{stat.value}</div>
-                    <p className="text-[10px] text-muted-foreground mt-1 font-medium">{stat.desc}</p>
+                    <Skeleton className="h-8 w-16" />
+                  </CardContent>
+                </Card>
+              ))
+            : stats.map((s, i) => (
+                <Card key={i} className="relative overflow-hidden">
+                  <CardHeader>
+                    <CardTitle className="text-xs uppercase">
+                      {s.label}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{s.value}</div>
+                    <p className="text-[10px] text-muted-foreground">
+                      {s.desc}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
         </div>
 
-        {/* Table Section */}
-
-            {isLoading ? (
-              <div className="p-8 space-y-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={proposals}
-                searchKey="title"
-                searchPlaceholder="Search approved proposals..."
-                onRowClick={(row) => router.push(`/research/ready-for-funding/${row.id}`)}
-                emptyMessage="No proposals ready for funding"
-                emptyDescription="No proposals have been approved by the ROC board yet."
-              />
-            )}
-
+        {/* Table */}
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={rows}
+            searchKey="proposalTitle"
+            searchPlaceholder="Search proposals..."
+            onRowClick={(row) =>
+              router.push(
+                `/research/ready-for-funding/${row.screeningId}`,
+              )
+            }
+            emptyMessage="No proposals ready for funding"
+            emptyDescription="No approved proposals found."
+          />
+        )}
       </div>
     </PageContainer>
   );
 }
-

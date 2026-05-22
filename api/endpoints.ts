@@ -214,6 +214,15 @@ export const API_ENDPOINTS = {
   AUDIT_LOGS: {
     LIST: "/audit-logs",
   },
+
+  // ── Ready For Funding ─────────────────────────────────────────────
+  READY_FOR_FUNDING: {
+    LIST: "/v1/screenings/approved-pending-funding/",
+    DETAIL: (id: string | number) => `/v1/screenings/${id}/`,
+    CREATE_DECISION: (id: string | number) =>
+      `/v1/screenings/${id}/ready-for-funding/`,
+  },
+  
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;
