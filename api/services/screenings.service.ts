@@ -75,6 +75,22 @@ const ScreeningProposalSchema = z
   })
   .passthrough();
 
+const ScreeningProposalValueSchema = z
+  .union([ScreeningProposalSchema, z.string(), z.number()])
+  .transform((value) => {
+    if (typeof value === "string" || typeof value === "number") {
+      return {
+        id: String(value),
+        referenceNumber: "",
+        title: "Untitled Proposal",
+        shortAbstract: "",
+        thematicAreas: [],
+      };
+    }
+
+    return value;
+  });
+
 const ScreeningSchema = z
   .object({
     id: z.union([z.string(), z.number()]).transform(String),
@@ -83,7 +99,7 @@ const ScreeningSchema = z
       .transform(String)
       .nullable()
       .optional(),
-    proposal: ScreeningProposalSchema,
+    proposal: ScreeningProposalValueSchema,
     status: ScreeningStatusSchema,
     decisionRemarks: z.string().optional().default(""),
     assignedReviewersPresent: z.boolean().optional().default(false),

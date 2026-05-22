@@ -705,24 +705,7 @@ export default function ScreeningDetailPage() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              <FormField
-                control={form.control}
-                name="comments"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Comment</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Write your screening notes here..."
-                        className="min-h-35 resize-none"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+              
               <FormField
                 control={form.control}
                 name="recommendation"
@@ -748,6 +731,24 @@ export default function ScreeningDetailPage() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="comments"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Comment</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        placeholder="Write your screening notes here..."
+                        className="min-h-35 resize-none"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
 
               <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
                 {recommendation === "approve"
