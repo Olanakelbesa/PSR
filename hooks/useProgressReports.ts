@@ -3,9 +3,11 @@ import {
   progressReportsService,
   progressReportApprovalsService,
   terminalReportApprovalsService,
+  terminalReportsService,
   type ProgressReportFormValues,
   type ProjectTrackingFormValues,
   type TerminalReportFormValues,
+  type ProgressReportApprovalCreateValues,
   type ProgressReportApprovalUpdateValues,
   type TerminalReportApprovalUpdateValues,
 } from "@/api/services/progress-reports.service";
@@ -40,6 +42,14 @@ export const terminalReportApprovalKeys = {
     ["terminal-report-approvals", "list", params] as const,
   detail: (id: string | number) =>
     ["terminal-report-approvals", "detail", String(id)] as const,
+};
+
+export const terminalReportKeys = {
+  all: ["terminal-reports"] as const,
+  list: (params: Record<string, unknown>) =>
+    ["terminal-reports", "list", params] as const,
+  detail: (id: string | number) =>
+    ["terminal-reports", "detail", String(id)] as const,
 };
 
 export function useProgressReports(params: Record<string, unknown> = {}) {
@@ -85,6 +95,21 @@ export function useCreateProgressReport() {
     },
   });
 }
+
+export function useCreateProgressReportApproval() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (values: ProgressReportApprovalCreateValues) =>
+      progressReportApprovalsService.createProgressReportApproval(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: progressReportApprovalKeys.all,
+      });
+    },
+  });
+}
+
 
 export function useCreateProjectTracking() {
   const queryClient = useQueryClient();
@@ -203,5 +228,38 @@ export function useReadyForTracking() {
   return useQuery({
     queryKey: ["ready-project-tracking"],
     queryFn: () => progressReportsService.getReadyForTracking(),
+  });
+}
+
+export function useTerminalReports(params: Record<string, unknown> = {}) {
+  return useQuery({
+    queryKey: terminalReportKeys.list(params),
+    queryFn: () => terminalReportsService.getTerminalReports(params),
+  });
+}
+
+export function useTerminalReport(id: string | number | undefined) {
+  return useQuery({
+    queryKey: terminalReportKeys.detail(id ?? ""),
+    queryFn: () =>
+      terminalReportsService.getTerminalReportById(id as string | number),
+    enabled: !!id,
+  });
+}
+
+export function useCreateTerminalReportApproval() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (values: {
+      decision: "pending" | "approved" | "rejected";
+      ROC_Comments?: string;
+      terminal_report: number;
+    }) => terminalReportApprovalsService.createTerminalReportApproval(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: terminalReportApprovalKeys.all,
+      });
+    },
   });
 }

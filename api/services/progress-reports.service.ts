@@ -6,6 +6,7 @@ export type ReportDecision = "pending" | "approved" | "rejected";
 export interface ProgressReportSummary {
   id: number;
   project_tracking: number;
+  project_tracking_title?: string | null;
   report_name: string;
   main_activities_achieved: string;
   attachment: string | null;
@@ -118,6 +119,30 @@ export interface ProgressReportApprovalUpdateValues {
   decision?: ReportDecision;
   comment?: string;
   progress_report?: number;
+}
+
+export interface ProgressReportApprovalCreateValues {
+  decision: ReportDecision;
+  comment?: string;
+  progress_report: number;
+}
+
+export interface TerminalReportSummary {
+  id: number;
+  project_tracking_id: number | null;
+  project_tracking_title: string | null;
+  project_tracking_status: string | null;
+  general_status: string;
+  submitted_by_name: string | null;
+  report_name: string | null;
+  main_deliverables: string;
+  attachment: string | null;
+  is_published: boolean;
+  publication_link: string | null;
+  status: ReportDecision;
+  submitted_at: string;
+  submitted_by: number | null;
+  terminal_type: number[];
 }
 
 export interface TerminalReportApproval {
@@ -415,6 +440,90 @@ export const progressReportsService = {
   },
 };
 
+export const terminalReportsService = {
+  async getTerminalReports(
+    params: Record<string, unknown> = {},
+  ): Promise<ListResponse<TerminalReportSummary>> {
+    const { data } = await apiClient.get(API_ENDPOINTS.TERMINAL_REPORTS.LIST, {
+      params,
+    });
+
+    const list = unwrapListResponse<any>(data);
+
+    const normalized = list.data.map((item: any) => ({
+      id: item.id ?? item.pk,
+      project_tracking_id:
+        item.projectTracking?.projectTrackingId ??
+        item.projectTracking?.id ??
+        item.project_tracking ??
+        null,
+      project_tracking_title:
+        item.projectTracking?.title ?? item.project_tracking_title ?? null,
+      project_tracking_status:
+        item.projectTracking?.status ?? item.project_tracking_status ?? null,
+      general_status: item.generalStatus ?? item.general_status ?? "pending",
+      submitted_by_name:
+        item.submittedByName ?? item.submitted_by_name ?? null,
+      report_name: item.reportName ?? item.report_name ?? null,
+      main_deliverables:
+        item.mainDeliverables ?? item.main_deliverables ?? "",
+      attachment: item.attachment ?? null,
+      is_published: item.isPublished ?? item.is_published ?? false,
+      publication_link:
+        item.publicationLink ?? item.publication_link ?? null,
+      status: item.status ?? "pending",
+      submitted_at: item.submittedAt ?? item.submitted_at ?? "",
+      submitted_by: item.submittedBy ?? item.submitted_by ?? null,
+      terminal_type: item.terminalType ?? item.terminal_type ?? [],
+    }));
+
+    return {
+      data: normalized as TerminalReportSummary[],
+      meta: list.meta,
+    };
+  },
+
+  async getTerminalReportById(
+    id: string | number,
+  ): Promise<TerminalReportSummary> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.TERMINAL_REPORTS.DETAIL(id),
+    );
+
+    const payload = unwrapDetailResponse<any>(data);
+
+    return {
+      id: payload.id ?? payload.pk,
+      project_tracking_id:
+        payload.projectTracking?.projectTrackingId ??
+        payload.projectTracking?.id ??
+        payload.project_tracking ??
+        null,
+      project_tracking_title:
+        payload.projectTracking?.title ?? payload.project_tracking_title ?? null,
+      project_tracking_status:
+        payload.projectTracking?.status ??
+        payload.project_tracking_status ??
+        null,
+      general_status:
+        payload.generalStatus ?? payload.general_status ?? "pending",
+      submitted_by_name:
+        payload.submittedByName ?? payload.submitted_by_name ?? null,
+      report_name: payload.reportName ?? payload.report_name ?? null,
+      main_deliverables:
+        payload.mainDeliverables ?? payload.main_deliverables ?? "",
+      attachment: payload.attachment ?? null,
+      is_published: payload.isPublished ?? payload.is_published ?? false,
+      publication_link:
+        payload.publicationLink ?? payload.publication_link ?? null,
+      status: payload.status ?? "pending",
+      submitted_at: payload.submittedAt ?? payload.submitted_at ?? "",
+      submitted_by: payload.submittedBy ?? payload.submitted_by ?? null,
+      terminal_type: payload.terminalType ?? payload.terminal_type ?? [],
+    } as TerminalReportSummary;
+  },
+};
+
 export const progressReportApprovalsService = {
   async getProgressReportApprovals(
     params: Record<string, unknown> = {},
@@ -488,6 +597,17 @@ export const progressReportApprovalsService = {
       project_tracking_id:
         payload.projectTrackingId ?? payload.project_tracking_id ?? null,
     } as any;
+  },
+
+  async createProgressReportApproval(
+    values: ProgressReportApprovalCreateValues,
+  ): Promise<ProgressReportApproval> {
+    const { data } = await apiClient.post(
+      API_ENDPOINTS.PROGRESS_REPORT_APPROVALS.LIST,
+      values,
+    );
+
+    return unwrapDetailResponse<ProgressReportApproval>(data);
   },
 
   async updateProgressReportApproval(
@@ -572,6 +692,18 @@ export const terminalReportApprovalsService = {
         null,
       terminal_report_status: payload.terminalReport?.status ?? null,
     } as any;
+  },
+
+  async createTerminalReportApproval(values: {
+    decision: ReportDecision;
+    ROC_Comments?: string;
+    terminal_report: number;
+  }): Promise<TerminalReportApproval> {
+    const { data } = await apiClient.post(
+      API_ENDPOINTS.TERMINAL_REPORT_APPROVALS.LIST,
+      values,
+    );
+    return unwrapDetailResponse<TerminalReportApproval>(data);
   },
 
   async updateTerminalReportApproval(

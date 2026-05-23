@@ -12,6 +12,14 @@ const nextConfig = {
   },
 
   turbopack: {},
+
+  // Increase the HTTP server's max header size to fix 431 errors caused by
+  // large NextAuth JWT session cookies exceeding the default 8KB Node.js limit.
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["localhost:3000"],
+    },
+  },
 }
 
 export default nextConfig

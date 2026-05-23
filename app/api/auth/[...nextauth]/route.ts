@@ -5,7 +5,6 @@
 import NextAuth, { type Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { User } from "@/lib/types";
-import { NextRequest } from "next/server";
 
 // ─── Type augmentation ────────────────────────────────────────────────────────
 declare module "next-auth" {
@@ -40,6 +39,45 @@ declare module "next-auth" {
 const BACKEND_URL =
   process.env.BACKEND_URL ??
   "http://localhost:8000"; /* Default for development; should be overridden in production via .env.local */
+
+type MinimalSessionUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: User["role"];
+  status: User["status"];
+  institution?: string;
+  department?: string;
+  position?: string;
+  avatar?: string;
+  phone?: string;
+  createdAt?: string;
+  lastLogin?: string;
+};
+
+function buildMinimalSessionUser(user: any): MinimalSessionUser {
+  const role =
+    (user?.roles?.[0]?.slug as User["role"] | undefined) ??
+    (user?.role as User["role"] | undefined) ??
+    "researcher";
+
+  return {
+    id: String(user?.id ?? ""),
+    email: user?.email ?? "",
+    firstName: user?.firstName ?? user?.first_name ?? "",
+    lastName: user?.lastName ?? user?.last_name ?? "",
+    role,
+    status: (user?.status as User["status"]) ?? "active",
+    institution: user?.organization?.name ?? user?.institution,
+    department: user?.unit?.name ?? user?.department,
+    position: user?.title?.name ?? user?.position,
+    avatar: user?.photoUrl ?? user?.avatar,
+    phone: user?.phone,
+    createdAt: user?.createdAt ?? user?.created,
+    lastLogin: user?.lastLogin ?? user?.last_login,
+  };
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -98,7 +136,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             backendTokenExpires: data.data?.accessToken?.expires
               ? new Date(data.data.accessToken.expires).getTime()
               : Date.now() + 1000 * 60 * 60 * 8,
-            psrUser: user,
+            psrUser: buildMinimalSessionUser(user),
           };
         } catch (err) {
           console.error(
@@ -112,45 +150,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // ── Initial sign-in: populate token from credentials response ────────────
       if (user) {
         const u = user as any;
         token.backendToken = u.backendToken;
         token.backendRefreshToken = u.backendRefreshToken;
         token.backendTokenExpires = u.backendTokenExpires;
         token.user = u.psrUser;
+        token.error = undefined;
       }
 
       const now = Date.now();
-      // Default to now + 8h if the field is missing (old session cookies).
-      // Using ?? 0 would make every old session immediately attempt a refresh and fail.
       const tokenExpires =
         typeof token.backendTokenExpires === "number" &&
         token.backendTokenExpires > 0
           ? (token.backendTokenExpires as number)
           : now + 1000 * 60 * 60 * 8;
 
-      // Token is still valid — return as-is
       if (now < tokenExpires) {
         return token;
       }
 
-      // Token expired — attempt silent refresh
       if (!token.backendRefreshToken) {
         return { ...token, error: "RefreshTokenError" };
       }
 
       try {
-        // Django REST Framework SimpleJWT endpoint — field name is `refresh`, not `refreshToken`
         const res = await fetch(`${BACKEND_URL}/api/token/refresh/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh: token.backendRefreshToken }),
         });
 
-        if (!res.ok) throw new Error(`Refresh failed: ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`Refresh failed: ${res.status}`);
+        }
 
         const data = await res.json();
+
         return {
           ...token,
           backendToken: data.access ?? data.accessToken ?? data.token,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -55,8 +55,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import apiClient from "@/api/client";
+import { API_ENDPOINTS } from "@/api/endpoints";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLES } from "@/lib/constants";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { UserRole } from "@/lib/types";
 
 interface SubNavItem {
@@ -64,6 +67,7 @@ interface SubNavItem {
   href: string;
   icon?: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
+  permissions?: string[];
 }
 
 interface NavItem {
@@ -71,6 +75,7 @@ interface NavItem {
   href?: string;
   icon?: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
+  permissions?: string[];
   subItems?: SubNavItem[];
 }
 
@@ -100,11 +105,13 @@ const navigationGroups: NavGroup[] = [
             label: "Manage Concept Notes",
             href: "/policies/concept-notes/manage-concept-notes",
             icon: Dot,
+            permissions: [PERMISSIONS.POLICY_VIEW_CONCEPT_NOTE_WORKFLOW],
           },
           {
             label: "Review Concept Note",
             href: "/policies/concept-notes/review-concept-note",
             icon: Dot,
+            permissions: [PERMISSIONS.POLICY_REVIEW_CONCEPT_NOTE],
           },
         ],
       },
@@ -121,15 +128,22 @@ const navigationGroups: NavGroup[] = [
             label: "Manage Drafts",
             href: "/policies/drafts/manage-drafts",
             icon: Dot,
+            permissions: [PERMISSIONS.POLICY_VIEW_DRAFT_WORKFLOW],
           },
           {
             label: "Review Draft",
             href: "/policies/drafts/review-draft",
             icon: Dot,
+            permissions: [PERMISSIONS.POLICY_REVIEW_DRAFT],
           },
         ],
       },
-      { label: "Repository", href: "/policies/repository", icon: Library },
+      {
+        label: "Repository",
+        href: "/policies/repository",
+        icon: Library,
+        permissions: [PERMISSIONS.POLICY_VIEW_REPOSITORY],
+      },
     ],
   },
   {
@@ -139,11 +153,13 @@ const navigationGroups: NavGroup[] = [
         label: "Grant Calls",
         href: "/research/grant-calls",
         icon: Megaphone,
+        permissions: [PERMISSIONS.SETTING_VIEW_GRANTCALL],
       },
       {
         label: "Manage Grants",
         href: "/research/manage-grants",
         icon: Settings2Icon,
+        permissions: [PERMISSIONS.SETTING_VIEW_GRANTSETTING],
       },
       {
         label: "Proposals",
@@ -158,16 +174,19 @@ const navigationGroups: NavGroup[] = [
             label: "Screening",
             href: "/research/proposals/screening-reviews",
             icon: Dot,
+            permissions: [PERMISSIONS.RESEARCH_VIEW_SCREENING],
           },
           {
             label: "Assign Reviewers",
             href: "/research/proposals/assign-reviewers",
             icon: Dot,
+            permissions: [PERMISSIONS.RESEARCH_CHANGE_PROPOSAL],
           },
           {
             label: "Technical Reviews",
             href: "/research/proposals/technical-reviews",
             icon: Dot,
+            permissions: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
           },
         ],
       },
@@ -175,16 +194,19 @@ const navigationGroups: NavGroup[] = [
         label: "Ready for Funding",
         href: "/research/ready-for-funding",
         icon: DollarSign,
+        permissions: [PERMISSIONS.RESEARCH_VIEW_READY_FOR_FUNDING],
       },
       {
         label: "IRB",
         href: "/research/ethical-clearance",
         icon: FileCheck2,
+        permissions: [PERMISSIONS.RESEARCH_VIEW_ETHICAL_CLEARANCE],
       },
       {
         label: "Funding Recommendations",
         href: "/research/funding-recommendations",
         icon: Lightbulb,
+        permissions: [PERMISSIONS.RESEARCH_VIEW_FUNDING_RECOMMENDATION],
       },
       {
         label: "Monitoring",
@@ -194,16 +216,19 @@ const navigationGroups: NavGroup[] = [
             label: "Progress Report",
             href: "/research/monitoring/progress-report",
             icon: Dot,
+            permissions: [PERMISSIONS.MONITORING_VIEW_PROJECT_TRACKING],
           },
           {
             label: "Progress Report Approval",
             href: "/research/monitoring/progress-report-approval",
             icon: Dot,
+            permissions: [PERMISSIONS.MONITORING_VIEW_PROGRESS_REPORT_APPROVAL],
           },
           {
             label: "Terminal Report Approval",
             href: "/research/monitoring/terminal-report-approval",
             icon: Dot,
+            permissions: [PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT_APPROVAL],
           },
         ],
       },
@@ -211,16 +236,19 @@ const navigationGroups: NavGroup[] = [
         label: "Research Repository",
         href: "/research/repository",
         icon: Library,
+        permissions: [PERMISSIONS.RESEARCH_VIEW_FINAL_SUBMISSION],
       },
       {
         label: "Minutes",
         href: "/research/minutes",
-        icon: FileUp
+        icon: FileUp,
+        permissions: [PERMISSIONS.RESEARCH_VIEW_MINUTES],
       },
       {
         label: "External Research ",
         href: "/research/external-research",
         icon: Globe,
+        permissions: [PERMISSIONS.EXTERNAL_RESEARCH_VIEW],
       },
     ],
   },
@@ -231,25 +259,28 @@ const navigationGroups: NavGroup[] = [
         label: "Users",
         href: "/users",
         icon: Users,
-        roles: ["system_admin", "psr_officer"],
+        permissions: [PERMISSIONS.USER_VIEW],
       },
       {
         label: "Organizations",
         href: "/organizations",
         icon: Building2,
-        roles: ["system_admin", "psr_officer"],
+        permissions: [PERMISSIONS.SETTING_VIEW_ORGANIZATION],
       },
       {
         label: "Settings",
         href: "/settings",
         icon: Settings,
-        roles: ["system_admin"],
+        permissions: [
+          PERMISSIONS.SETTING_CHANGE_GRANTSETTING,
+          PERMISSIONS.SETTING_CHANGE_RESEARCHSETTING,
+        ],
       },
       {
         label: "Audit Logs",
         href: "/settings/audit-logs",
         icon: History,
-        roles: ["system_admin"],
+        permissions: [PERMISSIONS.ADMIN_VIEW_LOGENTRY],
       },
     ],
   },
@@ -257,12 +288,67 @@ const navigationGroups: NavGroup[] = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, signOut, backendToken } = useAuth();
+  const [serverPermissions, setServerPermissions] = useState<string[]>([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
-  const hasAccess = (roles?: UserRole[]) => {
-    if (!roles || roles.length === 0) return true;
+  useEffect(() => {
+    if (!backendToken || !user) {
+      setServerPermissions([]);
+      setPermissionsLoaded(false);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadPermissions = async () => {
+      try {
+        const response = await apiClient.get(API_ENDPOINTS.USERS.ME);
+        const permissions = Array.isArray(response.data?.data?.permissions)
+          ? response.data.data.permissions
+          : [];
+
+        if (!isActive) return;
+
+        setServerPermissions(permissions);
+        setPermissionsLoaded(true);
+      } catch {
+        if (!isActive) return;
+        setServerPermissions([]);
+        setPermissionsLoaded(true);
+      }
+    };
+
+    loadPermissions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [backendToken, user?.email]);
+
+  const hasAccess = (roles?: UserRole[], requiredPermissions?: string[]) => {
     if (!user) return false;
-    return roles.includes(user.role);
+
+    if (roles && roles.length > 0 && !roles.includes(user.role)) {
+      return false;
+    }
+
+    if (requiredPermissions && requiredPermissions.length > 0) {
+      if (!permissionsLoaded) {
+        return true;
+      }
+
+      const userPerms =
+        serverPermissions.length > 0
+          ? serverPermissions
+          : (user as any).permissions || [];
+      const hasPerm = requiredPermissions.some((perm) =>
+        userPerms.includes(perm),
+      );
+      if (!hasPerm) return false;
+    }
+
+    return true;
   };
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -326,7 +412,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2">
         {navigationGroups.map((group, groupIndex) => {
           const filteredItems = group.items.filter((item) =>
-            hasAccess(item.roles),
+            hasAccess(item.roles, item.permissions),
           );
           if (filteredItems.length === 0) return null;
 
@@ -341,9 +427,22 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {filteredItems.map((item) => {
                     const Icon = item.icon;
+                    const validSubItems = item.subItems
+                      ? item.subItems.filter((sub) =>
+                          hasAccess(sub.roles, sub.permissions),
+                        )
+                      : undefined;
 
-                    if (item.subItems && item.subItems.length > 0) {
-                      const parentActive = item.subItems.some(
+                    // If it is a parent with sub-items, but no sub-items are accessible, hide the parent
+                    if (
+                      item.subItems &&
+                      (!validSubItems || validSubItems.length === 0)
+                    ) {
+                      return null;
+                    }
+
+                    if (validSubItems && validSubItems.length > 0) {
+                      const parentActive = validSubItems.some(
                         (sub) =>
                           pathname === sub.href ||
                           pathname.startsWith(sub.href + "/"),
@@ -388,7 +487,7 @@ export function AppSidebar() {
 
                           {(openMap[item.label] || parentActive) && (
                             <SidebarMenuSub className="pt-4 space-y-2">
-                              {item.subItems.map((sub) => {
+                              {validSubItems.map((sub) => {
                                 const SubIcon = sub.icon;
                                 const isSubActive =
                                   pathname === sub.href ||

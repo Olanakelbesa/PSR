@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
   USERS: {
     LIST: "/users",
     SELECTOR: "/v1/users/selector/",
+    ME: "/v1/users/me/",
     DETAIL: (id: string) => `/users/${id}`,
     CREATE: "/users",
     UPDATE: (id: string) => `/users/${id}`,

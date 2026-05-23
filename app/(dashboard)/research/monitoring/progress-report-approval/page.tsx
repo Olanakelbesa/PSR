@@ -11,15 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProgressReportApprovals } from "@/hooks";
+import { useProgressReports } from "@/hooks";
+import { useRouter } from "next/navigation";
 
-const decisionLabels = {
+const statusLabels = {
   pending: "Pending",
   approved: "Approved",
   rejected: "Rejected",
 } as const;
 
-const decisionClasses = {
+const statusClasses = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
   approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
   rejected: "bg-rose-50 text-rose-700 border-rose-200",
@@ -29,49 +30,41 @@ export default function ProgressReportApprovalListPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [decision, setDecision] = useState<
-    "all" | "pending" | "approved" | "rejected"
-  >("pending");
-  const [ordering, setOrdering] = useState("-reviewed_at");
+  const router = useRouter();
 
   const queryParams = useMemo(
     () => ({
       page,
       limit: 10,
       search: search || undefined,
-      decision: decision === "all" ? undefined : decision,
-      ordering,
     }),
-    [page, search, decision, ordering],
+    [page, search],
   );
 
-  const { data, isLoading, refetch } = useProgressReportApprovals(queryParams);
-  const approvals = data?.data ?? [];
+  const { data, isLoading, refetch } = useProgressReports(queryParams);
+  const reports = data?.data ?? [];
   const meta = data?.meta ?? { page: 1, limit: 10, total: 0, totalPages: 0 };
 
   const stats = [
     { label: "Total", value: meta.total },
     {
       label: "Pending",
-      value: approvals.filter((approval) => approval.decision === "pending")
-        .length,
+      value: reports.filter((report) => report.status === "pending").length,
     },
     {
       label: "Approved",
-      value: approvals.filter((approval) => approval.decision === "approved")
-        .length,
+      value: reports.filter((report) => report.status === "approved").length,
     },
     {
       label: "Rejected",
-      value: approvals.filter((approval) => approval.decision === "rejected")
-        .length,
+      value: reports.filter((report) => report.status === "rejected").length,
     },
   ];
 
   const columns = [
     {
       accessorKey: "id",
-      header: "Approval ID",
+      header: "Report ID",
       cell: ({ row }: any) => (
         <span className="font-mono text-[11px] font-semibold text-primary/80">
           #{row.original.id}
@@ -79,47 +72,51 @@ export default function ProgressReportApprovalListPage() {
       ),
     },
     {
-      accessorKey: "progress_report",
-      header: "Progress Report",
+      accessorKey: "project_tracking_title",
+      header: "Proposal",
       cell: ({ row }: any) => (
-        <span className="font-mono text-[11px] font-semibold">
-          {row.original.progress_report}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "reviewer_name",
-      header: "Reviewer",
-      cell: ({ row }: any) => (
-        <div className="max-w-65">
+        <div className="max-w-[320px]">
           <div className="font-semibold truncate">
-            {row.original.reviewer_name}
+            {row.original.project_tracking_title || "Untitled proposal"}
           </div>
-          <div className="text-[11px] text-muted-foreground">
-            ID: {row.original.reviewer}
+          <div className="text-[11px] text-muted-foreground truncate">
+            Progress report: {row.original.report_name}
           </div>
         </div>
       ),
     },
     {
-      accessorKey: "decision",
-      header: "Decision",
-      cell: ({ row }: any) => {
-        const value = row.original.decision as keyof typeof decisionLabels;
-        return (
-          <Badge variant="outline" className={decisionClasses[value]}>
-            {decisionLabels[value]}
-          </Badge>
-        );
-      },
+      accessorKey: "report_name",
+      header: "Report Name",
+      cell: ({ row }: any) => (
+        <div className="max-w-[320px]">
+          <div className="font-semibold truncate">
+            {row.original.report_name}
+          </div>
+          <div className="text-[11px] text-muted-foreground truncate">
+            {row.original.main_activities_achieved || "No activities recorded"}
+          </div>
+        </div>
+      ),
     },
     {
-      accessorKey: "reviewed_at",
-      header: "Reviewed At",
+      accessorKey: "amount_used",
+      header: "Amount Used",
+      cell: ({ row }: any) => (
+        <span className="font-mono text-[12px] font-semibold">
+          {row.original.amount_used
+            ? `ETB ${Number(row.original.amount_used).toLocaleString()}`
+            : "-"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "submitted_at",
+      header: "Submitted",
       cell: ({ row }: any) => (
         <span className="text-xs text-muted-foreground">
-          {row.original.reviewed_at
-            ? new Date(row.original.reviewed_at).toLocaleDateString("en-GB", {
+          {row.original.submitted_at
+            ? new Date(row.original.submitted_at).toLocaleDateString("en-GB", {
                 day: "numeric",
                 month: "short",
                 year: "numeric",
@@ -129,12 +126,29 @@ export default function ProgressReportApprovalListPage() {
       ),
     },
     {
-      accessorKey: "comment",
-      header: "Comment",
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }: any) => {
+        const value = row.original.status as keyof typeof statusLabels;
+        return (
+          <Badge variant="outline" className={statusClasses[value]}>
+            {statusLabels[value] || row.original.status}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "attachment",
+      header: "Attachment",
       cell: ({ row }: any) => (
-        <span className="block max-w-70 truncate text-xs text-muted-foreground">
-          {row.original.comment || "No comment"}
-        </span>
+        <a
+          href={row.original.attachment || "#"}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-primary underline underline-offset-2"
+        >
+          {row.original.attachment ? "View" : "No file"}
+        </a>
       ),
     },
     {
@@ -145,8 +159,7 @@ export default function ProgressReportApprovalListPage() {
           <Link
             href={`/research/monitoring/progress-report-approval/${row.original.id}`}
           >
-            <Eye className="mr-1 h-4 w-4" />
-            Review
+            <Eye className="h-4 w-4" />
           </Link>
         </Button>
       ),
@@ -155,8 +168,8 @@ export default function ProgressReportApprovalListPage() {
 
   return (
     <PageContainer
-      title="Progress Report Approvals"
-      description="Review and decide progress report approval records from the monitoring workflow."
+      title="Proposal Progress Reports"
+      description="Review the proposal progress reports returned by the backend and open the related report details."
     >
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -185,117 +198,19 @@ export default function ProgressReportApprovalListPage() {
               ))}
         </div>
 
-        <Card className="border-none shadow-sm">
-          <CardContent className="space-y-4 pt-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-1 items-center gap-2">
-                <div className="relative w-full max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Search reviewer, comment, report id"
-                    className="pl-10"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setPage(1);
-                    setSearch(searchInput.trim());
-                  }}
-                >
-                  Search
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <select
-                  value={decision}
-                  onChange={(event) => {
-                    setPage(1);
-                    setDecision(
-                      event.target.value as
-                        | "all"
-                        | "pending"
-                        | "approved"
-                        | "rejected",
-                    );
-                  }}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="all">All Decisions</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-
-                <select
-                  value={ordering}
-                  onChange={(event) => {
-                    setPage(1);
-                    setOrdering(event.target.value);
-                  }}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="-reviewed_at">Newest Review</option>
-                  <option value="reviewed_at">Oldest Review</option>
-                  <option value="id">Approval ID Asc</option>
-                  <option value="-id">Approval ID Desc</option>
-                </select>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => refetch()}
-                >
-                  <RefreshCw className="mr-1 h-4 w-4" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-
-            <DataTable
-              columns={columns}
-              data={approvals}
-              searchKey="reviewer_name"
-              searchPlaceholder="Filter loaded rows..."
-              emptyMessage="No progress report approvals found"
-              emptyDescription="Try changing decision or search filters."
-            />
-
-            <div className="flex items-center justify-between border-t pt-4">
-              <div className="text-xs text-muted-foreground">
-                Page {meta.page} of {Math.max(meta.totalPages, 1)}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isLoading || page <= 1}
-                  onClick={() =>
-                    setPage((previous) => Math.max(previous - 1, 1))
-                  }
-                >
-                  Previous
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    isLoading ||
-                    (meta.totalPages > 0 && page >= meta.totalPages)
-                  }
-                  onClick={() => setPage((previous) => previous + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <DataTable
+          columns={columns}
+          data={reports}
+          searchKey="report_name"
+          searchPlaceholder="Filter loaded rows..."
+          emptyMessage="No progress reports found"
+          emptyDescription="Try changing your search text or refresh the list."
+          onRowClick={(report) =>
+            router.push(
+              `/research/monitoring/progress-report-approval/${report.id}`,
+            )
+          }
+        />
       </div>
     </PageContainer>
   );

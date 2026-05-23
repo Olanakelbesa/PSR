@@ -42,10 +42,17 @@ const BLOCKED_REQUEST_HEADERS = new Set([
 ]);
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
-function log(method: string, proxyPath: string, status: number, durationMs: number) {
+function log(
+  method: string,
+  proxyPath: string,
+  status: number,
+  durationMs: number,
+) {
   if (!isDev) return;
   const icon = status >= 500 ? "🔴" : status >= 400 ? "🟠" : "🟢";
-  console.log(`${icon} [Proxy] ${method} /api/proxy${proxyPath} → ${status} (${durationMs}ms)`);
+  console.log(
+    `${icon} [Proxy] ${method} /api/proxy${proxyPath} → ${status} (${durationMs}ms)`,
+  );
 }
 
 // ─── Core Handler ─────────────────────────────────────────────────────────────
@@ -54,7 +61,9 @@ function log(method: string, proxyPath: string, status: number, durationMs: numb
 const handler = auth(async (req, context) => {
   // ── Guard: ensure server-side env var is configured ─────────────────────────
   if (!API_BASE_URL) {
-    console.error("[Proxy] API_BASE_URL is not set. Configure it as a server-only env var.");
+    console.error(
+      "[Proxy] API_BASE_URL is not set. Configure it as a server-only env var.",
+    );
     return NextResponse.json(
       { message: "Service temporarily unavailable. Please contact support." },
       { status: 500 },
@@ -70,35 +79,42 @@ const handler = auth(async (req, context) => {
   const upstreamUrl = `${cleanBaseUrl}/api${apiPath}${queryString}`;
 
   // ── Build safe forwarding headers ───────────────────────────────────────────
-  const headers: Record<string, string> = {};
+  const headers = new Headers();
   req.headers.forEach((value, key) => {
     if (!BLOCKED_REQUEST_HEADERS.has(key.toLowerCase())) {
-      headers[key] = value;
+      headers.set(key, value);
     }
   });
 
-  // ── Inject server-side session token ────────────────────────────────────────
-  // req.auth is populated by the auth() wrapper — this is the correct Auth.js v5
-  // pattern. No need to call auth() manually inside the handler.
-  const backendToken = (req.auth as any)?.backendToken as string | undefined;
+  // ── Inject the freshest bearer token ──────────────────────────────────────
+  // Prefer the client Authorization header so the proxy uses the latest
+  // access token from localStorage / apiClient refresh flows.
+  const clientAuthorizationHeader = req.headers.get("authorization");
+  const sessionBackendToken = (req.auth as any)?.backendToken as
+    | string
+    | undefined;
 
   if (isDev) {
-    if (backendToken) {
-      console.log(`[Proxy] ✅ Token injected from session for ${req.method} ${apiPath}`);
+    if (clientAuthorizationHeader) {
+      console.log(
+        `[Proxy] ✅ Using client Authorization header for ${req.method} ${apiPath}`,
+      );
+    } else if (sessionBackendToken) {
+      console.log(
+        `[Proxy] ✅ Using session backendToken for ${req.method} ${apiPath}`,
+      );
     } else {
-      const clientHasToken = req.headers.has("authorization");
       console.warn(
-        `[Proxy] ⚠️  No session backendToken for ${req.method} ${apiPath}.`,
-        `client-auth-header=${clientHasToken ? "present (forwarding)" : "missing"}`,
+        `[Proxy] ⚠️  No bearer token available for ${req.method} ${apiPath}.`,
       );
     }
   }
 
-  if (backendToken) {
-    // Server-side session token takes priority over any client-sent header
-    headers["Authorization"] = `Bearer ${backendToken}`;
+  if (clientAuthorizationHeader) {
+    headers.set("Authorization", clientAuthorizationHeader);
+  } else if (sessionBackendToken) {
+    headers.set("Authorization", `Bearer ${sessionBackendToken}`);
   }
-  // If no session token, the client's Authorization header (if any) is forwarded as-is
 
   const contentType = req.headers.get("content-type") ?? "";
   const isMultipart = contentType.includes("multipart/form-data");
@@ -113,7 +129,7 @@ const handler = auth(async (req, context) => {
       if (contentType.includes("application/json")) {
         body = await req.text();
       } else if (isMultipart) {
-        delete headers["content-type"];
+        headers.delete("content-type");
         body = await req.formData();
       } else {
         body = Buffer.from(await req.arrayBuffer());
@@ -137,7 +153,10 @@ const handler = auth(async (req, context) => {
 
     if (isDev) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[Proxy] Upstream error for ${req.method} ${apiPath}:`, msg);
+      console.error(
+        `[Proxy] Upstream error for ${req.method} ${apiPath}:`,
+        msg,
+      );
     }
 
     return NextResponse.json(

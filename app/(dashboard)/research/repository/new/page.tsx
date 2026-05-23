@@ -455,27 +455,6 @@ export default function NewRepositorySubmissionPage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(value) =>
-                    setFormField("status", value as FinalSubmissionStatus)
-                  }
-                >
-                  <SelectTrigger id="status" className="h-11 rounded-xl">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="ndmc_reference">
                   NDMC Submission Reference
