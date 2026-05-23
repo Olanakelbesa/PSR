@@ -197,8 +197,6 @@ export default function EditPolicyDraftPage() {
       return approvedConcepts;
     }
 
-    const currentConcept = rawDraft?.conceptNote || rawDraft?.concept_note;
-
     return [
       {
         id: currentConceptId,
@@ -266,7 +264,7 @@ export default function EditPolicyDraftPage() {
         : rawDraft.organization ?? rawDraft.organization_id ?? rawDraft.organizationId) ?? "",
     );
 
-    setSelectedConceptId(draftData.conceptNoteId);
+    setSelectedConceptId(normalizedDraft.conceptNoteId);
     setFormState({
       title: rawDraft.title || "",
       conceptNote: conceptId,
@@ -312,7 +310,7 @@ export default function EditPolicyDraftPage() {
     if (fileUrl) {
       setSelectedFile({
         name:
-          String(draftData.fileUrl).split("/").pop() || "Draft_Document.pdf",
+          String(normalizedDraft.fileUrl).split("/").pop() || "Draft_Document.pdf",
         size: 0,
         type: "application/pdf",
       });
