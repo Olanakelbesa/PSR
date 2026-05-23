@@ -8,105 +8,46 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-interface SubThematicArea {
-  id: number;
-  name: string;
-  code: string;
-  description: string;
-}
-
-interface ThematicArea {
-  id: number;
-  name: string;
-  description: string;
-  sub_thematic_areas: SubThematicArea[];
-}
-
-const MOCK_THEMATIC_AREAS: ThematicArea[] = [
-  {
-    id: 1,
-    name: "Health Systems & Policy Research",
-    description: "Strengthening healthcare governance, health financing, and strategic policy implementation across regional bureaus.",
-    sub_thematic_areas: [
-      { id: 101, name: "Health Financing Reforms & Community Health Insurance", code: "HSPR-01", description: "Evaluating community-based health insurance schemes." },
-      { id: 102, name: "Human Resources for Health Retention Strategies", code: "HSPR-02", description: "Methods to recruit and retain health workers in remote rural regions." },
-      { id: 103, name: "Decentralized Healthcare Delivery & Quality Audits", code: "HSPR-03", description: "Measuring efficacy of primary health care devolution." },
-      { id: 104, name: "Essential Medicines Supply Chain and Logistics", code: "HSPR-04", description: "AI-driven stockout prevention and cold chain storage solutions." },
-    ],
-  },
-  {
-    id: 2,
-    name: "Infectious & Communicable Diseases",
-    description: "Surveillance, treatment efficacy, and prevention frameworks for major epidemiology challenges.",
-    sub_thematic_areas: [
-      { id: 201, name: "Epidemiological Surveillance & Early Warning Systems", code: "ICD-01", description: "Predicting outbreaks using meteorological and demographic variables." },
-      { id: 202, name: "Malaria Elimination Pathways in High-Transmission Areas", code: "ICD-02", description: "Assessing efficacy of next-generation bed nets and vector control." },
-      { id: 203, name: "Tuberculosis Diagnostics and Multi-Drug Resistance Tracking", code: "ICD-03", description: "Evaluating point-of-care rapid molecular diagnosis methods." },
-      { id: 204, name: "Socioeconomic and Long-Term Impact of COVID-19", code: "ICD-04", description: "Post-pandemic resilience mapping in community healthcare." },
-    ],
-  },
-  {
-    id: 3,
-    name: "Non-Communicable Diseases (NCD) Prevention",
-    description: "Strategies to address growing metabolic, cardiovascular, oncological, and mental health burdens.",
-    sub_thematic_areas: [
-      { id: 301, name: "Hypertension & Cardiovascular Intervention Frameworks", code: "NCD-01", description: "Assessing sodium reduction campaigns and rural blood pressure tracking." },
-      { id: 302, name: "Oncology Screening Protocols in Primary Care Centers", code: "NCD-02", description: "Deploying low-cost visual inspection (VIA) tools for cervical cancer." },
-      { id: 303, name: "Mental Health Integration in District General Clinics", code: "NCD-03", description: "Training nurses in basic psychiatric screening and pharmacotherapy." },
-      { id: 304, name: "Pediatric Diabetes Standards of Care and Registry Setup", code: "NCD-04", description: "Setting up national registries for Type 1 Diabetes in youth." },
-    ],
-  },
-  {
-    id: 4,
-    name: "Digital Health & Clinical Innovation",
-    description: "Utilizing modern software engineering, data science, and telemedicine to link healthcare providers.",
-    sub_thematic_areas: [
-      { id: 401, name: "Electronic Medical Records (EMR) Interoperability Standards", code: "DH-01", description: "Establishing FHIR standards for interoperable patient records." },
-      { id: 402, name: "Telehealth Networks for Rural and Remote Consultations", code: "DH-02", description: "Evaluating satellite-linked tele-consults for regional hospitals." },
-      { id: 403, name: "Machine Learning & AI-based Diagnostic Assist Tools", code: "DH-03", description: "Deploying cloud-based image analysis for chest X-rays in TB screeners." },
-      { id: 404, name: "mHealth Interventions for Adherence Support", code: "DH-04", description: "Text-message programs to improve prenatal appointment compliance." },
-    ],
-  },
-  {
-    id: 5,
-    name: "Maternal, Neonatal & Child Health (MNCH)",
-    description: "Mitigating risks across prenatal, birth, and early childhood lifecycles.",
-    sub_thematic_areas: [
-      { id: 501, name: "Referral Networks for Obstetric Emergencies", code: "MNCH-01", description: "Improving rural ambulance dispatch and waiting homes for mothers." },
-      { id: 502, name: "Neonatal Intensive Care Unit (NICU) Quality Protocols", code: "MNCH-02", description: "Standardizing low-birth-weight incubator care protocols." },
-      { id: 503, name: "Nutritional Interventions to Prevent Chronic Stunting", code: "MNCH-03", description: "Evaluating fortified food distributions during pregnancy." },
-      { id: 504, name: "GIS Mapping of Child Immunization Gaps", code: "MNCH-04", description: "Using geospatial mapping to locate under-vaccinated communities." },
-    ],
-  },
-];
+import { useThematicAreas } from "@/lib/queries/thematic-area";
+import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
 
 export default function ThematicAreasPage() {
   const [expandedArea, setExpandedArea] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data: thematicAreasResponse, isLoading: isLoadingThematicAreas } =
+    useThematicAreas();
+  const { data: subThematicAreasResponse, isLoading: isLoadingSubThematicAreas } =
+    useSubThematicAreas({ limit: 1000 });
+
+  const thematicAreas = useMemo(() => {
+    const areas = thematicAreasResponse?.data ?? [];
+    const subAreas = subThematicAreasResponse?.data ?? [];
+
+    return areas.map((area) => ({
+      ...area,
+      sub_thematic_areas: subAreas.filter(
+        (sub) => String(sub.thematic_area) === String(area.id),
+      ),
+    }));
+  }, [subThematicAreasResponse?.data, thematicAreasResponse?.data]);
 
   const filteredAreas = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_THEMATIC_AREAS;
+    if (!searchQuery.trim()) return thematicAreas;
     const q = searchQuery.toLowerCase();
-    return MOCK_THEMATIC_AREAS.filter(
+    return thematicAreas.filter(
       (area) =>
         area.name.toLowerCase().includes(q) ||
         area.description.toLowerCase().includes(q) ||
         area.sub_thematic_areas.some(
           (sub) =>
             sub.name.toLowerCase().includes(q) ||
-            sub.code.toLowerCase().includes(q)
+            sub.description.toLowerCase().includes(q)
         )
     );
-  }, [searchQuery]);
+  }, [searchQuery, thematicAreas]);
 
   useEffect(() => {
     const handleScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -153,8 +94,8 @@ export default function ThematicAreasPage() {
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
                 Research <span className="text-primary">Thematic Areas</span>
               </h1>
-              <p className="max-w-2xl text-base md:text-lg text-slate-350 leading-relaxed mx-auto">
-                Explore our research priority domains and discover opportunities aligned with national health initiatives, technological integration, and policy intelligence.
+              <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
+                The PSR System is a centralized platform for policy research, proposal management, and industry collaboration, helping Ethiopian institutions turn evidence into action.
               </p>
             </motion.div>
           </div>
@@ -181,7 +122,7 @@ export default function ThematicAreasPage() {
             </div>
           </div>
 
-          {isLoading ? (
+          {isLoadingThematicAreas || isLoadingSubThematicAreas ? (
             <div className="py-24 text-center">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
               <p className="text-muted-foreground text-sm mt-4 animate-pulse">Loading priority framework...</p>
@@ -244,11 +185,6 @@ export default function ThematicAreasPage() {
                                       className="p-4 rounded-xl border border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.03] hover:border-primary/10 transition duration-200 flex flex-col justify-between"
                                     >
                                       <div>
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                          <span className="text-xs font-bold text-primary font-mono uppercase tracking-wider">
-                                            {sub.code}
-                                          </span>
-                                        </div>
                                         <h4 className="text-sm font-bold text-foreground">
                                           {sub.name}
                                         </h4>
@@ -269,7 +205,7 @@ export default function ThematicAreasPage() {
                 })}
               </AnimatePresence>
 
-              {!isLoading && filteredAreas.length === 0 && (
+              {!isLoadingThematicAreas && !isLoadingSubThematicAreas && filteredAreas.length === 0 && (
                 <div className="py-20 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
                   <BookMarked className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-bold text-foreground mb-1">No Results Found</h3>

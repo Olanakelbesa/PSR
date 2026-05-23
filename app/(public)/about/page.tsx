@@ -21,6 +21,7 @@ import {
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
+import { publicApi } from "@/api/legacy-apis";
 
 export default function AboutPage() {
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -38,11 +39,41 @@ export default function AboutPage() {
     [],
   );
 
+  const [overview, setOverview] = useState<any | null>(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
   const [isVisible, setIsVisible] = useState<Record<string, boolean>>({
     vision: false,
     priorities: false,
     achievements: false,
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function fetchOverview() {
+      setLoadingOverview(true);
+      try {
+        const res = await publicApi.getOverview();
+        let payload = res ?? null;
+        if (payload && payload.data !== undefined) payload = payload.data;
+        if (payload && payload.data !== undefined) payload = payload.data;
+        if (!mounted) return;
+        setOverview(payload ?? null);
+      } catch (err) {
+        if (!mounted) return;
+        setOverview(null);
+      } finally {
+        if (!mounted) return;
+        setLoadingOverview(false);
+      }
+    }
+
+    fetchOverview();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -102,6 +133,34 @@ export default function AboutPage() {
     },
   };
 
+  const metrics = overview?.metrics ?? {};
+  const stats = [
+    {
+      icon: Globe2,
+      value: metrics.institutionsUsingSystem ?? 0,
+      label: "Institutions Using System",
+      colorClass: "bg-primary/10 text-primary",
+    },
+    {
+      icon: Users,
+      value: metrics.researchCenters ?? 0,
+      label: "Research Centers",
+      colorClass: "bg-primary/10 text-primary",
+    },
+    {
+      icon: FileText,
+      value: metrics.publishedPolicies ?? 0,
+      label: "Published Policies",
+      colorClass: "bg-primary/10 text-primary",
+    },
+    {
+      icon: GraduationCap,
+      value: metrics.totalResearchProposalsSubmitted ?? 0,
+      label: "Research Proposals Submitted",
+      colorClass: "bg-primary/10 text-primary",
+    },
+  ];
+
   return (
     <div className="bg-background text-foreground antialiased min-h-screen flex flex-col">
       <main className="grow w-full">
@@ -155,10 +214,9 @@ export default function AboutPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              Established in 2011, Addis Ababa Science and Technology University
-              (AASTU) has rapidly emerged as Ethiopia&apos;s premier
-              institution, dedicated to innovation, applied research, and
-              industrial development.
+              The PSR System is a centralized platform for policy research,
+              proposal management, and industry collaboration, helping Ethiopian
+              institutions turn evidence into action.
             </motion.p>
           </div>
         </section>
@@ -186,14 +244,12 @@ export default function AboutPage() {
                         <GraduationCap className="w-6 h-6" />
                       </div>
                       <h3 className="text-2xl font-bold mb-4">
-                        Our Academic Excellence
+                        Our PSR Focus
                       </h3>
                       <p className="text-muted-foreground leading-relaxed">
-                        We offer a primary focus on engineering, applied
-                        sciences, and ICT fields. Our curriculum is meticulously
-                        tailored to align with Ethiopia&apos;s developmental
-                        agenda, featuring 13 undergraduate, 43 master’s, and 41
-                        doctoral programs.
+                        We enable research proposals, policy development, and
+                        industry partnerships through a unified digital platform
+                        aligned with Ethiopia&apos;s development priorities.
                       </p>
                     </CardContent>
                   </Card>
@@ -240,21 +296,21 @@ export default function AboutPage() {
                     },
                     {
                       year: "Growth",
-                      title: "Program Expansion",
+                      title: "Platform Expansion",
                       description:
-                        "Grew to offer 97 total academic programs across UG, Masters, and PhD levels.",
+                        "Expanded support for research proposals, reviews, and policy workflows.",
                     },
                     {
                       year: "Partnerships",
-                      title: "Global Reach",
+                      title: "Collaborative Reach",
                       description:
-                        "Forged partnerships with over 175 international and 127 national entities.",
+                        "Connecting government, academia, and industry through a shared digital system.",
                     },
                     {
                       year: "Today",
-                      title: "Digital Transformation",
+                      title: "Integrated Delivery",
                       description:
-                        "Launching our online directory for Research, Community Engagement, and Industry Linkage.",
+                        "Operating as an integrated platform for research management and decision support.",
                       present: true,
                     },
                   ].map((item, idx) => (
@@ -304,7 +360,7 @@ export default function AboutPage() {
               <span className="text-accent font-semibold tracking-wider uppercase text-sm">
                 Key Focus Areas
               </span>
-              <h2 className="text-3xl font-bold mt-2">Pillars of AASTU</h2>
+              <h2 className="text-3xl font-bold mt-2">Pillars of the PSR System</h2>
             </motion.div>
             <motion.div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
@@ -366,10 +422,10 @@ export default function AboutPage() {
                   : { opacity: 0, y: 20 }
               }
             >
-              <h2 className="text-3xl font-bold">AASTU by the Numbers</h2>
+              <h2 className="text-3xl font-bold">PSR System by the Numbers</h2>
               <p className="mt-4 text-muted-foreground">
-                Impactful statistics driving Ethiopia&apos;s science and
-                technology landscape.
+                Impactful statistics driving Ethiopia&apos;s policy research
+                and institutional collaboration.
               </p>
             </motion.div>
             <motion.div
@@ -378,32 +434,7 @@ export default function AboutPage() {
               initial="hidden"
               animate={isVisible.achievements ? "visible" : "hidden"}
             >
-              {[
-                {
-                  icon: Globe2,
-                  value: "175+",
-                  label: "Intl Partners",
-                  colorClass: "bg-primary/10 text-primary",
-                },
-                {
-                  icon: Handshake,
-                  value: "127+",
-                  label: "National Partners",
-                  colorClass: "bg-primary/10 text-primary",
-                },
-                {
-                  icon: FileText,
-                  value: "97",
-                  label: "Academic Programs",
-                  colorClass: "bg-primary/10 text-primary",
-                },
-                {
-                  icon: GraduationCap,
-                  value: "41",
-                  label: "PhD Programs",
-                  colorClass: "bg-primary/10 text-primary",
-                },
-              ].map((stat, idx) => (
+              {stats.map((stat, idx) => (
                 <motion.div key={idx} variants={itemVariants}>
                   <Card className="border-0 shadow-md p-8 text-center hover:shadow-xl transition-shadow">
                     <div
@@ -411,7 +442,9 @@ export default function AboutPage() {
                     >
                       <stat.icon className="w-8 h-8" />
                     </div>
-                    <div className="text-4xl font-bold mb-1">{stat.value}</div>
+                    <div className="text-4xl font-bold mb-1">
+                      {loadingOverview ? "--" : stat.value}
+                    </div>
                     <div className="text-sm font-medium text-muted-foreground uppercase">
                       {stat.label}
                     </div>

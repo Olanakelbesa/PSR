@@ -1,29 +1,52 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Calendar, DollarSign, ArrowLeft, FileText, CheckCircle, ShieldAlert, Award, FileCheck } from "lucide-react";
+import {
+  Calendar,
+  DollarSign,
+  ArrowLeft,
+  ShieldAlert,
+  Award,
+  FileText,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockCalls } from "@/lib/api/mock-data";
+import { useGrantCall } from "@/lib/queries/grant-calls";
+
+function formatBudget(budget?: number | string | null) {
+  if (budget === null || budget === undefined || budget === "") return "Budget available";
+
+  const amount = Number(budget);
+  if (Number.isNaN(amount)) return String(budget);
+
+  if (amount >= 1_000_000) {
+    return `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)}M`;
+  }
+
+  if (amount >= 1_000) {
+    return `$${(amount / 1_000).toFixed(amount % 1_000 === 0 ? 0 : 1)}k`;
+  }
+
+  return `$${amount.toLocaleString()}`;
+}
+
+function getStatusLabel(status?: string) {
+  const normalized = (status ?? "").toLowerCase();
+  if (normalized === "closed") return "Closed";
+  if (normalized === "closing_soon") return "Closing Soon";
+  return normalized === "published" || normalized === "open" ? "Active" : "Active";
+}
 
 export default function CallDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const router = useRouter();
   const { id } = use(params);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 400);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const call = mockCalls.find((c) => c.id === id);
+  const { data: call, isLoading, isError } = useGrantCall(id);
 
   if (isLoading) {
     return (
@@ -47,15 +70,17 @@ export default function CallDetailPage({
               The grant call identifier "{id}" does not exist in our active archives.
             </p>
           </div>
-          <Button onClick={() => router.push("/calls")} className="w-full">
+          <Button asChild className="w-full">
+            <Link href="/calls">
             Back to Grant Calls
+            </Link>
           </Button>
         </Card>
       </div>
     );
   }
 
-  const isClosed = call.status === "closed";
+  const isClosed = (call.status ?? "").toLowerCase() === "closed";
 
   return (
     <div className="min-h-screen bg-background py-12">
@@ -89,6 +114,9 @@ export default function CallDetailPage({
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
             {call.title}
           </h1>
+          <p className="text-sm text-muted-foreground max-w-3xl leading-relaxed">
+            {call.shortDescription ?? call.description ?? "Open research funding opportunity."}
+          </p>
         </div>
 
         {/* Call Meta Summary Cards */}
@@ -100,7 +128,7 @@ export default function CallDetailPage({
             <div>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Submission Deadline</span>
               <span className="text-sm font-bold text-foreground block mt-0.5">
-                {new Date(call.submissionDeadline).toLocaleDateString()}
+                {call.closeDate ? new Date(call.closeDate).toLocaleDateString() : "Open until filled"}
               </span>
             </div>
           </Card>
@@ -112,7 +140,7 @@ export default function CallDetailPage({
             <div>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Allocated Funding</span>
               <span className="text-sm font-bold text-foreground block mt-0.5">
-                ${(call.budgetRange.min / 1000).toFixed(0)}k - ${(call.budgetRange.max / 1000).toFixed(0)}k
+                {formatBudget(call.budget)}
               </span>
             </div>
           </Card>
@@ -151,52 +179,55 @@ export default function CallDetailPage({
             </CardHeader>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {call.eligibilityCriteria}
+                {call.eligibilityCriteria ?? "Eligibility details will be shared in the full call documentation."}
               </p>
             </CardContent>
           </Card>
 
-          {/* Card 3: Priority Areas */}
+          {/* Card 3: Proposal Types */}
           <Card className="border border-white/5 bg-slate-900/20 backdrop-blur-md rounded-2xl overflow-hidden">
             <CardHeader className="border-b border-white/5 p-6">
-              <CardTitle className="text-lg font-bold text-foreground">Priority Sub-Thematic Domains</CardTitle>
+              <CardTitle className="text-lg font-bold text-foreground">Proposal Types</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <div className="flex flex-wrap gap-2">
-                {call.priorityAreas.map((area, idx) => (
-                  <Badge key={idx} variant="secondary" className="bg-primary/5 text-primary border border-primary/20 text-xs font-semibold px-3 py-1 rounded-full">
-                    {area}
-                  </Badge>
-                ))}
+                {(call.proposalTypes ?? []).length > 0 ? (
+                  call.proposalTypes!.map((type) => (
+                    <Badge key={type.id} variant="secondary" className="bg-primary/5 text-primary border border-primary/20 text-xs font-semibold px-3 py-1 rounded-full">
+                      {type.name}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No proposal type restrictions were published.</span>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Card 4: Attachments */}
-          {call.attachments && call.attachments.length > 0 && (
-            <Card className="border border-white/5 bg-slate-900/20 backdrop-blur-md rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-white/5 p-6">
-                <CardTitle className="text-lg font-bold text-foreground">Guideline Attachments & Documentation</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">Download templates to draft your proposal dossier.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-3">
-                {call.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="flex items-center justify-between p-3.5 rounded-xl border border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.02] transition"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-primary" />
-                      <span className="text-sm font-semibold text-foreground">{att.name}</span>
-                    </div>
-                    <Button variant="ghost" size="sm" className="border border-white/5 rounded-xl text-xs font-bold font-mono">
-                      Download
-                    </Button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          {/* Card 4: Timeline */}
+          <Card className="border border-white/5 bg-slate-900/20 backdrop-blur-md rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-white/5 p-6">
+              <CardTitle className="text-lg font-bold text-foreground">Call Timeline</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Open Date</p>
+                <p className="mt-1 font-semibold text-foreground">{call.openDate ? new Date(call.openDate).toLocaleDateString() : "Not published"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Close Date</p>
+                <p className="mt-1 font-semibold text-foreground">{call.closeDate ? new Date(call.closeDate).toLocaleDateString() : "Open until filled"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Year</p>
+                <p className="mt-1 font-semibold text-foreground">{call.currentYear ?? "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Status</p>
+                <p className="mt-1 font-semibold text-foreground">{getStatusLabel(call.status)}</p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Apply Banner Call To Action */}
           <div className="flex flex-wrap gap-4 items-center justify-between p-6 rounded-2xl border border-white/5 bg-primary/5">
@@ -224,6 +255,12 @@ export default function CallDetailPage({
               </Button>
             </div>
           </div>
+
+          {isError ? (
+            <div className="py-6 text-center border border-white/5 rounded-2xl bg-slate-900/10">
+              <p className="text-sm text-muted-foreground">This call could not be loaded from the API.</p>
+            </div>
+          ) : null}
 
         </div>
 

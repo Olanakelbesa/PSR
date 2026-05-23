@@ -53,20 +53,20 @@ export function Footer() {
                   { label: "Enterprise", href: "/about" },
                 ],
               },
-              {
-                title: "Resources",
-                links: [
-                  { label: "Docs", href: "/manuals" },
-                  { label: "Case Studies", href: "/about" },
-                  { label: "Attachments", href: "/attachments" },
-                  { label: "Publications", href: "/publications" },
-                ],
-              },
+              // {
+              //   title: "Resources",
+              //   links: [
+              //     { label: "Docs", href: "/manuals" },
+              //     { label: "Case Studies", href: "/about" },
+              //     { label: "Attachments", href: "/attachments" },
+              //     { label: "Publications", href: "/publications" },
+              //   ],
+              // },
               {
                 title: "Company",
                 links: [
                   { label: "About", href: "/about" },
-                  { label: "Contact", href: "/about" },
+                  { label: "Contact", href: "/contact" },
                   { label: "Privacy", href: "#" },
                   { label: "Audits", href: "#" },
                 ],

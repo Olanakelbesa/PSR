@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Calendar, DollarSign, ArrowUpRight, Search, FileText, Clock, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,23 +8,59 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { mockCalls } from "@/lib/api/mock-data";
+import { useGrantCalls } from "@/lib/queries/grant-calls";
+import type { GrantCall } from "@/types/grant-call";
+
+function formatBudget(budget?: number | string | null) {
+  if (budget === null || budget === undefined || budget === "") return "Budget available";
+
+  const amount = Number(budget);
+  if (Number.isNaN(amount)) return String(budget);
+
+  if (amount >= 1_000_000) {
+    return `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)}M`;
+  }
+
+  if (amount >= 1_000) {
+    return `$${(amount / 1_000).toFixed(amount % 1_000 === 0 ? 0 : 1)}k`;
+  }
+
+  return `$${amount.toLocaleString()}`;
+}
+
+function getCallStatus(call: GrantCall) {
+  const status = (call.status ?? "").toLowerCase();
+  if (status === "closed") return "closed";
+
+  const closeDate = call.closeDate ? new Date(call.closeDate) : null;
+  if (closeDate && !Number.isNaN(closeDate.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    closeDate.setHours(23, 59, 59, 999);
+
+    const diffDays = Math.ceil((closeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 14) return "closing_soon";
+  }
+
+  return status === "published" || status === "open" ? "open" : status || "open";
+}
 
 export default function CallsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data, isLoading, isError } = useGrantCalls({
+    limit: 100,
+    ordering: "-created_at",
+  });
+
+  const calls = data?.data ?? [];
 
   const filteredCalls = useMemo(() => {
-    let result = mockCalls;
+    let result = calls;
 
     if (statusFilter !== "all") {
-      result = result.filter((call) => call.status === statusFilter);
+      result = result.filter((call) => getCallStatus(call) === statusFilter);
     }
 
     if (searchQuery.trim()) {
@@ -32,13 +68,15 @@ export default function CallsPage() {
       result = result.filter(
         (call) =>
           call.title.toLowerCase().includes(q) ||
-          call.description.toLowerCase().includes(q) ||
-          call.priorityAreas.some((area) => area.toLowerCase().includes(q))
+          (call.shortDescription ?? "").toLowerCase().includes(q) ||
+          (call.description ?? "").toLowerCase().includes(q) ||
+          (call.eligibilityCriteria ?? "").toLowerCase().includes(q) ||
+          (call.proposalTypes ?? []).some((type) => type.name.toLowerCase().includes(q))
       );
     }
 
     return result;
-  }, [searchQuery, statusFilter]);
+  }, [calls, searchQuery, statusFilter]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -118,6 +156,14 @@ export default function CallsPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
               <p className="text-muted-foreground text-sm mt-4">Retrieving active calls...</p>
             </div>
+          ) : isError ? (
+            <div className="py-24 text-center border border-white/5 rounded-2xl bg-slate-900/10">
+              <ShieldAlert className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-55" />
+              <h3 className="text-lg font-bold text-foreground mb-1">Unable to load calls</h3>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
+                The grant calls feed could not be loaded right now. Please try again shortly.
+              </p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <AnimatePresence mode="popLayout">
@@ -145,17 +191,23 @@ export default function CallsPage() {
                               <Link href={`/calls/${call.id}`}>{call.title}</Link>
                             </h3>
                             <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                              {call.description}
+                              {call.shortDescription ?? call.description ?? "Open research funding opportunity."}
                             </p>
                           </div>
 
                           {/* Priority Areas */}
                           <div className="flex flex-wrap gap-1.5">
-                            {call.priorityAreas.map((area, idx) => (
-                              <Badge key={idx} variant="secondary" className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5">
-                                {area}
+                            {(call.proposalTypes ?? []).length > 0 ? (
+                              call.proposalTypes!.map((area, idx) => (
+                                <Badge key={idx} variant="secondary" className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5">
+                                  {area.name}
+                                </Badge>
+                              ))
+                            ) : (
+                              <Badge variant="secondary" className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5">
+                                General Research
                               </Badge>
-                            ))}
+                            )}
                           </div>
                         </div>
 
@@ -164,11 +216,11 @@ export default function CallsPage() {
                           <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground">
                             <div className="flex items-center gap-1.5">
                               <Calendar className="w-3.5 h-3.5 text-primary" />
-                              <span>{new Date(call.submissionDeadline).toLocaleDateString()}</span>
+                              <span>{call.closeDate ? new Date(call.closeDate).toLocaleDateString() : "Open until filled"}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <DollarSign className="w-3.5 h-3.5 text-primary" />
-                              <span>Up to ${(call.budgetRange.max / 1000).toFixed(0)}k</span>
+                              <span>{formatBudget(call.budget)}</span>
                             </div>
                           </div>
 

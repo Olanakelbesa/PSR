@@ -1,39 +1,63 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
-  BookOpen,
-  ShieldCheck,
-  Zap,
   BarChart3,
-  Users,
-  Globe,
   ChevronRight,
   FileText,
   Search,
-  CheckCircle2,
-  Lock,
+  Users,
+  ShieldCheck,
+  Network,
   ArrowUpRight,
-  Sparkles,
-  PieChart,
-  Network
+  Lock,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/landing/Footer";
+import { publicApi } from "@/api/legacy-apis";
+import api from "@/lib/axios";
+import { API_ENDPOINTS } from "@/api/endpoints";
+import { createPortal } from "react-dom";
+import StatsStrip from "@/components/landing/StatsStrip";
+import TrustBand from "@/components/landing/TrustBand";
+import TrendsCard from "@/components/landing/TrendsCard";
+import { useThematicAreas } from "@/lib/queries/thematic-area";
+import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
+
+const grantCallCardThemes = [
+  {
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+    image: "/workflow_ingestion.png",
+    icon: FileText,
+  },
+  {
+    color: "text-purple-600",
+    bg: "bg-purple-50",
+    image: "/workflow_execution.png",
+    icon: BarChart3,
+  },
+  {
+    color: "text-orange-600",
+    bg: "bg-orange-50",
+    image: "/psr_spotlight.png",
+    icon: Users,
+  },
+  {
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+    image: "/workflow_governance.png",
+    icon: ShieldCheck,
+  },
+];
 
 function RevealOnScroll({
   children,
@@ -83,9 +107,16 @@ function RevealOnScroll({
 export default function LandingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionRect, setSuggestionRect] = useState<DOMRect | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [portalStyle, setPortalStyle] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [overview, setOverview] = useState<any | null>(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -97,6 +128,172 @@ export default function LandingPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    setMounted(true);
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    setSuggestionsLoading(true);
+    const controller = new AbortController();
+    const debounce = window.setTimeout(async () => {
+        try {
+          const { data } = await api.get(API_ENDPOINTS.POLICY_REPOSITORY.LIST, {
+            params: {
+              access_level: "public",
+              search: query,
+              limit: 5,
+            },
+            signal: controller.signal,
+          });
+
+          setSearchSuggestions(Array.isArray(data?.data) ? data.data : []);
+        } catch (error: any) {
+          // Ignore aborts/cancels
+          const isAbort = (error?.name === "CanceledError") || (error?.code === "ERR_CANCELED");
+          if (!isAbort) {
+            // Log richer error details to help debugging (response body, message, stack)
+            const resp = error?.response?.data ?? null;
+            const message = error?.message ?? String(error);
+            console.error("Live search suggestion error:", { message, resp, stack: error?.stack });
+            // Clear suggestions on error to keep UI consistent
+            setSearchSuggestions([]);
+          }
+        } finally {
+          if (!controller.signal.aborted) {
+            setSuggestionsLoading(false);
+          }
+        }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(debounce);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const update = () => {
+      const el = searchInputRef.current;
+      if (!el) return setSuggestionRect(null);
+      const rect = el.getBoundingClientRect();
+      setSuggestionRect(rect);
+
+      // compute responsive portal style
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const padding = 16;
+      const mobileBreakpoint = 640;
+
+      let width = rect.width;
+      let left = rect.x;
+      const spaceBelow = viewportH - (rect.y + rect.height);
+      const spaceAbove = rect.y;
+      const preferredMax = 256;
+
+      if (viewportW <= mobileBreakpoint) {
+        width = Math.min(viewportW - padding * 2, width);
+        left = Math.max(padding, (viewportW - width) / 2);
+      } else {
+        // clamp to viewport edges
+        width = Math.min(width, viewportW - padding * 2);
+        if (left + width > viewportW - padding) left = viewportW - width - padding;
+        if (left < padding) left = padding;
+      }
+
+      let maxHeight = Math.min(preferredMax, Math.max(120, spaceBelow - 24));
+      let top = rect.y + rect.height + 8;
+      // if not enough space below and more space above, render above
+      if (spaceBelow < 140 && spaceAbove > spaceBelow) {
+        const available = Math.min(preferredMax, spaceAbove - 24);
+        maxHeight = Math.max(120, Math.min(preferredMax, available));
+        top = rect.y - 8 - maxHeight;
+      }
+
+      setPortalStyle({ left: Math.round(left), top: Math.round(top), width: Math.round(width), maxHeight: Math.round(maxHeight) });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [searchInputRef.current]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadOverview() {
+      setLoadingOverview(true);
+      try {
+        const res = await publicApi.getOverview();
+        // Some APIs wrap data in an envelope — try to be resilient
+        const envelope = res ?? null;
+        let payload = envelope?.data ?? envelope;
+        // double-wrapped envelope: { data: { data: {...} } }
+        if (payload && payload.data !== undefined) payload = payload.data;
+        if (!mounted) return;
+        setOverview(payload ?? null);
+      } catch (err) {
+        // graceful fallback: leave overview null
+        if (!mounted) return;
+        setOverview(null);
+      } finally {
+        if (mounted) setLoadingOverview(false);
+      }
+    }
+
+    loadOverview();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const metrics = overview?.metrics ?? {};
+
+  const derivedOverview = {
+    publishedPolicies: metrics.publishedPolicies ?? 0,
+    openCalls: metrics.openGrantCalls ?? 0,
+    proposalsSubmitted: metrics.totalResearchProposalsSubmitted ?? 0,
+    institutions: metrics.institutionsUsingSystem ?? 0,
+  };
+
+  const trustPayload = {
+    institutions: metrics.institutionsUsingSystem ?? 0,
+    researchCenters: metrics.researchCenters ?? 0,
+    grantCalls: metrics.totalGrantCallsPublished ?? 0,
+    approvedPolicies: metrics.totalRegisteredPolicies ?? 0,
+  };
+
+  const trendData = overview?.monthlyProposalSubmissions ?? [];
+  const policyTrendData = overview?.monthlyPolicyRegistrations ?? [];
+  const activeGrantCalls = overview?.activeGrantCalls ?? [];
+  const openGrantCalls = activeGrantCalls.filter((call: any) => {
+    const status = String(call?.status ?? "").toLowerCase();
+    return status === "open" || status === "active";
+  });
+  const featuredGrantCall = openGrantCalls[0] ?? activeGrantCalls[0] ?? null;
+
+  const { data: thematicAreasResponse, isLoading: loadingThematicAreas } =
+    useThematicAreas();
+  const { data: subThematicAreasResponse, isLoading: loadingSubThematicAreas } =
+    useSubThematicAreas({ limit: 1000 });
+
+  const thematicAreaPreview = useMemo(() => {
+    const areas = thematicAreasResponse?.data ?? [];
+    const subAreas = subThematicAreasResponse?.data ?? [];
+
+    return areas.map((area: any) => ({
+      ...area,
+      subAreas: subAreas.filter(
+        (sub: any) => String(sub.thematic_area) === String(area.id),
+      ),
+    }));
+  }, [subThematicAreasResponse?.data, thematicAreasResponse?.data]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -124,7 +321,7 @@ export default function LandingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative min-h-[85vh] flex items-center pt-20 overflow-hidden">
+        <section className="relative min-h-[85vh] flex items-center pt-20 overflow-visible">
           <div className="absolute inset-0 -z-10">
             <div
               className="absolute top-0 left-0 w-[40%] h-[40%] bg-primary/10 blur-[100px] rounded-full animate-pulse"
@@ -160,11 +357,12 @@ export default function LandingPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (searchQuery.trim()) {
-                    router.push(`/policies/repository?search=${encodeURIComponent(searchQuery)}`);
+                  const query = searchQuery.trim();
+                  if (query) {
+                    router.push(`/publications?search=${encodeURIComponent(query)}`);
                   }
                 }}
-                className="w-full max-w-2xl mx-auto pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000"
+                className="relative w-full max-w-2xl mx-auto pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000"
               >
                 <div className="relative flex items-center bg-background/60 backdrop-blur-xl border border-primary/20 hover:border-primary/40 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-2 pr-2.5 shadow-xl transition-all duration-300">
                   <div className="flex items-center pl-3 pr-2 text-muted-foreground pointer-events-none">
@@ -176,6 +374,17 @@ export default function LandingPage() {
                     placeholder="Search national policies, guidelines, or research strategies..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        // If suggestions available, select the first one instead of submitting
+                        if (searchSuggestions.length > 0) {
+                          e.preventDefault();
+                          const item = searchSuggestions[0];
+                          // Navigate directly to the publications page and request the item to be expanded
+                          router.push(`/publications?selected=${encodeURIComponent(String(item.id))}`);
+                        }
+                      }
+                    }}
                     className="w-full bg-transparent border-0 outline-none focus:ring-0 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 "
                   />
                   <Button
@@ -187,30 +396,55 @@ export default function LandingPage() {
                     <ArrowRight className="h-3 w-3" />
                   </Button>
                 </div>
+                {(searchQuery.trim().length >= 2 || suggestionsLoading) && mounted && suggestionRect && portalStyle && createPortal(
+                  <div
+                    style={{
+                      position: "fixed",
+                      left: portalStyle.left,
+                      top: portalStyle.top,
+                      width: portalStyle.width,
+                      zIndex: 9999,
+                      maxHeight: portalStyle.maxHeight,
+                    }}
+                    className="overflow-hidden rounded-3xl border border-white/10 bg-white/90 dark:bg-slate-900/90 shadow-2xl shadow-slate-950/24 backdrop-blur-xl"
+                  >
+                    {suggestionsLoading ? (
+                      <div className="p-3 text-sm text-muted-foreground">Searching...</div>
+                    ) : searchSuggestions.length > 0 ? (
+                      <div className="overflow-auto">
+                        {searchSuggestions.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onMouseDown={(ev) => ev.preventDefault()}
+                            onClick={() => {
+                              // Navigate to publications and request expansion of this item
+                              router.push(`/publications?selected=${encodeURIComponent(String(item.id))}`);
+                            }}
+                            className="w-full text-left p-3 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            <div className="truncate text-sm font-semibold text-foreground">{item.draftPolicy}</div>
+                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                              <span className="text-xs text-muted-foreground">{item.organizationName}</span>
+                              <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
+                                {item.docType}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-sm text-muted-foreground">
+                        No suggestions found. Press Enter to search the public repository.
+                      </div>
+                    )}
+                  </div>,
+                  document.body,
+                )}
                 
-                {/* Suggestions Quick Tags */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs font-semibold text-muted-foreground">
-                  <span>Popular:</span>
-                  {[
-                    { label: "ESDP VI", term: "ESDP VI" },
-                    { label: "Inclusive Education", term: "Inclusive Education" },
-                    { label: "TVET Roadmap", term: "TVET" },
-                    { label: "Frameworks", term: "Framework" }
-                  ].map((tag) => (
-                    <button
-                      key={tag.label}
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery(tag.term);
-                        router.push(`/policies/repository?search=${encodeURIComponent(tag.term)}`);
-                      }}
-                      className="px-3 py-1 rounded-full bg-muted/40 hover:bg-primary/10 hover:text-primary border border-primary/5 hover:border-primary/20 transition-all duration-200"
-                    >
-                      {tag.label}
-                    </button>
-                  ))}
-                </div>
+                
               </form>
+
             </div>
 
             {/* Dashboard Showcase */}
@@ -220,53 +454,46 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: "easeOut" }}
             >
-              <div className="relative p-1.5 rounded-[2.5rem] bg-gradient-to-br from-primary/20 via-white/5 to-purple-500/20 shadow-xl ring-1 ring-white/10">
-                <div className="rounded-[2rem] border-4 border-background bg-card shadow-2xl overflow-hidden aspect-[16/10] relative group">
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/30 to-transparent z-10 pointer-events-none" />
-                  <Image
-                    src="/psr_landing_hero.png"
-                    alt="PSR Platform Dashboard Preview"
-                    fill
-                    className="object-cover group-hover:scale-105"
-                    priority
-                  />
+              
 
-                  {/* Floating Glass UI */}
-                  <div className="absolute bottom-6 left-6 right-6 z-20 flex items-end justify-between">
-                    <motion.div
-                      className="p-5 rounded-2xl bg-background/40 backdrop-blur-xl border border-white/20 shadow-xl space-y-2 max-w-xs"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        duration: 0.7,
-                        delay: 0.2,
-                        ease: "easeOut",
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-primary shadow-md shadow-primary/20 flex items-center justify-center">
-                          <PieChart className="h-4 w-4 text-primary-foreground" />
-                        </div>
-                        <span className="font-bold text-sm tracking-tight">
-                          Real-time Metrics
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium opacity-90 leading-snug">
-                        Tracking over 1,200 research nodes in a unified
-                        dashboard.
-                      </p>
-                    </motion.div>
-                  </div>
-                </div>
-              </div>
+              
             </motion.div>
+          </div>
+        </section>
+
+        {/* Impact / Analytics Section (moved earlier) */}
+        <section id="impact" className="p-12 border-y border-white/5 relative bg-background">
+          <div className="container mx-auto px-4">
+            <RevealOnScroll>
+              <StatsStrip overview={derivedOverview} />
+            </RevealOnScroll>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+              {/* <div className="col-span-2">
+                <RevealOnScroll>
+                  <TrendsCard data={trendData} title="Monthly proposal submissions" />
+                </RevealOnScroll>
+              </div>
+
+              <div className="col-span-1">
+                <RevealOnScroll>
+                  <DistributionChart items={distributionItems} />
+                </RevealOnScroll>
+              </div> */}
+            </div>
+
+            {/* <div className="mt-6">
+              <RevealOnScroll>
+                <TrustBand trust={trustPayload} />
+              </RevealOnScroll>
+            </div> */}
           </div>
         </section>
 
         {/* Features / Modules Section */}
         <section id="modules" className="p-24 bg-background relative">
           <div className="container mx-auto px-4">
-            <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
+            {/* <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
               <Badge
                 variant="secondary"
                 className="rounded-full px-4 py-1 text-[10px] font-bold tracking-widest uppercase"
@@ -282,91 +509,94 @@ export default function LandingPage() {
                 workflows, ensuring transparency, compliance, and impact
                 tracking across every stage.
               </p>
-            </RevealOnScroll>
+            </RevealOnScroll> */}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[
-                {
-                  title: "Policy Repository",
-                  description:
-                    "Centralized management of institutional policies with intelligent neural search and versioning.",
-                  icon: FileText,
-                  color: "text-blue-600",
-                  bg: "bg-blue-50",
-                  image: "/workflow_ingestion.png",
-                  delay: 0,
-                },
-                {
-                  title: "Research Proposals",
-                  description:
-                    "Full-lifecycle grant management from call publication to automated funding disbursement.",
-                  icon: BarChart3,
-                  color: "text-purple-600",
-                  bg: "bg-purple-50",
-                  image: "/workflow_execution.png",
-                  delay: 100,
-                },
-                {
-                  title: "Ethics Clearance",
-                  description:
-                    "Rigorous ethical review workflows with multi-tier approval boards and audit trails.",
-                  icon: ShieldCheck,
-                  color: "text-emerald-600",
-                  bg: "bg-emerald-50",
-                  image: "/workflow_governance.png",
-                  delay: 200,
-                },
-                {
-                  title: "Impact Analysis",
-                  description:
-                    "AI-driven monitoring of policy implementation and community-wide research outcomes.",
-                  icon: Users,
-                  color: "text-orange-600",
-                  bg: "bg-orange-50",
-                  image: "/psr_spotlight.png",
-                  delay: 300,
-                },
-              ].map((feature, i) => (
-                <RevealOnScroll key={i} delay={feature.delay}>
-                  <div className="group h-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500">
-                    <div className="h-40 relative overflow-hidden">
-                      <Image
-                        src={feature.image}
-                        alt={feature.title}
-                        fill
-                        className="object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent opacity-60" />
-                      <div
-                        className={cn(
-                          "absolute bottom-4 left-4 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10",
-                          feature.bg,
-                          feature.color,
-                        )}
-                      >
-                        <feature.icon className="h-5 w-5" />
-                      </div>
-                    </div>
+              {openGrantCalls.length ? (
+                openGrantCalls.slice(0, 4).map((call: any, index: number) => {
+                  const theme = grantCallCardThemes[index % grantCallCardThemes.length];
 
-                    <div className="p-8 space-y-4 flex-1 flex flex-col">
-                      <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-                        {feature.title}
-                      </h3>
-                      <p className="text-muted-foreground text-sm leading-relaxed flex-1">
-                        {feature.description}
-                      </p>
-                      <div className="pt-6 border-t border-border/50">
-                        <Link
-                          href="#"
-                          className="inline-flex items-center text-xs font-bold text-primary hover:gap-2 transition-all"
-                        >
-                          Learn more <ChevronRight className="h-3 w-3 ml-1" />
-                        </Link>
+                  return (
+                    <RevealOnScroll key={call.id} delay={index * 100}>
+                      <div className="group h-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500">
+                        <div className="h-40 relative overflow-hidden">
+                          <Image
+                            src={theme.image}
+                            alt={call.title}
+                            fill
+                            className="object-cover transition-transform duration-700 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent opacity-60" />
+                          <div
+                            className={cn(
+                              "absolute bottom-4 left-4 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10",
+                              theme.bg,
+                              theme.color,
+                            )}
+                          >
+                            <theme.icon className="h-5 w-5" />
+                          </div>
+                        </div>
+
+                        <div className="p-6 space-y-3 flex-1 flex flex-col">
+                          <div className="flex items-center justify-between gap-3">
+                            <Badge className="rounded-full bg-emerald-500/10 text-emerald-600 border-emerald-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
+                              Open Call
+                            </Badge>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              {call.status}
+                            </span>
+                          </div>
+
+                          <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
+                            {call.title}
+                          </h3>
+                          <p className="text-muted-foreground text-sm leading-relaxed flex-1 line-clamp-4">
+                            {call.description}
+                          </p>
+
+                          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-semibold text-foreground">Deadline</span>
+                              <span>{call.submissionDeadline ? new Date(call.submissionDeadline).toLocaleDateString() : "Soon"}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-semibold text-foreground">Funding</span>
+                              <span>
+                                {call.budgetRange ? `$${(call.budgetRange.max / 1000).toFixed(0)}k max` : "Available"}
+                              </span>
+                            </div>
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="font-semibold text-foreground">Priority</span>
+                              <span className="text-right line-clamp-2">
+                                {call.priorityAreas?.slice(0, 2).join(", ") || "Grant opportunity"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-border/50 mt-auto flex items-center justify-between gap-3">
+                            <Link
+                              href={`/calls/${call.id}`}
+                              className="inline-flex items-center text-xs font-bold text-primary hover:gap-2 transition-all"
+                            >
+                              View call <ChevronRight className="h-3 w-3 ml-1" />
+                            </Link>
+                            <Button asChild variant="outline" size="sm" className="rounded-full h-9 px-4 text-xs font-bold border-primary/15">
+                              <Link href={`/calls/${call.id}`}>Apply now</Link>
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </RevealOnScroll>
+                  );
+                })
+              ) : (
+                <RevealOnScroll className="sm:col-span-2 lg:col-span-4">
+                  <div className="rounded-2xl border border-dashed border-border/70 bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+                    No open grant calls are available right now.
                   </div>
                 </RevealOnScroll>
-              ))}
+              )}
             </div>
           </div>
         </section>
@@ -451,79 +681,138 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Impact Section */}
-        <section
-          id="impact"
-          className="p-20 border-y border-white/5 relative bg-primary"
-        >
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 text-center">
-              {[
-                { value: "500+", label: "Governments" },
-                { value: "1.2k+", label: "Research Centers" },
-                { value: "50M", label: "Grants Tracked" },
-                { value: "99.9%", label: "Uptime" },
-              ].map((stat, i) => (
-                <RevealOnScroll key={i} delay={i * 50} className="space-y-2">
-                  <p className="text-4xl md:text-6xl font-bold tracking-tighter text-white">
-                    {stat.value}
-                  </p>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-white/60">
-                    {stat.label}
-                  </p>
-                </RevealOnScroll>
-              ))}
+        {/* Public Analytics Section */}
+        <section id="insights" className="py-20 bg-muted/20 border-y border-border/50">
+          <div className="container mx-auto px-4 space-y-6">
+            <RevealOnScroll>
+              <StatsStrip overview={derivedOverview} />
+            </RevealOnScroll>
+
+            <RevealOnScroll>
+              <TrustBand trust={trustPayload} />
+            </RevealOnScroll>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <RevealOnScroll>
+                <TrendsCard data={trendData} title="Monthly proposal submissions" />
+              </RevealOnScroll>
+
+              <RevealOnScroll>
+                <TrendsCard data={policyTrendData} title="Monthly policy registrations" />
+              </RevealOnScroll>
             </div>
-          </div>
-        </section>
 
-        {/* FAQ Section */}
-        <section id="support" className="py-24">
-          <div className="container mx-auto px-4 max-w-3xl">
-            <RevealOnScroll className="text-center space-y-4 mb-20">
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
-                Support & Governance.
-              </h2>
-              <p className="text-base text-muted-foreground font-medium max-w-lg mx-auto">
-                Everything you need to know about the PSR operating system.
-              </p>
-            </RevealOnScroll>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <RevealOnScroll className="lg:col-span-1">
+                <div className="bg-card rounded-2xl p-6 h-full border border-border">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold">Thematic areas</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Live research domains and their sub-thematics.
+                      </p>
+                    </div>
+                    <Button asChild variant="outline" className="rounded-full h-9 px-4 text-xs font-bold">
+                      <Link href="/thematic-areas">View all</Link>
+                    </Button>
+                  </div>
 
-            <RevealOnScroll delay={100}>
-              <Accordion type="single" collapsible className="w-full space-y-4">
-                {[
-                  {
-                    q: "What is PSR Global?",
-                    a: "An enterprise-grade operating system designed to centralize and analyze institutional memory and grant lifecycles.",
-                  },
-                  {
-                    q: "Is the platform secure?",
-                    a: "Yes. We implement bank-grade encryption and zero-trust architecture for every deployment.",
-                  },
-                  {
-                    q: "Does it support grant tracking?",
-                    a: "Absolutely. The platform manages the entire lifecycle from initial call to final reporting.",
-                  },
-                  {
-                    q: "Can we use our own reviewers?",
-                    a: "Yes. The platform provides dedicated portals for your technical and ethical review boards.",
-                  },
-                ].map((item, i) => (
-                  <AccordionItem
-                    key={i}
-                    value={`item-${i}`}
-                    className="border-none rounded-2xl bg-muted/20 px-6 py-1 overflow-hidden hover:bg-muted/30 transition-all duration-300"
-                  >
-                    <AccordionTrigger className="text-lg font-bold hover:no-underline py-5 tracking-tight">
-                      {item.q}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-sm text-muted-foreground font-medium pb-6 leading-relaxed">
-                      {item.a}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </RevealOnScroll>
+                  <div className="mt-5 space-y-3 max-h-[28rem] overflow-auto pr-1">
+                    {loadingThematicAreas || loadingSubThematicAreas ? (
+                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+                        Loading thematic areas...
+                      </div>
+                    ) : thematicAreaPreview.length ? (
+                      thematicAreaPreview.map((area: any) => (
+                        <div
+                          key={area.id}
+                          className="rounded-xl border border-border/70 bg-background/60 px-4 py-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground line-clamp-1">
+                                {area.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {area.description || "Thematic area"}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="w-fit shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+                              {area.subAreas?.length ?? 0} sub
+                            </Badge>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(area.subAreas ?? []).slice(0, 3).map((sub: any) => (
+                              <Badge
+                                key={sub.id}
+                                variant="outline"
+                                className="rounded-full border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
+                              >
+                                {sub.name}
+                              </Badge>
+                            ))}
+                            {(area.subAreas?.length ?? 0) > 3 ? (
+                              <Badge
+                                variant="outline"
+                                className="rounded-full border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
+                              >
+                                +{area.subAreas.length - 3} more
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+                        No thematic areas available right now.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </RevealOnScroll>
+
+              <RevealOnScroll className="lg:col-span-2">
+                <div className="bg-card rounded-2xl p-6 h-full border border-border">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold">Active grant calls</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Public opportunities currently open or published.
+                      </p>
+                    </div>
+                    <Button asChild variant="outline" className="rounded-full h-9 px-4 text-xs font-bold">
+                      <Link href="/calls">View all</Link>
+                    </Button>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {openGrantCalls.length ? (
+                      openGrantCalls.map((call: any) => (
+                        <div
+                          key={call.id}
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/70 bg-background/60 px-4 py-3"
+                        >
+                          <div>
+                            <p className="font-semibold">{call.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Closes {call.closeDate ? new Date(call.closeDate).toLocaleDateString() : call.submissionDeadline ? new Date(call.submissionDeadline).toLocaleDateString() : "soon"}
+                            </p>
+                          </div>
+                          <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+                            {call.status}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+                        No open grant calls are published right now.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </RevealOnScroll>
+            </div>
           </div>
         </section>
 

@@ -31,6 +31,15 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/users/${id}`,
   },
 
+  // ── Contact Us ───────────────────────────────────────────────────────────
+  CONTACT_US: {
+    LIST: "/v1/contact-us/",
+    DETAIL: (id: string | number) => `/v1/contact-us/${id}/`,
+    CREATE: "/v1/contact-us/",
+    UPDATE: (id: string | number) => `/v1/contact-us/${id}/`,
+    DELETE: (id: string | number) => `/v1/contact-us/${id}/`,
+  },
+
   // ── Reference Data ────────────────────────────────────────────────────────
   REFERENCE: {
     TITLES: "/v1/titles/",
@@ -230,6 +239,7 @@ export const API_ENDPOINTS = {
   // ── Dashboard ─────────────────────────────────────────────────────────────
   DASHBOARD: {
     ANALYTICS: "/v1/dashboard/analytics/",
+    PUBLIC_OVERVIEW: "/v1/public/overview/",
     STATS: (role: string) => `/dashboard/stats?role=${role}`,
   },
 

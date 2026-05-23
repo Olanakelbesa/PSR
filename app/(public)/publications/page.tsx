@@ -1,113 +1,101 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { BookOpen, Download, Search, ChevronDown, Calendar, Users, FileText, ArrowUpDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowUpDown,
+  BookOpen,
+  Building2,
+  Calendar,
+  ChevronDown,
+  Download,
+  Eye,
+  FileText,
+  Globe,
+  Lock,
+  Search,
+  Shield,
+} from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { usePolicyRepository, type PolicyRepositoryItem } from "@/lib/queries/policy-repository";
 
-interface MockPublication {
-  id: string;
-  title: string;
-  abstract: string;
-  authors: string[];
-  category: "Policy Brief" | "Journal Article" | "Technical Report";
-  journal?: string;
-  year: number;
-  doi?: string;
-  keywords: string[];
-  fileName: string;
+const PAGE_SIZE = 100;
+
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return "#";
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (filePath.startsWith("/api/proxy")) return filePath;
+  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
+  return `/api/proxy/${filePath}`;
 }
 
-const MOCK_PUBLICATIONS: MockPublication[] = [
-  {
-    id: "pub-01",
-    title: "National Health Financing Strategy: Evaluating the Impact of Out-of-Pocket Cost Caps",
-    abstract: "This policy brief analyzes the implementation of community-based health insurance cap reforms across regional states. Results indicate a 40% reduction in catastrophic health expenses among low-income households, alongside a 12% rise in clinical utilization rates.",
-    authors: ["Dr. Elias Kebede", "Dr. Sarah Jenkins", "Ato Tesfaye Lemma"],
-    category: "Policy Brief",
-    year: 2024,
-    keywords: ["Health Financing", "Out-of-Pocket Costs", "Policy Brief", "Insurance Caps"],
-    fileName: "National_Health_Financing_Policy_Brief_2024.pdf",
-  },
-  {
-    id: "pub-02",
-    title: "Malaria Elimination Pathways: A Geospatial Analysis of Bed Net Efficacy in Lowland Woredas",
-    abstract: "A GIS-backed assessment mapping vector resistance and long-lasting insecticidal net (LLIN) distribution. Using remote sensing, we correlate climatic patterns with local transmission peaks to suggest optimized seasonally-adjusted insecticide spraying intervals.",
-    authors: ["Dr. Solomon Worku", "Dr. Michael Chen"],
-    category: "Journal Article",
-    journal: "East African Medical Journal, Vol. 98, No. 2",
-    year: 2023,
-    doi: "10.1016/j.eamj.2023.04.112",
-    keywords: ["Malaria Elimination", "Geospatial Analysis", "Vector Control", "GIS Mapping"],
-    fileName: "Geospatial_Malaria_BedNet_Efficacy_2023.pdf",
-  },
-  {
-    id: "pub-03",
-    title: "Decentralization of Primary Health Care: Ten-Year Review of Woreda-Level Efficacy",
-    abstract: "An exhaustive technical audit analyzing devolved health sector governance. This review evaluates financial accountability structures, resource allocation, and local service delivery benchmarks across 120 woredas between 2014 and 2024.",
-    authors: ["Prof. Abraham Bekele", "Dr. Helen Tesfaye", "Dr. Robert Green"],
-    category: "Technical Report",
-    year: 2024,
-    keywords: ["Decentralization", "Health Sector Governance", "Primary Care Audits", "Resource Allocation"],
-    fileName: "PHC_Decentralization_Ten_Year_Review_2024.pdf",
-  },
-  {
-    id: "pub-04",
-    title: "Telemedicine Adoption Barriers in Remote Communities: A Mixed-Methods Study",
-    abstract: "Investigates infrastructure, cultural, and training bottlenecks impacting satellite-linked clinical consultations in pastoralist zones. Recommends mobile-first light-weight visual tools to bypass regional cellular bandwidth constraints.",
-    authors: ["Dr. Martha Tsige", "Dr. David Vance"],
-    category: "Journal Article",
-    journal: "Journal of Medical Internet Research (JMIR), Vol. 15",
-    year: 2023,
-    doi: "10.2196/jmir.48512",
-    keywords: ["Telemedicine Barriers", "Pastoralist Health", "mHealth Connectivity", "Infrastructure Limitations"],
-    fileName: "Telemedicine_Adoption_Barriers_Study_2023.pdf",
-  },
-  {
-    id: "pub-05",
-    title: "Efficacy of mHealth SMS Alerts on Maternal Health Service Adherence",
-    abstract: "Evaluates a randomized control trial of text message reminders sent to pregnant women in rural zones. Adherence to all four recommended prenatal appointments increased from 42% in the control cohort to 68% in the SMS intervention cohort.",
-    authors: ["Dr. Helen Tesfaye", "Dr. Jane Doe"],
-    category: "Policy Brief",
-    year: 2024,
-    keywords: ["mHealth Alerts", "Maternal Care", "Prenatal Adherence", "Behavioral Nudges"],
-    fileName: "mHealth_SMS_Maternal_Care_Efficacy_2024.pdf",
-  },
-  {
-    id: "pub-06",
-    title: "Tuberculosis Diagnostic Pathways: GeneXpert Implementation Audits in Public Health Facilities",
-    abstract: "Reviews the roll-out of rapid molecular testing machines at district hospitals. The study evaluates average sample transit delays, cartage cost optimization, and recommendations for technical support networks.",
-    authors: ["Dr. Samuel Kidane", "Dr. Robert Green"],
-    category: "Technical Report",
-    year: 2022,
-    keywords: ["Tuberculosis Diagnostics", "GeneXpert Audit", "Molecular Testing", "Supply Chain Logics"],
-    fileName: "TB_GeneXpert_Implementation_Audit_2022.pdf",
-  },
-];
+function extractFileName(filePath?: string | null) {
+  if (!filePath) return "No file";
+  return filePath.split("/").pop() || filePath;
+}
+
+function formatDate(dateValue?: string | null) {
+  if (!dateValue) return "N/A";
+  const parsed = new Date(dateValue);
+  return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString();
+}
+
+function getAccessIcon(accessLevel?: string) {
+  return accessLevel === "restricted" ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />;
+}
+
+function getAccessBadgeClass(accessLevel?: string) {
+  return accessLevel === "restricted"
+    ? "bg-red-500/10 text-red-500 border-red-500/20"
+    : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+}
+
+function getStatusBadgeClass(status?: string) {
+  return status === "Published"
+    ? "bg-primary/10 text-primary border-primary/20"
+    : "bg-slate-500/10 text-slate-500 border-slate-500/20";
+}
+
+function buildCategories(items: PolicyRepositoryItem[]) {
+  return ["All", ...Array.from(new Set(items.map((item) => item.docType).filter(Boolean)))];
+}
 
 export default function PublicPublicationsPage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const routeSearch = searchParams.get("search") ?? "";
+  const routeSelected = searchParams.get("selected") ?? null;
+  const [searchQuery, setSearchQuery] = useState(routeSearch);
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+    setSearchQuery(routeSearch);
+  }, [routeSearch]);
+
+  const { data, isLoading, isError } = usePolicyRepository({
+    access_level: "public",
+    search: routeSearch,
+    limit: PAGE_SIZE,
+    ordering: sortBy === "newest" ? "-effective_date" : "effective_date",
+  });
+
+  const policies = data?.data ?? [];
+  const categories = useMemo(() => buildCategories(policies), [policies]);
 
   const filteredPublications = useMemo(() => {
-    let result = MOCK_PUBLICATIONS;
+    let result = policies;
 
     // Filter by Category
     if (categoryFilter !== "All") {
-      result = result.filter((pub) => pub.category === categoryFilter);
+      result = result.filter((pub) => pub.docType === categoryFilter);
     }
 
     // Filter by Search Query
@@ -115,35 +103,60 @@ export default function PublicPublicationsPage() {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (pub) =>
-          pub.title.toLowerCase().includes(q) ||
-          pub.abstract.toLowerCase().includes(q) ||
-          pub.authors.some((author) => author.toLowerCase().includes(q)) ||
-          pub.keywords.some((keyword) => keyword.toLowerCase().includes(q))
+          pub.draftPolicy.toLowerCase().includes(q) ||
+          pub.docType.toLowerCase().includes(q) ||
+          pub.organizationName.toLowerCase().includes(q) ||
+          pub.serialNumber.toLowerCase().includes(q) ||
+          pub.versionCode.toLowerCase().includes(q)
       );
     }
 
     // Sort
     result = [...result].sort((a, b) => {
-      return sortBy === "newest" ? b.year - a.year : a.year - b.year;
+      const left = new Date(a.effectiveDate).getTime();
+      const right = new Date(b.effectiveDate).getTime();
+      return sortBy === "newest" ? right - left : left - right;
     });
 
     return result;
-  }, [searchQuery, categoryFilter, sortBy]);
+  }, [policies, searchQuery, categoryFilter, sortBy]);
 
-  const handleDownload = (pub: MockPublication) => {
-    setDownloadingId(pub.id);
-    setTimeout(() => {
+  // If the route includes `selected`, expand that item once the data is available.
+  useEffect(() => {
+    if (!routeSelected) return;
+    // Wait until policies are loaded
+    if (!data) return;
+
+    const exists = policies.find((p) => String(p.id) === String(routeSelected));
+    if (exists) {
+      setExpandedId(String(routeSelected));
+      // Scroll the item into view after a short delay to allow layout to settle
+      setTimeout(() => {
+        const el = document.getElementById(`pub-${routeSelected}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 120);
+    }
+  }, [routeSelected, data]);
+
+  const handleDownload = (pub: PolicyRepositoryItem) => {
+    setDownloadingId(String(pub.id));
+    window.setTimeout(() => {
       setDownloadingId(null);
-      // Trigger a harmless mock download
-      const element = document.createElement("a");
-      const file = new Blob(["PSR Platform Mock Publication: " + pub.title], { type: "text/plain" });
-      element.href = URL.createObjectURL(file);
-      element.download = pub.fileName;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    }, 1200);
+    }, 800);
   };
+
+  const stats = useMemo(() => {
+    const published = policies.filter((item) => item.status === "Published").length;
+    const organizations = new Set(policies.map((item) => item.organizationName)).size;
+    const types = new Set(policies.map((item) => item.docType)).size;
+
+    return {
+      total: policies.length,
+      published,
+      organizations,
+      types,
+    };
+  }, [policies]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -181,10 +194,10 @@ export default function PublicPublicationsPage() {
               className="space-y-4"
             >
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
-                Publications & <span className="text-primary">Policy Archives</span>
+                Publications & <span className="text-primary">Policy Repository</span>
               </h1>
-              <p className="max-w-2xl text-base md:text-lg text-slate-350 leading-relaxed mx-auto">
-                Discover peer-reviewed journals, administrative reviews, and strategic policy briefs published by investigators working under PSR grant calls.
+              <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
+                The PSR System is a centralized platform for policy research, proposal management, and industry collaboration, helping Ethiopian institutions turn evidence into action.
               </p>
             </motion.div>
           </div>
@@ -193,12 +206,33 @@ export default function PublicPublicationsPage() {
         {/* Catalog Section */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex flex-col gap-8">
+
+            <div className="grid gap-4 md:grid-cols-4">
+              {[
+                { label: "Public Records", value: stats.total, icon: Globe },
+                { label: "Published", value: stats.published, icon: Shield },
+                { label: "Organizations", value: stats.organizations, icon: Building2 },
+                { label: "Document Types", value: stats.types, icon: FileText },
+              ].map((stat) => (
+                <Card key={stat.label} className="border border-white/5 bg-slate-900/20 backdrop-blur-md rounded-2xl">
+                  <CardContent className="p-5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{stat.label}</p>
+                      <p className="mt-1 text-2xl font-black text-foreground">{stat.value}</p>
+                    </div>
+                    <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+                      <stat.icon className="h-5 w-5" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
             
             {/* Filter and Sorting Header */}
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 pb-6 border-b border-white/5">
               {/* Category tags */}
               <div className="flex flex-wrap items-center gap-2">
-                {["All", "Policy Brief", "Journal Article", "Technical Report"].map((cat) => (
+                {categories.map((cat) => (
                   <Button
                     key={cat}
                     variant={categoryFilter === cat ? "default" : "outline"}
@@ -225,19 +259,26 @@ export default function PublicPublicationsPage() {
                   Sort: {sortBy === "newest" ? "Newest" : "Oldest"}
                 </Button>
 
-                <div className="relative w-full sm:w-64 group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    type="text"
-                    placeholder="Search titles, authors..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setExpandedId(null);
-                    }}
-                    className="pl-9 h-10 bg-muted/30 border-white/5 focus-visible:ring-primary rounded-xl"
-                  />
-                </div>
+                <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const query = searchQuery.trim();
+                  router.push(`/publications?search=${encodeURIComponent(query)}`);
+                }}
+                className="relative w-full sm:w-64 group"
+              >
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input
+                  type="text"
+                  placeholder="Search titles, serials, organizations..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setExpandedId(null);
+                  }}
+                  className="pl-9 h-10 bg-muted/30 border-white/5 focus-visible:ring-primary rounded-xl"
+                />
+              </form>
               </div>
             </div>
 
@@ -247,13 +288,22 @@ export default function PublicPublicationsPage() {
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
                 <p className="text-muted-foreground text-sm mt-4">Indexing publication database...</p>
               </div>
+            ) : isError ? (
+              <div className="py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
+                <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-bold text-foreground">Unable to load the repository</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
+                  The public policy repository could not be loaded right now.
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <AnimatePresence mode="popLayout">
                   {filteredPublications.map((pub) => {
-                    const isExpanded = expandedId === pub.id;
+                    const isExpanded = expandedId === String(pub.id);
                     return (
                       <motion.div
+                        id={`pub-${pub.id}`}
                         key={pub.id}
                         layout
                         initial={{ opacity: 0, y: 10 }}
@@ -264,25 +314,31 @@ export default function PublicPublicationsPage() {
                         <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
                           <button
                             type="button"
-                            onClick={() => setExpandedId(isExpanded ? null : pub.id)}
+                            onClick={() => setExpandedId(isExpanded ? null : String(pub.id))}
                             className="w-full text-left p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-white/[0.01] transition"
                           >
                             <div className="space-y-2 flex-grow">
                               <div className="flex flex-wrap items-center gap-3">
                                 <Badge className="bg-primary/5 text-primary border-primary/20 text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md">
-                                  {pub.category}
+                                  {pub.docType}
+                                </Badge>
+                                <Badge className={`border text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${getAccessBadgeClass(pub.accessLevel)}`}>
+                                  {pub.accessLevel}
+                                </Badge>
+                                <Badge className={`border text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${getStatusBadgeClass(pub.status)}`}>
+                                  {pub.status}
                                 </Badge>
                                 <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 font-mono">
                                   <Calendar className="w-3 h-3" />
-                                  {pub.year}
+                                  {formatDate(pub.effectiveDate)}
                                 </span>
                               </div>
                               <h3 className="text-base md:text-lg font-bold text-foreground leading-snug">
-                                {pub.title}
+                                {pub.draftPolicy}
                               </h3>
                               <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
-                                <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-                                <span className="line-clamp-1">{pub.authors.join(", ")}</span>
+                                <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                                <span className="line-clamp-1">{pub.organizationName}</span>
                               </div>
                             </div>
 
@@ -303,55 +359,61 @@ export default function PublicPublicationsPage() {
                                 className="overflow-hidden"
                               >
                                 <div className="px-6 pb-6 pt-2 border-t border-white/5 bg-slate-950/15 space-y-4">
-                                  {/* Journal detail */}
-                                  {pub.journal && (
-                                    <div className="text-xs text-muted-foreground font-bold italic">
-                                      Published in: <span className="text-foreground">{pub.journal}</span>
-                                      {pub.doi && ` (DOI: ${pub.doi})`}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground">
+                                    <div className="space-y-1.5 md:col-span-2">
+                                      <h4 className="text-xs font-bold text-foreground uppercase tracking-widest flex items-center gap-1">
+                                        <FileText className="w-3.5 h-3.5 text-primary" />
+                                        Registry Summary
+                                      </h4>
+                                      <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
+                                        {pub.draftPolicy} is registered under serial {pub.serialNumber} with version {pub.versionCode}.
+                                      </p>
                                     </div>
-                                  )}
 
-                                  {/* Abstract */}
-                                  <div className="space-y-1.5">
-                                    <h4 className="text-xs font-bold text-foreground uppercase tracking-widest flex items-center gap-1">
-                                      <FileText className="w-3.5 h-3.5 text-primary" />
-                                      Executive Summary / Abstract
-                                    </h4>
-                                    <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-                                      {pub.abstract}
-                                    </p>
-                                  </div>
-
-                                  {/* Keywords */}
-                                  <div className="flex flex-wrap gap-1.5 pt-2">
-                                    {pub.keywords.map((kw, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="text-[9px] font-bold text-muted-foreground font-mono bg-white/[0.03] border border-white/5 rounded px-2 py-0.5"
-                                      >
-                                        #{kw}
-                                      </span>
-                                    ))}
+                                    <div>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Draft Policy ID</p>
+                                      <p className="mt-1 font-semibold text-foreground">{pub.draftPolicyId}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Effective Date</p>
+                                      <p className="mt-1 font-semibold text-foreground">{formatDate(pub.effectiveDate)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Organization</p>
+                                      <p className="mt-1 font-semibold text-foreground">{pub.organizationName}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Access</p>
+                                      <p className="mt-1 font-semibold text-foreground">{pub.accessLevel}</p>
+                                    </div>
                                   </div>
 
                                   {/* Action */}
                                   <div className="pt-4 border-t border-white/5 flex justify-end">
                                     <Button
-                                      onClick={() => handleDownload(pub)}
+                                      asChild
                                       disabled={downloadingId !== null}
                                       className="rounded-xl font-bold text-xs tracking-wider uppercase h-10 px-6 gap-2"
                                     >
-                                      {downloadingId === pub.id ? (
-                                        <>
-                                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                          Pulling PDF
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Download className="w-4 h-4" />
-                                          Download Full Document
-                                        </>
-                                      )}
+                                      <a
+                                        href={resolveFileUrl(pub.draftFile)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        download={extractFileName(pub.draftFile)}
+                                        onClick={() => handleDownload(pub)}
+                                      >
+                                        {downloadingId === String(pub.id) ? (
+                                          <>
+                                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                            Opening File
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Download className="w-4 h-4" />
+                                            Download Official File
+                                          </>
+                                        )}
+                                      </a>
                                     </Button>
                                   </div>
                                 </div>
