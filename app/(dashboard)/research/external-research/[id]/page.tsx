@@ -45,6 +45,23 @@ export default function ExternalResearchDetailPage() {
 
   const { data: item, isLoading } = useExternalResearch(id);
 
+  const authorList = item?.authors ?? "Unknown author";
+  const authorParts = authorList.trim().split(/\s+/).filter(Boolean);
+  const primaryAuthor = authorParts[0] || "Unknown";
+  const familyName = authorParts[authorParts.length - 1] || "Unknown";
+  const publicationYear = item?.year || "n.d.";
+  const publicationTitle = item?.title || "Untitled research";
+  const sourceName = item?.institution || "External Research Archive";
+  const abstractText =
+    item?.abstract ||
+    item?.citation ||
+    "No abstract was provided for this record.";
+  const methodologyText =
+    item?.methodology || "No methodology summary is available for this record.";
+  const citationValue =
+    item?.citation ||
+    `${familyName}, ${primaryAuthor[0] || "U"}. (${publicationYear}). ${publicationTitle}. ${sourceName}.`;
+
   if (isLoading) {
     return (
       <PageContainer title="Loading...">
@@ -77,9 +94,9 @@ export default function ExternalResearchDetailPage() {
 
   // Citation formatting APA, MLA, BibTeX
   const citations = {
-    apa: item.citation,
-    mla: `${item.authors.split(" ").pop()}, ${item.authors.split(" ")[0]}. "${item.title}." Journal of Health Policy and Evidence, vol. 12, no. 1, 2024, pp. 34-48.`,
-    bibtex: `@article{ext_${String(item.id).toLowerCase().replace(/-/g, "_")},\n  author = {${item.authors}},\n  title = {${item.title}},\n  journal = {Journal of Health Policy and Evidence},\n  year = {${item.year}},\n  volume = {12},\n  number = {1},\n  pages = {34--48},\n  publisher = {${item.institution}}\n}`,
+    apa: citationValue,
+    mla: `${familyName}, ${primaryAuthor[0]}. "${publicationTitle}." Journal of Health Policy and Evidence, vol. 12, no. 1, ${publicationYear}, pp. 34-48.`,
+    bibtex: `@article{ext_${String(item.id).toLowerCase().replace(/-/g, "_")},\n  author = {${authorList}},\n  title = {${publicationTitle}},\n  journal = {Journal of Health Policy and Evidence},\n  year = {${publicationYear}},\n  volume = {12},\n  number = {1},\n  pages = {34--48},\n  publisher = {${sourceName}}\n}`,
   };
 
   const handleCopyCitation = () => {
@@ -186,7 +203,7 @@ export default function ExternalResearchDetailPage() {
               </CardHeader>
               <CardContent className="p-6 md:p-8 space-y-6">
                 <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">
-                  {item.abstract}
+                  {abstractText}
                 </p>
 
                 {/* Methodology Detail */}
@@ -195,7 +212,7 @@ export default function ExternalResearchDetailPage() {
                     Methodology Summary
                   </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    {item.methodology}
+                    {methodologyText}
                   </p>
                 </div>
               </CardContent>

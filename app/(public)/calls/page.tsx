@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Calendar, DollarSign, ArrowUpRight, Search, FileText, Clock, ShieldAlert } from "lucide-react";
+import {
+  Calendar,
+  DollarSign,
+  ArrowUpRight,
+  Search,
+  FileText,
+  Clock,
+  ShieldAlert,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +20,8 @@ import { useGrantCalls } from "@/lib/queries/grant-calls";
 import type { GrantCall } from "@/types/grant-call";
 
 function formatBudget(budget?: number | string | null) {
-  if (budget === null || budget === undefined || budget === "") return "Budget available";
+  if (budget === null || budget === undefined || budget === "")
+    return "Budget available";
 
   const amount = Number(budget);
   if (Number.isNaN(amount)) return String(budget);
@@ -38,11 +47,15 @@ function getCallStatus(call: GrantCall) {
     today.setHours(0, 0, 0, 0);
     closeDate.setHours(23, 59, 59, 999);
 
-    const diffDays = Math.ceil((closeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil(
+      (closeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
     if (diffDays <= 14) return "closing_soon";
   }
 
-  return status === "published" || status === "open" ? "open" : status || "open";
+  return status === "published" || status === "open"
+    ? "open"
+    : status || "open";
 }
 
 export default function CallsPage() {
@@ -71,7 +84,9 @@ export default function CallsPage() {
           (call.shortDescription ?? "").toLowerCase().includes(q) ||
           (call.description ?? "").toLowerCase().includes(q) ||
           (call.eligibilityCriteria ?? "").toLowerCase().includes(q) ||
-          (call.proposalTypes ?? []).some((type) => type.name.toLowerCase().includes(q))
+          (call.proposalTypes ?? []).some((type) =>
+            type.name.toLowerCase().includes(q),
+          ),
       );
     }
 
@@ -107,14 +122,15 @@ export default function CallsPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <main className="grow w-full py-12">
         <div className="container mx-auto px-4 max-w-6xl">
-          
           {/* Header */}
           <div className="space-y-4 mb-12">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
               Open <span className="text-primary">Research Calls</span>
             </h1>
             <p className="text-muted-foreground text-base max-w-2xl leading-relaxed">
-              Explore open opportunities for grant funding, academic fellowships, and research sponsorships aimed at resolving strategic policy questions.
+              Explore open opportunities for grant funding, academic
+              fellowships, and research sponsorships aimed at resolving
+              strategic policy questions.
             </p>
           </div>
 
@@ -129,7 +145,9 @@ export default function CallsPage() {
               ].map((filter) => (
                 <Button
                   key={filter.value}
-                  variant={statusFilter === filter.value ? "default" : "outline"}
+                  variant={
+                    statusFilter === filter.value ? "default" : "outline"
+                  }
                   onClick={() => setStatusFilter(filter.value)}
                   className="rounded-full h-9 px-5 text-xs font-bold border-white/5 transition-all duration-300"
                 >
@@ -154,14 +172,19 @@ export default function CallsPage() {
           {isLoading ? (
             <div className="py-24 text-center">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-              <p className="text-muted-foreground text-sm mt-4">Retrieving active calls...</p>
+              <p className="text-muted-foreground text-sm mt-4">
+                Retrieving active calls...
+              </p>
             </div>
           ) : isError ? (
             <div className="py-24 text-center border border-white/5 rounded-2xl bg-slate-900/10">
               <ShieldAlert className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-55" />
-              <h3 className="text-lg font-bold text-foreground mb-1">Unable to load calls</h3>
+              <h3 className="text-lg font-bold text-foreground mb-1">
+                Unable to load calls
+              </h3>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                The grant calls feed could not be loaded right now. Please try again shortly.
+                The grant calls feed could not be loaded right now. Please try
+                again shortly.
               </p>
             </div>
           ) : (
@@ -180,7 +203,7 @@ export default function CallsPage() {
                       <CardContent className="p-6 flex flex-col justify-between h-full space-y-6">
                         <div className="space-y-4">
                           <div className="flex items-center justify-between gap-4">
-                            {getStatusBadge(call.status)}
+                            {getStatusBadge(getCallStatus(call))}
                             <span className="text-[10px] font-bold text-muted-foreground font-mono uppercase tracking-wider">
                               ID: {call.id}
                             </span>
@@ -188,10 +211,14 @@ export default function CallsPage() {
 
                           <div className="space-y-2">
                             <h3 className="text-xl font-bold text-foreground leading-snug hover:text-primary transition-colors">
-                              <Link href={`/calls/${call.id}`}>{call.title}</Link>
+                              <Link href={`/calls/${call.id}`}>
+                                {call.title}
+                              </Link>
                             </h3>
                             <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                              {call.shortDescription ?? call.description ?? "Open research funding opportunity."}
+                              {call.shortDescription ??
+                                call.description ??
+                                "Open research funding opportunity."}
                             </p>
                           </div>
 
@@ -199,12 +226,19 @@ export default function CallsPage() {
                           <div className="flex flex-wrap gap-1.5">
                             {(call.proposalTypes ?? []).length > 0 ? (
                               call.proposalTypes!.map((area, idx) => (
-                                <Badge key={idx} variant="secondary" className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5">
+                                <Badge
+                                  key={idx}
+                                  variant="secondary"
+                                  className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5"
+                                >
                                   {area.name}
                                 </Badge>
                               ))
                             ) : (
-                              <Badge variant="secondary" className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5">
+                              <Badge
+                                variant="secondary"
+                                className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5"
+                              >
                                 General Research
                               </Badge>
                             )}
@@ -216,7 +250,13 @@ export default function CallsPage() {
                           <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground">
                             <div className="flex items-center gap-1.5">
                               <Calendar className="w-3.5 h-3.5 text-primary" />
-                              <span>{call.closeDate ? new Date(call.closeDate).toLocaleDateString() : "Open until filled"}</span>
+                              <span>
+                                {call.closeDate
+                                  ? new Date(
+                                      call.closeDate,
+                                    ).toLocaleDateString()
+                                  : "Open until filled"}
+                              </span>
                             </div>
                             <div className="flex items-center gap-1">
                               <DollarSign className="w-3.5 h-3.5 text-primary" />
@@ -244,9 +284,12 @@ export default function CallsPage() {
               {!isLoading && filteredCalls.length === 0 && (
                 <div className="col-span-2 py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
                   <ShieldAlert className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-55" />
-                  <h3 className="text-lg font-bold text-foreground mb-1">No Active Calls</h3>
+                  <h3 className="text-lg font-bold text-foreground mb-1">
+                    No Active Calls
+                  </h3>
                   <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                    No grant opportunities match your search parameters. Please try a different query.
+                    No grant opportunities match your search parameters. Please
+                    try a different query.
                   </p>
                   <Button
                     variant="outline"

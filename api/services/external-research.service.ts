@@ -115,11 +115,19 @@ export const externalResearchService = {
 
     const normalized = list.data.map((item: any) => ({
       id: item.id ?? item.pk,
-      uploaded_by_name: item.uploadedByName ?? item.uploaded_by_name ?? item.uploadedBy?.fullName ?? undefined,
+      uploaded_by_name:
+        item.uploadedByName ??
+        item.uploaded_by_name ??
+        item.uploadedBy?.fullName ??
+        undefined,
       title: item.title,
       authors: item.authors ?? item.author ?? null,
       institution: item.institution ?? null,
       year: item.year ?? item.publication_year ?? null,
+      abstract: item.abstract ?? item.summary ?? item.description ?? null,
+      methodology:
+        item.methodology ?? item.methods ?? item.methodologicalSummary ?? null,
+      citation: item.citation ?? item.apaCitation ?? null,
       // map gradedEvidence to UI 'grade' values
       grade: ((): string | null => {
         const g = item.gradedEvidence ?? item.graded_evidence ?? null;
@@ -148,18 +156,34 @@ export const externalResearchService = {
 
     const mapped = {
       id: payload.id ?? payload.pk,
-      uploaded_by_name: payload.uploadedByName ?? payload.uploaded_by_name ?? payload.uploadedBy?.fullName ?? undefined,
+      uploaded_by_name:
+        payload.uploadedByName ??
+        payload.uploaded_by_name ??
+        payload.uploadedBy?.fullName ??
+        undefined,
       title: payload.title,
       authors: payload.authors ?? payload.author ?? null,
       institution: payload.institution ?? null,
       year: payload.year ?? payload.publication_year ?? null,
+      abstract:
+        payload.abstract ?? payload.summary ?? payload.description ?? null,
+      methodology:
+        payload.methodology ??
+        payload.methods ??
+        payload.methodologicalSummary ??
+        null,
+      citation: payload.citation ?? payload.apaCitation ?? null,
       grade:
         payload.gradedEvidence === "high" || payload.gradedEvidence === "medium"
           ? "good"
           : payload.gradedEvidence
-          ? "poor"
-          : null,
-      type: payload.researchTypeName ?? payload.researchType ?? payload.type ?? null,
+            ? "poor"
+            : null,
+      type:
+        payload.researchTypeName ??
+        payload.researchType ??
+        payload.type ??
+        null,
       keywords: payload.keywords ?? null,
       file: payload.file ?? payload.document ?? null,
       uploaded_at: payload.uploadedAt ?? payload.uploaded_at ?? null,
