@@ -175,7 +175,7 @@ export default function FundingRecommendationsPage() {
 
   const candidates = useMemo(
     () =>
-      (candidateData?.data ?? []).filter((item) => item.funding_decision_id),
+      (candidateData?.data ?? []).filter((item) => item.fundingDecisionId),
     [candidateData?.data],
   );
 
@@ -225,21 +225,21 @@ export default function FundingRecommendationsPage() {
 
   const candidateColumns: ColumnDef<FundingRecommendationCandidate>[] = [
     {
-      accessorKey: "reference_number",
+      accessorKey: "referenceNumber",
       header: "Reference",
       cell: ({ row }) => (
         <span className="font-bold text-primary">
-          {row.original.reference_number || `SCR-${row.original.screening_id}`}
+          {row.original.referenceNumber || `SCR-${row.original.screeningId}`}
         </span>
       ),
     },
     {
-      accessorKey: "proposal_title",
+      accessorKey: "proposalTitle",
       header: "Proposal",
       cell: ({ row }) => (
         <div className="max-w-105">
           <p className="line-clamp-2 text-sm font-bold">
-            {row.original.proposal_title || "Untitled proposal"}
+            {row.original.proposalTitle || "Untitled proposal"}
           </p>
           <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
             {row.original.organization?.name || "Organization not provided"}
@@ -248,34 +248,34 @@ export default function FundingRecommendationsPage() {
       ),
     },
     {
-      accessorKey: "principal_investigator",
+      accessorKey: "principalInvestigator",
       header: "Principal Investigator",
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="text-sm font-bold">
-            {piName(row.original.principal_investigator)}
+            {piName(row.original.principalInvestigator)}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {row.original.principal_investigator?.email || "-"}
+            {row.original.principalInvestigator?.email || "-"}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: "budget_requested",
+      accessorKey: "budgetRequested",
       header: "Requested Budget",
       cell: ({ row }) => (
         <span className="font-bold">
-          {formatCurrency(row.original.budget_requested)}
+          {formatCurrency(row.original.budgetRequested)}
         </span>
       ),
     },
     {
-      accessorKey: "average_score_percentage",
+      accessorKey: "averageScorePercentage",
       header: "Score",
       cell: ({ row }) => (
         <Badge className="border-blue-200 bg-blue-50 text-blue-700 shadow-none">
-          {Number(row.original.average_score_percentage || 0).toFixed(1)}%
+          {Number(row.original.averageScorePercentage || 0).toFixed(1)}%
         </Badge>
       ),
     },
@@ -284,8 +284,8 @@ export default function FundingRecommendationsPage() {
       header: "IRB",
       cell: ({ row }) => (
         <StatusBadge
-          needsIrb={row.original.need_irb_ethical_clearance}
-          status={row.original.ethical_clearance_status}
+          needsIrb={row.original.needIrbEthicalClearance}
+          status={row.original.ethicalClearanceStatus}
         />
       ),
     },
@@ -302,7 +302,7 @@ export default function FundingRecommendationsPage() {
             <DropdownMenuItem
               onClick={() =>
                 router.push(
-                  `/research/funding-recommendations/${row.original.funding_decision_id}`,
+                  `/research/funding-recommendations/${row.original.fundingDecisionId}`,
                 )
               }
             >
@@ -485,11 +485,11 @@ export default function FundingRecommendationsPage() {
               <DataTable
                 columns={candidateColumns}
                 data={candidates}
-                searchKey="proposal_title"
+                searchKey="proposalTitle"
                 searchPlaceholder="Search pending recommendations..."
                 onRowClick={(row) =>
                   router.push(
-                    `/research/funding-recommendations/${row.funding_decision_id}`,
+                    `/research/funding-recommendations/${row.fundingDecisionId}`,
                   )
                 }
                 emptyMessage="No proposals awaiting funding recommendation"

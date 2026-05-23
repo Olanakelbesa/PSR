@@ -483,27 +483,34 @@ export default function EthicalClearanceDetailPage() {
       return;
     }
 
-    if (!requestFile) {
+    if (!requestFile && !clearance.request_file) {
       toast.error("Request file is required.");
       return;
     }
 
-    if (decision === "approved" && !clearanceFile) {
+    if (
+      decision === "approved" &&
+      !clearanceFile &&
+      !clearance.clearance_file
+    ) {
       toast.error("Clearance file is required for an approved decision.");
       return;
     }
 
     const approvalDate =
       decision === "approved"
-        ? new Date().toISOString().split("T")[0]
+        ? clearance.approval_date || new Date().toISOString().split("T")[0]
         : undefined;
+
+    const applicationDate =
+      clearance.application_date || new Date().toISOString().split("T")[0];
 
     try {
       await createDecision.mutateAsync({
         proposal: clearance.proposal,
-        request_file: requestFile,
+        request_file: requestFile || undefined,
         clearance_type: clearanceTypeState,
-        application_date: new Date().toISOString().split("T")[0],
+        application_date: applicationDate,
         status: decision,
         clearance_file: clearanceFile || undefined,
         approval_date: approvalDate,
@@ -614,9 +621,13 @@ export default function EthicalClearanceDetailPage() {
                         className="font-bold border-primary/20"
                       >
                         {clearanceTypeLabel[clearance.clearance_type] ||
-                          clearance.clearance_type}
+                          clearance.clearance_type || "—"}
                       </Badge>
                     ),
+                  },
+                  {
+                    label: "IRB Required",
+                    value: clearance.need_irb_ethical_clearance ? "Yes" : "No",
                   },
                   {
                     label: "Proposal ID",
@@ -625,6 +636,12 @@ export default function EthicalClearanceDetailPage() {
                   {
                     label: "Screening ID",
                     value: clearance.screening_id ?? "—",
+                  },
+                  {
+                    label: "Funding Ready ID",
+                    value:
+                      clearance.proposal_ready_for_funding_id ??
+                      "Not assigned",
                   },
                   {
                     label: "Application Date",
