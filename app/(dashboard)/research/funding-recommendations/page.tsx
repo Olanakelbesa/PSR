@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { cn } from "@/lib/utils";
 import {
   useFundingRecommendationCandidates,
@@ -461,54 +461,19 @@ export default function FundingRecommendationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Tabs defaultValue="pending" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="pending">
-                Pending Queue
-                <Badge variant="secondary" className="ml-2">
-                  {candidates.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="submitted">
-                Submitted
-                <Badge variant="secondary" className="ml-2">
-                  {recommendations.length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="pending" className="space-y-4">
-              <DataTable
-                columns={candidateColumns}
-                data={candidates}
-                searchKey="proposalTitle"
-                searchPlaceholder="Search pending recommendations..."
-                onRowClick={(row) =>
-                  router.push(
-                    `/research/funding-recommendations/${row.fundingDecisionId}`,
-                  )
-                }
-                emptyMessage="No proposals awaiting funding recommendation"
-                emptyDescription="Approved funding decisions without recommendations will appear here."
-              />
-            </TabsContent>
-
-            <TabsContent value="submitted" className="space-y-4">
-              <DataTable
-                columns={recommendationColumns}
-                data={recommendations}
-                searchKey="proposal_title"
-                searchPlaceholder="Search submitted recommendations..."
-                onRowClick={(row) =>
-                  router.push(
-                    `/research/funding-recommendations/${row.ready_for_funding_id || row.proposal}`,
-                  )
-                }
-                emptyMessage="No funding recommendations submitted"
-                emptyDescription="Submitted funding recommendation records will appear here."
-              />
-            </TabsContent>
-          </Tabs>
+          <DataTable
+            columns={recommendationColumns}
+            data={recommendations}
+            searchKey="proposal_title"
+            searchPlaceholder="Search submitted recommendations..."
+            onRowClick={(row) =>
+              router.push(
+                `/research/funding-recommendations/${row.ready_for_funding_id || row.proposal}`,
+              )
+            }
+            emptyMessage="No funding recommendations submitted"
+            emptyDescription="Submitted funding recommendation records will appear here."
+          />
         )}
       </div>
     </PageContainer>

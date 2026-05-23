@@ -237,3 +237,17 @@ export async function getInternalUsers(params?: {
 
   return Array.isArray(fallbackData) ? fallbackData : [];
 }
+// ─── GET /v1/terminalreporttypes/ ───────────────────────────────────────────────
+export async function getTerminalReportTypes(): Promise<LookupItem[]> {
+  const res = await apiClient.get(API_ENDPOINTS.TERMINAL_REPORT_TYPES.LIST);
+  const parsed = LookupListSchema.safeParse(res.data);
+  if (parsed.success) {
+    return parsed.data.data;
+  }
+  
+  const fallbackData = Array.isArray(res.data)
+    ? res.data
+    : (res.data?.data ?? res.data?.results ?? []);
+
+  return Array.isArray(fallbackData) ? fallbackData : [];
+}

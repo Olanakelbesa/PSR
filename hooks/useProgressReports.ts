@@ -4,6 +4,7 @@ import {
   progressReportApprovalsService,
   terminalReportApprovalsService,
   type ProgressReportFormValues,
+  type ProjectTrackingFormValues,
   type TerminalReportFormValues,
   type ProgressReportApprovalUpdateValues,
   type TerminalReportApprovalUpdateValues,
@@ -15,6 +16,14 @@ export const progressReportKeys = {
     ["progress-reports", "list", params] as const,
   detail: (id: string | number) =>
     ["progress-reports", "detail", String(id)] as const,
+};
+
+export const projectTrackingKeys = {
+  all: ["project-tracking"] as const,
+  list: (params: Record<string, unknown>) =>
+    ["project-tracking", "list", params] as const,
+  detail: (id: string | number) =>
+    ["project-tracking", "detail", String(id)] as const,
 };
 
 export const progressReportApprovalKeys = {
@@ -49,6 +58,22 @@ export function useProgressReport(id: string | number | undefined) {
   });
 }
 
+export function useProjectTracking(params: Record<string, unknown> = {}) {
+  return useQuery({
+    queryKey: projectTrackingKeys.list(params),
+    queryFn: () => progressReportsService.getProjectTracking(params),
+  });
+}
+
+export function useProjectTrackingById(id: string | number | undefined) {
+  return useQuery({
+    queryKey: projectTrackingKeys.detail(id ?? ""),
+    queryFn: () =>
+      progressReportsService.getProjectTrackingById(id as string | number),
+    enabled: !!id,
+  });
+}
+
 export function useCreateProgressReport() {
   const queryClient = useQueryClient();
 
@@ -57,6 +82,19 @@ export function useCreateProgressReport() {
       progressReportsService.createProgressReport(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: progressReportKeys.all });
+    },
+  });
+}
+
+export function useCreateProjectTracking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (values: ProjectTrackingFormValues) =>
+      progressReportsService.createProjectTracking(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectTrackingKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["ready-project-tracking"] });
     },
   });
 }
@@ -158,5 +196,12 @@ export function useUpdateTerminalReportApproval() {
         queryKey: terminalReportApprovalKeys.detail(id),
       });
     },
+  });
+}
+
+export function useReadyForTracking() {
+  return useQuery({
+    queryKey: ["ready-project-tracking"],
+    queryFn: () => progressReportsService.getReadyForTracking(),
   });
 }

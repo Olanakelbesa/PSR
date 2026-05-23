@@ -211,6 +211,10 @@ export const API_ENDPOINTS = {
     CREATE: "/v1/terminal-reports/",
   },
 
+  TERMINAL_REPORT_TYPES: {
+    LIST: "/v1/terminalreporttypes/",
+  },
+
   // ── Grants ────────────────────────────────────────────────────────────────
   GRANTS: {
     LIST: "/grants",
@@ -250,6 +254,13 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/screenings/${id}/`,
     CREATE_DECISION: (id: string | number) =>
       `/v1/screenings/${id}/ready-for-funding/`,
+  },
+
+  PROJECT_TRACKING: {
+    LIST: "/v1/project-tracking/",
+    CREATE: "/v1/project-tracking/",
+    DETAIL: (id: string | number) => `/v1/project-tracking/${id}/`,
+    READY_FOR_TRACKING: "/v1/project-tracking/ready-for-tracking/",
   },
 
   // ── Funding Recommendations ───────────────────────────────────────────────

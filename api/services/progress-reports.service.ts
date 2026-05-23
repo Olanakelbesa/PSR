@@ -17,6 +17,57 @@ export interface ProgressReportSummary {
   general_status?: string;
 }
 
+export interface ProjectTrackingProposal {
+  fundingRecommendationId?: number;
+  proposalId?: number;
+  referenceNumber?: string;
+  title?: string;
+  totalAwardAmount?: string;
+  hasEthicalClearanceApproval?: boolean;
+  pi?: {
+    id: number;
+    fullName: string;
+    email: string;
+  } | null;
+}
+
+export interface ProjectTrackingSummary {
+  id: number;
+  proposal: ProjectTrackingProposal | null;
+  proposalTitle: string | null;
+  referenceNumber: string | null;
+  totalAwardAmount: string | null;
+  pi: {
+    id: number;
+    fullName: string;
+    email: string;
+  } | null;
+  status: string;
+  generalStatus: string;
+}
+
+export interface ReadyForTrackingProject {
+  id: number;
+  proposal: number;
+  readyForFundingId: number;
+  fundingDecisionStatus: string;
+  screeningStatus: string;
+  screeningId: number;
+  referenceNumber: string;
+  proposalTitle: string;
+  pi: {
+    id: number;
+    fullName: string;
+    email: string;
+  } | null;
+  totalAwardAmount: string;
+  amountEnglishInWords: string;
+  hasEthicalClearanceApproval: boolean;
+  comments: string | null;
+  recommendedAt: string;
+  terminalReportStatus: string | null;
+}
+
 export interface ProgressReportApproval {
   id: number;
   reviewer_name: string;
@@ -48,6 +99,10 @@ export interface ProgressReportFormValues {
   status?: ReportDecision;
 }
 
+export interface ProjectTrackingFormValues {
+  proposal: number;
+}
+
 export interface TerminalReportFormValues {
   project_tracking: number;
   report_name?: string;
@@ -71,7 +126,9 @@ export interface TerminalReportApproval {
   decision: ReportDecision;
   comment: string | null;
   reviewed_at: string;
-  terminal_report: number;
+  terminal_report?: number;
+  terminal_report_id?: number | null;
+  terminal_report_status?: string | null;
   reviewer: number;
 }
 
@@ -129,6 +186,30 @@ function buildFormData<T extends object>(values: T) {
   return formData;
 }
 
+function normalizeProjectTracking(item: any): ProjectTrackingSummary {
+  return {
+    id: item.id ?? item.pk,
+    proposal: item.proposal ?? null,
+    proposalTitle:
+      item.proposalTitle ?? item.proposal?.title ?? item.proposal_title ?? null,
+    referenceNumber:
+      item.proposal?.referenceNumber ??
+      item.proposal?.reference_number ??
+      item.referenceNumber ??
+      item.reference_number ??
+      null,
+    totalAwardAmount:
+      item.proposal?.totalAwardAmount ??
+      item.proposal?.total_award_amount ??
+      item.totalAwardAmount ??
+      item.total_award_amount ??
+      null,
+    pi: item.proposal?.pi ?? item.pi ?? null,
+    status: item.status ?? "on_progress",
+    generalStatus: item.generalStatus ?? item.general_status ?? "pending",
+  };
+}
+
 export const progressReportsService = {
   async getProgressReports(
     params: Record<string, unknown> = {},
@@ -144,19 +225,37 @@ export const progressReportsService = {
       id: item.id ?? item.pk,
       // Keep numeric project_tracking id for form submissions, also expose title
       project_tracking:
-        Number(item.project_tracking ?? item.projectTracking?.projectTrackingId ?? item.projectTracking?.id ?? item.projectTracking?.proposalId ?? null) || null,
+        Number(
+          item.project_tracking ??
+            item.projectTracking?.projectTrackingId ??
+            item.projectTracking?.id ??
+            item.projectTracking?.proposalId ??
+            null,
+        ) || null,
       project_tracking_title:
-        item.projectTracking?.title ?? item.project_tracking_title ?? item.projectTrackingTitle ?? null,
+        item.projectTracking?.title ??
+        item.project_tracking_title ??
+        item.projectTrackingTitle ??
+        null,
       report_name: item.report_name ?? item.reportName ?? null,
       main_activities_achieved:
-        item.main_activities_achieved ?? item.mainActivitiesAchieved ?? item.main_activities ?? "",
+        item.main_activities_achieved ??
+        item.mainActivitiesAchieved ??
+        item.main_activities ??
+        "",
       attachment: item.attachment ?? item.file ?? null,
-      amount_used: item.amount_used ?? item.amountUsed ?? String(item.amount ?? "0"),
+      amount_used:
+        item.amount_used ?? item.amountUsed ?? String(item.amount ?? "0"),
       start_date: item.start_date ?? item.startDate ?? null,
       end_date: item.end_date ?? item.endDate ?? null,
-      status: item.status ?? item.general_status ?? item.generalStatus ?? "pending",
+      status:
+        item.status ?? item.general_status ?? item.generalStatus ?? "pending",
       submitted_at: item.submitted_at ?? item.submittedAt ?? null,
-      general_status: item.general_status ?? item.generalStatus ?? item.generalStatus ?? undefined,
+      general_status:
+        item.general_status ??
+        item.generalStatus ??
+        item.generalStatus ??
+        undefined,
     }));
 
     return {
@@ -177,20 +276,73 @@ export const progressReportsService = {
     return {
       id: payload.id ?? payload.pk,
       project_tracking:
-        Number(payload.project_tracking ?? payload.projectTracking?.projectTrackingId ?? payload.projectTracking?.id ?? null) || null,
+        Number(
+          payload.project_tracking ??
+            payload.projectTracking?.projectTrackingId ??
+            payload.projectTracking?.id ??
+            null,
+        ) || null,
       project_tracking_title:
-        payload.projectTracking?.title ?? payload.project_tracking_title ?? payload.projectTrackingTitle ?? null,
+        payload.projectTracking?.title ??
+        payload.project_tracking_title ??
+        payload.projectTrackingTitle ??
+        null,
       report_name: payload.report_name ?? payload.reportName ?? null,
       main_activities_achieved:
-        payload.main_activities_achieved ?? payload.mainActivitiesAchieved ?? payload.main_activities ?? "",
+        payload.main_activities_achieved ??
+        payload.mainActivitiesAchieved ??
+        payload.main_activities ??
+        "",
       attachment: payload.attachment ?? payload.file ?? null,
-      amount_used: payload.amount_used ?? payload.amountUsed ?? String(payload.amount ?? "0"),
+      amount_used:
+        payload.amount_used ??
+        payload.amountUsed ??
+        String(payload.amount ?? "0"),
       start_date: payload.start_date ?? payload.startDate ?? null,
       end_date: payload.end_date ?? payload.endDate ?? null,
-      status: payload.status ?? payload.general_status ?? payload.generalStatus ?? "pending",
+      status:
+        payload.status ??
+        payload.general_status ??
+        payload.generalStatus ??
+        "pending",
       submitted_at: payload.submitted_at ?? payload.submittedAt ?? null,
-      general_status: payload.general_status ?? payload.generalStatus ?? payload.generalStatus ?? undefined,
+      general_status:
+        payload.general_status ??
+        payload.generalStatus ??
+        payload.generalStatus ??
+        undefined,
     } as any;
+  },
+
+  async getProjectTracking(
+    params: Record<string, unknown> = {},
+  ): Promise<ListResponse<ProjectTrackingSummary>> {
+    const { data } = await apiClient.get(API_ENDPOINTS.PROJECT_TRACKING.LIST, {
+      params,
+    });
+
+    const list = unwrapListResponse<any>(data);
+
+    const normalized = list.data.map((item: any) =>
+      normalizeProjectTracking(item),
+    );
+
+    return {
+      data: normalized as ProjectTrackingSummary[],
+      meta: list.meta,
+    };
+  },
+
+  async getProjectTrackingById(
+    id: string | number,
+  ): Promise<ProjectTrackingSummary> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.PROJECT_TRACKING.DETAIL(id),
+    );
+
+    const payload = unwrapDetailResponse<any>(data);
+
+    return normalizeProjectTracking(payload);
   },
 
   async createProgressReport(
@@ -208,6 +360,17 @@ export const progressReportsService = {
     return unwrapDetailResponse<ProgressReportSummary>(data);
   },
 
+  async createProjectTracking(
+    values: ProjectTrackingFormValues,
+  ): Promise<unknown> {
+    const { data } = await apiClient.post(
+      API_ENDPOINTS.PROJECT_TRACKING.CREATE,
+      values,
+    );
+
+    return unwrapDetailResponse<unknown>(data);
+  },
+
   async createTerminalReport(
     values: TerminalReportFormValues,
   ): Promise<unknown> {
@@ -221,6 +384,34 @@ export const progressReportsService = {
     );
 
     return unwrapDetailResponse<unknown>(data);
+  },
+
+  async getReadyForTracking(): Promise<ReadyForTrackingProject[]> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.PROJECT_TRACKING.READY_FOR_TRACKING,
+    );
+    const results = data?.data ?? data?.results ?? [];
+    return results.map((item: any) => ({
+      id: item.id,
+      proposal: item.proposal,
+      readyForFundingId: item.readyForFundingId ?? item.ready_for_funding_id,
+      fundingDecisionStatus:
+        item.fundingDecisionStatus ?? item.funding_decision_status,
+      screeningStatus: item.screeningStatus ?? item.screening_status,
+      screeningId: item.screeningId ?? item.screening_id,
+      referenceNumber: item.referenceNumber ?? item.reference_number,
+      proposalTitle: item.proposalTitle ?? item.proposal_title,
+      pi: item.pi,
+      totalAwardAmount: item.totalAwardAmount ?? item.total_award_amount,
+      amountEnglishInWords:
+        item.amountEnglishInWords ?? item.amount_english_in_words,
+      hasEthicalClearanceApproval:
+        item.hasEthicalClearanceApproval ?? item.has_ethical_clearance_approval,
+      comments: item.comments,
+      recommendedAt: item.recommendedAt ?? item.recommended_at,
+      terminalReportStatus:
+        item.terminalReportStatus ?? item.terminal_report_status,
+    }));
   },
 };
 
@@ -246,10 +437,18 @@ export const progressReportApprovalsService = {
       reviewer: item.reviewer ?? null,
       // Flatten minimal progress report info
       progress_report:
-        item.progressReport?.reportName ?? item.progressReport?.report_name ?? item.progress_report ?? (item.progressReport?.progressReportId ?? null),
+        item.progressReport?.reportName ??
+        item.progressReport?.report_name ??
+        item.progress_report ??
+        item.progressReport?.progressReportId ??
+        null,
       progress_report_id:
-        item.progressReport?.progressReportId ?? item.progressReport?.id ?? item.progressReport ?? null,
-      project_tracking_id: item.projectTrackingId ?? item.project_tracking_id ?? null,
+        item.progressReport?.progressReportId ??
+        item.progressReport?.id ??
+        item.progressReport ??
+        null,
+      project_tracking_id:
+        item.projectTrackingId ?? item.project_tracking_id ?? null,
     }));
 
     return {
@@ -271,14 +470,23 @@ export const progressReportApprovalsService = {
       id: payload.id ?? payload.pk,
       reviewer_name: payload.reviewerName ?? payload.reviewer_name ?? null,
       decision: payload.decision ?? null,
-      comment: payload.comment ?? payload.ROCComments ?? payload.roc_comments ?? null,
+      comment:
+        payload.comment ?? payload.ROCComments ?? payload.roc_comments ?? null,
       reviewed_at: payload.reviewedAt ?? payload.reviewed_at ?? null,
       reviewer: payload.reviewer ?? null,
       progress_report:
-        payload.progressReport?.reportName ?? payload.progressReport?.report_name ?? payload.progress_report ?? (payload.progressReport?.progressReportId ?? null),
+        payload.progressReport?.reportName ??
+        payload.progressReport?.report_name ??
+        payload.progress_report ??
+        payload.progressReport?.progressReportId ??
+        null,
       progress_report_id:
-        payload.progressReport?.progressReportId ?? payload.progressReport?.id ?? payload.progressReport ?? null,
-      project_tracking_id: payload.projectTrackingId ?? payload.project_tracking_id ?? null,
+        payload.progressReport?.progressReportId ??
+        payload.progressReport?.id ??
+        payload.progressReport ??
+        null,
+      project_tracking_id:
+        payload.projectTrackingId ?? payload.project_tracking_id ?? null,
     } as any;
   },
 
@@ -315,7 +523,17 @@ export const terminalReportApprovalsService = {
       comment: item.ROCComments ?? item.comment ?? null,
       reviewed_at: item.reviewedAt ?? item.reviewed_at ?? null,
       reviewer: item.reviewer ?? null,
-      terminal_report_id: item.terminalReport?.terminalReportId ?? item.terminalReport?.id ?? null,
+      terminal_report:
+        Number(
+          item.terminalReport?.terminalReportId ??
+            item.terminalReport?.id ??
+            item.terminal_report ??
+            null,
+        ) || undefined,
+      terminal_report_id:
+        item.terminalReport?.terminalReportId ??
+        item.terminalReport?.id ??
+        null,
       terminal_report_status: item.terminalReport?.status ?? null,
     }));
 
@@ -341,7 +559,17 @@ export const terminalReportApprovalsService = {
       comment: payload.ROCComments ?? payload.comment ?? null,
       reviewed_at: payload.reviewedAt ?? payload.reviewed_at ?? null,
       reviewer: payload.reviewer ?? null,
-      terminal_report_id: payload.terminalReport?.terminalReportId ?? payload.terminalReport?.id ?? null,
+      terminal_report:
+        Number(
+          payload.terminalReport?.terminalReportId ??
+            payload.terminalReport?.id ??
+            payload.terminal_report ??
+            null,
+        ) || undefined,
+      terminal_report_id:
+        payload.terminalReport?.terminalReportId ??
+        payload.terminalReport?.id ??
+        null,
       terminal_report_status: payload.terminalReport?.status ?? null,
     } as any;
   },

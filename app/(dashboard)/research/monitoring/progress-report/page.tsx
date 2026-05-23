@@ -1,8 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Eye, RefreshCw, Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
@@ -11,18 +10,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProgressReports } from "@/hooks";
+import {
+  useProjectTracking,
+  useReadyForTracking,
+  useCreateProjectTracking,
+} from "@/hooks";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { useRouter } from "next/dist/client/components/navigation";
 
 const statusLabels = {
-  pending: "Pending",
-  approved: "Approved",
-  rejected: "Rejected",
+  on_progress: "On Progress",
+  completed: "Completed Successfully",
+  terminated: "Terminated without Completion",
 } as const;
 
 const statusClasses = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  rejected: "bg-rose-50 text-rose-700 border-rose-200",
+  on_progress: "bg-sky-50 text-sky-700 border-sky-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  terminated: "bg-rose-50 text-rose-700 border-rose-200",
 } as const;
 
 export default function ProgressReportListPage() {
@@ -30,8 +43,19 @@ export default function ProgressReportListPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<
-    "all" | "pending" | "approved" | "rejected"
+    "all" | "on_progress" | "completed" | "terminated"
   >("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formValues, setFormValues] = useState({
+    proposal: "",
+  });
+
+  const router = useRouter();
+
+  // Fetch projects ready for final submission to populate select options
+  const { data: readyProjects } = useReadyForTracking();
+
+  const createMutation = useCreateProjectTracking();
 
   const queryParams = useMemo(
     () => ({
@@ -43,30 +67,33 @@ export default function ProgressReportListPage() {
     [page, search, status],
   );
 
-  const { data, isLoading, refetch } = useProgressReports(queryParams);
-  const reports = data?.data ?? [];
+  const { data, isLoading, refetch } = useProjectTracking(queryParams);
+  const trackingRecords = data?.data ?? [];
   const meta = data?.meta ?? { page: 1, limit: 10, total: 0, totalPages: 0 };
 
   const stats = [
     { label: "Total", value: meta.total },
     {
-      label: "Pending",
-      value: reports.filter((report) => report.status === "pending").length,
+      label: "On Progress",
+      value: trackingRecords.filter((record) => record.status === "on_progress")
+        .length,
     },
     {
-      label: "Approved",
-      value: reports.filter((report) => report.status === "approved").length,
+      label: "Completed",
+      value: trackingRecords.filter((record) => record.status === "completed")
+        .length,
     },
     {
-      label: "Rejected",
-      value: reports.filter((report) => report.status === "rejected").length,
+      label: "Terminated",
+      value: trackingRecords.filter((record) => record.status === "terminated")
+        .length,
     },
   ];
 
   const columns = [
     {
       accessorKey: "id",
-      header: "Report ID",
+      header: "Tracking ID",
       cell: ({ row }: any) => (
         <span className="font-mono text-[11px] font-semibold text-primary/80">
           #{row.original.id}
@@ -74,34 +101,41 @@ export default function ProgressReportListPage() {
       ),
     },
     {
-      accessorKey: "project_tracking",
-      header: "Project Tracking",
-      cell: ({ row }: any) => (
-        <span className="font-mono text-[11px] font-semibold">
-          {row.original.project_tracking_title || row.original.project_tracking}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "report_name",
-      header: "Report Name",
+      accessorKey: "proposalTitle",
+      header: "Proposal",
       cell: ({ row }: any) => (
         <div className="max-w-[320px]">
           <div className="font-semibold truncate">
-            {row.original.report_name}
+            {row.original.proposalTitle || row.original.proposal?.title || "-"}
           </div>
           <div className="text-[11px] text-muted-foreground truncate">
-            {row.original.main_activities_achieved}
+            {row.original.referenceNumber || "-"}
           </div>
         </div>
       ),
     },
     {
-      accessorKey: "amount_used",
-      header: "Amount Used",
+      accessorKey: "pi",
+      header: "PI",
+      cell: ({ row }: any) => (
+        <div className="max-w-60">
+          <div className="font-semibold truncate">
+            {row.original.pi?.fullName || "-"}
+          </div>
+          <div className="text-[11px] text-muted-foreground truncate">
+            {row.original.pi?.email || "-"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "totalAwardAmount",
+      header: "Award Amount",
       cell: ({ row }: any) => (
         <span className="font-mono text-[12px] font-semibold">
-          ETB {Number(row.original.amount_used || 0).toLocaleString()}
+          {row.original.totalAwardAmount
+            ? `ETB ${Number(row.original.totalAwardAmount).toLocaleString()}`
+            : "-"}
         </span>
       ),
     },
@@ -118,41 +152,97 @@ export default function ProgressReportListPage() {
       },
     },
     {
-      accessorKey: "submitted_at",
-      header: "Submitted",
+      accessorKey: "generalStatus",
+      header: "General Status",
       cell: ({ row }: any) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.submitted_at
-            ? new Date(row.original.submitted_at).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })
+        <Badge
+          variant="outline"
+          className="bg-muted text-muted-foreground border-muted"
+        >
+          {row.original.generalStatus
+            ? row.original.generalStatus
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (letter: string) => letter.toUpperCase())
             : "-"}
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }: any) => (
-        <Button asChild variant="ghost" size="sm" className="h-8 px-2">
-          <Link
-            href={`/research/monitoring/progress-report/${row.original.id}`}
-          >
-            <Eye className="mr-1 h-4 w-4" />
-            View
-          </Link>
-        </Button>
+        </Badge>
       ),
     },
   ];
 
   return (
     <PageContainer
-      title="Progress Reports"
-      description="Track periodic reports, submission status, and financial utilization from active projects."
+      title="Project Tracking"
+      description="Track funded proposals that have been opened for monitoring and follow-up."
+      actions={
+        <Button onClick={() => setIsDialogOpen(true)}>
+          Create Project Tracking
+        </Button>
+      }
     >
+      {/* Create Project Tracking Modal */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Project Tracking</DialogTitle>
+            <DialogDescription>
+              Select a proposal to create a project tracking record for it.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+
+              createMutation.mutate(
+                {
+                  proposal: Number(formValues.proposal),
+                },
+                {
+                  onSuccess: () => {
+                    setIsDialogOpen(false);
+                    setFormValues({
+                      proposal: "",
+                    });
+                  },
+                },
+              );
+            }}
+          >
+            <div>
+              <label className="block text-sm font-medium mb-1">Proposal</label>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2"
+                value={formValues.proposal}
+                onChange={(e) =>
+                  setFormValues({
+                    ...formValues,
+                    proposal: e.target.value,
+                  })
+                }
+                required
+              >
+                <option value="">Select proposal</option>
+                {readyProjects?.map((proj: any) => (
+                  <option key={proj.id} value={proj.id}>
+                    {proj.referenceNumber || proj.reference_number || proj.id}{" "}
+                    {proj.proposalTitle || proj.proposal_title
+                      ? `(${proj.proposalTitle || proj.proposal_title})`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button type="submit" disabled={createMutation.isPending}>
+                Submit
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {isLoading
@@ -180,103 +270,15 @@ export default function ProgressReportListPage() {
               ))}
         </div>
 
-        <Card className="border-none shadow-sm">
-          <CardContent className="space-y-4 pt-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-1 items-center gap-2">
-                <div className="relative w-full max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchInput}
-                    onChange={(event) => setSearchInput(event.target.value)}
-                    placeholder="Search by report name or activity"
-                    className="pl-10"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setPage(1);
-                    setSearch(searchInput.trim());
-                  }}
-                >
-                  Search
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <select
-                  value={status}
-                  onChange={(event) => {
-                    setPage(1);
-                    setStatus(
-                      event.target.value as
-                        | "all"
-                        | "pending"
-                        | "approved"
-                        | "rejected",
-                    );
-                  }}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => refetch()}
-                >
-                  <RefreshCw className="mr-1 h-4 w-4" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-
-            <DataTable
-              columns={columns}
-              data={reports}
-              searchKey="report_name"
-              searchPlaceholder="Filter loaded rows..."
-              emptyMessage="No progress reports found"
-              emptyDescription="Try changing your search text or status filter."
-            />
-
-            <div className="flex items-center justify-between border-t pt-4">
-              <div className="text-xs text-muted-foreground">
-                Page {meta.page} of {Math.max(meta.totalPages, 1)}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isLoading || page <= 1}
-                  onClick={() =>
-                    setPage((previous) => Math.max(previous - 1, 1))
-                  }
-                >
-                  Previous
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    isLoading ||
-                    (meta.totalPages > 0 && page >= meta.totalPages)
-                  }
-                  onClick={() => setPage((previous) => previous + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <DataTable
+          columns={columns}
+          onRowClick={(row) =>
+            router.push(`/research/monitoring/progress-report/${row.id}`)
+          }
+          data={trackingRecords}
+          emptyMessage="No project tracking records found"
+          emptyDescription="Try changing your search text or status filter."
+        />
       </div>
     </PageContainer>
   );

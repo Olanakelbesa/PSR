@@ -16,6 +16,7 @@ import {
   getProposalTypes,
   getSubCallTypes,
   getInternalUsers,
+  getTerminalReportTypes,
 } from "@/api/services/reference.service";
 
 // Long stale time: reference data rarely changes
@@ -32,6 +33,7 @@ export const referenceKeys = {
   proposalTypes: ["reference", "proposal-types"] as const,
   subCallTypes: ["reference", "sub-call-types"] as const,
   internalUsers: ["reference", "internal-users"] as const,
+  terminalReportTypes: ["reference", "terminal-report-types"] as const,
 };
 
 export function useTitles() {
@@ -152,6 +154,14 @@ export function useInternalUsers() {
   return useQuery({
     queryKey: referenceKeys.internalUsers,
     queryFn: () => getInternalUsers(),
+    staleTime: REFERENCE_STALE_TIME,
+  });
+}
+
+export function useTerminalReportTypes() {
+  return useQuery({
+    queryKey: referenceKeys.terminalReportTypes,
+    queryFn: () => getTerminalReportTypes(),
     staleTime: REFERENCE_STALE_TIME,
   });
 }
