@@ -19,37 +19,42 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "@/lib/queries/notifications";
 
-// Mock notifications
-const notifications = [
-  {
-    id: "1",
-    title: "New proposal submitted",
-    message: "A new research proposal has been submitted for review.",
-    time: "5 min ago",
-    unread: true,
-  },
-  {
-    id: "2",
-    title: "Review reminder",
-    message: "You have 2 pending reviews due this week.",
-    time: "1 hour ago",
-    unread: true,
-  },
-  {
-    id: "3",
-    title: "Policy approved",
-    message: "The National Health Policy has been approved.",
-    time: "2 days ago",
-    unread: false,
-  },
-];
+function getRelativeTime(createdAt: string) {
+  const diffInMs = Date.now() - new Date(createdAt).getTime();
+  if (Number.isNaN(diffInMs)) {
+    return "Just now";
+  }
+
+  const minutes = Math.round(diffInMs / 1000 / 60);
+  if (minutes < 1) {
+    return "Just now";
+  }
+  if (minutes < 60) {
+    return `${minutes} min ago`;
+  }
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
 
 export function AppHeader() {
   const { user } = useAuth();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const {
+    data: notifications = [],
+    isLoading: notificationsLoading,
+  } = useNotifications(user?.id ?? undefined);
+  const markNotificationRead = useMarkNotificationRead();
+  const markAllNotificationsRead = useMarkAllNotificationsRead();
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     setMounted(true);
@@ -57,6 +62,14 @@ export function AppHeader() {
 
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
+  };
+
+  const handleMarkAsRead = (notificationId: string, alreadyRead: boolean) => {
+    if (alreadyRead) {
+      return;
+    }
+
+    markNotificationRead.mutate(notificationId);
   };
 
   return (
@@ -105,7 +118,7 @@ export function AppHeader() {
               <span className="sr-only">Notifications</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent align="end" className="min-w-[22rem] w-96 max-w-[26rem]">
             <DropdownMenuLabel className="flex items-center justify-between">
               <span>Notifications</span>
               {unreadCount > 0 && (
@@ -113,24 +126,39 @@ export function AppHeader() {
                   variant="ghost"
                   size="sm"
                   className="h-auto p-0 text-xs text-primary"
+                  onClick={() =>
+                    markAllNotificationsRead.mutate(
+                      notifications
+                        .filter((notification) => !notification.read)
+                        .map((notification) => notification.id),
+                    )
+                  }
+                  disabled={markAllNotificationsRead.status === "pending"}
                 >
                   Mark all as read
                 </Button>
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {notifications.length > 0 ? (
+            {notificationsLoading ? (
+              <div className="p-4 text-center text-muted-foreground text-sm">
+                Loading notifications...
+              </div>
+            ) : notifications.length > 0 ? (
               <>
                 {notifications.map((notification) => (
                   <DropdownMenuItem
                     key={notification.id}
                     className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                    onClick={() =>
+                      handleMarkAsRead(notification.id, notification.read)
+                    }
                   >
                     <div className="flex items-start gap-2 w-full">
-                      {notification.unread && (
+                      {!notification.read && (
                         <div className="h-2 w-2 mt-1.5 rounded-full bg-primary shrink-0" />
                       )}
-                      <div className={notification.unread ? "" : "ml-4"}>
+                      <div className={!notification.read ? "" : "ml-4"}>
                         <p className="font-medium text-sm">
                           {notification.title}
                         </p>
@@ -138,7 +166,7 @@ export function AppHeader() {
                           {notification.message}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {notification.time}
+                          {getRelativeTime(notification.createdAt)}
                         </p>
                       </div>
                     </div>
