@@ -212,7 +212,6 @@ export default function ExternalResearchPage() {
         <DataTable
           columns={columns}
           data={data?.data ?? []}
-          isLoading={isLoading}
           searchKey="projectTitle"
           searchPlaceholder="Search title, keywords or publishers..."
           emptyMessage="No external research findings found"

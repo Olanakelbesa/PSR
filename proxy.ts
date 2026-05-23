@@ -12,6 +12,6 @@ export { auth as proxy } from "@/app/api/auth/[...nextauth]/route";
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|images|fonts|api).*)",
+    "/((?!_next/static|_next/image|favicon.ico|images|fonts|api|login|signup|forgot-password|reset-password|verify-otp|health).*)",
   ],
 };
