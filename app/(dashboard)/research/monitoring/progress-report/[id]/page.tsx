@@ -217,7 +217,7 @@ export default function ProgressReportDetailPage() {
   return (
     <PageContainer
       title={report.report_name || `Progress Report #${report.id}`}
-      description={`Project Tracking ID: ${report.project_tracking}`}
+      description={`Project Tracking: ${report.project_tracking_title || report.project_tracking}`}
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -261,9 +261,9 @@ export default function ProgressReportDetailPage() {
                 <p className="text-xs uppercase tracking-widest text-muted-foreground">
                   Project Tracking
                 </p>
-                <p className="text-sm font-semibold">
-                  {report.project_tracking}
-                </p>
+                  <p className="text-sm font-semibold">
+                    {report.project_tracking_title || report.project_tracking}
+                  </p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-widest text-muted-foreground">

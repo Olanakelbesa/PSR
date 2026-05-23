@@ -78,7 +78,7 @@ export default function ProgressReportListPage() {
       header: "Project Tracking",
       cell: ({ row }: any) => (
         <span className="font-mono text-[11px] font-semibold">
-          {row.original.project_tracking}
+          {row.original.project_tracking_title || row.original.project_tracking}
         </span>
       ),
     },

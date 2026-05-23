@@ -111,14 +111,62 @@ export const externalResearchService = {
       params: cleanParams(filters),
     });
 
-    return normalizeList<any>(data);
+    const list = normalizeList<any>(data);
+
+    const normalized = list.data.map((item: any) => ({
+      id: item.id ?? item.pk,
+      uploaded_by_name: item.uploadedByName ?? item.uploaded_by_name ?? item.uploadedBy?.fullName ?? undefined,
+      title: item.title,
+      authors: item.authors ?? item.author ?? null,
+      institution: item.institution ?? null,
+      year: item.year ?? item.publication_year ?? null,
+      // map gradedEvidence to UI 'grade' values
+      grade: ((): string | null => {
+        const g = item.gradedEvidence ?? item.graded_evidence ?? null;
+        if (!g) return null;
+        if (String(g).toLowerCase() === "high") return "good";
+        if (String(g).toLowerCase() === "medium") return "good";
+        return "poor";
+      })(),
+      // research type (could be numeric id or string)
+      type: item.researchTypeName ?? item.researchType ?? item.type ?? null,
+      keywords: item.keywords ?? null,
+      file: item.file ?? item.document ?? null,
+      uploaded_at: item.uploadedAt ?? item.uploaded_at ?? null,
+      uploaded_by: item.uploadedBy ?? item.uploaded_by ?? null,
+    }));
+
+    return { data: normalized, meta: list.meta };
   },
 
   async retrieve(id: string | number) {
     const { data } = await apiClient.get(
       API_ENDPOINTS.EXTERNAL_RESEARCH.DETAIL(id),
     );
-    return normalizeDetail<any>(data);
+
+    const payload = normalizeDetail<any>(data);
+
+    const mapped = {
+      id: payload.id ?? payload.pk,
+      uploaded_by_name: payload.uploadedByName ?? payload.uploaded_by_name ?? payload.uploadedBy?.fullName ?? undefined,
+      title: payload.title,
+      authors: payload.authors ?? payload.author ?? null,
+      institution: payload.institution ?? null,
+      year: payload.year ?? payload.publication_year ?? null,
+      grade:
+        payload.gradedEvidence === "high" || payload.gradedEvidence === "medium"
+          ? "good"
+          : payload.gradedEvidence
+          ? "poor"
+          : null,
+      type: payload.researchTypeName ?? payload.researchType ?? payload.type ?? null,
+      keywords: payload.keywords ?? null,
+      file: payload.file ?? payload.document ?? null,
+      uploaded_at: payload.uploadedAt ?? payload.uploaded_at ?? null,
+      uploaded_by: payload.uploadedBy ?? payload.uploaded_by ?? null,
+    };
+
+    return mapped;
   },
 
   async create(values: Record<string, unknown>) {

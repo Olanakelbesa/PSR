@@ -137,7 +137,32 @@ export const progressReportsService = {
       params,
     });
 
-    return unwrapListResponse<ProgressReportSummary>(data);
+    const list = unwrapListResponse<any>(data);
+
+    // Normalize possible camelCase payload keys to the UI expected shape
+    const normalized = list.data.map((item: any) => ({
+      id: item.id ?? item.pk,
+      // Keep numeric project_tracking id for form submissions, also expose title
+      project_tracking:
+        Number(item.project_tracking ?? item.projectTracking?.projectTrackingId ?? item.projectTracking?.id ?? item.projectTracking?.proposalId ?? null) || null,
+      project_tracking_title:
+        item.projectTracking?.title ?? item.project_tracking_title ?? item.projectTrackingTitle ?? null,
+      report_name: item.report_name ?? item.reportName ?? null,
+      main_activities_achieved:
+        item.main_activities_achieved ?? item.mainActivitiesAchieved ?? item.main_activities ?? "",
+      attachment: item.attachment ?? item.file ?? null,
+      amount_used: item.amount_used ?? item.amountUsed ?? String(item.amount ?? "0"),
+      start_date: item.start_date ?? item.startDate ?? null,
+      end_date: item.end_date ?? item.endDate ?? null,
+      status: item.status ?? item.general_status ?? item.generalStatus ?? "pending",
+      submitted_at: item.submitted_at ?? item.submittedAt ?? null,
+      general_status: item.general_status ?? item.generalStatus ?? item.generalStatus ?? undefined,
+    }));
+
+    return {
+      data: normalized as ProgressReportSummary[],
+      meta: list.meta,
+    };
   },
 
   async getProgressReportById(
@@ -147,7 +172,25 @@ export const progressReportsService = {
       API_ENDPOINTS.PROGRESS_REPORTS.DETAIL(id),
     );
 
-    return unwrapDetailResponse<ProgressReportSummary>(data);
+    const payload = unwrapDetailResponse<any>(data);
+
+    return {
+      id: payload.id ?? payload.pk,
+      project_tracking:
+        Number(payload.project_tracking ?? payload.projectTracking?.projectTrackingId ?? payload.projectTracking?.id ?? null) || null,
+      project_tracking_title:
+        payload.projectTracking?.title ?? payload.project_tracking_title ?? payload.projectTrackingTitle ?? null,
+      report_name: payload.report_name ?? payload.reportName ?? null,
+      main_activities_achieved:
+        payload.main_activities_achieved ?? payload.mainActivitiesAchieved ?? payload.main_activities ?? "",
+      attachment: payload.attachment ?? payload.file ?? null,
+      amount_used: payload.amount_used ?? payload.amountUsed ?? String(payload.amount ?? "0"),
+      start_date: payload.start_date ?? payload.startDate ?? null,
+      end_date: payload.end_date ?? payload.endDate ?? null,
+      status: payload.status ?? payload.general_status ?? payload.generalStatus ?? "pending",
+      submitted_at: payload.submitted_at ?? payload.submittedAt ?? null,
+      general_status: payload.general_status ?? payload.generalStatus ?? payload.generalStatus ?? undefined,
+    } as any;
   },
 
   async createProgressReport(
@@ -192,7 +235,27 @@ export const progressReportApprovalsService = {
       },
     );
 
-    return unwrapListResponse<ProgressReportApproval>(data);
+    const list = unwrapListResponse<any>(data);
+
+    const normalized = list.data.map((item: any) => ({
+      id: item.id ?? item.pk,
+      reviewer_name: item.reviewerName ?? item.reviewer_name ?? null,
+      decision: item.decision ?? null,
+      comment: item.comment ?? item.ROCComments ?? item.roc_comments ?? null,
+      reviewed_at: item.reviewedAt ?? item.reviewed_at ?? null,
+      reviewer: item.reviewer ?? null,
+      // Flatten minimal progress report info
+      progress_report:
+        item.progressReport?.reportName ?? item.progressReport?.report_name ?? item.progress_report ?? (item.progressReport?.progressReportId ?? null),
+      progress_report_id:
+        item.progressReport?.progressReportId ?? item.progressReport?.id ?? item.progressReport ?? null,
+      project_tracking_id: item.projectTrackingId ?? item.project_tracking_id ?? null,
+    }));
+
+    return {
+      data: normalized as ProgressReportApproval[],
+      meta: list.meta,
+    };
   },
 
   async getProgressReportApprovalById(
@@ -202,7 +265,21 @@ export const progressReportApprovalsService = {
       API_ENDPOINTS.PROGRESS_REPORT_APPROVALS.DETAIL(id),
     );
 
-    return unwrapDetailResponse<ProgressReportApproval>(data);
+    const payload = unwrapDetailResponse<any>(data);
+
+    return {
+      id: payload.id ?? payload.pk,
+      reviewer_name: payload.reviewerName ?? payload.reviewer_name ?? null,
+      decision: payload.decision ?? null,
+      comment: payload.comment ?? payload.ROCComments ?? payload.roc_comments ?? null,
+      reviewed_at: payload.reviewedAt ?? payload.reviewed_at ?? null,
+      reviewer: payload.reviewer ?? null,
+      progress_report:
+        payload.progressReport?.reportName ?? payload.progressReport?.report_name ?? payload.progress_report ?? (payload.progressReport?.progressReportId ?? null),
+      progress_report_id:
+        payload.progressReport?.progressReportId ?? payload.progressReport?.id ?? payload.progressReport ?? null,
+      project_tracking_id: payload.projectTrackingId ?? payload.project_tracking_id ?? null,
+    } as any;
   },
 
   async updateProgressReportApproval(
@@ -229,7 +306,23 @@ export const terminalReportApprovalsService = {
       },
     );
 
-    return unwrapListResponse<TerminalReportApproval>(data);
+    const list = unwrapListResponse<any>(data);
+
+    const normalized = list.data.map((item: any) => ({
+      id: item.id ?? item.pk,
+      reviewer_name: item.reviewerName ?? item.reviewer_name ?? null,
+      decision: item.decision ?? null,
+      comment: item.ROCComments ?? item.comment ?? null,
+      reviewed_at: item.reviewedAt ?? item.reviewed_at ?? null,
+      reviewer: item.reviewer ?? null,
+      terminal_report_id: item.terminalReport?.terminalReportId ?? item.terminalReport?.id ?? null,
+      terminal_report_status: item.terminalReport?.status ?? null,
+    }));
+
+    return {
+      data: normalized as TerminalReportApproval[],
+      meta: list.meta,
+    };
   },
 
   async getTerminalReportApprovalById(
@@ -239,7 +332,18 @@ export const terminalReportApprovalsService = {
       API_ENDPOINTS.TERMINAL_REPORT_APPROVALS.DETAIL(id),
     );
 
-    return unwrapDetailResponse<TerminalReportApproval>(data);
+    const payload = unwrapDetailResponse<any>(data);
+
+    return {
+      id: payload.id ?? payload.pk,
+      reviewer_name: payload.reviewerName ?? payload.reviewer_name ?? null,
+      decision: payload.decision ?? null,
+      comment: payload.ROCComments ?? payload.comment ?? null,
+      reviewed_at: payload.reviewedAt ?? payload.reviewed_at ?? null,
+      reviewer: payload.reviewer ?? null,
+      terminal_report_id: payload.terminalReport?.terminalReportId ?? payload.terminalReport?.id ?? null,
+      terminal_report_status: payload.terminalReport?.status ?? null,
+    } as any;
   },
 
   async updateTerminalReportApproval(
