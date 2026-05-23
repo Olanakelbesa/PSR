@@ -128,6 +128,51 @@ function buildFormData<T extends object>(values: T) {
   return formData;
 }
 
+function normalizeFundingProposalDetail(item: any) {
+  if (!item || typeof item !== "object") return null;
+
+  return {
+    funding_recommendation_id:
+      item.fundingRecommendationId ??
+      item.funding_recommendation_id ??
+      item.id ??
+      null,
+    proposal_id: item.proposalId ?? item.proposal_id ?? null,
+    reference_number: item.referenceNumber ?? item.reference_number ?? null,
+    title: item.title ?? null,
+    total_award_amount:
+      item.totalAwardAmount ?? item.total_award_amount ?? null,
+  };
+}
+
+function normalizeOutputTypeDetail(item: any) {
+  if (!item || typeof item !== "object") return null;
+
+  return {
+    id: item.id ?? null,
+    name: item.name ?? null,
+  };
+}
+
+function normalizeDataCenterDetail(item: any) {
+  if (!item || typeof item !== "object") return null;
+
+  return {
+    id: item.id ?? null,
+    name: item.name ?? null,
+  };
+}
+
+function normalizeSubmitterDetail(item: any) {
+  if (!item || typeof item !== "object") return null;
+
+  return {
+    id: item.id ?? null,
+    full_name: item.fullName ?? item.full_name ?? null,
+    email: item.email ?? null,
+  };
+}
+
 export const finalSubmissionsService = {
   async list(
     filters: FinalSubmissionFilters = {},
@@ -140,27 +185,52 @@ export const finalSubmissionsService = {
 
     const normalized = list.data.map((item: any) => ({
       id: item.id ?? item.pk,
-      submitted_by_name: item.submittedByName ?? item.submitted_by_name ?? item.submittedBy?.fullName ?? undefined,
+      submitted_by_name:
+        item.submittedByName ??
+        item.submitted_by_name ??
+        item.submittedBy?.fullName ??
+        undefined,
       title: item.title,
       abstract: item.abstract ?? null,
-      executive_summary: item.executiveSummary ?? item.executive_summary ?? null,
+      executive_summary:
+        item.executiveSummary ?? item.executive_summary ?? null,
       full_report: item.fullReport ?? item.full_report ?? null,
       policy_brief: item.policyBrief ?? item.policy_brief ?? null,
-      supplementary_document: item.supplementaryDocument ?? item.supplementary_document ?? null,
+      supplementary_document:
+        item.supplementaryDocument ?? item.supplementary_document ?? null,
       external_link: item.externalLink ?? item.external_link ?? null,
       doi: item.doi ?? null,
-      ndmc_submission_reference: item.ndmcSubmissionReference ?? item.ndmc_submission_reference ?? null,
+      ndmc_submission_reference:
+        item.ndmcSubmissionReference ?? item.ndmc_submission_reference ?? null,
       data_sharing_checklist_completed:
-        item.dataSharingChecklistCompleted ?? item.data_sharing_checklist_completed ?? false,
+        item.dataSharingChecklistCompleted ??
+        item.data_sharing_checklist_completed ??
+        false,
       submission_date: item.submissionDate ?? item.submission_date ?? null,
       status: item.status ?? item.status ?? "draft",
       version: item.version ?? null,
       // fundedproposal: prefer fundingRecommendationId if provided, otherwise proposalId or raw id
       fundedproposal:
-        item.fundedproposal?.fundingRecommendationId ?? item.fundedproposal?.funding_recommendation_id ?? item.fundedproposal?.proposalId ?? item.fundedproposal ?? null,
+        item.fundedproposal?.fundingRecommendationId ??
+        item.fundedproposal?.funding_recommendation_id ??
+        item.fundedproposal?.proposalId ??
+        item.fundedproposal ??
+        null,
+      fundedproposal_detail: normalizeFundingProposalDetail(
+        item.fundedproposal ?? item.fundedProposal,
+      ),
       output_type: item.outputType?.id ?? item.output_type ?? null,
+      output_type_detail: normalizeOutputTypeDetail(
+        item.outputType ?? item.output_type_detail,
+      ),
       data_center: item.dataCenter?.id ?? item.data_center ?? null,
+      data_center_detail: normalizeDataCenterDetail(
+        item.dataCenter ?? item.data_center_detail,
+      ),
       submitted_by: item.submittedBy?.id ?? item.submitted_by ?? null,
+      submitted_by_detail: normalizeSubmitterDetail(
+        item.submittedBy ?? item.submitted_by_detail,
+      ),
     }));
 
     return { data: normalized as FinalSubmission[], meta: list.meta };
@@ -175,26 +245,54 @@ export const finalSubmissionsService = {
 
     const mapped = {
       id: payload.id ?? payload.pk,
-      submitted_by_name: payload.submittedByName ?? payload.submitted_by_name ?? payload.submittedBy?.fullName ?? undefined,
+      submitted_by_name:
+        payload.submittedByName ??
+        payload.submitted_by_name ??
+        payload.submittedBy?.fullName ??
+        undefined,
       title: payload.title,
       abstract: payload.abstract ?? null,
-      executive_summary: payload.executiveSummary ?? payload.executive_summary ?? null,
+      executive_summary:
+        payload.executiveSummary ?? payload.executive_summary ?? null,
       full_report: payload.fullReport ?? payload.full_report ?? null,
       policy_brief: payload.policyBrief ?? payload.policy_brief ?? null,
-      supplementary_document: payload.supplementaryDocument ?? payload.supplementary_document ?? null,
+      supplementary_document:
+        payload.supplementaryDocument ?? payload.supplementary_document ?? null,
       external_link: payload.externalLink ?? payload.external_link ?? null,
       doi: payload.doi ?? null,
-      ndmc_submission_reference: payload.ndmcSubmissionReference ?? payload.ndmc_submission_reference ?? null,
+      ndmc_submission_reference:
+        payload.ndmcSubmissionReference ??
+        payload.ndmc_submission_reference ??
+        null,
       data_sharing_checklist_completed:
-        payload.dataSharingChecklistCompleted ?? payload.data_sharing_checklist_completed ?? false,
-      submission_date: payload.submissionDate ?? payload.submission_date ?? null,
+        payload.dataSharingChecklistCompleted ??
+        payload.data_sharing_checklist_completed ??
+        false,
+      submission_date:
+        payload.submissionDate ?? payload.submission_date ?? null,
       status: payload.status ?? payload.status ?? "draft",
       version: payload.version ?? null,
       fundedproposal:
-        payload.fundedproposal?.fundingRecommendationId ?? payload.fundedproposal?.funding_recommendation_id ?? payload.fundedproposal?.proposalId ?? payload.fundedproposal ?? null,
+        payload.fundedproposal?.fundingRecommendationId ??
+        payload.fundedproposal?.funding_recommendation_id ??
+        payload.fundedproposal?.proposalId ??
+        payload.fundedproposal ??
+        null,
+      fundedproposal_detail: normalizeFundingProposalDetail(
+        payload.fundedproposal ?? payload.fundedProposal,
+      ),
       output_type: payload.outputType?.id ?? payload.output_type ?? null,
+      output_type_detail: normalizeOutputTypeDetail(
+        payload.outputType ?? payload.output_type_detail,
+      ),
       data_center: payload.dataCenter?.id ?? payload.data_center ?? null,
+      data_center_detail: normalizeDataCenterDetail(
+        payload.dataCenter ?? payload.data_center_detail,
+      ),
       submitted_by: payload.submittedBy?.id ?? payload.submitted_by ?? null,
+      submitted_by_detail: normalizeSubmitterDetail(
+        payload.submittedBy ?? payload.submitted_by_detail,
+      ),
     } as FinalSubmission;
 
     return mapped;
@@ -221,7 +319,45 @@ export const finalSubmissionsService = {
       { params: cleanParams(filters) },
     );
 
-    return normalizeList<FundingRecommendation>(data);
+    const raw = normalizeList<any>(data);
+
+    // The endpoint returns camelCase; map to the snake_case FundingRecommendation shape.
+    const normalized: FundingRecommendation[] = raw.data.map((item: any) => ({
+      id: item.id,
+      proposal: item.proposal,
+      ready_for_funding_id:
+        item.readyForFundingId ?? item.ready_for_funding_id ?? undefined,
+      screening_id: item.screeningId ?? item.screening_id ?? null,
+      referenceNumber: item.referenceNumber ?? item.reference_number ?? null,
+      reference_number: item.referenceNumber ?? item.reference_number ?? null,
+      proposalTitle: item.proposalTitle ?? item.proposal_title ?? null,
+      proposal_title: item.proposalTitle ?? item.proposal_title ?? null,
+      pi: item.pi
+        ? {
+            id: item.pi.id,
+            fullName: item.pi.fullName ?? item.pi.full_name,
+            full_name: item.pi.fullName ?? item.pi.full_name,
+            email: item.pi.email,
+          }
+        : null,
+      total_award_amount:
+        item.totalAwardAmount ?? item.total_award_amount ?? "0",
+      amount_english_in_words:
+        item.amountEnglishInWords ?? item.amount_english_in_words ?? "",
+      has_ethical_clearance_approval:
+        item.hasEthicalClearanceApproval ??
+        item.has_ethical_clearance_approval ??
+        false,
+      comments: item.comments ?? "",
+      recommended_at: item.recommendedAt ?? item.recommended_at ?? "",
+      terminal_report_status:
+        item.terminalReportStatus ?? item.terminal_report_status ?? null,
+      funding_decision_status:
+        item.fundingDecisionStatus ?? item.funding_decision_status ?? null,
+      screening_status: item.screeningStatus ?? item.screening_status ?? null,
+    }));
+
+    return { data: normalized, meta: raw.meta };
   },
 
   async listOutputTypes(

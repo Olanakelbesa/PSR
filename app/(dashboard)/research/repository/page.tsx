@@ -28,6 +28,7 @@ import type {
   FinalSubmissionStatus,
 } from "@/types/final-submission";
 import type { FundingRecommendation } from "@/types/funding-recommendation";
+import { useRouter } from "next/dist/client/components/navigation";
 
 const statusLabels: Record<FinalSubmissionStatus, string> = {
   draft: "Draft",
@@ -203,6 +204,8 @@ export default function ResearchRepositoryPage() {
     ordering: "-submission_date",
   });
 
+  const router = useRouter();
+
   const { data: fundingRecommendationsData, isLoading: isFundingLoading } =
     useReadyForFinalSubmissionFundingRecommendations({
       page: 1,
@@ -304,6 +307,9 @@ export default function ResearchRepositoryPage() {
           <DataTable
             columns={repositoryColumns}
             data={finalSubmissions}
+            onRowClick={() => (
+              router.push(`/research/repository/${finalSubmissions[0].id}`)
+            )}
             searchKey="searchText"
             searchPlaceholder="Search submissions by title, reference, submitter, or status..."
             filterOptions={[

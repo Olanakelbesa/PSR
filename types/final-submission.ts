@@ -15,6 +15,30 @@ export interface FinalSubmissionLookupOption {
   active?: boolean;
 }
 
+export interface FinalSubmissionFundingProposalDetail {
+  funding_recommendation_id?: number;
+  proposal_id?: number;
+  reference_number?: string | null;
+  title?: string | null;
+  total_award_amount?: string | number | null;
+}
+
+export interface FinalSubmissionOutputTypeDetail {
+  id?: number;
+  name?: string | null;
+}
+
+export interface FinalSubmissionDataCenterDetail {
+  id?: number;
+  name?: string | null;
+}
+
+export interface FinalSubmissionSubmitterDetail {
+  id?: number;
+  full_name?: string | null;
+  email?: string | null;
+}
+
 export interface FinalSubmission {
   id: number;
   submitted_by_name?: string;
@@ -32,9 +56,13 @@ export interface FinalSubmission {
   status: FinalSubmissionStatus;
   version?: number;
   fundedproposal: number;
+  fundedproposal_detail?: FinalSubmissionFundingProposalDetail | null;
   output_type: number;
+  output_type_detail?: FinalSubmissionOutputTypeDetail | null;
   data_center?: number | null;
+  data_center_detail?: FinalSubmissionDataCenterDetail | null;
   submitted_by?: number;
+  submitted_by_detail?: FinalSubmissionSubmitterDetail | null;
 }
 
 export interface FinalSubmissionCreateInput {

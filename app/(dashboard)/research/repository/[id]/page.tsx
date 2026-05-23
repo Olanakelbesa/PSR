@@ -52,6 +52,62 @@ function fileNameFromPath(filePath?: string | null) {
   return filePath.split("/").pop() || filePath;
 }
 
+function getSubmitterName(item: {
+  submitted_by_name?: string | null;
+  submitted_by_detail?: { full_name?: string | null } | null;
+}) {
+  return (
+    item.submitted_by_detail?.full_name || item.submitted_by_name || "PSR user"
+  );
+}
+
+function getSubmitterEmail(item: {
+  submitted_by_detail?: { email?: string | null } | null;
+}) {
+  return item.submitted_by_detail?.email || "-";
+}
+
+function getFundingProposalLabel(item: {
+  fundedproposal?: number | null;
+  fundedproposal_detail?: {
+    reference_number?: string | null;
+    title?: string | null;
+    total_award_amount?: string | number | null;
+  } | null;
+}) {
+  const detail = item.fundedproposal_detail;
+
+  if (!detail) {
+    return item.fundedproposal
+      ? `Funding proposal #${item.fundedproposal}`
+      : "No funding proposal linked";
+  }
+
+  return detail.reference_number
+    ? `${detail.reference_number}${detail.title ? ` · ${detail.title}` : ""}`
+    : detail.title || `Funding proposal #${item.fundedproposal}`;
+}
+
+function getOutputTypeLabel(item: {
+  output_type?: number | null;
+  output_type_detail?: { name?: string | null } | null;
+}) {
+  return (
+    item.output_type_detail?.name ||
+    (item.output_type ? `Output #${item.output_type}` : "Not set")
+  );
+}
+
+function getDataCenterLabel(item: {
+  data_center?: number | null;
+  data_center_detail?: { name?: string | null } | null;
+}) {
+  return (
+    item.data_center_detail?.name ||
+    (item.data_center ? `Center #${item.data_center}` : "Not set")
+  );
+}
+
 function LoadingState() {
   return (
     <PageContainer
@@ -107,6 +163,13 @@ export default function ResearchRepositoryDetailPage() {
   }
 
   const reportUrl = resolveFileUrl(item.full_report);
+  const policyBriefUrl = resolveFileUrl(item.policy_brief);
+  const supplementaryDocumentUrl = resolveFileUrl(item.supplementary_document);
+  const submitterName = getSubmitterName(item);
+  const submitterEmail = getSubmitterEmail(item);
+  const fundingProposalLabel = getFundingProposalLabel(item);
+  const outputTypeLabel = getOutputTypeLabel(item);
+  const dataCenterLabel = getDataCenterLabel(item);
   const statusTone =
     item.status === "approved"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -159,7 +222,7 @@ export default function ResearchRepositoryDetailPage() {
                 <div className="flex flex-col gap-4 border-t border-slate-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-8">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/5 text-primary font-bold text-sm">
-                      {item.submitted_by_name?.split(" ").pop()?.[0] || (
+                      {submitterName.split(" ").pop()?.[0] || (
                         <User className="h-4 w-4" />
                       )}
                     </div>
@@ -168,7 +231,10 @@ export default function ResearchRepositoryDetailPage() {
                         Submitted by
                       </span>
                       <span className="mt-0.5 block text-xs font-bold text-slate-900">
-                        {item.submitted_by_name || "PSR user"}
+                        {submitterName}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                        {submitterEmail}
                       </span>
                     </div>
                   </div>
@@ -182,7 +248,7 @@ export default function ResearchRepositoryDetailPage() {
                         Funding Proposal
                       </span>
                       <span className="mt-0.5 block text-xs font-semibold text-slate-900">
-                        #{item.fundedproposal}
+                        {fundingProposalLabel}
                       </span>
                     </div>
                   </div>
@@ -227,6 +293,59 @@ export default function ResearchRepositoryDetailPage() {
                   </h4>
                   <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
                     {item.executive_summary || "No executive summary provided."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-sm">
+              <CardHeader className="border-b p-6 md:p-8">
+                <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <Globe className="h-5 w-5 text-primary" />
+                  Related Records
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-6 md:p-8 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Funding Proposal
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {fundingProposalLabel}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Total Award:{" "}
+                    {item.fundedproposal_detail?.total_award_amount ?? "-"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Output Type
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {outputTypeLabel}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Data Center
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {dataCenterLabel}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Submitter
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">
+                    {submitterName}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {submitterEmail}
                   </p>
                 </div>
               </CardContent>
@@ -367,14 +486,23 @@ export default function ResearchRepositoryDetailPage() {
               </CardHeader>
               <CardContent className="space-y-4 p-6">
                 {[
-                  { label: "Full Report", file: item.full_report },
-                  { label: "Policy Brief", file: item.policy_brief },
+                  {
+                    label: "Full Report",
+                    file: item.full_report,
+                    url: reportUrl,
+                  },
+                  {
+                    label: "Policy Brief",
+                    file: item.policy_brief,
+                    url: policyBriefUrl,
+                  },
                   {
                     label: "Supplementary Document",
                     file: item.supplementary_document,
+                    url: supplementaryDocumentUrl,
                   },
                 ].map((entry) => {
-                  const fileUrl = resolveFileUrl(entry.file);
+                  const fileUrl = entry.url;
 
                   return (
                     <div
@@ -419,10 +547,17 @@ export default function ResearchRepositoryDetailPage() {
                   asChild
                   className="h-11 w-full bg-primary text-xs font-bold uppercase tracking-wider text-white hover:bg-primary/95"
                 >
-                  <a href={reportUrl ?? "#"} target="_blank" rel="noreferrer">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Full Report
-                  </a>
+                  {reportUrl ? (
+                    <a href={reportUrl} target="_blank" rel="noreferrer">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download Full Report
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center">
+                      <Download className="mr-2 h-4 w-4" />
+                      Full Report Missing
+                    </span>
+                  )}
                 </Button>
               </CardContent>
             </Card>
