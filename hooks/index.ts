@@ -12,6 +12,7 @@ export * from "./useProposals";
 export * from "./useGrantsProjects";
 export * from "./useProgressReports";
 export * from "./useFinalSubmissions";
+export * from "./useExternalResearch";
 export * from "./useMinutes";
 export * from "./useFundingRecommendations";
 export * from "./use-toast";

@@ -4,16 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  ExternalLink, 
-  BookOpen, 
-  Globe, 
-  Building2, 
-  Database, 
-  FileText, 
+import {
+  ExternalLink,
+  BookOpen,
+  Globe,
+  Building2,
+  Database,
+  FileText,
   ArrowUpRight,
   Search,
   Users,
@@ -34,48 +40,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
+import { useExternalResearchList } from "@/hooks";
 
-export const mockExternalResearch = [
-  {
-    id: "EXT-2024-001",
-    title: "Global Trends in Antimicrobial Resistance: Implications for Sub-Saharan Africa",
-    authors: "Smith et al.",
-    institution: "World Health Organization",
-    year: "2024",
-    type: "Review Article",
-    grade: "good",
-    keywords: ["AMR", "Policy", "Global Health"],
-    abstract: "A macro-level policy review mapping global pharmaceutical tracking and clinical stewardship interventions addressing drug-resistant tuberculosis and sepsis within developing countries. Focuses on governance structures, resource distribution caps, and training programs.",
-    methodology: "Systematic literature search across clinical trial registries (2018-2023) extracting operational stewardship compliance indices.",
-    citation: "Smith, A., et al. (2024). Global Trends in Antimicrobial Resistance: Implications for Sub-Saharan Africa. WHO Policy Journal, 12(1), 34-48.",
-  },
-  {
-    id: "EXT-2023-089",
-    title: "Impact of Urbanization on NCD Prevalence in Rapidly Developing Cities",
-    authors: "Chen, J., & Patel, R.",
-    institution: "Johns Hopkins University",
-    year: "2023",
-    type: "Study Report",
-    grade: "good",
-    keywords: ["NCD", "Urban Health", "Prevention"],
-    abstract: "Investigating shifting dietary, metabolic, and spatial habits of urbanizing regional districts. Explores correlation markers between municipal walkability indices, public green coverage, and clinical hypertension reports.",
-    methodology: "Prospective spatial demographic modeling matched with localized health facility intake surveys.",
-    citation: "Chen, J., & Patel, R. (2023). Impact of Urbanization on NCD Prevalence in Rapidly Developing Cities. Global Urban Health, 5(3), 190-205.",
-  },
-  {
-    id: "EXT-2022-045",
-    title: "Evaluation of Small-Scale Agricultural Interventions on Nutritional Outcomes",
-    authors: "Anonymous",
-    institution: "Regional Agricultural Board",
-    year: "2022",
-    type: "Field Report",
-    grade: "poor",
-    keywords: ["Nutrition", "Agriculture"],
-    abstract: "Assessing regional agricultural distributions of specialized micronutrient seed stocks to local cooperative farms. Inconclusive tracking methodologies and highly localized attrition rates led to variable compliance models.",
-    methodology: "Retrospective community self-assessment questionnaires without baseline clinical validation.",
-    citation: "Anonymous. (2022). Evaluation of Small-Scale Agricultural Interventions on Nutritional Outcomes. Regional Ag Board Field Reports, 44(2), 89-94.",
-  }
-];
+// useExternalResearchList provides live data from the API
 
 export default function ExternalResearchPage() {
   const router = useRouter();
@@ -85,18 +52,34 @@ export default function ExternalResearchPage() {
       title: "Global Health Repositories",
       description: "Access international health data and research findings.",
       resources: [
-        { name: "WHO Global Health Observatory", type: "Database", url: "https://www.who.int/data/gho" },
-        { name: "Global Burden of Disease (IHME)", type: "Statistics", url: "https://www.healthdata.org/gbd" },
-      ]
+        {
+          name: "WHO Global Health Observatory",
+          type: "Database",
+          url: "https://www.who.int/data/gho",
+        },
+        {
+          name: "Global Burden of Disease (IHME)",
+          type: "Statistics",
+          url: "https://www.healthdata.org/gbd",
+        },
+      ],
     },
     {
       title: "National Research Partners",
       description: "Local institutions and regulatory research bodies.",
       resources: [
-        { name: "Ethiopian Public Health Institute", type: "National", url: "https://www.ephi.gov.et" },
-        { name: "AAU Institutional Repository", type: "Academic", url: "http://etd.aau.edu.et" },
-      ]
-    }
+        {
+          name: "Ethiopian Public Health Institute",
+          type: "National",
+          url: "https://www.ephi.gov.et",
+        },
+        {
+          name: "AAU Institutional Repository",
+          type: "Academic",
+          url: "http://etd.aau.edu.et",
+        },
+      ],
+    },
   ];
 
   const columns = [
@@ -119,7 +102,8 @@ export default function ExternalResearchPage() {
             {row.original.title}
           </div>
           <div className="text-[10px] text-muted-foreground mt-1 font-medium">
-            Authors: {row.original.authors} | Publisher: {row.original.institution}
+            Authors: {row.original.authors} | Publisher:{" "}
+            {row.original.institution}
           </div>
         </div>
       ),
@@ -137,7 +121,10 @@ export default function ExternalResearchPage() {
       accessorKey: "type",
       header: "Type",
       cell: ({ row }: any) => (
-        <Badge variant="outline" className="bg-slate-50 border-slate-200 text-slate-700 text-[9px] font-bold py-0.5 px-2">
+        <Badge
+          variant="outline"
+          className="bg-slate-50 border-slate-200 text-slate-700 text-[9px] font-bold py-0.5 px-2"
+        >
           {row.original.type}
         </Badge>
       ),
@@ -148,12 +135,18 @@ export default function ExternalResearchPage() {
       cell: ({ row }: any) => (
         <div className="flex items-center gap-1.5">
           {row.original.grade === "good" ? (
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200/50 text-[9px] font-bold py-0.5 px-2">
+            <Badge
+              variant="outline"
+              className="bg-emerald-50 text-emerald-700 border-emerald-200/50 text-[9px] font-bold py-0.5 px-2"
+            >
               <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600 shrink-0" />
               Verified Good
             </Badge>
           ) : (
-            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200/50 text-[9px] font-bold py-0.5 px-2">
+            <Badge
+              variant="outline"
+              className="bg-rose-50 text-rose-700 border-rose-200/50 text-[9px] font-bold py-0.5 px-2"
+            >
               <XCircle className="h-3 w-3 mr-1 text-rose-600 shrink-0" />
               Poor Grade
             </Badge>
@@ -166,11 +159,18 @@ export default function ExternalResearchPage() {
       cell: ({ row }: any) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-primary/5"
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 shadow-xl border-primary/10">
+          <DropdownMenuContent
+            align="end"
+            className="w-52 shadow-xl border-primary/10"
+          >
             <DropdownMenuItem asChild>
               <Link
                 href={`/research/external-research/${row.original.id}`}
@@ -190,29 +190,33 @@ export default function ExternalResearchPage() {
       ),
     },
   ];
+  const { data, isLoading } = useExternalResearchList();
 
   return (
     <PageContainer
       title="External Research"
       description="Curated international findings and external repository access for evidence-based policy making."
       actions={
-        <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" onClick={() => router.push("/research/external-research/add")}>
+        <Button
+          className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+          onClick={() => router.push("/research/external-research/add")}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Research Entry
         </Button>
       }
     >
       <div className="space-y-8">
-        
         {/* Table list replacing grid */}
 
-           <DataTable 
-             columns={columns} 
-             data={mockExternalResearch} 
-             searchKey="projectTitle" 
-             searchPlaceholder="Search title, keywords or publishers..."
-             emptyMessage="No external research findings found"
-           />
+        <DataTable
+          columns={columns}
+          data={data?.data ?? []}
+          isLoading={isLoading}
+          searchKey="projectTitle"
+          searchPlaceholder="Search title, keywords or publishers..."
+          emptyMessage="No external research findings found"
+        />
       </div>
     </PageContainer>
   );

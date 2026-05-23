@@ -221,10 +221,10 @@ export const API_ENDPOINTS = {
 
   // ── External Research ─────────────────────────────────────────────────────
   EXTERNAL_RESEARCH: {
-    LIST: "/external-research",
-    DETAIL: (id: string) => `/external-research/${id}`,
-    CREATE: "/external-research",
-    UPDATE: (id: string) => `/external-research/${id}`,
+    LIST: "/v1/external-research/",
+    DETAIL: (id: string | number) => `/v1/external-research/${id}/`,
+    CREATE: "/v1/external-research/",
+    UPDATE: (id: string | number) => `/v1/external-research/${id}/`,
   },
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

@@ -52,6 +52,7 @@ import {
 import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useCreateExternalResearch } from "@/hooks";
 
 const formSchema = z.object({
   title: z.string().min(5, "Title is required"),
@@ -59,7 +60,7 @@ const formSchema = z.object({
   institution: z.string().min(3, "Institution is required"),
   year: z.string().regex(/^\d{4}$/, "Please provide a valid 4-digit year"),
   department: z.string().optional(),
-  gradedEvidence: z.enum(["good", "bad"]),
+  gradedEvidence: z.enum(["high", "medium", "low", "not_graded"]).optional(),
   type: z.string().min(1, "Type is required"),
   keywords: z.string().optional(),
 });
@@ -77,11 +78,12 @@ export default function AddExternalResearchPage() {
       institution: "",
       year: new Date().getFullYear().toString(),
       department: "",
-      gradedEvidence: "good",
+      gradedEvidence: "not_graded",
       type: "report",
       keywords: "",
     },
   });
+  const createExternalResearch = useCreateExternalResearch();
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!file) {
@@ -91,7 +93,20 @@ export default function AddExternalResearchPage() {
 
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Map frontend fields to backend API contract
+      const payload = {
+        title: values.title,
+        authors: values.authors,
+        institution: values.institution,
+        year: Number(values.year),
+        department: values.department ?? "",
+        graded_evidence: values.gradedEvidence ?? "",
+        research_type: values.type,
+        keywords: values.keywords ?? "",
+        file,
+      } as Record<string, unknown>;
+
+      await createExternalResearch.mutateAsync(payload);
       toast.success("External research successfully ingested into repository!");
       router.push("/research/external-research");
     } catch (error) {
@@ -100,7 +115,6 @@ export default function AddExternalResearchPage() {
       setIsSubmitting(false);
     }
   }
-
   return (
     <PageContainer
       title="Add External Research"
@@ -276,16 +290,28 @@ export default function AddExternalResearchPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent className="rounded-xl border-primary/10 shadow-lg">
-                                <SelectItem value="good">
+                                <SelectItem value="high">
                                   <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                    Verified Good
+                                    High
                                   </span>
                                 </SelectItem>
-                                <SelectItem value="bad">
+                                <SelectItem value="medium">
+                                  <span className="text-yellow-700 font-semibold flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                                    Medium
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="low">
                                   <span className="text-rose-700 font-semibold flex items-center gap-1.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                    Poor Grade
+                                    Low
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="not_graded">
+                                  <span className="text-slate-700 font-semibold flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                                    Not graded
                                   </span>
                                 </SelectItem>
                               </SelectContent>

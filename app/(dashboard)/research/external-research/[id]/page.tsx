@@ -21,33 +21,54 @@ import {
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockExternalResearch } from "../page";
+import { useExternalResearch } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ExternalResearchDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const idParam = params.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [citationFormat, setCitationFormat] = useState("apa");
 
-  const item = mockExternalResearch.find((x) => x.id === id);
+  const { data: item, isLoading } = useExternalResearch(id);
+
+  if (isLoading) {
+    return (
+      <PageContainer title="Loading...">
+        <div className="text-center py-16">Loading...</div>
+      </PageContainer>
+    );
+  }
 
   if (!item) {
     return (
       <PageContainer title="Research Entry Not Found">
         <div className="text-center py-16">
           <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-base font-bold text-foreground">Entry Not Found</h3>
+          <h3 className="text-base font-bold text-foreground">
+            Entry Not Found
+          </h3>
           <p className="text-xs text-muted-foreground mt-1">
-            The requested external research record does not exist or has been removed.
+            The requested external research record does not exist or has been
+            removed.
           </p>
           <Button asChild className="mt-6">
-            <Link href="/research/external-research">Back to External Research</Link>
+            <Link href="/research/external-research">
+              Back to External Research
+            </Link>
           </Button>
         </div>
       </PageContainer>
@@ -57,12 +78,13 @@ export default function ExternalResearchDetailPage() {
   // Citation formatting APA, MLA, BibTeX
   const citations = {
     apa: item.citation,
-    mla: `${item.authors.split(' ').pop()}, ${item.authors.split(' ')[0]}. "${item.title}." Journal of Health Policy and Evidence, vol. 12, no. 1, 2024, pp. 34-48.`,
-    bibtex: `@article{ext_${item.id.toLowerCase().replace(/-/g, '_')},\n  author = {${item.authors}},\n  title = {${item.title}},\n  journal = {Journal of Health Policy and Evidence},\n  year = {${item.year}},\n  volume = {12},\n  number = {1},\n  pages = {34--48},\n  publisher = {${item.institution}}\n}`,
+    mla: `${item.authors.split(" ").pop()}, ${item.authors.split(" ")[0]}. "${item.title}." Journal of Health Policy and Evidence, vol. 12, no. 1, 2024, pp. 34-48.`,
+    bibtex: `@article{ext_${String(item.id).toLowerCase().replace(/-/g, "_")},\n  author = {${item.authors}},\n  title = {${item.title}},\n  journal = {Journal of Health Policy and Evidence},\n  year = {${item.year}},\n  volume = {12},\n  number = {1},\n  pages = {34--48},\n  publisher = {${item.institution}}\n}`,
   };
 
   const handleCopyCitation = () => {
-    const textToCopy = citations[citationFormat as keyof typeof citations] || "";
+    const textToCopy =
+      citations[citationFormat as keyof typeof citations] || "";
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     toast.success("Citation copied to clipboard!");
@@ -75,38 +97,33 @@ export default function ExternalResearchDetailPage() {
       description={`External Archive Reference: ${item.id}`}
     >
       <div className="space-y-6">
-        
         {/* Navigation Action */}
         <div className="flex items-center justify-between">
-          <Button
-            asChild
-            variant="outline"
-            className="shadow-sm bg-white"
-          >
+          <Button asChild variant="outline" className="shadow-sm bg-white">
             <Link href="/research/external-research">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to External Research
             </Link>
           </Button>
 
-          <Badge variant="outline" className="px-3 py-1 font-bold uppercase tracking-wider text-primary border-primary/20">
+          <Badge
+            variant="outline"
+            className="px-3 py-1 font-bold uppercase tracking-wider text-primary border-primary/20"
+          >
             Ingested Evidence
           </Badge>
         </div>
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          
           {/* LEFT COLUMN: Narrative Details */}
           <div className="lg:col-span-2 space-y-6">
-            
             {/* Header Details Card */}
             <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-[1.5rem]">
               <CardContent className="p-6 md:p-8 space-y-6">
-                
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <Tag className="h-3.5 w-3.5" />
-                  {item.keywords.join(" • ")}
+                  {item.keywords}
                 </div>
 
                 <h1 className="text-xl md:text-2xl font-bold leading-snug text-slate-900">
@@ -116,11 +133,15 @@ export default function ExternalResearchDetailPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 pt-4 border-t border-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/5 flex items-center justify-center text-primary font-bold text-sm">
-                      {item.authors.split(' ').pop()?.[0]}
+                      {item.authors.split(" ").pop()?.[0]}
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Author(s)</span>
-                      <span className="text-xs font-bold text-slate-900 mt-0.5 block">{item.authors}</span>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        Author(s)
+                      </span>
+                      <span className="text-xs font-bold text-slate-900 mt-0.5 block">
+                        {item.authors}
+                      </span>
                     </div>
                   </div>
 
@@ -129,8 +150,12 @@ export default function ExternalResearchDetailPage() {
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Publisher / Source</span>
-                      <span className="text-xs font-semibold text-slate-900 mt-0.5 block">{item.institution}</span>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        Publisher / Source
+                      </span>
+                      <span className="text-xs font-semibold text-slate-900 mt-0.5 block">
+                        {item.institution}
+                      </span>
                     </div>
                   </div>
 
@@ -139,12 +164,15 @@ export default function ExternalResearchDetailPage() {
                       <Calendar className="h-5 w-5" />
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Year Ingested</span>
-                      <span className="text-xs font-semibold text-slate-900 mt-0.5 block">{item.year}</span>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                        Year Ingested
+                      </span>
+                      <span className="text-xs font-semibold text-slate-900 mt-0.5 block">
+                        {item.year}
+                      </span>
                     </div>
                   </div>
                 </div>
-
               </CardContent>
             </Card>
 
@@ -163,7 +191,9 @@ export default function ExternalResearchDetailPage() {
 
                 {/* Methodology Detail */}
                 <div className="space-y-2 border-t pt-5">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Methodology Summary</h4>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Methodology Summary
+                  </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     {item.methodology}
                   </p>
@@ -172,12 +202,12 @@ export default function ExternalResearchDetailPage() {
             </Card>
 
             {/* Evidence Grade Callout Box */}
-            <Card 
+            <Card
               className={cn(
                 "border shadow-sm overflow-hidden rounded-[1.5rem]",
-                item.grade === "good" 
-                  ? "border-emerald-200/50 bg-emerald-50/[0.15]" 
-                  : "border-rose-200/50 bg-rose-50/[0.15]"
+                item.grade === "good"
+                  ? "border-emerald-200/50 bg-emerald-50/[0.15]"
+                  : "border-rose-200/50 bg-rose-50/[0.15]",
               )}
             >
               <CardContent className="p-6 md:p-8 flex gap-4 items-start">
@@ -187,9 +217,13 @@ export default function ExternalResearchDetailPage() {
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-tight">Verified Evidence Standard</h4>
+                      <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-tight">
+                        Verified Evidence Standard
+                      </h4>
                       <p className="text-xs leading-relaxed text-emerald-700/90 font-medium">
-                        This document has been graded as reliable national policymaking evidence. The datasets follow sound empirical controls.
+                        This document has been graded as reliable national
+                        policymaking evidence. The datasets follow sound
+                        empirical controls.
                       </p>
                     </div>
                   </>
@@ -199,50 +233,71 @@ export default function ExternalResearchDetailPage() {
                       <XCircle className="h-6 w-6" />
                     </div>
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-rose-800 uppercase tracking-tight">Evidence Warning standard</h4>
+                      <h4 className="text-sm font-bold text-rose-800 uppercase tracking-tight">
+                        Evidence Warning standard
+                      </h4>
                       <p className="text-xs leading-relaxed text-rose-700/90 font-medium">
-                        This research dataset contains critical caveats or inadequate validation frameworks. Should be cited with appropriate constraints.
+                        This research dataset contains critical caveats or
+                        inadequate validation frameworks. Should be cited with
+                        appropriate constraints.
                       </p>
                     </div>
                   </>
                 )}
               </CardContent>
             </Card>
-
           </div>
 
           {/* RIGHT COLUMN: Citation & Files */}
           <div className="space-y-6">
-            
             {/* Spec Card */}
             <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-[1.5rem]">
               <CardHeader className="border-b pb-4">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Archive Specifications</CardTitle>
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Archive Specifications
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-xs font-medium text-muted-foreground">Evidence Standing</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Evidence Standing
+                  </span>
                   {item.grade === "good" ? (
-                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200/40 font-bold text-[10px] px-2.5">
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-50 text-emerald-700 border-emerald-200/40 font-bold text-[10px] px-2.5"
+                    >
                       Good Grade
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-rose-50 text-rose-700 border-rose-200/40 font-bold text-[10px] px-2.5">
+                    <Badge
+                      variant="secondary"
+                      className="bg-rose-50 text-rose-700 border-rose-200/40 font-bold text-[10px] px-2.5"
+                    >
                       Poor Grade
                     </Badge>
                   )}
                 </div>
 
                 <div className="flex justify-between items-center py-1 border-t border-slate-50">
-                  <span className="text-xs font-medium text-muted-foreground">Format</span>
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-700 font-semibold text-[10px] px-2.5">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Format
+                  </span>
+                  <Badge
+                    variant="secondary"
+                    className="bg-slate-100 text-slate-700 font-semibold text-[10px] px-2.5"
+                  >
                     {item.type}
                   </Badge>
                 </div>
 
                 <div className="flex justify-between items-center py-1 border-t border-slate-50">
-                  <span className="text-xs font-medium text-muted-foreground">Catalog Reference</span>
-                  <span className="font-mono text-[10px] font-bold text-slate-700">{item.id}</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Catalog Reference
+                  </span>
+                  <span className="font-mono text-[10px] font-bold text-slate-700">
+                    {item.id}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -256,11 +311,30 @@ export default function ExternalResearchDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <Tabs value={citationFormat} onValueChange={setCitationFormat} className="w-full">
+                <Tabs
+                  value={citationFormat}
+                  onValueChange={setCitationFormat}
+                  className="w-full"
+                >
                   <TabsList className="grid grid-cols-3 h-9 bg-slate-100 rounded-lg p-0.5">
-                    <TabsTrigger value="apa" className="text-[10px] font-bold uppercase py-1 px-2">APA</TabsTrigger>
-                    <TabsTrigger value="mla" className="text-[10px] font-bold uppercase py-1 px-2">MLA</TabsTrigger>
-                    <TabsTrigger value="bibtex" className="text-[10px] font-bold uppercase py-1 px-2">BibTeX</TabsTrigger>
+                    <TabsTrigger
+                      value="apa"
+                      className="text-[10px] font-bold uppercase py-1 px-2"
+                    >
+                      APA
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="mla"
+                      className="text-[10px] font-bold uppercase py-1 px-2"
+                    >
+                      MLA
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="bibtex"
+                      className="text-[10px] font-bold uppercase py-1 px-2"
+                    >
+                      BibTeX
+                    </TabsTrigger>
                   </TabsList>
 
                   <div className="mt-3">
@@ -293,7 +367,9 @@ export default function ExternalResearchDetailPage() {
             {/* Supporting Document */}
             <Card className="border border-muted-foreground/10 shadow-md bg-white overflow-hidden rounded-[1.5rem]">
               <CardHeader className="border-b pb-4">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Document Access</CardTitle>
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Document Access
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-3 p-3 border rounded-xl hover:bg-slate-50/50 transition-colors">
@@ -314,9 +390,7 @@ export default function ExternalResearchDetailPage() {
                 </Button>
               </CardContent>
             </Card>
-
           </div>
-
         </div>
       </div>
     </PageContainer>
