@@ -29,6 +29,7 @@ import {
   DollarSign,
   Globe,
   FileUp,
+  Lightbulb,
 } from "lucide-react";
 
 import {
@@ -179,6 +180,11 @@ const navigationGroups: NavGroup[] = [
         label: "IRB",
         href: "/research/ethical-clearance",
         icon: FileCheck2,
+      },
+      {
+        label: "Funding Recommendations",
+        href: "/research/funding-recommendations",
+        icon: Lightbulb,
       },
       {
         label: "Monitoring",

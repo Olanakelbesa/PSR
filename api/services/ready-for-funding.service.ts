@@ -53,10 +53,9 @@ export const readyForFundingService = {
     unit?: number;
     proposal_type?: number;
   }): Promise<ReadyForFundingListResponse> {
-    const res = await apiClient.get(
-      API_ENDPOINTS.READY_FOR_FUNDING.LIST,
-      { params },
-    );
+    const res = await apiClient.get(API_ENDPOINTS.READY_FOR_FUNDING.LIST, {
+      params,
+    });
 
     return res.data;
   },
@@ -67,7 +66,7 @@ export const readyForFundingService = {
   async createDecision(
     screeningId: string | number,
     payload: {
-      remark: string;
+      Remark: string;
       need_irb_ethical_clearance?: boolean;
       decision_status?: "pending" | "approved" | "rejected" | "deferred";
     },

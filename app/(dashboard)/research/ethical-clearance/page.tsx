@@ -3,44 +3,30 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Shield,
-  Plus,
-  Download,
-  MoreHorizontal,
-  Eye,
-  CheckCircle2,
-  XCircle,
-  Clock,
   AlertCircle,
-  FileText,
-  Building2,
-  Search,
+  ArrowRight,
   CalendarDays,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Filter,
+  RefreshCcw,
+  Search,
+  Shield,
   ShieldCheck,
-  FileLock2,
+  XCircle,
 } from "lucide-react";
-import { ColumnDef } from "@tanstack/react-table";
 
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -48,381 +34,521 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout";
-import { DataTable } from "@/components/shared/data-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import type { EthicalClearance } from "@/types/ethical-clearance";
+import { useEthicalClearances } from "@/lib/queries/ethical-clearance";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-type ClearanceStatus = "pending" | "approved" | "rejected" | "expired" | "under_review";
-type ClearanceType = "full_board" | "expedited" | "exempt" | "informed_consent_waiver";
+const clearanceTypeLabel: Record<string, string> = {
+  full_board: "Full Board Review",
+  expedited: "Expedited Review",
+  exempt: "Exempt",
+  informed_consent_waiver: "Informed Consent Waiver",
+};
 
-interface EthicalClearance {
-  id: string;
-  proposalReference: string;
-  proposalTitle: string;
-  requestingFile: string;
-  type: ClearanceType;
-  clearanceFile?: string;
-  status: ClearanceStatus;
-  organization: string;
-  dateOfApplication: string;
-  approvalDate?: string;
-  expiryDate?: string;
-}
-
-// ---------------------------------------------------------------------------
-// Mock Data
-// ---------------------------------------------------------------------------
-const mockClearances: EthicalClearance[] = [
-  {
-    id: "ec-001",
-    proposalReference: "PRP-008",
-    proposalTitle: "Task Shifting to CHWs for Hypertension Management",
-    requestingFile: "Ethics_Application_CHW_HTN.pdf",
-    type: "full_board",
-    clearanceFile: "EPHI_Clearance_EC-2024-001.pdf",
-    status: "approved",
-    organization: "EPHI IRB",
-    dateOfApplication: "2024-01-25T00:00:00Z",
-    approvalDate: "2024-02-15T00:00:00Z",
-    expiryDate: "2026-02-14T00:00:00Z",
-  },
-  {
-    id: "ec-002",
-    proposalReference: "PRP-009",
-    proposalTitle: "Kangaroo Mother Care Scale-Up in Secondary Hospitals",
-    requestingFile: "Ethics_Application_KMC.pdf",
-    type: "expedited",
-    clearanceFile: "MOH_IRB_Clearance_EC-2024-002.pdf",
-    status: "approved",
-    organization: "MOH IRB",
-    dateOfApplication: "2024-01-20T00:00:00Z",
-    approvalDate: "2024-02-05T00:00:00Z",
-    expiryDate: "2026-02-04T00:00:00Z",
-  },
-  {
-    id: "ec-003",
-    proposalReference: "PRP-010",
-    proposalTitle: "mHealth App for Maternal Danger Sign Reporting",
-    requestingFile: "Ethics_Application_mHealth.pdf",
-    type: "full_board",
-    clearanceFile: undefined,
-    status: "under_review",
-    organization: "AAU IRB",
-    dateOfApplication: "2024-03-01T00:00:00Z",
-    approvalDate: undefined,
-  },
-  {
-    id: "ec-004",
-    proposalReference: "PRP-005",
-    proposalTitle: "Evaluation of Maternal Waiting Homes",
-    requestingFile: "Ethics_Application_MWH.pdf",
-    type: "full_board",
-    clearanceFile: undefined,
-    status: "pending",
-    organization: "MOH IRB",
-    dateOfApplication: "2024-03-18T00:00:00Z",
-    approvalDate: undefined,
-  },
-  {
-    id: "ec-005",
-    proposalReference: "PRP-006",
-    proposalTitle: "Integration of Mental Health into Primary Health Care",
-    requestingFile: "Ethics_Application_MH_PHC.pdf",
-    type: "full_board",
-    clearanceFile: undefined,
-    status: "pending",
-    organization: "Jimma University IRB",
-    dateOfApplication: "2024-03-22T00:00:00Z",
-    approvalDate: undefined,
-  },
-  {
-    id: "ec-006",
-    proposalReference: "PRP-003",
-    proposalTitle: "COVID-19 Impact on Essential Health Services",
-    requestingFile: "Ethics_Application_COVID.pdf",
-    type: "exempt",
-    clearanceFile: "EPHI_Exempt_Cert_EC-2023-011.pdf",
-    status: "expired",
-    organization: "EPHI IRB",
-    dateOfApplication: "2023-09-10T00:00:00Z",
-    approvalDate: "2023-09-20T00:00:00Z",
-    expiryDate: "2024-09-19T00:00:00Z",
-  },
+const clearanceTypeOptions = [
+  "full_board",
+  "expedited",
+  "exempt",
+  "informed_consent_waiver",
 ];
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-const statusConfig: Record<ClearanceStatus, { label: string; color: string; icon: any }> = {
-  pending:      { label: "Pending",      color: "bg-slate-100 text-slate-700 border-slate-200",   icon: Clock },
-  under_review: { label: "Under Review", color: "bg-blue-100 text-blue-700 border-blue-200",      icon: Shield },
-  approved:     { label: "Approved",     color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
-  rejected:     { label: "Rejected",     color: "bg-rose-100 text-rose-700 border-rose-200",      icon: XCircle },
-  expired:      { label: "Expired",      color: "bg-amber-100 text-amber-700 border-amber-200",   icon: AlertCircle },
+const statusConfig: Record<
+  EthicalClearance["status"],
+  { label: string; className: string; icon: typeof Shield }
+> = {
+  pending: {
+    label: "Pending Review",
+    className: "bg-slate-100 text-slate-700 border-slate-200",
+    icon: Clock,
+  },
+  approved: {
+    label: "Approved",
+    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    icon: CheckCircle2,
+  },
+  rejected: {
+    label: "Rejected",
+    className: "bg-rose-100 text-rose-700 border-rose-200",
+    icon: XCircle,
+  },
+  additional_info_required: {
+    label: "Additional Information Required",
+    className: "bg-amber-100 text-amber-700 border-amber-200",
+    icon: AlertCircle,
+  },
 };
 
-const typeLabel: Record<ClearanceType, string> = {
-  full_board:             "Full Board Review",
-  expedited:              "Expedited Review",
-  exempt:                 "Exempt",
-  informed_consent_waiver:"Consent Waiver",
-};
+function formatDate(value?: string | null) {
+  if (!value) return "—";
 
-const CLEARANCE_TYPES: ClearanceType[] = ["full_board", "expedited", "exempt", "informed_consent_waiver"];
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
 
-// ---------------------------------------------------------------------------
-// New Application Form State
-// ---------------------------------------------------------------------------
-const emptyForm = {
-  proposalReference: "",
-  proposalTitle: "",
-  type: "" as ClearanceType | "",
-  organization: "",
-  notes: "",
-  requestingFile: null as File | null,
-};
+  return parsed.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
-// ---------------------------------------------------------------------------
-// Page Component
-// ---------------------------------------------------------------------------
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return null;
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (filePath.startsWith("/api/proxy")) return filePath;
+  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
+  return `/api/proxy/${filePath}`;
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  accent,
+}: {
+  title: string;
+  value: number;
+  icon: typeof FileText;
+  accent: string;
+}) {
+  return (
+    <Card className="border-none shadow-sm overflow-hidden">
+      <div/>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold tracking-[0.22em] text-muted-foreground">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-end justify-between gap-4">
+        <div className="text-3xl font-black">{value}</div>
+        <div className={cn("rounded-full p-3", accent)}>
+          <Icon className="h-4 w-4 text-white" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-28 rounded-xl" />
+        ))}
+      </div>
+
+      <Card className="shadow-sm">
+        <CardContent className="space-y-3 p-6">
+          <Skeleton className="h-9 w-full max-w-sm" />
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-16 w-full rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function EthicalClearancePage() {
   const router = useRouter();
-  const [clearances, setClearances] = useState<EthicalClearance[]>(mockClearances);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<EthicalClearance["status"] | "">("");
+  const [clearanceType, setClearanceType] = useState("");
+  const [proposal, setProposal] = useState("");
+  const [ordering, setOrdering] = useState("");
+
+  const parsedProposal = proposal.trim() ? Number(proposal) : undefined;
+  const filters = {
+    search: search.trim() || undefined,
+    status: status || undefined,
+    clearance_type: clearanceType || undefined,
+    proposal:
+      parsedProposal !== undefined && Number.isNaN(parsedProposal)
+        ? undefined
+        : parsedProposal,
+    ordering: ordering || undefined,
+  };
+
+  const { data, isLoading, error, refetch, isFetching } =
+    useEthicalClearances(filters);
+
+  const clearances = data?.data ?? [];
 
   const stats = [
-    { label: "Total Applications",  value: clearances.length,                                               icon: FileLock2,   color: "text-slate-600",   bg: "bg-slate-50" },
-    { label: "Pending / In Review", value: clearances.filter(c => c.status === "pending" || c.status === "under_review").length, icon: Clock, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Approved",            value: clearances.filter(c => c.status === "approved").length,           icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { label: "Expired / Rejected",  value: clearances.filter(c => c.status === "expired" || c.status === "rejected").length, icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50" },
-  ];
-
-  function handleSubmit() {
-    if (!form.proposalReference || !form.type || !form.organization) {
-      toast.error("Please fill in all required fields.");
-      return;
-    }
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const newEntry: EthicalClearance = {
-        id: `ec-${Date.now()}`,
-        proposalReference: form.proposalReference.toUpperCase(),
-        proposalTitle: form.proposalTitle,
-        requestingFile: form.requestingFile?.name || "Application_Form.pdf",
-        type: form.type as ClearanceType,
-        status: "pending",
-        organization: form.organization,
-        dateOfApplication: new Date().toISOString(),
-      };
-      setClearances(prev => [newEntry, ...prev]);
-      setForm({ ...emptyForm });
-      setDialogOpen(false);
-      setIsSubmitting(false);
-      toast.success("Ethical clearance application submitted.");
-    }, 800);
-  }
-
-  const columns: ColumnDef<EthicalClearance>[] = [
     {
-      accessorKey: "type",
-      header: "Type",
+      title: "Total Applications",
+      value: clearances.length,
+      icon: FileText,
+      accent: "bg-slate-700",
     },
     {
-      accessorKey: "proposalReference",
-      header: "Proposal Ref.",
-      cell: ({ row }) => (
-        <span className="font-bold text-primary text-sm">{row.original.proposalReference}</span>
-      ),
+      title: "Pending Review",
+      value: clearances.filter((item) => item.status === "pending").length,
+      icon: Clock,
+      accent: "bg-blue-600",
     },
     {
-      accessorKey: "proposalTitle",
-      header: "Proposal / Study",
-      cell: ({ row }) => (
-        <div className="max-w-[260px]">
-          <p className="font-semibold text-sm line-clamp-1">{row.original.proposalTitle}</p>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase mt-0.5">{typeLabel[row.original.type]}</p>
-        </div>
-      ),
+      title: "Approved",
+      value: clearances.filter((item) => item.status === "approved").length,
+      icon: ShieldCheck,
+      accent: "bg-emerald-600",
     },
     {
-      accessorKey: "organization",
-      header: "IRB / Organization",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5">
-          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="text-sm font-medium">{row.original.organization}</span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const cfg = statusConfig[row.original.status];
-        const Icon = cfg.icon;
-        return (
-          <Badge className={cn("border text-[10px] font-bold uppercase shadow-none gap-1 px-2", cfg.color)}>
-            <Icon className="h-3 w-3" />
-            {cfg.label}
-          </Badge>
-        );
-      },
-    },
-    {
-      accessorKey: "dateOfApplication",
-      header: "Applied",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <CalendarDays className="h-3.5 w-3.5" />
-          {new Date(row.original.dateOfApplication).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "approvalDate",
-      header: "Approved / Expiry",
-      cell: ({ row }) => {
-        const o = row.original;
-        if (!o.approvalDate) return <span className="text-xs text-muted-foreground/50">—</span>;
-        return (
-          <div className="space-y-0.5 text-xs">
-            <p className="font-medium">{new Date(o.approvalDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</p>
-            {o.expiryDate && (
-              <p className={cn("text-[10px] font-bold", new Date(o.expiryDate) < new Date() ? "text-rose-600" : "text-emerald-600")}>
-                Exp: {new Date(o.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-              </p>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "files",
-      header: "Documents",
-      cell: ({ row }) => {
-        const o = row.original;
-        return (
-          <div className="flex items-center gap-1">
-            <button className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline">
-              <FileText className="h-3 w-3" />
-              Request
-            </button>
-            {o.clearanceFile && (
-              <>
-                <span className="text-muted-foreground/40">|</span>
-                <button className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:underline">
-                  <Download className="h-3 w-3" />
-                  Clearance
-                </button>
-              </>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => router.push(`/research/ethical-clearance/${row.original.id}`)}>
-              <Eye className="h-4 w-4 mr-2" />
-              View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Download className="h-4 w-4 mr-2" />
-              Download Request
-            </DropdownMenuItem>
-            {row.original.clearanceFile && (
-              <DropdownMenuItem className="text-emerald-600 font-medium">
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                Download Clearance
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            {row.original.status === "pending" && (
-              <DropdownMenuItem className="text-amber-600 font-medium">
-                <Clock className="h-4 w-4 mr-2" />
-                Mark as Under Review
-              </DropdownMenuItem>
-            )}
-            {row.original.status === "under_review" && (
-              <DropdownMenuItem className="text-emerald-600 font-medium" onClick={() => router.push(`/research/ethical-clearance/${row.original.id}/approve`)}>
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Upload & Approve
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      title: "Action Required",
+      value: clearances.filter(
+        (item) => item.status === "additional_info_required",
+      ).length,
+      icon: AlertCircle,
+      accent: "bg-amber-600",
     },
   ];
+
+  const showEmptyState = !isLoading && !error && clearances.length === 0;
 
   return (
     <PageContainer
       title="Ethical Clearance"
-      description="Track, manage and verify ethics approvals for all research proposals."
-
+      description="Track ethics review applications, decisions and supporting files from the backend."
     >
-      <div className="space-y-8">
-        {/* Stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, i) => (
-            <Card key={i} className="group relative overflow-hidden border-none shadow-md hover:shadow-lg transition-all">
-              <div className={cn("absolute inset-y-0 left-0 w-1", stat.bg)} />
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</CardTitle>
-                <stat.icon className={cn("h-4 w-4", stat.color)} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-black">{stat.value}</div>
-              </CardContent>
-            </Card>
-          ))}
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-28 rounded-xl" />
+              ))
+            : stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
         </div>
 
-        {/* Table */}
-        <DataTable
-          columns={columns}
-          data={clearances}
-          searchKey="proposalTitle"
-          searchPlaceholder="Search by proposal title, reference, or organization..."
-          initialColumnVisibility={{ type: false }}
-          filterOptions={[
-            {
-              key: "status",
-              label: "Status",
-              options: [
-                { value: "pending",      label: "Pending" },
-                { value: "under_review", label: "Under Review" },
-                { value: "approved",     label: "Approved" },
-                { value: "rejected",     label: "Rejected" },
-                { value: "expired",      label: "Expired" },
-              ],
-            },
-            {
-              key: "type",
-              label: "Review Type",
-              options: CLEARANCE_TYPES.map(t => ({ value: t, label: typeLabel[t] })),
-            },
-          ]}
-          emptyMessage="No ethical clearance applications found"
-          emptyDescription="Submit a new application to track ethical approvals here."
-          onRowClick={(row) => router.push(`/research/ethical-clearance/${row.id}`)}
-        />
+        <Card className="border-primary/10 shadow-sm">
+          <CardHeader className="border-b bg-muted/30 pb-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Filter className="h-4 w-4 text-primary" />
+                  Filters
+                </CardTitle>
+                <CardDescription>
+                  Search and narrow ethical clearance applications using backend
+                  query parameters.
+                </CardDescription>
+              </div>
+
+              <Button variant="outline" onClick={() => refetch()}>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-6 lg:grid-cols-2 xl:grid-cols-5">
+            <div className="space-y-2 xl:col-span-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Search
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by title, reference, PI or organization"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Status
+              </label>
+              <Select
+                value={status || "__all__"}
+                onValueChange={(value) =>
+                  setStatus(
+                    value === "__all__"
+                      ? ""
+                      : (value as EthicalClearance["status"]),
+                  )
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All statuses</SelectItem>
+                  {Object.entries(statusConfig).map(([value, config]) => (
+                    <SelectItem key={value} value={value}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Clearance Type
+              </label>
+              <Select
+                value={clearanceType || "__all__"}
+                onValueChange={(value) =>
+                  setClearanceType(value === "__all__" ? "" : value)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All types</SelectItem>
+                  {clearanceTypeOptions.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {clearanceTypeLabel[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Proposal
+              </label>
+              <Input
+                type="number"
+                value={proposal}
+                onChange={(e) => setProposal(e.target.value)}
+                placeholder="Proposal ID"
+              />
+            </div>
+
+            <div className="space-y-2 xl:col-span-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Ordering
+              </label>
+              <Select value={ordering} onValueChange={setOrdering}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort results" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-application_date">
+                    Newest first
+                  </SelectItem>
+                  <SelectItem value="application_date">Oldest first</SelectItem>
+                  <SelectItem value="reference_number">
+                    Reference A-Z
+                  </SelectItem>
+                  <SelectItem value="-reference_number">
+                    Reference Z-A
+                  </SelectItem>
+                  <SelectItem value="status">Status A-Z</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end justify-between gap-3 xl:col-span-3">
+              <p className="text-xs text-muted-foreground">
+                {isFetching
+                  ? "Refreshing results..."
+                  : `${clearances.length} record(s) loaded`}
+              </p>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSearch("");
+                  setStatus("");
+                  setClearanceType("");
+                  setProposal("");
+                  setOrdering("-application_date");
+                }}
+              >
+                Reset filters
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : error ? (
+          <Card className="border-rose-200 bg-rose-50/40 shadow-sm">
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-14 text-center">
+              <div className="rounded-full bg-rose-100 p-4 text-rose-600">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-semibold">
+                  Unable to load ethical clearances
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Check the backend connection and try again.
+                </p>
+              </div>
+              <Button onClick={() => refetch()}>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : showEmptyState ? (
+          <Card className="shadow-sm">
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+              <div className="rounded-full bg-muted p-4 text-muted-foreground">
+                <Shield className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-semibold">
+                  No ethical clearance applications found
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Try widening your filters or search term.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40 text-left text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3">Reference</th>
+                    <th className="px-4 py-3">Proposal</th>
+                    <th className="px-4 py-3">PI</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Applied</th>
+                    <th className="px-4 py-3">Files</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clearances.map((clearance) => {
+                    const status = statusConfig[clearance.status];
+                    const StatusIcon = status.icon;
+                    const requestFileUrl = resolveFileUrl(
+                      clearance.request_file,
+                    );
+                    const clearanceFileUrl = resolveFileUrl(
+                      clearance.clearance_file,
+                    );
+
+                    return (
+                      <tr
+                        key={clearance.id}
+                        className="border-b last:border-b-0 transition-colors hover:bg-muted/30"
+                      >
+                        <td className="px-4 py-4 align-top">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/research/ethical-clearance/${clearance.id}`,
+                              )
+                            }
+                            className="font-bold text-primary hover:underline"
+                          >
+                            {clearance.reference_number || `EC-${clearance.id}`}
+                          </button>
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="max-w-[320px] space-y-1">
+                            <p className="line-clamp-1 font-semibold">
+                              {clearance.proposal_title || "Untitled proposal"}
+                            </p>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Proposal ID {clearance.proposal}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 align-top text-muted-foreground">
+                          {typeof clearance.pi === "string"
+                            ? clearance.pi
+                            : clearance.pi?.fullName ||
+                              clearance.pi?.name ||
+                              clearance.pi?.first_name ||
+                              clearance.pi?.firstName ||
+                              "—"}
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <Badge
+                            variant="outline"
+                            className="font-bold capitalize"
+                          >
+                            {clearanceTypeLabel[clearance.clearance_type] ||
+                              clearance.clearance_type}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <Badge
+                            className={cn(
+                              "border text-[10px] font-bold uppercase shadow-none gap-1 px-2",
+                              status.className,
+                            )}
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            {status.label}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4 align-top text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            {formatDate(clearance.application_date)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wide">
+                            <a
+                              href={requestFileUrl || undefined}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={cn(
+                                "inline-flex items-center gap-1 text-primary hover:underline",
+                                !requestFileUrl &&
+                                  "pointer-events-none text-muted-foreground/50",
+                              )}
+                            >
+                              <FileText className="h-3 w-3" />
+                              Request file
+                            </a>
+                            <a
+                              href={clearanceFileUrl || undefined}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={cn(
+                                "inline-flex items-center gap-1 text-emerald-600 hover:underline",
+                                !clearanceFileUrl &&
+                                  "pointer-events-none text-muted-foreground/50",
+                              )}
+                            >
+                              <ShieldCheck className="h-3 w-3" />
+                              Clearance file
+                            </a>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 align-top text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              router.push(
+                                `/research/ethical-clearance/${clearance.id}`,
+                              )
+                            }
+                          >
+                            View
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
       </div>
     </PageContainer>
   );

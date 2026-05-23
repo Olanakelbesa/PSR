@@ -126,6 +126,61 @@ const ScreeningsListSchema = z.object({
     .optional(),
 });
 
+const ApprovedPendingFundingPrincipalInvestigatorSchema = z.object({
+  firstName: z.string().optional().default(""),
+  email: z.string().email().optional().default(""),
+  phone: z.string().optional().default(""),
+});
+
+const ApprovedPendingFundingAttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  url: z.string(),
+  size: z.number().optional().default(0),
+});
+
+const ApprovedPendingFundingSchema = z
+  .object({
+    id: z.string(),
+    title: z.string().optional().default("Untitled Proposal"),
+    status: ScreeningStatusSchema,
+    institution: z.string().optional().default(""),
+    researchArea: z.string().optional().default(""),
+    abstract: z.string().optional().default(""),
+    principalInvestigator: ApprovedPendingFundingPrincipalInvestigatorSchema,
+    coInvestigators: z
+      .array(z.record(z.string(), z.unknown()))
+      .optional()
+      .default([]),
+    budget: z
+      .object({
+        total: z.number().optional().default(0),
+        currency: z.string().optional().default("ETB"),
+      })
+      .optional()
+      .default({ total: 0, currency: "ETB" }),
+    attachments: z.array(ApprovedPendingFundingAttachmentSchema).optional().default([]),
+    submittedAt: z.string().optional().default(""),
+    createdAt: z.string().optional().default(""),
+    reviewStatus: z
+      .object({
+        technicalReview: z.string().optional().default(""),
+      })
+      .optional()
+      .default({ technicalReview: "" }),
+    fundingStatus: z
+      .object({
+        state: z.string().optional().default(""),
+      })
+      .optional()
+      .default({ state: "" }),
+  })
+  .passthrough();
+
+export type ApprovedPendingFundingScreening = z.infer<
+  typeof ApprovedPendingFundingSchema
+>;
+
 export type Screening = z.infer<typeof ScreeningSchema>;
 export type ScreeningsList = z.infer<typeof ScreeningsListSchema>;
 export type ScreeningStatus = z.infer<typeof ScreeningStatusSchema>;
@@ -247,4 +302,14 @@ export async function ensureScreeningForProposal(
     return updateScreening(existing.id, payload);
   }
   return createScreening(payload);
+}
+
+export async function getApprovedPendingFundingScreening(
+  id: string | number,
+): Promise<ApprovedPendingFundingScreening> {
+  const res = await apiClient.get(
+    API_ENDPOINTS.SCREENINGS.APPROVED_PENDING_FUNDING(id),
+  );
+
+  return ApprovedPendingFundingSchema.parse(res.data?.data ?? res.data);
 }

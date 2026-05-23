@@ -144,8 +144,12 @@ export const API_ENDPOINTS = {
   SCREENINGS: {
     LIST: "/v1/screenings/",
     DETAIL: (id: string | number) => `/v1/screenings/${id}/`,
+    REVIEWED_WITH_MARKS: "/v1/screenings/reviewed-with-marks/",
     ASSIGN_REVIEWERS: (id: string | number) =>
       `/v1/screenings/${id}/assign-reviewers/`,
+
+    APPROVED_PENDING_FUNDING: (id: string | number) =>
+      `/v1/screenings/${id}/approved-pending-funding/`,
   },
 
   // ── Individual Reviews ───────────────────────────────────────────────────
@@ -222,7 +226,21 @@ export const API_ENDPOINTS = {
     CREATE_DECISION: (id: string | number) =>
       `/v1/screenings/${id}/ready-for-funding/`,
   },
-  
+
+  // ── Funding Recommendations ───────────────────────────────────────────────
+  FUNDING_RECOMMENDATIONS: {
+    LIST: "/v1/funding-recommendations/",
+    DETAIL: (id: string | number) => `/v1/funding-recommendations/${id}/`,
+    READY_FOR_FINAL_SUBMISSION:
+      "/v1/funding-recommendations/ready-for-final-submission/",
+  },
+
+  ETHICAL_CLEARANCES: {
+    LIST: "/v1/ethical-clearances/",
+    DETAIL: (id: number) => `/v1/ethical-clearances/${id}/`,
+    CREATE: "/v1/ethical-clearances/",
+    UPDATE: (id: number) => `/v1/ethical-clearances/${id}/`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;
