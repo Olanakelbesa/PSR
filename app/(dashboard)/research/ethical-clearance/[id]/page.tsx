@@ -882,14 +882,6 @@ export default function EthicalClearanceDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          <Button
-            className="w-full bg-emerald-600 hover:bg-emerald-700 h-11"
-            onClick={() => setIsDialogOpen(true)}
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Process Clearance
-          </Button>
         </aside>
       </div>
 
