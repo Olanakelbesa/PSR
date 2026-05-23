@@ -325,3 +325,24 @@ export async function getApprovedPendingFundingScreening(
 
   return ApprovedPendingFundingSchema.parse(res.data?.data ?? res.data);
 }
+
+export interface ReviewedWithMarksFilters {
+  page?: number;
+  limit?: number;
+  ordering?: string;
+  search?: string;
+  proposal?: string | number;
+  need_irb_ethical_clearance?: boolean;
+  ethical_clearance_status?: string | null;
+}
+
+export async function getReviewedWithMarks(
+  filters: ReviewedWithMarksFilters = {},
+): Promise<unknown> {
+  const res = await apiClient.get(API_ENDPOINTS.SCREENINGS.REVIEWED_WITH_MARKS, {
+    params: filters,
+  });
+
+  // Return the raw response payload (contains success, data, meta)
+  return res.data;
+}

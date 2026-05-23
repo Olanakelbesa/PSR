@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   createEthicalClearanceReview,
+  updateEthicalClearanceReview,
   EthicalClearanceFilters,
   getEthicalClearance,
   getEthicalClearances,
@@ -30,6 +31,23 @@ export function useCreateEthicalClearance() {
       createEthicalClearanceReview(payload),
     onSuccess: () => {
       toast.success("Ethical clearance saved successfully.");
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useUpdateEthicalClearance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: EthicalClearanceCreateInput }) =>
+      updateEthicalClearanceReview(id, payload),
+    onSuccess: () => {
+      toast.success("Ethical clearance updated successfully.");
       queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
       queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
     },

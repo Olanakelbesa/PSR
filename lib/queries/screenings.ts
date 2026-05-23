@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { getApprovedPendingFundingScreening } from "@/api/services/screenings.service";
+import {
+  getApprovedPendingFundingScreening,
+  getReviewedWithMarks,
+} from "@/api/services/screenings.service";
 
 export const screeningQueryKeys = {
   all: ["screenings"] as const,
@@ -15,5 +18,14 @@ export function useApprovedPendingFundingScreening(
     queryKey: screeningQueryKeys.approvedPendingFunding(id),
     queryFn: () => getApprovedPendingFundingScreening(id),
     enabled: !!id && enabled,
+  });
+}
+
+export function useReviewedWithMarksScreenings(
+  filters: Record<string, unknown> = {},
+) {
+  return useQuery({
+    queryKey: [...screeningQueryKeys.all, "reviewed-with-marks", filters],
+    queryFn: () => getReviewedWithMarks(filters as any),
   });
 }
