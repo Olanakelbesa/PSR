@@ -45,6 +45,51 @@ import {
 
 const PAGE_SIZE = 5;
 
+function formatApiError(error: any, fallback: string) {
+  const apiError =
+    error?.response?.data?.error ??
+    error?.response?.data?.message ??
+    error?.response?.data ??
+    error?.errors;
+
+  if (apiError?.details) {
+    const detailMessages = Object.entries(apiError.details)
+      .map(([field, messages]) => {
+        const formattedField = field
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (value) => value.toUpperCase());
+        const messageText = Array.isArray(messages)
+          ? messages.join(", ")
+          : String(messages);
+        return `${formattedField}: ${messageText}`;
+      })
+      .join("\n");
+
+    if (detailMessages) {
+      return detailMessages;
+    }
+  }
+
+  if (
+    Array.isArray(apiError?.non_field_errors) &&
+    apiError.non_field_errors.length > 0
+  ) {
+    return apiError.non_field_errors.join("\n");
+  }
+
+  if (typeof apiError === "string" && apiError.trim()) {
+    return apiError;
+  }
+
+  return (
+    error?.response?.data?.detail ||
+    error?.message ||
+    (error?.message && error.message !== "[object Object]"
+      ? error.message
+      : fallback)
+  );
+}
+
 export default function AssignExpertsPage() {
   const params = useParams();
   const router = useRouter();
@@ -53,24 +98,32 @@ export default function AssignExpertsPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: draft, isLoading: isLoadingDraft } = usePolicyDraft(id);
   const { data: rawUsers, isLoading: isLoadingUsers } = useUserSelector();
-  const { data: assignedData, isLoading: isLoadingAssigned } = useAssignedDraftReviewers(id);
+  const { data: assignedData, isLoading: isLoadingAssigned } =
+    useAssignedDraftReviewers(id);
   const users = rawUsers || [];
 
   const docTypeId = draft?.docType?.id;
-  const { data: templates = [], isLoading: isLoadingTemplates } = useChecklistTemplates(docTypeId);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const { data: templates = [], isLoading: isLoadingTemplates } =
+    useChecklistTemplates(docTypeId);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
+    null,
+  );
 
   // Initialize selectedIds when assigned reviewers or draft is loaded
   useEffect(() => {
     if (assignedData?.reviewerIds) {
       setSelectedIds(assignedData.reviewerIds);
     } else if (draft) {
-      const existingIds = draft.reviewers?.map((r: any) => typeof r === "object" ? r.id : r) 
-                       || draft.assignedReviewers?.map((r: any) => typeof r === "object" ? r.id : r) 
-                       || [];
+      const existingIds =
+        draft.reviewers?.map((r: any) => (typeof r === "object" ? r.id : r)) ||
+        draft.assignedReviewers?.map((r: any) =>
+          typeof r === "object" ? r.id : r,
+        ) ||
+        [];
       setSelectedIds(existingIds);
     }
   }, [assignedData, draft]);
@@ -79,7 +132,11 @@ export default function AssignExpertsPage() {
   useEffect(() => {
     if (assignedData?.checklist_template_id) {
       setSelectedTemplateId(assignedData.checklist_template_id);
-    } else if (templates && templates.length > 0 && selectedTemplateId === null) {
+    } else if (
+      templates &&
+      templates.length > 0 &&
+      selectedTemplateId === null
+    ) {
       const active = templates.find((t) => t.is_active);
       if (active) {
         setSelectedTemplateId(active.id);
@@ -97,7 +154,9 @@ export default function AssignExpertsPage() {
   const filteredUsers = useMemo(() => {
     return users.filter((u: any) => {
       const search = searchQuery.toLowerCase();
-      const fullName = u.fullName || `${u.firstName || ""} ${u.middleName || ""} ${u.lastName || ""}`;
+      const fullName =
+        u.fullName ||
+        `${u.firstName || ""} ${u.middleName || ""} ${u.lastName || ""}`;
       return (
         fullName.toLowerCase().includes(search) ||
         (u.email || "").toLowerCase().includes(search) ||
@@ -111,7 +170,7 @@ export default function AssignExpertsPage() {
   const paginatedUsers = useMemo(() => {
     return filteredUsers.slice(
       (currentPage - 1) * PAGE_SIZE,
-      currentPage * PAGE_SIZE
+      currentPage * PAGE_SIZE,
     );
   }, [filteredUsers, currentPage]);
 
@@ -119,7 +178,9 @@ export default function AssignExpertsPage() {
 
   const toggleAssignment = (userId: number) => {
     setSelectedIds((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
     );
   };
 
@@ -130,17 +191,27 @@ export default function AssignExpertsPage() {
       toast.error("You must assign at least one expert to review this draft.");
       return;
     }
-    
+
+    setSubmitError(null);
+
     try {
       await assignMutation.mutateAsync({
         draftId: id,
         reviewers: selectedIds,
         checklistTemplateId: selectedTemplateId || undefined,
       });
-      toast.success(`Successfully assigned ${assignedCount} expert(s) to this draft. They have been notified.`);
+      setSubmitError(null);
+      toast.success(
+        `Successfully assigned ${assignedCount} expert(s) to this draft. They have been notified.`,
+      );
       router.push(`/policies/drafts/manage-drafts`);
     } catch (error: any) {
-      toast.error(error.message || "Failed to save assignments. Please try again.");
+      const message = formatApiError(
+        error,
+        "Failed to save assignments. Please try again.",
+      );
+      setSubmitError(message);
+      toast.error(message);
     }
   };
 
@@ -168,7 +239,10 @@ export default function AssignExpertsPage() {
           <div className="grid gap-6 lg:grid-cols-4">
             <div className="lg:col-span-3 space-y-4">
               {[...Array(PAGE_SIZE)].map((_, i) => (
-                <div key={i} className="h-16 w-full bg-muted animate-pulse rounded-lg" />
+                <div
+                  key={i}
+                  className="h-16 w-full bg-muted animate-pulse rounded-lg"
+                />
               ))}
             </div>
             <div className="h-48 w-full bg-muted animate-pulse rounded-lg" />
@@ -184,7 +258,11 @@ export default function AssignExpertsPage() {
       description={`Manage the evaluation committee for Draft: ${draft?.title || id}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
+          <Button
+            variant="outline"
+            asChild
+            className="shadow-sm border-primary/20 hover:bg-primary/5"
+          >
             <Link href="/policies/drafts/manage-drafts">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Cancel
@@ -201,6 +279,18 @@ export default function AssignExpertsPage() {
         </div>
       }
     >
+      {submitError && (
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-semibold">Unable to save assignments</p>
+              <p className="whitespace-pre-line">{submitError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-4 items-start">
         {/* Expert Pool */}
         <div className="lg:col-span-3 space-y-6">
@@ -242,7 +332,7 @@ export default function AssignExpertsPage() {
                           key={user.id}
                           className={cn(
                             "flex items-center justify-between p-4 hover:bg-muted/20 transition-colors cursor-pointer",
-                            isSelected && "bg-primary/5 hover:bg-primary/10"
+                            isSelected && "bg-primary/5 hover:bg-primary/10",
                           )}
                           onClick={() => toggleAssignment(user.id)}
                         >
@@ -250,7 +340,9 @@ export default function AssignExpertsPage() {
                             <Avatar
                               className={cn(
                                 "h-10 w-10 border-2 transition-all",
-                                isSelected ? "border-primary shadow-sm" : "border-transparent"
+                                isSelected
+                                  ? "border-primary shadow-sm"
+                                  : "border-transparent",
                               )}
                             >
                               <AvatarImage src={user.photoUrl || undefined} />
@@ -259,20 +351,27 @@ export default function AssignExpertsPage() {
                                   "text-xs font-bold transition-all",
                                   isSelected
                                     ? "bg-primary text-primary-foreground"
-                                    : "bg-primary/10 text-primary"
+                                    : "bg-primary/10 text-primary",
                                 )}
                               >
                                 {user.firstName?.[0] || "U"}
-                                {user.middleName?.[0] || user.lastName?.[0] || ""}
+                                {user.middleName?.[0] ||
+                                  user.lastName?.[0] ||
+                                  ""}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col">
                               <span className="font-semibold text-sm text-foreground">
-                                {user.fullName || `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`}
+                                {user.fullName ||
+                                  `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`}
                               </span>
-                              <span className="text-xs text-muted-foreground">{user.email}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {user.email}
+                              </span>
                               <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/70 mt-0.5">
-                                {user.unit?.name || user.organization?.name || "Institution Partner"}
+                                {user.unit?.name ||
+                                  user.organization?.name ||
+                                  "Institution Partner"}
                               </span>
                             </div>
                           </div>
@@ -281,7 +380,9 @@ export default function AssignExpertsPage() {
                             size="sm"
                             className={cn(
                               "w-28 font-medium transition-all",
-                              isSelected ? "bg-primary hover:bg-primary/90" : "border-primary/20 hover:bg-primary/5 text-primary"
+                              isSelected
+                                ? "bg-primary hover:bg-primary/90"
+                                : "border-primary/20 hover:bg-primary/5 text-primary",
                             )}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -306,30 +407,47 @@ export default function AssignExpertsPage() {
                     <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">
                         Showing{" "}
-                        <span className="font-medium">{(currentPage - 1) * PAGE_SIZE + 1}</span> to{" "}
                         <span className="font-medium">
-                          {Math.min(currentPage * PAGE_SIZE, filteredUsers.length)}
+                          {(currentPage - 1) * PAGE_SIZE + 1}
                         </span>{" "}
-                        of <span className="font-medium">{filteredUsers.length}</span> experts
+                        to{" "}
+                        <span className="font-medium">
+                          {Math.min(
+                            currentPage * PAGE_SIZE,
+                            filteredUsers.length,
+                          )}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-medium">
+                          {filteredUsers.length}
+                        </span>{" "}
+                        experts
                       </p>
                       <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
                           disabled={currentPage === 1}
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((page) => (
                           <Button
                             key={page}
                             variant={currentPage === page ? "default" : "ghost"}
                             size="sm"
                             className={cn(
                               "h-8 w-8 p-0 text-xs font-semibold",
-                              currentPage === page ? "bg-primary text-primary-foreground" : "hover:bg-primary/5 text-primary"
+                              currentPage === page
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-primary/5 text-primary",
                             )}
                             onClick={() => setCurrentPage(page)}
                           >
@@ -340,7 +458,9 @@ export default function AssignExpertsPage() {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                          }
                           disabled={currentPage === totalPages}
                         >
                           <ChevronRight className="h-4 w-4" />
@@ -391,14 +511,17 @@ export default function AssignExpertsPage() {
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Experts will use the selected checklist criteria to grade and review this policy draft.
+                    Experts will use the selected checklist criteria to grade
+                    and review this policy draft.
                   </p>
                 </div>
               ) : (
                 <div className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded border border-amber-100 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
                   <span>
-                    No specific checklist template registered for this document type. The system default active template will be automatically used.
+                    No specific checklist template registered for this document
+                    type. The system default active template will be
+                    automatically used.
                   </span>
                 </div>
               )}
@@ -410,12 +533,15 @@ export default function AssignExpertsPage() {
             <CardHeader className="pb-3 border-b border-primary/10">
               <CardTitle className="text-base text-primary flex items-center justify-between">
                 Assignment Summary
-                <Badge className="bg-primary hover:bg-primary">{assignedCount}</Badge>
+                <Badge className="bg-primary hover:bg-primary">
+                  {assignedCount}
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
               <p className="text-sm text-muted-foreground leading-relaxed">
-                You have selected <strong>{assignedCount} expert(s)</strong> to review this policy draft.
+                You have selected <strong>{assignedCount} expert(s)</strong> to
+                review this policy draft.
               </p>
               <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
                 {selectedUsers.map((user: any) => (
@@ -425,7 +551,8 @@ export default function AssignExpertsPage() {
                   >
                     <UserCheck className="h-4 w-4 text-green-600 shrink-0" />
                     <span className="truncate font-medium text-foreground">
-                      {user.fullName || `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`}
+                      {user.fullName ||
+                        `${user.firstName || ""} ${user.middleName || ""} ${user.lastName || ""}`}
                     </span>
                   </div>
                 ))}
@@ -433,7 +560,10 @@ export default function AssignExpertsPage() {
               {assignedCount === 0 && (
                 <div className="text-xs text-red-500 bg-red-50 p-2.5 rounded border border-red-100 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />
-                  <span>Drafts cannot proceed to the evaluation phase without at least one assigned expert.</span>
+                  <span>
+                    Drafts cannot proceed to the evaluation phase without at
+                    least one assigned expert.
+                  </span>
                 </div>
               )}
             </CardContent>

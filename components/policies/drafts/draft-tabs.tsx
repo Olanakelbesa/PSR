@@ -21,7 +21,7 @@ interface DraftTabsProps {
   mode?: "draft" | "repository";
 }
 
-export function DraftTabs({ draft, mode = "draft" }: DraftTabsProps) {
+export function DraftTabs({ draft, mode = "draft", isFeedbackVisible = true }: DraftTabsProps & { isFeedbackVisible?: boolean }) {
   const isRepository = mode === "repository";
 
   return (
@@ -33,7 +33,7 @@ export function DraftTabs({ draft, mode = "draft" }: DraftTabsProps) {
         <TabsTrigger value="document" className="gap-2">
           <FileText className="h-4 w-4" /> Document
         </TabsTrigger>
-        {!isRepository && (
+        {!isRepository && isFeedbackVisible && (
           <TabsTrigger value="feedback" className="gap-2">
             <ClipboardCheck className="h-4 w-4" /> Expert Feedback
             <Badge variant="secondary" className="ml-1 text-[10px] px-1 h-4">

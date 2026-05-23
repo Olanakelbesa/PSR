@@ -188,7 +188,7 @@ export default function DraftDetailPage() {
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
-          <DraftTabs draft={draft} />
+          <DraftTabs draft={draft} isFeedbackVisible={false} />
         </div>
 
         <aside className="space-y-6">

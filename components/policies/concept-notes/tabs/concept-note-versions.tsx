@@ -66,7 +66,7 @@ export function ConceptNoteVersions({ note }: ConceptNoteVersionsProps) {
             </div>
             {version.file ? (
               <Button variant="outline" size="sm" asChild>
-                <a href={version.file} download>
+                <a href={version.file} download target="_blank" rel="noopener noreferrer">
                   <Download className="h-3 w-3 mr-1" /> Download
                 </a>
               </Button>

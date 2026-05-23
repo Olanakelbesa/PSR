@@ -32,13 +32,11 @@ import { API_ENDPOINTS } from "@/api/endpoints";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useConceptNotes,
-  type ConceptNoteItem,
+  useConceptNoteDetail,
 } from "@/lib/queries/concept-notes";
-import { useConceptNoteDetail } from "@/lib/queries/concept-notes";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useOrganizationTypes } from "@/lib/queries/organization-types";
 import { toast } from "sonner";
-import type { ConceptNoteDetail } from "@/api/services/concept-notes.service";
 
 type DraftFormState = {
   title: string;
@@ -125,17 +123,6 @@ function draftSignature(formState: DraftFormState, selectedFile: File | null) {
   });
 }
 
-async function fileFromUrl(url: string) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Unable to fetch the concept note file.");
-  }
-
-  const blob = await response.blob();
-  const fileName = url.split("/").pop() || "concept-note.pdf";
-  return new File([blob], fileName, { type: blob.type || "application/pdf" });
-}
-
 export default function NewPolicyDraftPage() {
   const router = useRouter();
   const { backendToken } = useAuth();
@@ -207,6 +194,12 @@ export default function NewPolicyDraftPage() {
   ]);
 
   const currentSignature = draftSignature(formState, selectedFile);
+  const canAutoCreateDraft = Boolean(
+    selectedConceptId &&
+    selectedFile &&
+    formState.docType &&
+    formState.organization,
+  );
 
   useEffect(() => {
     if (!selectedConceptId) {
@@ -218,52 +211,14 @@ export default function NewPolicyDraftPage() {
       return;
     }
 
-    const sourceConcept =
-      (selectedConceptDetail as ConceptNoteDetail | undefined) ||
-      selectedConceptSummary;
-    if (!sourceConcept) {
-      return;
-    }
-
-    setFormState({
-      title: sourceConcept.title || "",
-      conceptNote: String(sourceConcept.id),
-      docType: String(sourceConcept.docType?.id || ""),
-      organization: String(sourceConcept.organization?.id || ""),
-    });
-    setSelectedFile(null);
+    setFormState((prev) => ({
+      ...prev,
+      conceptNote: selectedConceptId,
+    }));
+    setCreatedDraftId(null);
     setLastSavedAt(null);
     lastSavedSignatureRef.current = "";
-  }, [selectedConceptId, selectedConceptDetail, selectedConceptSummary]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const hydrateFile = async () => {
-      if (!selectedConceptDetail?.overview?.file || selectedFile) {
-        return;
-      }
-
-      try {
-        const file = await fileFromUrl(selectedConceptDetail.overview.file);
-        if (!cancelled) {
-          setSelectedFile(file);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          toast.error(
-            formatApiError(error, "Unable to load the concept note file."),
-          );
-        }
-      }
-    };
-
-    void hydrateFile();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedConceptDetail, selectedFile]);
+  }, [selectedConceptId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -272,10 +227,7 @@ export default function NewPolicyDraftPage() {
       if (
         !selectedConceptId ||
         !selectedConceptSummary ||
-        !formState.title.trim() ||
-        !formState.conceptNote ||
-        !formState.docType ||
-        !formState.organization ||
+        !canAutoCreateDraft ||
         createdDraftId ||
         isLocked ||
         initializationInFlightRef.current
@@ -541,10 +493,15 @@ export default function NewPolicyDraftPage() {
 
     setIsSubmitting(true);
     try {
-      const draftId = await persistLatestChanges();
+      const draftId = await ensureDraftId();
+      if (!draftId) {
+        throw new Error("Please select an approved concept note.");
+      }
+
       await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(draftId));
       setIsLocked(true);
       toast.success("Policy draft submitted for review.");
+      router.push("/policies/drafts/my-drafts");
     } catch (error: any) {
       toast.error(formatApiError(error, "Failed to submit the policy draft."));
     } finally {
@@ -625,8 +582,9 @@ export default function NewPolicyDraftPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  The selected concept note will seed the draft fields and can
-                  be edited after auto-fill.
+                  The selected concept note only links the draft to that record.
+                  Please enter the title, document type, and organization
+                  manually.
                 </p>
               </div>
 
@@ -779,6 +737,7 @@ export default function NewPolicyDraftPage() {
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
                   >
+                    <p>Document Upload</p>
                     <Input
                       ref={fileInputRef}
                       type="file"
@@ -1014,9 +973,9 @@ export default function NewPolicyDraftPage() {
           <Card className="bg-muted/30 border-dashed">
             <CardContent className="pt-6">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Selecting a concept note hydrates the draft fields and creates
-                the draft record. Any later edits are autosaved with a short
-                debounce, and submitting locks the form locally.
+                Selecting a concept note only stores its ID for the draft
+                record. Enter the title, document type, organization, and
+                optional file manually, then save or submit when ready.
               </p>
             </CardContent>
           </Card>

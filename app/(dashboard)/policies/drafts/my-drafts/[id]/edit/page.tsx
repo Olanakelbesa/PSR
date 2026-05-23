@@ -63,6 +63,38 @@ type FilePreview = {
   type: string;
 };
 
+function normalizeDraftPayload(rawDraft: any) {
+  const conceptNoteId = String(
+    rawDraft?.conceptNote?.id ??
+      rawDraft?.concept_note?.id ??
+      rawDraft?.concept_note ??
+      "",
+  );
+
+  const docTypeId = String(
+    rawDraft?.docType?.id ??
+      rawDraft?.doc_type?.id ??
+      rawDraft?.doc_type ??
+      rawDraft?.document_type?.id ??
+      "",
+  );
+
+  const organizationId = String(
+    rawDraft?.organization?.id ??
+      rawDraft?.organization_id ??
+      rawDraft?.organization ??
+      "",
+  );
+
+  return {
+    title: typeof rawDraft?.title === "string" ? rawDraft.title : "",
+    conceptNoteId,
+    docTypeId,
+    organizationId,
+    fileUrl: rawDraft?.file || rawDraft?.overview?.file || null,
+  };
+}
+
 function formatApiError(error: any, fallback: string) {
   const apiError =
     error?.response?.data?.error ?? error?.response?.data ?? error?.errors;
@@ -127,6 +159,7 @@ export default function EditPolicyDraftPage() {
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastAutosavedFileSignatureRef = useRef<string>("");
 
   const { data: rawDraft, isLoading: isLoadingPolicy } = usePolicyDraft(id);
   const { data: approvedConceptsRes, isLoading: isLoadingConcepts } =
@@ -135,36 +168,38 @@ export default function EditPolicyDraftPage() {
   const { data: policyDocumentTypes = [] } = usePolicyDocumentTypes();
   const { data: organizationTypes = [] } = useOrganizationTypes();
 
+  const normalizedDraft = useMemo(
+    () => normalizeDraftPayload(rawDraft),
+    [rawDraft],
+  );
+
   const conceptNoteOptions = useMemo(() => {
-    if (!rawDraft?.conceptNote && !rawDraft?.concept_note) {
-      return approvedConcepts;
-    }
-
-    const currentConcept = rawDraft.conceptNote || rawDraft.concept_note;
-    const currentConceptId = String(currentConcept?.id ?? currentConcept ?? "");
-
-    if (!currentConceptId) {
+    if (!normalizedDraft.conceptNoteId) {
       return approvedConcepts;
     }
 
     const existsInList = approvedConcepts.some(
-      (item) => String(item.id) === currentConceptId,
+      (item) => String(item.id) === normalizedDraft.conceptNoteId,
     );
 
     if (existsInList) {
       return approvedConcepts;
     }
 
+    const currentConcept = rawDraft?.conceptNote || rawDraft?.concept_note;
+
     return [
       {
-        ...currentConcept,
-        id: currentConceptId,
+        ...(currentConcept || {}),
+        id: normalizedDraft.conceptNoteId,
         title:
-          currentConcept?.title || rawDraft.title || "Existing concept note",
+          currentConcept?.title ||
+          normalizedDraft.title ||
+          "Existing concept note",
       },
       ...approvedConcepts,
     ];
-  }, [approvedConcepts, rawDraft]);
+  }, [approvedConcepts, normalizedDraft, rawDraft]);
 
   const selectedConceptSummary = useMemo(
     () =>
@@ -195,30 +230,68 @@ export default function EditPolicyDraftPage() {
   useEffect(() => {
     if (!rawDraft) return;
 
-    const conceptId = String(
-      rawDraft.conceptNote?.id ??
-        rawDraft.concept_note?.id ??
-        rawDraft.concept_note ??
-        "",
-    );
+    const draftData = normalizeDraftPayload(rawDraft);
 
-    setSelectedConceptId(conceptId);
+    setSelectedConceptId(draftData.conceptNoteId);
     setFormState({
-      title: rawDraft.title || "",
-      conceptNote: conceptId,
-      docType: String(rawDraft.docType?.id ?? ""),
-      organization: String(rawDraft.organization?.id ?? ""),
+      title: draftData.title,
+      conceptNote: draftData.conceptNoteId,
+      docType: draftData.docTypeId,
+      organization: draftData.organizationId,
     });
 
-    if (rawDraft.file || rawDraft.overview?.file) {
-      const fileUrl = rawDraft.file || rawDraft.overview?.file;
+    if (draftData.fileUrl) {
       setSelectedFile({
-        name: String(fileUrl).split("/").pop() || "Draft_Document.pdf",
+        name:
+          String(draftData.fileUrl).split("/").pop() || "Draft_Document.pdf",
         size: 0,
         type: "application/pdf",
       });
+      return;
     }
+
+    setSelectedFile(null);
+    lastAutosavedFileSignatureRef.current = "";
   }, [rawDraft]);
+
+  useEffect(() => {
+    if (!(selectedFile instanceof File)) {
+      return;
+    }
+
+    if (
+      !selectedConceptId ||
+      !formState.title.trim() ||
+      !formState.docType ||
+      !formState.organization
+    ) {
+      return;
+    }
+
+    const currentFileSignature = `${selectedFile.name}-${selectedFile.size}-${selectedFile.type}-${selectedFile.lastModified}`;
+
+    if (lastAutosavedFileSignatureRef.current === currentFileSignature) {
+      return;
+    }
+
+    const autosaveTimeout = window.setTimeout(async () => {
+      try {
+        await apiClient.patch(
+          API_ENDPOINTS.POLICY_DRAFTS.UPDATE(id),
+          makeDraftFormData(formState, selectedConceptId, selectedFile),
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+        lastAutosavedFileSignatureRef.current = currentFileSignature;
+        toast.success("Draft autosaved after file upload.");
+      } catch (error: any) {
+        toast.error(
+          formatApiError(error, "Failed to autosave the policy draft."),
+        );
+      }
+    }, 500);
+
+    return () => window.clearTimeout(autosaveTimeout);
+  }, [formState, id, selectedConceptId, selectedFile]);
 
   const handleConceptSelect = (conceptId: string) => {
     setSelectedConceptId(conceptId);
@@ -571,7 +644,9 @@ export default function EditPolicyDraftPage() {
               </div>
 
               <div className="space-y-4">
-                <div className="text-sm font-semibold text-foreground">Document Upload</div>
+                <div className="text-sm font-semibold text-foreground">
+                  Document Upload
+                </div>
                 {!selectedFile ? (
                   <div
                     className={cn(
@@ -666,7 +741,10 @@ export default function EditPolicyDraftPage() {
                           variant="ghost"
                           size="sm"
                           className="h-9 px-4 text-destructive hover:text-destructive hover:bg-destructive/5 font-bold text-xs"
-                          onClick={() => setSelectedFile(null)}
+                          onClick={() => {
+                            setSelectedFile(null);
+                            lastAutosavedFileSignatureRef.current = "";
+                          }}
                         >
                           <X className="mr-2 h-3.5 w-3.5" />
                           Remove
