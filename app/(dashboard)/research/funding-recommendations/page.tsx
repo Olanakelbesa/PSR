@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -29,8 +29,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fundingRecommendationsService } from "@/api/services/funding-recommendations.service";
 import { cn } from "@/lib/utils";
+import {
+  useFundingRecommendationCandidates,
+  useFundingRecommendations,
+} from "@/hooks";
 import type {
   FundingRecommendation,
   FundingRecommendationCandidate,
@@ -128,53 +131,55 @@ function StatCard({
 
 export default function FundingRecommendationsPage() {
   const router = useRouter();
-  const [candidates, setCandidates] = useState<FundingRecommendationCandidate[]>(
+
+  const candidateFilters = useMemo(
+    () => ({
+      page: 1,
+      limit: 100,
+      has_funding_decision: true,
+      funding_decision_status: "approved" as const,
+      has_funding_recommendation: false,
+      ordering: "-average_score_percentage",
+    }),
     [],
   );
-  const [recommendations, setRecommendations] = useState<FundingRecommendation[]>(
+
+  const recommendationFilters = useMemo(
+    () => ({
+      page: 1,
+      limit: 100,
+      ordering: "-recommended_at",
+    }),
     [],
   );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    setIsLoading(true);
-    setError(null);
+  const {
+    data: candidateData,
+    isLoading: isCandidatesLoading,
+    isError: isCandidatesError,
+    refetch: refetchCandidates,
+  } = useFundingRecommendationCandidates(candidateFilters);
 
-    try {
-      const [candidateResponse, recommendationResponse] = await Promise.all([
-        fundingRecommendationsService.listCandidates({
-          page: 1,
-          limit: 100,
-          has_funding_decision: true,
-          funding_decision_status: "approved",
-          has_funding_recommendation: false,
-          ordering: "-average_score_percentage",
-        }),
-        fundingRecommendationsService.list({
-          page: 1,
-          limit: 100,
-          ordering: "-recommended_at",
-        }),
-      ]);
+  const {
+    data: recommendationData,
+    isLoading: isRecommendationsLoading,
+    isError: isRecommendationsError,
+    refetch: refetchRecommendations,
+  } = useFundingRecommendations(recommendationFilters);
 
-      setCandidates(
-        candidateResponse.data.filter((item) => item.funding_decision_id),
-      );
-      setRecommendations(recommendationResponse.data);
-    } catch (err) {
-      console.error("Failed to load funding recommendations:", err);
-      setError("Unable to load funding recommendations.");
-      setCandidates([]);
-      setRecommendations([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLoading = isCandidatesLoading || isRecommendationsLoading;
+  const error =
+    isCandidatesError || isRecommendationsError
+      ? "Unable to load funding recommendations."
+      : null;
 
-  useEffect(() => {
-    void load();
-  }, []);
+  const candidates = useMemo(
+    () =>
+      (candidateData?.data ?? []).filter((item) => item.funding_decision_id),
+    [candidateData?.data],
+  );
+
+  const recommendations = recommendationData?.data ?? [];
 
   const totalAwarded = useMemo(
     () =>
@@ -232,7 +237,7 @@ export default function FundingRecommendationsPage() {
       accessorKey: "proposal_title",
       header: "Proposal",
       cell: ({ row }) => (
-        <div className="max-w-[420px]">
+        <div className="max-w-105">
           <p className="line-clamp-2 text-sm font-bold">
             {row.original.proposal_title || "Untitled proposal"}
           </p>
@@ -324,12 +329,13 @@ export default function FundingRecommendationsPage() {
       accessorKey: "proposal_title",
       header: "Proposal",
       cell: ({ row }) => (
-        <div className="max-w-[420px]">
+        <div className="max-w-105">
           <p className="line-clamp-2 text-sm font-bold">
             {row.original.proposal_title || "Untitled proposal"}
           </p>
           <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            Ready for Funding ID {row.original.ready_for_funding_id || row.original.proposal}
+            Ready for Funding ID{" "}
+            {row.original.ready_for_funding_id || row.original.proposal}
           </p>
         </div>
       ),
@@ -369,7 +375,9 @@ export default function FundingRecommendationsPage() {
               : "border-slate-200 bg-slate-50 text-slate-700",
           )}
         >
-          {row.original.has_ethical_clearance_approval ? "Approved" : "Not marked"}
+          {row.original.has_ethical_clearance_approval
+            ? "Approved"
+            : "Not marked"}
         </Badge>
       ),
     },
@@ -402,7 +410,14 @@ export default function FundingRecommendationsPage() {
       title="Funding Recommendations"
       description="Prepare award recommendations for approved funding decisions and review submitted records."
       actions={
-        <Button variant="outline" onClick={load} disabled={isLoading}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            void refetchCandidates();
+            void refetchRecommendations();
+          }}
+          disabled={isLoading}
+        >
           <RefreshCcw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
@@ -429,7 +444,12 @@ export default function FundingRecommendationsPage() {
                   Check the backend connection and try again.
                 </p>
               </div>
-              <Button onClick={load}>
+              <Button
+                onClick={() => {
+                  void refetchCandidates();
+                  void refetchRecommendations();
+                }}
+              >
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Retry
               </Button>

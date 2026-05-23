@@ -186,6 +186,31 @@ export const API_ENDPOINTS = {
       `/projects/${projectId}/progress-reports/${reportId}/approve`,
   },
 
+  // ── Monitoring v1 Reports ────────────────────────────────────────────────
+  PROGRESS_REPORTS: {
+    LIST: "/v1/progress-reports/",
+    DETAIL: (id: string | number) => `/v1/progress-reports/${id}/`,
+    CREATE: "/v1/progress-reports/",
+  },
+
+  PROGRESS_REPORT_APPROVALS: {
+    LIST: "/v1/progress-report-approvals/",
+    DETAIL: (id: string | number) => `/v1/progress-report-approvals/${id}/`,
+    UPDATE: (id: string | number) => `/v1/progress-report-approvals/${id}/`,
+  },
+
+  TERMINAL_REPORT_APPROVALS: {
+    LIST: "/v1/terminal-report-approvals/",
+    DETAIL: (id: string | number) => `/v1/terminal-report-approvals/${id}/`,
+    UPDATE: (id: string | number) => `/v1/terminal-report-approvals/${id}/`,
+  },
+
+  TERMINAL_REPORTS: {
+    LIST: "/v1/terminal-reports/",
+    DETAIL: (id: string | number) => `/v1/terminal-reports/${id}/`,
+    CREATE: "/v1/terminal-reports/",
+  },
+
   // ── Grants ────────────────────────────────────────────────────────────────
   GRANTS: {
     LIST: "/grants",
@@ -204,6 +229,7 @@ export const API_ENDPOINTS = {
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   DASHBOARD: {
+    ANALYTICS: "/v1/dashboard/analytics/",
     STATS: (role: string) => `/dashboard/stats?role=${role}`,
   },
 
@@ -233,6 +259,26 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/funding-recommendations/${id}/`,
     READY_FOR_FINAL_SUBMISSION:
       "/v1/funding-recommendations/ready-for-final-submission/",
+  },
+
+  FINAL_SUBMISSIONS: {
+    LIST: "/v1/final-submissions/",
+    CREATE: "/v1/final-submissions/",
+    DETAIL: (id: string | number) => `/v1/final-submissions/${id}/`,
+  },
+
+  OUTPUT_TYPES: {
+    LIST: "/v1/outputtypes/",
+  },
+
+  DATA_CENTERS: {
+    LIST: "/v1/datacenters/",
+  },
+
+  MINUTES: {
+    LIST: "/v1/minutes/",
+    CREATE: "/v1/minutes/",
+    DETAIL: (id: string | number) => `/v1/minutes/${id}/`,
   },
 
   ETHICAL_CLEARANCES: {

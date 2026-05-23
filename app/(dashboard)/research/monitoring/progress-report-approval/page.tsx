@@ -1,339 +1,301 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  Activity,
-  CheckCircle2,
-  Clock,
-  MoreHorizontal,
-  Eye,
-  FileText,
-  AlertCircle,
-  TrendingUp,
-  BarChart3,
-  Calendar,
-  Check,
-  X,
-  FileCheck2,
-} from "lucide-react";
+import { Eye, RefreshCw, Search } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { monitoringApi } from "@/api/client";
-import { mockProjects } from "@/lib/api/mock-data";
-import type { ResearchProject, ProgressReport } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useProgressReportApprovals } from "@/hooks";
 
-// Enrich mock data to contain pending reports for approvals tab
-const enrichedProjects = mockProjects.map((p) => {
-  if (p.id === "proj-001") {
-    return {
-      ...p,
-      progressReports: [
-        {
-          id: "pr-pending-1",
-          projectId: "proj-001",
-          reportingPeriod: "Q2 2024 Progress Report",
-          activitiesCompleted:
-            "Phase 2 clinical screenings are active. We have recruited over 400 subjects. Core databases are being cleaned and indexed for the review committee.",
-          challenges: "Severe weather events delayed field data aggregation in several sub-regions.",
-          nextSteps: "Execute mid-term evaluations and prepare draft report summaries.",
-          budgetSpent: 124500.00,
-          attachments: [
-            {
-              id: "att-q2-1",
-              name: "Q2_Progress_Report_Complete.pdf",
-              type: "application/pdf",
-              size: 2450000,
-              url: "#",
-              uploadedAt: "2024-05-15T09:30:00Z"
-            }
-          ],
-          status: "submitted" as const,
-          submittedAt: "2024-05-15T09:30:00Z",
-          createdAt: "2024-05-10T08:00:00Z",
-        },
-        ...p.progressReports,
-      ],
-    };
-  }
-  if (p.id === "proj-002") {
-    return {
-      ...p,
-      progressReports: [
-        {
-          id: "pr-pending-2",
-          projectId: "proj-002",
-          reportingPeriod: "Q2 2024 Architecture Audit",
-          activitiesCompleted:
-            "Finalized geographic models, coordinated structural and municipal zoning filings, and held core alignment meetups with Addis Ababa housing bureaus.",
-          challenges: "Delays in zoning authorizations from municipal bodies due to legislative updates.",
-          nextSteps: "Kick off physical core excavations and material supply distributions.",
-          budgetSpent: 310000.00,
-          attachments: [
-            {
-              id: "att-q2-2",
-              name: "Bole_Villa_Structural_Report.pdf",
-              type: "application/pdf",
-              size: 4890000,
-              url: "#",
-              uploadedAt: "2024-05-16T14:15:00Z"
-            }
-          ],
-          status: "submitted" as const,
-          submittedAt: "2024-05-16T14:15:00Z",
-          createdAt: "2024-05-12T11:00:00Z",
-        },
-        ...p.progressReports,
-      ],
-    };
-  }
-  return p;
-});
+const decisionLabels = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+} as const;
+
+const decisionClasses = {
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rejected: "bg-rose-50 text-rose-700 border-rose-200",
+} as const;
 
 export default function ProgressReportApprovalListPage() {
-  const [projects, setProjects] = useState<ResearchProject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [decision, setDecision] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("pending");
+  const [ordering, setOrdering] = useState("-reviewed_at");
 
-  useEffect(() => {
-    async function loadProjects() {
-      setIsLoading(true);
-      try {
-        const response = await monitoringApi.getProjects();
-        if (response && response.data) {
-          // Add pending reports dynamically if not present
-          const apiProjects = response.data.map((p: ResearchProject) => {
-            const enriched = enrichedProjects.find((ep) => ep.id === p.id);
-            return enriched ? enriched : p;
-          });
-          setProjects(apiProjects);
-        } else {
-          setProjects(enrichedProjects);
-        }
-      } catch (error) {
-        console.error("Failed to load projects:", error);
-        setProjects(enrichedProjects);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadProjects();
-  }, []);
+  const queryParams = useMemo(
+    () => ({
+      page,
+      limit: 10,
+      search: search || undefined,
+      decision: decision === "all" ? undefined : decision,
+      ordering,
+    }),
+    [page, search, decision, ordering],
+  );
 
-  // Extract all progress reports that are pending approval ("submitted" or "pending")
-  const pendingApprovals = projects.flatMap((p) => {
-    return (p.progressReports || [])
-      .filter((r) => r.status === "submitted" || (r.status as string) === "pending")
-      .map((r) => ({
-        ...r,
-        project: p,
-      }));
-  });
+  const { data, isLoading, refetch } = useProgressReportApprovals(queryParams);
+  const approvals = data?.data ?? [];
+  const meta = data?.meta ?? { page: 1, limit: 10, total: 0, totalPages: 0 };
+
+  const stats = [
+    { label: "Total", value: meta.total },
+    {
+      label: "Pending",
+      value: approvals.filter((approval) => approval.decision === "pending")
+        .length,
+    },
+    {
+      label: "Approved",
+      value: approvals.filter((approval) => approval.decision === "approved")
+        .length,
+    },
+    {
+      label: "Rejected",
+      value: approvals.filter((approval) => approval.decision === "rejected")
+        .length,
+    },
+  ];
 
   const columns = [
     {
-      accessorKey: "project.contractNumber",
-      header: "Reference",
+      accessorKey: "id",
+      header: "Approval ID",
       cell: ({ row }: any) => (
-        <span className="font-mono text-[10px] font-bold tracking-widest text-primary/70">
-          {row.original.project.contractNumber}
+        <span className="font-mono text-[11px] font-semibold text-primary/80">
+          #{row.original.id}
         </span>
       ),
     },
     {
-      id: "projectTitle",
-      accessorKey: "project.proposal.title",
-      header: "Research Project / PI",
+      accessorKey: "progress_report",
+      header: "Progress Report",
       cell: ({ row }: any) => (
-        <div className="max-w-[280px] lg:max-w-[380px]">
-          <div className="font-bold text-sm leading-tight text-foreground truncate">
-            {row.original.project.proposal.title}
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1 font-medium">
-            PI: {row.original.project.proposal.principalInvestigator.firstName}{" "}
-            {row.original.project.proposal.principalInvestigator.lastName} ({row.original.project.proposal.institution})
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "reportingPeriod",
-      header: "Reporting Period",
-      cell: ({ row }: any) => (
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold text-foreground">
-            {row.original.reportingPeriod}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "budgetSpent",
-      header: "Budget Spent",
-      cell: ({ row }: any) => (
-        <span className="font-mono text-sm font-bold text-foreground">
-          ETB {row.original.budgetSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span className="font-mono text-[11px] font-semibold">
+          {row.original.progress_report}
         </span>
       ),
     },
     {
-      accessorKey: "submittedAt",
-      header: "Submitted Date",
+      accessorKey: "reviewer_name",
+      header: "Reviewer",
       cell: ({ row }: any) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>
-            {row.original.submittedAt
-              ? new Date(row.original.submittedAt).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })
-              : "N/A"}
-          </span>
+        <div className="max-w-65">
+          <div className="font-semibold truncate">
+            {row.original.reviewer_name}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            ID: {row.original.reviewer}
+          </div>
         </div>
       ),
     },
     {
-      accessorKey: "status",
-      header: "Status",
-      cell: () => (
-        <Badge
-          variant="outline"
-          className="bg-amber-50 text-amber-700 border-amber-200/60 font-bold uppercase tracking-tighter text-[9px] px-2 py-0.5"
-        >
-          Pending Approval
-        </Badge>
+      accessorKey: "decision",
+      header: "Decision",
+      cell: ({ row }: any) => {
+        const value = row.original.decision as keyof typeof decisionLabels;
+        return (
+          <Badge variant="outline" className={decisionClasses[value]}>
+            {decisionLabels[value]}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "reviewed_at",
+      header: "Reviewed At",
+      cell: ({ row }: any) => (
+        <span className="text-xs text-muted-foreground">
+          {row.original.reviewed_at
+            ? new Date(row.original.reviewed_at).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : "-"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "comment",
+      header: "Comment",
+      cell: ({ row }: any) => (
+        <span className="block max-w-70 truncate text-xs text-muted-foreground">
+          {row.original.comment || "No comment"}
+        </span>
       ),
     },
     {
       id: "actions",
+      header: "",
       cell: ({ row }: any) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 shadow-xl border-primary/10">
-            <DropdownMenuItem asChild>
-              <Link
-                href={`/research/monitoring/progress-report-approval/${row.original.project.id}`}
-                className="cursor-pointer font-bold text-primary"
-              >
-                <FileCheck2 className="h-4 w-4 mr-2" />
-                Review & Decide
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link
-                href={`/research/monitoring/progress-report/${row.original.project.id}`}
-                className="cursor-pointer"
-              >
-                <Eye className="h-4 w-4 mr-2 text-muted-foreground" />
-                View Project Dashboard
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button asChild variant="ghost" size="sm" className="h-8 px-2">
+          <Link
+            href={`/research/monitoring/progress-report-approval/${row.original.id}`}
+          >
+            <Eye className="mr-1 h-4 w-4" />
+            Review
+          </Link>
+        </Button>
       ),
-    },
-  ];
-
-  const stats = [
-    {
-      label: "Pending Approvals",
-      value: pendingApprovals.length,
-      icon: Clock,
-      color: "text-amber-600",
-      bg: "bg-amber-500/10",
-      desc: "Requires review action"
-    },
-    {
-      label: "Total Budget Requested",
-      value: `ETB ${(pendingApprovals.reduce((sum, p) => sum + p.budgetSpent, 0) / 1000).toFixed(1)}K`,
-      icon: TrendingUp,
-      color: "text-primary",
-      bg: "bg-primary/10",
-      desc: "Pending release claims"
-    },
-    {
-      label: "Active Reviewers Assigned",
-      value: 3,
-      icon: Activity,
-      color: "text-blue-600",
-      bg: "bg-blue-500/10",
-      desc: "Evaluating reports"
-    },
-    {
-      label: "Review SLA Compliance",
-      value: "98.2%",
-      icon: CheckCircle2,
-      color: "text-emerald-600",
-      bg: "bg-emerald-500/10",
-      desc: "Avg. turnaround: 4 days"
     },
   ];
 
   return (
     <PageContainer
-      title="Progress Report Approval Portal"
-      description="Evaluate research achievements, track budget utilization claims, and record formal approval decisions."
+      title="Progress Report Approvals"
+      description="Review and decide progress report approval records from the monitoring workflow."
     >
-      <div className="space-y-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {isLoading
-            ? Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i} className="border-none shadow-sm">
-                  <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
-                  <CardContent><Skeleton className="h-8 w-16" /></CardContent>
-                </Card>
-              ))
-            : stats.map((stat, i) => (
-                <Card key={i} className="group relative overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 bg-white">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
-                      {stat.label}
-                    </CardTitle>
-                    <div className={cn("p-1.5 rounded-lg", stat.bg)}>
-                      <stat.icon className={cn("h-4 w-4", stat.color)} />
-                    </div>
+            ? Array.from({ length: 4 }).map((_, index) => (
+                <Card key={index} className="border-none shadow-sm">
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-4 w-20" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold tracking-tight text-foreground">{stat.value}</div>
-                    <p className="text-[10px] text-muted-foreground mt-1 font-medium">{stat.desc}</p>
+                    <Skeleton className="h-8 w-12" />
+                  </CardContent>
+                </Card>
+              ))
+            : stats.map((item) => (
+                <Card key={item.label} className="border-none shadow-sm">
+                  <CardHeader className="pb-1">
+                    <CardTitle className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                      {item.label}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-black">{item.value}</div>
                   </CardContent>
                 </Card>
               ))}
         </div>
 
-        {/* Portfolio Table */}
-        <div className="space-y-4">
+        <Card className="border-none shadow-sm">
+          <CardContent className="space-y-4 pt-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 items-center gap-2">
+                <div className="relative w-full max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    placeholder="Search reviewer, comment, report id"
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setPage(1);
+                    setSearch(searchInput.trim());
+                  }}
+                >
+                  Search
+                </Button>
+              </div>
 
-          <DataTable 
-            columns={columns} 
-            data={pendingApprovals} 
-            searchKey="projectTitle" 
-            searchPlaceholder="Search submitted reports..."
-            emptyMessage="No pending progress reports found"
-            emptyDescription="All submitted research reports have been evaluated and approved!"
-          />
-        </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={decision}
+                  onChange={(event) => {
+                    setPage(1);
+                    setDecision(
+                      event.target.value as
+                        | "all"
+                        | "pending"
+                        | "approved"
+                        | "rejected",
+                    );
+                  }}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="all">All Decisions</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+
+                <select
+                  value={ordering}
+                  onChange={(event) => {
+                    setPage(1);
+                    setOrdering(event.target.value);
+                  }}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="-reviewed_at">Newest Review</option>
+                  <option value="reviewed_at">Oldest Review</option>
+                  <option value="id">Approval ID Asc</option>
+                  <option value="-id">Approval ID Desc</option>
+                </select>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => refetch()}
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            <DataTable
+              columns={columns}
+              data={approvals}
+              searchKey="reviewer_name"
+              searchPlaceholder="Filter loaded rows..."
+              emptyMessage="No progress report approvals found"
+              emptyDescription="Try changing decision or search filters."
+            />
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <div className="text-xs text-muted-foreground">
+                Page {meta.page} of {Math.max(meta.totalPages, 1)}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isLoading || page <= 1}
+                  onClick={() =>
+                    setPage((previous) => Math.max(previous - 1, 1))
+                  }
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    isLoading ||
+                    (meta.totalPages > 0 && page >= meta.totalPages)
+                  }
+                  onClick={() => setPage((previous) => previous + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </PageContainer>
   );

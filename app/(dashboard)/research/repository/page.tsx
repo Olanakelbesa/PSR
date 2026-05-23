@@ -1,211 +1,325 @@
 "use client";
 
-import { useState } from "react";
+import { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
-import { 
-  Library, 
-  Search, 
-  Filter, 
-  Calendar, 
-  Building2, 
-  User, 
-  ArrowUpRight, 
-  FileText,
-  BadgeCheck,
-  Globe,
-  Tag,
+import {
+  ArrowRight,
   BookOpen,
-  ArrowRight
+  CalendarDays,
+  Hash,
+  Tag,
+  UserRound,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { DataTable } from "@/components/shared/data-table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
+import {
+  useDataCenters,
+  useFinalSubmissions,
+  useOutputTypes,
+  useReadyForFinalSubmissionFundingRecommendations,
+} from "@/hooks";
+import type {
+  FinalSubmission,
+  FinalSubmissionStatus,
+} from "@/types/final-submission";
+import type { FundingRecommendation } from "@/types/funding-recommendation";
 
-export const mockLibrary = [
+const statusLabels: Record<FinalSubmissionStatus, string> = {
+  draft: "Draft",
+  submitted: "Submitted",
+  under_review: "Under Review",
+  revision_requested: "Revision Requested",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+type ResearchRecord = FinalSubmission & {
+  searchText: string;
+  output_type_name?: string;
+  data_center_name?: string;
+  fundedproposal_title?: string;
+};
+
+function formatRecommendationLabel(item: FundingRecommendation) {
+  const reference = item.reference_number || `FR-${item.id}`;
+  const title = item.proposal_title || "Untitled proposal";
+  return `${reference} · ${title}`;
+}
+
+const repositoryColumns: ColumnDef<ResearchRecord>[] = [
   {
-    id: "PUB-2023-001",
-    title: "Determinants of Vaccine Hesitancy in Rural Pastoralist Communities: A Multi-Region Analysis",
-    author: "Dr. Selamawit Tadesse",
-    institution: "Armauer Hansen Research Institute (AHRI)",
-    year: "2023",
-    department: "Epidemiology",
-    area: "Public Health",
-    type: "Full Report",
-    grade: "Excellent",
-    abstract: "This multi-regional investigation uncovers the behavioral, social, and economic barriers driving vaccine hesitancy within rural pastoralist populations in Ethiopia. Through randomized household cluster evaluations across Afar and Somali regions, the study unmasks major trust deficits, supply-chain delivery challenges, and cultural variables, offering operational recommendations to strengthen PHC outreach campaigns.",
-    methodology: "Mixed-methods household cluster survey (n=1200) paired with 24 focus group discussions across four key pastoralist zones.",
-    impact: "Formally integrated into the Ministry of Health's 2024 pastoralist immunization outreach directive.",
-    doi: "https://doi.org/10.1016/j.jedu.2024.12.004",
-    citation: "Tadesse, S. (2023). Determinants of Vaccine Hesitancy in Rural Pastoralist Communities: A Multi-Region Analysis. Ethiopian Journal of Public Health, 15(2), 112-124.",
+    id: "searchText",
+    accessorFn: (item) =>
+      [
+        item.title,
+        item.submitted_by_name,
+        item.ndmc_submission_reference,
+        item.fundedproposal_title,
+        item.output_type_name,
+        item.data_center_name,
+        item.status,
+      ]
+        .join(" ")
+        .toLowerCase(),
+    enableHiding: true,
+    cell: () => null,
   },
   {
-    id: "PUB-2023-042",
-    title: "Mapping the Human Resource for Health (HRH) Gaps in Tertiary Hospitals across Ethiopia",
-    author: "Prof. Bekele Gizaw",
-    institution: "Addis Ababa University",
-    year: "2023",
-    department: "Health Policy",
-    area: "Governance",
-    type: "Manuscript",
-    grade: "Excellent",
-    abstract: "A comprehensive health workforce census tracking specialized doctor-to-bed ratios, nurse attrition rates, and clinical officer allocations across tertiary referral centers. The study demonstrates severe specialist clustering in urban zones and proposes a national incentive framework to facilitate regional workforce distribution.",
-    methodology: "Cross-sectional national hospital personnel registry audit combined with qualitative clinical administrative interviews.",
-    impact: "Adopted by the Civil Service Commission as a blueprint for specialized healthcare worker regional allowances.",
-    doi: "https://doi.org/10.1111/j.healthpolicy.2023.08.012",
-    citation: "Gizaw, B. (2023). Mapping the Human Resource for Health (HRH) Gaps in Tertiary Hospitals across Ethiopia. Journal of Health Workforce Management, 8(4), 45-59.",
+    accessorKey: "title",
+    header: "Submission",
+    cell: ({ row }) => {
+      const item = row.original;
+
+      return (
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/10 bg-primary/5 text-primary shadow-sm">
+            <BookOpen className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-primary/70">
+              <Tag className="h-3 w-3" />
+              {item.ndmc_submission_reference || `FS-${item.id}`}
+            </div>
+            <div>
+              <p className="line-clamp-2 text-sm font-bold leading-snug text-slate-900">
+                {item.title}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {item.submitted_by_name || "Submitted by PSR user"}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    },
   },
   {
-    id: "PUB-2022-115",
-    title: "Efficacy of Community-Led Total Sanitation (CLTS) in reducing Diarrheal diseases in Tigray",
-    author: "Mekonen Hailu",
-    institution: "Mekelle University",
-    year: "2022",
-    department: "Environmental Health",
-    area: "WASH",
-    type: "Full Report",
-    grade: "Good",
-    abstract: "Evaluating the five-year community-led total sanitation programs across rural woredas in Tigray. The results identify significant reduction parameters in childhood diarrheal rates where CLTS attained verified open-defecation-free (ODF) statuses, validating the low-cost community mobilization approach.",
-    methodology: "Retrospective cohort review comparing health clinic pediatric registries between ODF and non-ODF woredas.",
-    impact: "Used to secure UNICEF co-financing for expanding community sanitation models in low-resource settings.",
-    doi: "https://doi.org/10.1080/wash.2022.09.001",
-    citation: "Hailu, M. (2022). Efficacy of Community-Led Total Sanitation (CLTS) in reducing Diarrheal diseases in Tigray. African Journal of Environmental WASH, 19(3), 204-215.",
+    accessorKey: "fundedproposal_title",
+    header: "Funded Proposal",
+    cell: ({ row }) => {
+      const item = row.original;
+
+      return (
+        <div className="space-y-1">
+          <p className="max-w-[260px] line-clamp-2 text-sm font-semibold text-slate-700">
+            {item.fundedproposal_title ||
+              `Funding proposal #${item.fundedproposal}`}
+          </p>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <UserRound className="h-3.5 w-3.5" />
+            {item.submitted_by_name || "Unknown submitter"}
+          </div>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "output_type_name",
+    header: "Output Type",
+    cell: ({ row }) => (
+      <Badge
+        variant="secondary"
+        className="border-none bg-slate-100 text-[10px] font-bold uppercase tracking-wide text-slate-600"
+      >
+        {row.original.output_type_name || `Output #${row.original.output_type}`}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "data_center_name",
+    header: "Data Center",
+    cell: ({ row }) => (
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-slate-700">
+          {row.original.data_center_name ||
+            `Center #${row.original.data_center || "-"}`}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          Version {row.original.version ?? 1}
+        </p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    filterFn: "equalsString",
+    cell: ({ row }) => (
+      <div className="flex flex-wrap gap-2">
+        <Badge
+          className={
+            row.original.status === "approved"
+              ? "border-emerald-200 bg-emerald-50 text-[10px] font-bold uppercase tracking-wide text-emerald-700"
+              : row.original.status === "rejected"
+                ? "border-rose-200 bg-rose-50 text-[10px] font-bold uppercase tracking-wide text-rose-700"
+                : "border-amber-200 bg-amber-50 text-[10px] font-bold uppercase tracking-wide text-amber-700"
+          }
+        >
+          {statusLabels[row.original.status]}
+        </Badge>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "submission_date",
+    header: "Submitted",
+    cell: ({ row }) => (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+          {formatDate(row.original.submission_date)}
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <Hash className="h-3.5 w-3.5" />
+          {row.original.id}
+        </div>
+      </div>
+    ),
   },
 ];
 
 export default function ResearchRepositoryPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeArea, setActiveArea] = useState<string>("All");
-
-  const filteredLibrary = mockLibrary.filter((item) => {
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.institution.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.area.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesArea = activeArea === "All" || item.area === activeArea;
-
-    return matchesSearch && matchesArea;
+  const { data, isLoading: isFinalSubmissionsLoading } = useFinalSubmissions({
+    page: 1,
+    limit: 100,
+    ordering: "-submission_date",
   });
 
-  const uniqueAreas = ["All", ...Array.from(new Set(mockLibrary.map((item) => item.area)))];
+  const { data: fundingRecommendationsData, isLoading: isFundingLoading } =
+    useReadyForFinalSubmissionFundingRecommendations({
+      page: 1,
+      limit: 100,
+      ordering: "-recommended_at",
+    });
+
+  const { data: outputTypesData, isLoading: isOutputTypesLoading } =
+    useOutputTypes({ page: 1, limit: 100, ordering: "name" });
+
+  const { data: dataCentersData, isLoading: isDataCentersLoading } =
+    useDataCenters({ page: 1, limit: 100, ordering: "name" });
+
+  const isLoading =
+    isFinalSubmissionsLoading ||
+    isFundingLoading ||
+    isOutputTypesLoading ||
+    isDataCentersLoading;
+
+  const fundingRecommendationMap = new Map(
+    (fundingRecommendationsData?.data ?? []).map((item) => [item.id, item]),
+  );
+  const outputTypeMap = new Map(
+    (outputTypesData?.data ?? []).map((item) => [item.id, item]),
+  );
+  const dataCenterMap = new Map(
+    (dataCentersData?.data ?? []).map((item) => [item.id, item]),
+  );
+
+  const finalSubmissions: ResearchRecord[] = (data?.data ?? []).map((item) => {
+    const fundedProposal = fundingRecommendationMap.get(item.fundedproposal);
+    const outputType = outputTypeMap.get(item.output_type);
+    const dataCenter = item.data_center
+      ? dataCenterMap.get(item.data_center)
+      : undefined;
+
+    return {
+      ...item,
+      searchText: [
+        item.title,
+        item.submitted_by_name,
+        item.ndmc_submission_reference,
+        item.status,
+        fundedProposal?.proposal_title,
+        outputType?.name,
+        dataCenter?.name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase(),
+      fundedproposal_title: fundedProposal
+        ? formatRecommendationLabel(fundedProposal)
+        : undefined,
+      output_type_name: outputType?.name,
+      data_center_name: dataCenter?.name,
+    };
+  });
+
+  const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({
+    value,
+    label,
+  }));
 
   return (
     <PageContainer
       title="Research Repository"
-      description="The official PSR archive of authorized national research findings and policy evidence."
+      description="The official PSR archive of final submissions, output records, and repository registrations."
+      actions={
+        <Button
+          asChild
+          className="px-5"
+        >
+          <Link href="/research/repository/new">
+            Register Submission
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      }
     >
-      <div className="space-y-8">
-        
-        {/* Search & Filtration Control Bar */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-muted-foreground/10 shadow-sm">
-           {/* Integrated Search Input */}
-           <div className="relative flex-1 max-w-lg">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input 
-                placeholder="Search research by title, author, or institution..." 
-                className="h-10 pl-10 rounded-xl border-muted-foreground/15 bg-slate-50 focus-visible:ring-primary/20 text-sm placeholder:text-muted-foreground/50"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-           </div>
-           
-           {/* Area Filtration Buttons & Counter */}
-           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                 {uniqueAreas.map((area) => (
-                   <button
-                     key={area}
-                     type="button"
-                     onClick={() => setActiveArea(area)}
-                     className={cn(
-                       "px-4 h-9 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap",
-                       activeArea === area
-                         ? "bg-primary text-white shadow-sm"
-                         : "border border-muted-foreground/10 hover:border-primary/20 hover:bg-slate-50 text-muted-foreground"
-                     )}
-                   >
-                     {area === "All" ? "All Research" : area}
-                   </button>
-                 ))}
-              </div>
-              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground border-l border-slate-100 pl-4 hidden sm:flex">
-                 <Filter className="h-4 w-4" />
-                 <span>{filteredLibrary.length} RESULTS</span>
-              </div>
-           </div>
-        </div>
-
-        {/* Repository Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {filteredLibrary.map((item) => (
-             <Card 
-               key={item.id} 
-               className="group border border-muted-foreground/10 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-500 bg-white overflow-hidden rounded-[1.5rem]"
-             >
-                <div className="p-6 md:p-8 space-y-6">
-                   <div className="flex justify-between items-start">
-                      <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                         <BookOpen className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex flex-col items-end">
-                         <BadgeCheck className="h-5 w-5 text-emerald-500" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mt-1">PSR Graded</span>
-                      </div>
-                   </div>
-
-                   <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-primary/70 uppercase tracking-widest">
-                         <Tag className="h-3 w-3" />
-                         {item.area}
-                      </div>
-                      <h3 className="text-lg md:text-xl font-bold leading-snug text-slate-900 group-hover:text-primary transition-colors line-clamp-3 min-h-[3.6rem]">
-                        {item.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-2 pt-2">
-                         <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-none font-bold text-[9px] uppercase">{item.year}</Badge>
-                         <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-none font-bold text-[9px] uppercase">{item.type}</Badge>
-                      </div>
-                   </div>
-
-                   <div className="pt-6 border-t border-slate-100 space-y-4">
-                      <div className="flex items-center gap-3">
-                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
-                            {item.author.split(' ').pop()?.[0]}
-                         </div>
-                         <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate">{item.author}</p>
-                            <p className="text-[10px] text-muted-foreground font-medium italic truncate">{item.institution}</p>
-                         </div>
-                      </div>
-                      <Button 
-                        asChild
-                        variant="ghost" 
-                        className="w-full h-11 rounded-xl bg-slate-50 hover:bg-primary/5 hover:text-primary font-bold text-xs uppercase tracking-widest group/btn"
-                      >
-                         <Link href={`/research/repository/${item.id}`}>
-                            Explore Research
-                            <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                         </Link>
-                      </Button>
-                   </div>
+      <div className="space-y-6">
+        {isLoading ? (
+          <Card className="overflow-hidden rounded-3xl border border-muted-foreground/10 bg-white p-5 shadow-sm">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <Skeleton className="h-10 w-[320px] rounded-xl" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-10 w-[110px] rounded-xl" />
+                  <Skeleton className="h-10 w-[140px] rounded-xl" />
                 </div>
-             </Card>
-           ))}
-        </div>
-
-        {filteredLibrary.length === 0 && (
-          <div className="text-center py-16 bg-white border border-dashed rounded-3xl">
-            <Library className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-base font-bold text-foreground">No Research Found</h3>
-            <p className="text-xs text-muted-foreground mt-1">Try adjusting your keywords or selected subject categories.</p>
-          </div>
+              </div>
+              <div className="space-y-3">
+                {[...Array(5)].map((_, index) => (
+                  <Skeleton key={index} className="h-16 w-full rounded-2xl" />
+                ))}
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <DataTable
+            columns={repositoryColumns}
+            data={finalSubmissions}
+            searchKey="searchText"
+            searchPlaceholder="Search submissions by title, reference, submitter, or status..."
+            filterOptions={[
+              {
+                key: "status",
+                label: "Status",
+                options: statusOptions,
+              },
+            ]}
+            initialColumnVisibility={{
+              searchText: false,
+            }}
+            emptyMessage="No Research Found"
+            emptyDescription="Try adjusting your search or status filter."
+          />
         )}
-
       </div>
     </PageContainer>
   );

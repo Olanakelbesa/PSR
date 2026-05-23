@@ -108,6 +108,36 @@ export const callsApi = {
 };
 
 export const monitoringApi = {
+  getProgressReportApprovalsV1: async (params: Record<string, unknown> = {}) =>
+    (await apiClient.get("/v1/progress-report-approvals/", { params })).data,
+  getProgressReportApprovalByIdV1: async (id: string | number) =>
+    (await apiClient.get(`/v1/progress-report-approvals/${id}/`)).data,
+  updateProgressReportApprovalV1: async (
+    id: string | number,
+    payload: {
+      decision?: "pending" | "approved" | "rejected";
+      comment?: string;
+      progress_report?: number;
+    },
+  ) =>
+    (await apiClient.patch(`/v1/progress-report-approvals/${id}/`, payload))
+      .data,
+  getProgressReportsV1: async (params: Record<string, unknown> = {}) =>
+    (await apiClient.get("/v1/progress-reports/", { params })).data,
+  getProgressReportByIdV1: async (id: string | number) =>
+    (await apiClient.get(`/v1/progress-reports/${id}/`)).data,
+  submitProgressReportV1: async (payload: FormData) =>
+    (
+      await apiClient.post("/v1/progress-reports/", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+    ).data,
+  submitTerminalReportV1: async (payload: FormData) =>
+    (
+      await apiClient.post("/v1/terminal-reports/", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+    ).data,
   getProgressReports: async (...args: any[]) =>
     (
       await apiClient.get("/projects/progress-reports", {

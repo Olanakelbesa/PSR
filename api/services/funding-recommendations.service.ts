@@ -34,12 +34,13 @@ export interface FundingRecommendationCandidateFilters {
   ordering?: string;
 }
 
-function cleanParams<T extends Record<string, QueryValue>>(params?: T) {
+function cleanParams(params?: object) {
   if (!params) return undefined;
 
   return Object.fromEntries(
     Object.entries(params).filter(([, value]) => {
-      if (value === undefined || value === null) return false;
+      const typedValue = value as QueryValue;
+      if (typedValue === undefined || typedValue === null) return false;
       if (typeof value === "string") return value.trim().length > 0;
       return true;
     }),

@@ -12,6 +12,7 @@ export * from "./proposals.service";
 export * from "./grants-projects.service";
 export * from "./grant-calls.service";
 export * from "./individual-reviews.service";
+export * from "./progress-reports.service";
 export {
   createScreening,
   assignReviewers,

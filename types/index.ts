@@ -26,6 +26,20 @@ export type {
   PaginationOptions,
 } from "@/lib/types";
 
+export type {
+  FinalSubmission,
+  FinalSubmissionCreateInput,
+  FinalSubmissionLookupOption,
+  FinalSubmissionStatus,
+  ReadyForFinalSubmissionFundingRecommendation,
+} from "@/types/final-submission";
+
+export type {
+  MinuteRecord,
+  MinuteCreateInput,
+  MinuteListResponse,
+} from "@/types/minutes";
+
 export interface GrantCallProposalType {
   id: number | string;
   name: string;
