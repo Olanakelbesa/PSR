@@ -163,3 +163,7 @@ export const monitoringApi = {
   getTerminalReport: async (id: string) =>
     (await apiClient.get(`/projects/terminal-reports/${id}`)).data,
 };
+
+export const publicApi = {
+  getOverview: async () => (await apiClient.get("/v1/public/overview/"))?.data,
+};

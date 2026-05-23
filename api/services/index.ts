@@ -6,6 +6,7 @@
 
 export * from "./auth.service";
 export * from "./users.service";
+export * from "./contact-us.service";
 export * from "./concept-notes.service";
 export * from "./reference.service";
 export * from "./proposals.service";

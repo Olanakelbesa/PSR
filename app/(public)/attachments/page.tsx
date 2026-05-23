@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Download, ChevronLeft, ChevronRight, FileText, Search, FileSpreadsheet, File } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  File,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  Search,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,141 +19,173 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
-interface MockAttachment {
-  id: string;
-  description: string;
-  category: "Templates" | "Guidelines" | "Forms";
-  fileType: "PDF" | "DOCX" | "XLSX";
-  fileSize: string;
-  uploadedAt: string;
-  fileName: string;
-}
-
-const MOCK_ATTACHMENTS: MockAttachment[] = [
-  {
-    id: "att-01",
-    description: "PSR Research Proposal Template (v3.2)",
-    category: "Templates",
-    fileType: "DOCX",
-    fileSize: "1.4 MB",
-    uploadedAt: "2024-03-01",
-    fileName: "PSR_Research_Proposal_Template_v3.2.docx",
-  },
-  {
-    id: "att-02",
-    description: "Institutional Ethics Review Board Guidelines",
-    category: "Guidelines",
-    fileType: "PDF",
-    fileSize: "2.8 MB",
-    uploadedAt: "2024-02-15",
-    fileName: "IRB_Ethics_Guidelines_2024.pdf",
-  },
-  {
-    id: "att-03",
-    description: "Annual Research Cost & Budgeting Template",
-    category: "Templates",
-    fileType: "XLSX",
-    fileSize: "750 KB",
-    uploadedAt: "2024-03-08",
-    fileName: "Annual_Research_Budgeting_Rates.xlsx",
-  },
-  {
-    id: "att-04",
-    description: "Conflict of Interest Declaration Form",
-    category: "Forms",
-    fileType: "PDF",
-    fileSize: "420 KB",
-    uploadedAt: "2024-01-20",
-    fileName: "Conflict_of_Interest_Form.pdf",
-  },
-  {
-    id: "att-05",
-    description: "Research Publication Subsidy Application Form",
-    category: "Forms",
-    fileType: "DOCX",
-    fileSize: "320 KB",
-    uploadedAt: "2024-03-12",
-    fileName: "Publication_Subsidy_Request.docx",
-  },
-  {
-    id: "att-06",
-    description: "Data Management and Integrity Guidelines",
-    category: "Guidelines",
-    fileType: "PDF",
-    fileSize: "1.9 MB",
-    uploadedAt: "2024-02-28",
-    fileName: "Data_Management_Guidelines_v1.0.pdf",
-  },
-  {
-    id: "att-07",
-    description: "Progress Report Submission Template",
-    category: "Templates",
-    fileType: "DOCX",
-    fileSize: "680 KB",
-    uploadedAt: "2024-03-10",
-    fileName: "PSR_Progress_Report_Template.docx",
-  },
-  {
-    id: "att-08",
-    description: "Joint Collaborative Research Agreement (MoU Template)",
-    category: "Templates",
-    fileType: "DOCX",
-    fileSize: "1.1 MB",
-    uploadedAt: "2024-03-14",
-    fileName: "Collaborative_MoU_Draft.docx",
-  },
-  {
-    id: "att-09",
-    description: "Intellectual Property and Patent Policy Handbook",
-    category: "Guidelines",
-    fileType: "PDF",
-    fileSize: "4.5 MB",
-    uploadedAt: "2024-01-15",
-    fileName: "PSR_IP_Policy_Handbook.pdf",
-  },
-  {
-    id: "att-10",
-    description: "Travel & Field Work Allowance Reimbursement Form",
-    category: "Forms",
-    fileType: "XLSX",
-    fileSize: "510 KB",
-    uploadedAt: "2024-03-05",
-    fileName: "Field_Work_Reimbursement_Rates.xlsx",
-  },
-];
+import { tokenStorage } from "@/api";
+import type { MinuteRecord } from "@/types/minutes";
 
 const ITEMS_PER_PAGE = 6;
+
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return "#";
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (filePath.startsWith("/api/proxy")) return filePath;
+  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
+  return `/api/proxy/${filePath}`;
+}
+
+function extractFileName(filePath?: string | null) {
+  if (!filePath) return "No file";
+  return filePath.split("/").pop() || filePath;
+}
+
+function getFileType(filePath?: string | null) {
+  const extension = extractFileName(filePath).split(".").pop()?.toLowerCase();
+
+  switch (extension) {
+    case "pdf":
+      return "PDF";
+    case "xls":
+    case "xlsx":
+      return "XLSX";
+    case "doc":
+    case "docx":
+      return "DOCX";
+    default:
+      return "FILE";
+  }
+}
+
+async function loadMinutes() {
+  const headers: HeadersInit = {
+    accept: "application/json",
+  };
+
+  const token = tokenStorage.get();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch("/api/proxy/v1/minutes/", { headers });
+
+  if (!response.ok) {
+    let message = "Unable to load downloadable files.";
+
+    try {
+      const errorPayload = await response.json();
+      message =
+        errorPayload?.message ??
+        errorPayload?.detail ??
+        errorPayload?.error ??
+        message;
+    } catch {
+      message =
+        response.status === 401
+          ? "Sign in to view the downloadable files."
+          : message;
+    }
+
+    throw new Error(message);
+  }
+
+  const payload = await response.json();
+
+  if (Array.isArray(payload)) {
+    return payload as MinuteRecord[];
+  }
+
+  if (Array.isArray(payload?.data)) {
+    return payload.data as MinuteRecord[];
+  }
+
+  return [] as MinuteRecord[];
+}
 
 export default function AttachmentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [currentPage, setCurrentPage] = useState(1);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [minutes, setMinutes] = useState<MinuteRecord[]>([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 500);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    const fetchMinutes = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const records = await loadMinutes();
+
+        if (!isMounted) return;
+
+        setMinutes(records);
+      } catch (error) {
+        if (!isMounted) return;
+
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load downloadable files.",
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void fetchMinutes();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
+  const sortedMinutes = useMemo(
+    () =>
+      [...minutes].sort((left, right) => {
+        const yearDifference = Number(right.budgetYear) - Number(left.budgetYear);
+
+        if (yearDifference !== 0) {
+          return yearDifference;
+        }
+
+        return right.id - left.id;
+      }),
+    [minutes],
+  );
+
+  const availableCategories = useMemo(
+    () => [
+      "All",
+      ...Array.from(new Set(sortedMinutes.map((item) => getFileType(item.file)))),
+    ],
+    [sortedMinutes],
+  );
+
   const filtered = useMemo(() => {
-    let result = MOCK_ATTACHMENTS;
+    let result = sortedMinutes;
 
     if (selectedCategory !== "All") {
-      result = result.filter((a) => a.category === selectedCategory);
+      result = result.filter(
+        (item) => getFileType(item.file) === selectedCategory,
+      );
     }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (a) =>
-          a.description.toLowerCase().includes(q) ||
-          a.fileName.toLowerCase().includes(q)
+          a.budgetYear.toLowerCase().includes(q) ||
+          extractFileName(a.file).toLowerCase().includes(q) ||
+          a.file.toLowerCase().includes(q)
       );
     }
 
     return result;
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, sortedMinutes]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = useMemo(
@@ -159,22 +201,15 @@ export default function AttachmentsPage() {
     setCurrentPage(Math.max(1, Math.min(totalPages, p)));
   };
 
-  const handleDownload = (doc: MockAttachment) => {
-    setDownloadingId(doc.id);
-    
-    // Simulate high-end download delay
-    setTimeout(() => {
-      setDownloadingId(null);
-      // Trigger a harmless mock download of a small text file named after the requested document
-      const element = document.createElement("a");
-      const file = new Blob(["PSR Platform Mock File for " + doc.description], { type: "text/plain" });
-      element.href = URL.createObjectURL(file);
-      element.download = doc.fileName;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    }, 1200);
-  };
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const getFileIcon = (fileType: string) => {
     switch (fileType) {
@@ -225,8 +260,8 @@ export default function AttachmentsPage() {
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
                 Forms & <span className="text-primary">Downloadable Files</span>
               </h1>
-              <p className="max-w-2xl text-base md:text-lg text-slate-350 leading-relaxed mx-auto">
-                Access official guidelines, research proposal forms, budgeting templates, and legal MoUs required throughout the research lifecycle.
+              <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
+                The PSR System is a centralized platform for policy research, proposal management, and industry collaboration, helping Ethiopian institutions turn evidence into action.
               </p>
             </motion.div>
           </div>
@@ -240,7 +275,7 @@ export default function AttachmentsPage() {
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 pb-6 border-b border-white/5">
               {/* Category Tags */}
               <div className="flex flex-wrap items-center gap-2">
-                {["All", "Templates", "Guidelines", "Forms"].map((cat) => (
+                {availableCategories.map((cat) => (
                   <Button
                     key={cat}
                     variant={selectedCategory === cat ? "default" : "outline"}
@@ -260,7 +295,7 @@ export default function AttachmentsPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   type="text"
-                  placeholder="Search files..."
+                  placeholder="Search budget year or file name..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -273,9 +308,21 @@ export default function AttachmentsPage() {
 
             {isLoading ? (
               <div className="py-24 text-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-                <p className="text-muted-foreground text-sm mt-4">Indexing files...</p>
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                <p className="text-muted-foreground text-sm mt-4">Loading downloadable files...</p>
               </div>
+            ) : loadError ? (
+              <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+                <div className="py-24 text-center px-6">
+                  <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4 opacity-80" />
+                  <h3 className="text-lg font-bold text-foreground">
+                    Files could not be loaded
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1">
+                    {loadError}
+                  </p>
+                </div>
+              </Card>
             ) : (
               <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
                 {filtered.length === 0 ? (
@@ -293,16 +340,10 @@ export default function AttachmentsPage() {
                         <thead className="bg-white/[0.02]">
                           <tr>
                             <th className="px-6 py-4 text-left text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                              Document Description & Metadata
+                              Budget Year & File
                             </th>
                             <th className="px-6 py-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider hidden md:table-cell">
                               Format
-                            </th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
-                              File Size
-                            </th>
-                            <th className="px-6 py-4 text-center text-xs font-bold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">
-                              Updated
                             </th>
                             <th className="px-6 py-4 text-right text-xs font-bold text-muted-foreground uppercase tracking-wider">
                               Download
@@ -324,47 +365,49 @@ export default function AttachmentsPage() {
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
                                     <div className="shrink-0 h-10 w-10 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center">
-                                      {getFileIcon(doc.fileType)}
+                                      {getFileIcon(getFileType(doc.file))}
                                     </div>
                                     <div>
                                       <span className="text-sm font-semibold text-foreground block">
-                                        {doc.description}
+                                        Budget Year {doc.budgetYear}
                                       </span>
                                       <span className="text-[10px] text-muted-foreground font-medium font-mono block mt-0.5">
-                                        {doc.fileName}
+                                        {extractFileName(doc.file)}
                                       </span>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 text-center hidden md:table-cell">
                                   <Badge className="bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5 rounded-md font-mono">
-                                    {doc.fileType}
+                                    {getFileType(doc.file)}
                                   </Badge>
-                                </td>
-                                <td className="px-6 py-4 text-center text-sm font-semibold text-muted-foreground hidden sm:table-cell">
-                                  {doc.fileSize}
-                                </td>
-                                <td className="px-6 py-4 text-center text-xs font-semibold text-muted-foreground hidden lg:table-cell">
-                                  {doc.uploadedAt}
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                   <Button
+                                    asChild
                                     variant="ghost"
-                                    onClick={() => handleDownload(doc)}
                                     disabled={downloadingId !== null}
                                     className="rounded-xl border border-white/5 hover:bg-primary hover:text-primary-foreground font-bold h-9 px-4 text-xs tracking-wider uppercase transition-all flex items-center gap-2 ml-auto"
                                   >
-                                    {downloadingId === doc.id ? (
-                                      <>
-                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                        Pulling
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Download className="w-3.5 h-3.5" />
-                                        Download
-                                      </>
-                                    )}
+                                    <a
+                                      href={resolveFileUrl(doc.file)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download={extractFileName(doc.file)}
+                                      onClick={() => setDownloadingId(doc.id)}
+                                    >
+                                      {downloadingId === doc.id ? (
+                                        <>
+                                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                          Opening
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Download className="w-3.5 h-3.5" />
+                                          Download
+                                        </>
+                                      )}
+                                    </a>
                                   </Button>
                                 </td>
                               </motion.tr>

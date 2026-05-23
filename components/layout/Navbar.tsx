@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { label: "Attachments", href: "/attachments" },
   { label: "Research Calls", href: "/calls" },
   { label: "Publications", href: "/publications" },
-  { label: "Manuals", href: "/manuals" },
+  // { label: "Manuals", href: "/manuals" },
 ];
 
 export function Navbar() {
