@@ -72,6 +72,15 @@ export default function ReadyForFundingDetailPage() {
     load();
   }, [router, screeningId]);
 
+  const openFundingModal = () => {
+    setFundingDecision(screening?.fundingStatus?.decision || "");
+    setRequiresEthicalClearance(
+      screening?.fundingStatus?.needIrbEthicalClearance ? "yes" : "no",
+    );
+    setCommitteeRemarks(screening?.fundingStatus?.remark || "");
+    setIsFundingModalOpen(true);
+  };
+
   if (isLoading) {
     return (
       <PageContainer title="Loading...">
@@ -98,7 +107,7 @@ export default function ReadyForFundingDetailPage() {
 
     setIsSubmitting(true);
     try {
-      await readyForFundingService.createDecision(screeningId, {
+      const payload = {
         Remark: committeeRemarks.trim(),
         need_irb_ethical_clearance: requiresEthicalClearance === "yes",
         decision_status: fundingDecision as
@@ -106,7 +115,28 @@ export default function ReadyForFundingDetailPage() {
           | "approved"
           | "rejected"
           | "deferred",
-      });
+      };
+
+      if (screening?.fundingStatus?.id) {
+        await readyForFundingService.updateDecision(screeningId, payload);
+      } else {
+        await readyForFundingService.createDecision(screeningId, payload);
+      }
+
+      setScreening((current) =>
+        current
+          ? {
+              ...current,
+              fundingStatus: {
+                ...current.fundingStatus,
+                decision: fundingDecision,
+                remark: committeeRemarks.trim(),
+                needIrbEthicalClearance: requiresEthicalClearance === "yes",
+                state: "funding_decision_exists",
+              },
+            }
+          : current,
+      );
 
       toast.success("Funding decision submitted successfully");
       setIsFundingModalOpen(false);
@@ -141,7 +171,7 @@ export default function ReadyForFundingDetailPage() {
             Back
           </Button>
 
-          <Button onClick={() => setIsFundingModalOpen(true)}>
+          <Button onClick={openFundingModal}>
             <DollarSign className="w-4 h-4 mr-2" />
             Funding Decision
           </Button>
@@ -180,18 +210,22 @@ export default function ReadyForFundingDetailPage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-lg border p-4">
                       <p className="text-xs uppercase text-muted-foreground">
-                        Review Status
+                        Technical Review
                       </p>
                       <p className="font-medium">
-                        {reviewLabel.replace(/_/g, " ")}
+                        {screening.reviewStatus.technicalReview
+                          ? screening.reviewStatus.technicalReview.replace(/_/g, " ")
+                          : "N/A"}
                       </p>
                     </div>
                     <div className="rounded-lg border p-4">
                       <p className="text-xs uppercase text-muted-foreground">
-                        Funding State
+                        Financial Review
                       </p>
                       <p className="font-medium">
-                        {fundingLabel.replace(/_/g, " ")}
+                        {screening.reviewStatus.financialReview
+                          ? screening.reviewStatus.financialReview.replace(/_/g, " ")
+                          : "N/A"}
                       </p>
                     </div>
                   </div>
@@ -283,6 +317,21 @@ export default function ReadyForFundingDetailPage() {
               <div className="rounded-lg border p-3 text-sm">
                 <p className="text-muted-foreground">Summary</p>
                 <p className="mt-1">{screening.title}</p>
+              </div>
+
+              <div className="rounded-lg border p-3 text-sm space-y-2">
+                <p className="text-muted-foreground uppercase text-[11px]">
+                  Funding Decision
+                </p>
+                <p className="font-semibold">
+                  {screening.fundingStatus.decision || "No decision submitted"}
+                </p>
+                <p className="text-muted-foreground">
+                  {screening.fundingStatus.remark || "No remark provided."}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  IRB Required: {screening.fundingStatus.needIrbEthicalClearance ? "Yes" : "No"}
+                </p>
               </div>
             </CardContent>
           </Card>

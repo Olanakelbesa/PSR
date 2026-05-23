@@ -165,15 +165,27 @@ const ApprovedPendingFundingSchema = z
     reviewStatus: z
       .object({
         technicalReview: z.string().optional().default(""),
+        financialReview: z.string().optional().default(""),
       })
       .optional()
-      .default({ technicalReview: "" }),
+      .default({ technicalReview: "", financialReview: "" }),
     fundingStatus: z
       .object({
         state: z.string().optional().default(""),
+        decision: z.string().optional().default(""),
+        remark: z.string().optional().default(""),
+        id: z.number().optional(),
+        needIrbEthicalClearance: z.boolean().optional().default(false),
+        recommendations: z.array(z.unknown()).optional().default([]),
       })
       .optional()
-      .default({ state: "" }),
+      .default({
+        state: "",
+        decision: "",
+        remark: "",
+        needIrbEthicalClearance: false,
+        recommendations: [],
+      }),
   })
   .passthrough();
 

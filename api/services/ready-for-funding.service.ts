@@ -8,6 +8,8 @@ import { API_ENDPOINTS } from "@/api/endpoints";
 export interface ReadyForFundingItem {
   screeningId: number;
   proposalId: number;
+  readyForFundingId: number;
+  screeningStatus: string;
   proposalTitle: string;
   referenceNumber: string;
   proposalType: string;
@@ -17,6 +19,9 @@ export interface ReadyForFundingItem {
   budgetRequested: number;
   submittedAt: string;
   screeningDecisionRemarks: string;
+  hasFundingDecision: boolean;
+  fundingDecisionStatus: string;
+  needIrbEthicalClearance: boolean;
   averageScore: number;
   averageScorePercentage: number;
   pi: {
@@ -72,6 +77,23 @@ export const readyForFundingService = {
     },
   ) {
     const res = await apiClient.post(
+      API_ENDPOINTS.READY_FOR_FUNDING.CREATE_DECISION(screeningId),
+      payload,
+    );
+
+    return res.data;
+  },
+
+  async updateDecision(
+    screeningId: string | number,
+    payload: {
+      Remark: string;
+      need_irb_ethical_clearance?: boolean;
+      decision_status?: "pending" | "approved" | "rejected" | "deferred";
+      status?: string;
+    },
+  ) {
+    const res = await apiClient.patch(
       API_ENDPOINTS.READY_FOR_FUNDING.CREATE_DECISION(screeningId),
       payload,
     );
