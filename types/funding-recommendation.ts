@@ -11,7 +11,9 @@ export interface FundingRecommendation {
   ready_for_funding_id?: number;
   screening_id?: number | null;
   referenceNumber?: string | null;
+  reference_number?: string | null;
   proposalTitle?: string | null;
+  proposal_title?: string | null;
   pi?: FundingRecommendationPi | string | null;
   total_award_amount: string | number;
   amount_english_in_words: string;
@@ -19,6 +21,8 @@ export interface FundingRecommendation {
   comments: string;
   recommended_at: string;
   terminal_report_status?: string | null;
+  funding_decision_status?: string | null;
+  screening_status?: string | null;
 }
 
 export interface FundingRecommendationCandidate {
@@ -37,6 +41,7 @@ export interface FundingRecommendationCandidate {
   reviewersCompletedCount?: number;
   averageScore?: number;
   averageScorePercentage?: number;
+  maxPossiblePoints?: number;
   fundingDecisionId: number | null;
   fundingRemark?: string | null;
   needIrbEthicalClearance?: boolean;

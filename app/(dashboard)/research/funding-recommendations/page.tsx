@@ -12,6 +12,7 @@ import {
   Clock,
   FileText,
   MoreHorizontal,
+  Plus,
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react";
@@ -411,15 +412,10 @@ export default function FundingRecommendationsPage() {
       description="Prepare award recommendations for approved funding decisions and review submitted records."
       actions={
         <Button
-          variant="outline"
-          onClick={() => {
-            void refetchCandidates();
-            void refetchRecommendations();
-          }}
-          disabled={isLoading}
+          onClick={() => router.push("/research/funding-recommendations/new")}
         >
-          <RefreshCcw className="mr-2 h-4 w-4" />
-          Refresh
+          <Plus className="mr-2 h-4 w-4" />
+          New Recommendation
         </Button>
       }
     >
