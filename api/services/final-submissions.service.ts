@@ -136,7 +136,34 @@ export const finalSubmissionsService = {
       params: cleanParams(filters),
     });
 
-    return normalizeList<FinalSubmission>(data);
+    const list = normalizeList<any>(data);
+
+    const normalized = list.data.map((item: any) => ({
+      id: item.id ?? item.pk,
+      submitted_by_name: item.submittedByName ?? item.submitted_by_name ?? item.submittedBy?.fullName ?? undefined,
+      title: item.title,
+      abstract: item.abstract ?? null,
+      executive_summary: item.executiveSummary ?? item.executive_summary ?? null,
+      full_report: item.fullReport ?? item.full_report ?? null,
+      policy_brief: item.policyBrief ?? item.policy_brief ?? null,
+      supplementary_document: item.supplementaryDocument ?? item.supplementary_document ?? null,
+      external_link: item.externalLink ?? item.external_link ?? null,
+      doi: item.doi ?? null,
+      ndmc_submission_reference: item.ndmcSubmissionReference ?? item.ndmc_submission_reference ?? null,
+      data_sharing_checklist_completed:
+        item.dataSharingChecklistCompleted ?? item.data_sharing_checklist_completed ?? false,
+      submission_date: item.submissionDate ?? item.submission_date ?? null,
+      status: item.status ?? item.status ?? "draft",
+      version: item.version ?? null,
+      // fundedproposal: prefer fundingRecommendationId if provided, otherwise proposalId or raw id
+      fundedproposal:
+        item.fundedproposal?.fundingRecommendationId ?? item.fundedproposal?.funding_recommendation_id ?? item.fundedproposal?.proposalId ?? item.fundedproposal ?? null,
+      output_type: item.outputType?.id ?? item.output_type ?? null,
+      data_center: item.dataCenter?.id ?? item.data_center ?? null,
+      submitted_by: item.submittedBy?.id ?? item.submitted_by ?? null,
+    }));
+
+    return { data: normalized as FinalSubmission[], meta: list.meta };
   },
 
   async retrieve(id: string | number): Promise<FinalSubmission> {
@@ -144,7 +171,33 @@ export const finalSubmissionsService = {
       API_ENDPOINTS.FINAL_SUBMISSIONS.DETAIL(id),
     );
 
-    return normalizeDetail<FinalSubmission>(data);
+    const payload = normalizeDetail<any>(data);
+
+    const mapped = {
+      id: payload.id ?? payload.pk,
+      submitted_by_name: payload.submittedByName ?? payload.submitted_by_name ?? payload.submittedBy?.fullName ?? undefined,
+      title: payload.title,
+      abstract: payload.abstract ?? null,
+      executive_summary: payload.executiveSummary ?? payload.executive_summary ?? null,
+      full_report: payload.fullReport ?? payload.full_report ?? null,
+      policy_brief: payload.policyBrief ?? payload.policy_brief ?? null,
+      supplementary_document: payload.supplementaryDocument ?? payload.supplementary_document ?? null,
+      external_link: payload.externalLink ?? payload.external_link ?? null,
+      doi: payload.doi ?? null,
+      ndmc_submission_reference: payload.ndmcSubmissionReference ?? payload.ndmc_submission_reference ?? null,
+      data_sharing_checklist_completed:
+        payload.dataSharingChecklistCompleted ?? payload.data_sharing_checklist_completed ?? false,
+      submission_date: payload.submissionDate ?? payload.submission_date ?? null,
+      status: payload.status ?? payload.status ?? "draft",
+      version: payload.version ?? null,
+      fundedproposal:
+        payload.fundedproposal?.fundingRecommendationId ?? payload.fundedproposal?.funding_recommendation_id ?? payload.fundedproposal?.proposalId ?? payload.fundedproposal ?? null,
+      output_type: payload.outputType?.id ?? payload.output_type ?? null,
+      data_center: payload.dataCenter?.id ?? payload.data_center ?? null,
+      submitted_by: payload.submittedBy?.id ?? payload.submitted_by ?? null,
+    } as FinalSubmission;
+
+    return mapped;
   },
 
   async create(values: FinalSubmissionCreateInput): Promise<FinalSubmission> {

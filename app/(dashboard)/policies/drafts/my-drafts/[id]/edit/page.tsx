@@ -174,7 +174,18 @@ export default function EditPolicyDraftPage() {
   );
 
   const conceptNoteOptions = useMemo(() => {
-    if (!normalizedDraft.conceptNoteId) {
+    if (!rawDraft?.conceptNote && !rawDraft?.concept_note) {
+      return approvedConcepts;
+    }
+
+    const currentConcept = rawDraft.conceptNote || rawDraft.concept_note;
+    const currentConceptId = String(
+      typeof currentConcept === "object" && currentConcept !== null
+        ? currentConcept.id
+        : currentConcept ?? "",
+    );
+
+    if (!currentConceptId) {
       return approvedConcepts;
     }
 
@@ -190,12 +201,19 @@ export default function EditPolicyDraftPage() {
 
     return [
       {
-        ...(currentConcept || {}),
-        id: normalizedDraft.conceptNoteId,
+        id: currentConceptId,
         title:
-          currentConcept?.title ||
-          normalizedDraft.title ||
-          "Existing concept note",
+          (typeof currentConcept === "object" && currentConcept !== null
+            ? currentConcept.title
+            : undefined) || rawDraft.title || "Existing concept note",
+        docType:
+          typeof currentConcept === "object" && currentConcept !== null
+            ? currentConcept.docType
+            : null,
+        organization:
+          typeof currentConcept === "object" && currentConcept !== null
+            ? currentConcept.organization
+            : null,
       },
       ...approvedConcepts,
     ];
@@ -230,17 +248,68 @@ export default function EditPolicyDraftPage() {
   useEffect(() => {
     if (!rawDraft) return;
 
-    const draftData = normalizeDraftPayload(rawDraft);
+    const conceptId = String(
+      (typeof rawDraft.conceptNote === "object" && rawDraft.conceptNote !== null
+        ? rawDraft.conceptNote.id
+        : rawDraft.conceptNote ?? rawDraft.concept_note) ?? "",
+    );
+
+    const docTypeId = String(
+      (typeof rawDraft.docType === "object" && rawDraft.docType !== null
+        ? rawDraft.docType.id
+        : rawDraft.docType ?? rawDraft.doc_type) ?? "",
+    );
+
+    const organizationId = String(
+      (typeof rawDraft.organization === "object" && rawDraft.organization !== null
+        ? rawDraft.organization.id
+        : rawDraft.organization ?? rawDraft.organization_id ?? rawDraft.organizationId) ?? "",
+    );
 
     setSelectedConceptId(draftData.conceptNoteId);
     setFormState({
-      title: draftData.title,
-      conceptNote: draftData.conceptNoteId,
-      docType: draftData.docTypeId,
-      organization: draftData.organizationId,
+      title: rawDraft.title || "",
+      conceptNote: conceptId,
+      docType: docTypeId,
+      organization: organizationId,
     });
 
-    if (draftData.fileUrl) {
+    // Support multiple possible file keys and shapes returned by backend
+    const resolveUrl = (val: any): string | null => {
+      if (!val) return null;
+      if (typeof val === "string") return val;
+      if (typeof val === "object") {
+        if (val.url) return val.url;
+        if (val.path) return val.path;
+        if (val.submitted_file) return resolveUrl(val.submitted_file);
+        if (val.file) return resolveUrl(val.file);
+      }
+      return null;
+    };
+
+    const candidates = [
+      rawDraft.draft_file,
+      rawDraft.file,
+      rawDraft.overview?.file,
+      rawDraft.latest_version,
+      rawDraft.latest_version?.submitted_file,
+      rawDraft.latest_version?.submittedFile,
+      rawDraft.latest_version?.file,
+      rawDraft.versions?.[0],
+      rawDraft.versions?.[0]?.submitted_file,
+      rawDraft.versions?.[0]?.file,
+    ];
+
+    let fileUrl: string | null = null;
+    for (const c of candidates) {
+      const url = resolveUrl(c);
+      if (url) {
+        fileUrl = url;
+        break;
+      }
+    }
+
+    if (fileUrl) {
       setSelectedFile({
         name:
           String(draftData.fileUrl).split("/").pop() || "Draft_Document.pdf",
