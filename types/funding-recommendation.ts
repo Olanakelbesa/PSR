@@ -10,8 +10,8 @@ export interface FundingRecommendation {
   proposal: number;
   ready_for_funding_id?: number;
   screening_id?: number | null;
-  reference_number?: string | null;
-  proposal_title?: string | null;
+  referenceNumber?: string | null;
+  proposalTitle?: string | null;
   pi?: FundingRecommendationPi | string | null;
   total_award_amount: string | number;
   amount_english_in_words: string;
@@ -22,36 +22,36 @@ export interface FundingRecommendation {
 }
 
 export interface FundingRecommendationCandidate {
-  screening_id: number;
-  proposal_id: number;
-  proposal_title: string | null;
-  reference_number: string | null;
-  proposal_type?: { id: number; name: string } | null;
-  principal_investigator?: FundingRecommendationPi | null;
+  screeningId: number;
+  proposalId: number;
+  proposalTitle: string | null;
+  referenceNumber: string | null;
+  proposalType?: { id: number; name: string } | null;
+  principalInvestigator?: FundingRecommendationPi | null;
   organization?: { id: number; name: string } | null;
   unit?: { id: number; name: string } | null;
-  thematic_areas?: { id: number; name: string }[];
-  budget_requested?: string | number | null;
-  submitted_date?: string | null;
-  decision_remarks?: string | null;
-  reviewers_completed_count?: number;
-  average_score?: number;
-  average_score_percentage?: number;
-  funding_decision_id: number | null;
-  funding_remark?: string | null;
-  need_irb_ethical_clearance?: boolean;
-  funding_decision_status?: "pending" | "approved" | "rejected" | "deferred" | null;
-  ethical_clearance_id?: number | null;
-  ethical_clearance_status?:
+  thematicAreas?: { id: number; name: string }[];
+  budgetRequested?: string | number | null;
+  submittedAt?: string | null;
+  decisionRemarks?: string | null;
+  reviewersCompletedCount?: number;
+  averageScore?: number;
+  averageScorePercentage?: number;
+  fundingDecisionId: number | null;
+  fundingRemark?: string | null;
+  needIrbEthicalClearance?: boolean;
+  fundingDecisionStatus?: "pending" | "approved" | "rejected" | "deferred" | null;
+  ethicalClearanceId?: number | null;
+  ethicalClearanceStatus?:
     | "pending"
     | "approved"
     | "rejected"
     | "additional_info_required"
     | null;
-  ethical_clearance_type?: string | null;
-  ethical_clearance_application_date?: string | null;
-  ethical_clearance_approval_date?: string | null;
-  funding_recommendations_count?: number;
+  ethicalClearanceType?: string | null;
+  ethicalClearanceApplicationDate?: string | null;
+  ethicalClearanceApprovalDate?: string | null;
+  fundingRecommendationsCount?: number;
 }
 
 export interface FundingRecommendationCreateInput {

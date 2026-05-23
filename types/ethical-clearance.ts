@@ -1,23 +1,39 @@
 export interface EthicalClearance {
   id: number;
   proposal: number;
+  proposalId?: number;
+  proposal_id?: number;
 
-  proposal_ready_for_funding_id: number;
+  proposalReadyForFundingId?: number;
+  proposal_ready_for_funding_id?: number;
 
-  screening_id: number | null;
+  screeningId?: number | null;
+  screening_id?: number | null;
 
-  reference_number: string | null;
+  referenceNumber?: string | null;
+  reference_number?: string | null;
 
-  proposal_title: string | null;
+  proposalTitle?: string | null;
+  proposal_title?: string | null;
 
-  pi: any;
+  proposalShortAbstract?: string | null;
+  proposal_short_abstract?: string | null;
 
+  proposalInstitution?: string | null;
+  proposal_institution?: string | null;
+
+  pi?: any;
+
+  needIrbEthicalClearance?: boolean;
   need_irb_ethical_clearance: boolean;
 
-  request_file: string;
+  requestFile?: string;
+  request_file?: string;
 
-  clearance_type: string;
+  clearanceType?: string | null;
+  clearance_type?: string | null;
 
+  clearanceFile?: string | null;
   clearance_file?: string | null;
 
   status:
@@ -26,9 +42,11 @@ export interface EthicalClearance {
     | "rejected"
     | "additional_info_required";
 
+  applicationDate?: string;
   application_date: string;
 
-  approval_date: string | null;
+  approvalDate?: string | null;
+  approval_date?: string | null;
 }
 
 export interface EthicalClearanceResponse {
@@ -43,7 +61,7 @@ export interface EthicalClearanceDetailResponse {
 
 export interface EthicalClearanceCreateInput {
   proposal: number;
-  request_file: File;
+  request_file?: File;
   clearance_type: string;
   application_date: string;
   clearance_file?: File;

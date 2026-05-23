@@ -39,6 +39,7 @@ import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import type { EthicalClearance } from "@/types/ethical-clearance";
 import { useEthicalClearances } from "@/lib/queries/ethical-clearance";
+import { useReviewedWithMarksScreenings } from "@/lib/queries/screenings";
 
 const clearanceTypeLabel: Record<string, string> = {
   full_board: "Full Board Review",
@@ -99,6 +100,19 @@ function resolveFileUrl(filePath?: string | null) {
   if (filePath.startsWith("/api/proxy")) return filePath;
   if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
   return `/api/proxy/${filePath}`;
+}
+
+function firstDefined<T>(...values: Array<T | null | undefined>): T | undefined {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function normalizeStatus(value?: string | null) {
+  if (!value) return "pending";
+  const v = String(value).toLowerCase();
+  if (v.includes("approved")) return "approved";
+  if (v.includes("rejected")) return "rejected";
+  if (v.includes("additional") || v.includes("additional_info")) return "additional_info_required";
+  return "pending";
 }
 
 function StatCard({
@@ -162,7 +176,8 @@ export default function EthicalClearancePage() {
   const [ordering, setOrdering] = useState("");
 
   const parsedProposal = proposal.trim() ? Number(proposal) : undefined;
-  const filters = {
+
+  const ethicalFilters = {
     search: search.trim() || undefined,
     status: status || undefined,
     clearance_type: clearanceType || undefined,
@@ -171,12 +186,40 @@ export default function EthicalClearancePage() {
         ? undefined
         : parsedProposal,
     ordering: ordering || undefined,
+    need_irb_ethical_clearance: true,
   };
 
-  const { data, isLoading, error, refetch, isFetching } =
-    useEthicalClearances(filters);
+  const reviewedFilters = {
+    search: search.trim() || undefined,
+    ethical_clearance_status: status || undefined,
+    ethical_clearance_type: clearanceType || undefined,
+    proposal:
+      parsedProposal !== undefined && Number.isNaN(parsedProposal)
+        ? undefined
+        : parsedProposal,
+    ordering: ordering || undefined,
+    need_irb_ethical_clearance: true,
+  };
 
-  const clearances = data?.data ?? [];
+  const [source, setSource] = useState<"reviewed" | "ethical">("reviewed");
+
+  const reviewedQuery = useReviewedWithMarksScreenings(reviewedFilters as any);
+  const ethicalQuery = useEthicalClearances(ethicalFilters as any);
+
+  const { data, isLoading, error, refetch, isFetching } =
+    source === "reviewed" ? reviewedQuery : ethicalQuery;
+
+  const clearances = (data as any)?.data ?? [];
+  const visibleClearances = clearances.filter((item: any) => {
+    return (
+      firstDefined(
+        item?.need_irb_ethical_clearance,
+        item?.needIrbEthicalClearance,
+        item?.proposal?.need_irb_ethical_clearance,
+        item?.proposal?.needIrbEthicalClearance,
+      ) === true
+    );
+  });
 
   const stats = [
     {
@@ -187,21 +230,28 @@ export default function EthicalClearancePage() {
     },
     {
       title: "Pending Review",
-      value: clearances.filter((item) => item.status === "pending").length,
+      value: clearances.filter((item: any) => {
+          const s = normalizeStatus(firstDefined(item.ethicalClearanceStatus, item.status));
+          return s === "pending";
+        }).length,
       icon: Clock,
       accent: "bg-blue-600",
     },
     {
       title: "Approved",
-      value: clearances.filter((item) => item.status === "approved").length,
+      value: clearances.filter((item: any) => {
+          const s = normalizeStatus(firstDefined(item.ethicalClearanceStatus, item.status));
+          return s === "approved";
+        }).length,
       icon: ShieldCheck,
       accent: "bg-emerald-600",
     },
     {
       title: "Action Required",
-      value: clearances.filter(
-        (item) => item.status === "additional_info_required",
-      ).length,
+      value: clearances.filter((item: any) => {
+          const s = normalizeStatus(firstDefined(item.ethicalClearanceStatus, item.status));
+          return s === "additional_info_required";
+        }).length,
       icon: AlertCircle,
       accent: "bg-amber-600",
     },
@@ -313,6 +363,21 @@ export default function EthicalClearancePage() {
 
             <div className="space-y-2">
               <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                Source
+              </label>
+              <Select value={source} onValueChange={(v) => setSource(v as any)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Data source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reviewed">Reviewed (screenings)</SelectItem>
+                  <SelectItem value="ethical">Ethical Clearances</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                 Proposal
               </label>
               <Input
@@ -351,7 +416,7 @@ export default function EthicalClearancePage() {
               <p className="text-xs text-muted-foreground">
                 {isFetching
                   ? "Refreshing results..."
-                  : `${clearances.length} record(s) loaded`}
+                  : `${visibleClearances.length} record(s) loaded`}
               </p>
               <Button
                 variant="ghost"
@@ -424,77 +489,115 @@ export default function EthicalClearancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {clearances.map((clearance) => {
-                    const status = statusConfig[clearance.status];
-                    const StatusIcon = status.icon;
+                  {visibleClearances.map((item: any) => {
+                    const statusKey = firstDefined(
+                      item.ethicalClearanceStatus,
+                      item.status,
+                    );
+                    const normalizedStatus = normalizeStatus(statusKey);
+                    const statusCfg = statusConfig[normalizedStatus as EthicalClearance["status"]];
+                    const StatusIcon = statusCfg.icon;
+
                     const requestFileUrl = resolveFileUrl(
-                      clearance.request_file,
+                      firstDefined(item.requestFile, item.request_file),
                     );
                     const clearanceFileUrl = resolveFileUrl(
-                      clearance.clearance_file,
+                      firstDefined(item.clearanceFile, item.clearance_file),
+                    );
+
+                    const ethicalId = firstDefined(
+                      item.id,
+                      item.ethicalClearanceId,
+                      item.ethical_clearance_id,
+                    );
+                    const screeningId = firstDefined(item.screeningId, item.screening_id);
+                    const proposalId = firstDefined(
+                      item.proposalId,
+                      item.proposal,
+                      item.proposalReadyForFundingId,
+                      item.proposal_ready_for_funding_id,
+                    );
+
+                    const id = ethicalId ?? screeningId ?? null;
+                    const reference = firstDefined(item.referenceNumber, item.reference_number) ||
+                      (ethicalId ? `EC-${ethicalId}` : screeningId ? `SCR-${screeningId}` : "—");
+                    const proposalTitle = firstDefined(
+                      item.proposalTitle,
+                      item.proposal_title,
+                      item.proposal?.title,
+                    ) || "Untitled proposal";
+                    const clearanceType = firstDefined(
+                      item.clearanceType,
+                      item.ethicalClearanceType,
+                      item.clearance_type,
+                    );
+                    const applicationDate = firstDefined(
+                      item.applicationDate,
+                      item.ethicalClearanceApplicationDate,
+                      item.ethicalClearance_application_date,
+                      item.application_date,
                     );
 
                     return (
                       <tr
-                        key={clearance.id}
+                        key={id ?? Math.random()}
                         className="border-b last:border-b-0 transition-colors hover:bg-muted/30"
                       >
                         <td className="px-4 py-4 align-top">
                           <button
                             type="button"
-                            onClick={() =>
-                              router.push(
-                                `/research/ethical-clearance/${clearance.id}`,
-                              )
-                            }
+                            onClick={() => {
+                              if (ethicalId) {
+                                router.push(`/research/ethical-clearance/${ethicalId}`);
+                              } else if (proposalId) {
+                                router.push(`/research/proposals/${proposalId}`);
+                              } else if (screeningId) {
+                                router.push(`/research/ethical-clearance/${screeningId}`);
+                              }
+                            }}
                             className="font-bold text-primary hover:underline"
                           >
-                            {clearance.reference_number || `EC-${clearance.id}`}
+                            {reference}
                           </button>
                         </td>
                         <td className="px-4 py-4 align-top">
                           <div className="max-w-[320px] space-y-1">
                             <p className="line-clamp-1 font-semibold">
-                              {clearance.proposal_title || "Untitled proposal"}
+                              {proposalTitle}
                             </p>
                             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                              Proposal ID {clearance.proposal}
+                              Proposal ID {proposalId}
                             </p>
                           </div>
                         </td>
                         <td className="px-4 py-4 align-top text-muted-foreground">
-                          {typeof clearance.pi === "string"
-                            ? clearance.pi
-                            : clearance.pi?.fullName ||
-                              clearance.pi?.name ||
-                              clearance.pi?.first_name ||
-                              clearance.pi?.firstName ||
-                              "—"}
+                          {typeof item.pi === "string"
+                            ? item.pi
+                            : item.pi?.fullName || item.pi?.name || item.pi?.first_name || item.pi?.firstName || "—"}
                         </td>
                         <td className="px-4 py-4 align-top">
                           <Badge
                             variant="outline"
                             className="font-bold capitalize"
                           >
-                            {clearanceTypeLabel[clearance.clearance_type] ||
-                              clearance.clearance_type}
+                            {clearanceTypeLabel[clearanceType] || clearanceType || "—"}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 align-top">
                           <Badge
                             className={cn(
                               "border text-[10px] font-bold uppercase shadow-none gap-1 px-2",
-                              status.className,
+                              statusCfg.className,
                             )}
                           >
                             <StatusIcon className="h-3 w-3" />
-                            {status.label}
+                            {statusCfg.label}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 align-top text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <CalendarDays className="h-3.5 w-3.5" />
-                            {formatDate(clearance.application_date)}
+                            {formatDate(applicationDate)}
                           </div>
                         </td>
                         <td className="px-4 py-4 align-top">
@@ -531,11 +634,15 @@ export default function EthicalClearancePage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              router.push(
-                                `/research/ethical-clearance/${clearance.id}`,
-                              )
-                            }
+                            onClick={() => {
+                              if (ethicalId) {
+                                router.push(`/research/ethical-clearance/${ethicalId}`);
+                              } else if (proposalId) {
+                                router.push(`/research/proposals/${proposalId}`);
+                              } else if (screeningId) {
+                                router.push(`/research/ethical-clearance/${screeningId}`);
+                              }
+                            }}
                           >
                             View
                             <ArrowRight className="ml-2 h-4 w-4" />

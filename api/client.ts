@@ -88,6 +88,14 @@ apiClient.interceptors.request.use(
       Authorization?: string;
       authorization?: string;
     };
+
+    if (config.data instanceof FormData) {
+      if (headers) {
+        delete headers["Content-Type"];
+        delete headers["content-type"];
+      }
+    }
+
     const hasExplicitAuthHeader = Boolean(
       headers?.Authorization ?? headers?.authorization,
     );

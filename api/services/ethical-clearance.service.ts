@@ -14,6 +14,7 @@ export interface EthicalClearanceFilters {
   search?: string;
   ordering?: string;
   clearance_type?: string;
+  need_irb_ethical_clearance?: boolean;
 }
 
 function cleanParams(filters: EthicalClearanceFilters) {
@@ -76,7 +77,11 @@ export async function createEthicalClearanceReview(
   const formData = new FormData();
 
   formData.append("proposal", input.proposal.toString());
-  formData.append("request_file", input.request_file);
+
+  if (input.request_file) {
+    formData.append("request_file", input.request_file);
+  }
+
   formData.append("clearance_type", input.clearance_type);
   formData.append("application_date", input.application_date);
 
@@ -93,6 +98,56 @@ export async function createEthicalClearanceReview(
   }
 
   const { data } = await apiClient.post(API_ENDPOINTS.ETHICAL_CLEARANCES.CREATE, formData);
+  const response = unwrapData<
+    EthicalClearance | EthicalClearanceDetailResponse
+  >(data);
+
+  if (response && typeof response === "object" && "id" in response) {
+    return response as EthicalClearance;
+  }
+
+  return (response as EthicalClearanceDetailResponse).data;
+}
+
+export async function updateEthicalClearanceReview(
+  id: number,
+  input: EthicalClearanceCreateInput,
+): Promise<EthicalClearance> {
+  const formData = new FormData();
+
+  if (input.proposal !== undefined && input.proposal !== null) {
+    formData.append("proposal", input.proposal.toString());
+  }
+
+  if (input.request_file) {
+    formData.append("request_file", input.request_file);
+  }
+
+  if (input.clearance_type) {
+    formData.append("clearance_type", input.clearance_type);
+  }
+
+  if (input.application_date) {
+    formData.append("application_date", input.application_date);
+  }
+
+  if (input.status) {
+    formData.append("status", input.status);
+  }
+
+  if (input.clearance_file) {
+    formData.append("clearance_file", input.clearance_file);
+  }
+
+  if (input.approval_date) {
+    formData.append("approval_date", input.approval_date);
+  }
+
+  const { data } = await apiClient.patch(
+    API_ENDPOINTS.ETHICAL_CLEARANCES.UPDATE(id),
+    formData,
+  );
+
   const response = unwrapData<
     EthicalClearance | EthicalClearanceDetailResponse
   >(data);

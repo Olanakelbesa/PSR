@@ -235,9 +235,8 @@ export const API_ENDPOINTS = {
 
   // ── Notifications ─────────────────────────────────────────────────────────
   NOTIFICATIONS: {
-    LIST: (userId: string) => `/notifications?userId=${userId}`,
-    MARK_READ: (id: string) => `/notifications/${id}/read`,
-    MARK_ALL_READ: "/notifications/mark-all-read",
+    LIST: "/v1/notifications/",
+    MARK_READ: (id: string | number) => `/v1/notifications/${id}/mark-read/`,
   },
 
   // ── Audit Logs ────────────────────────────────────────────────────────────

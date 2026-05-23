@@ -32,7 +32,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { EthicalClearance } from "@/types/ethical-clearance";
-import { useCreateEthicalClearance, useEthicalClearance } from "@/lib/queries/ethical-clearance";
+import { useUpdateEthicalClearance, useEthicalClearance } from "@/lib/queries/ethical-clearance";
+import { useProposal } from "@/lib/queries/proposals";
 
 const clearanceTypeLabel: Record<string, string> = {
   full_board: "Full Board Review",
@@ -94,6 +95,10 @@ function resolveFileUrl(filePath?: string | null) {
 function getFileName(filePath?: string | null) {
   if (!filePath) return "";
   return filePath.split("/").pop() || filePath;
+}
+
+function firstDefined<T>(...values: Array<T | null | undefined>): T | undefined {
+  return values.find((value) => value !== undefined && value !== null);
 }
 
 function isAcceptedUpload(file: File) {
@@ -387,7 +392,7 @@ function FallbackState({
 export default function EthicalClearanceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const createDecision = useCreateEthicalClearance();
+  const updateDecision = useUpdateEthicalClearance();
 
   const routeId = Array.isArray(params.id) ? params.id[0] : params.id;
   const clearanceId = routeId ? Number(routeId) : Number.NaN;
@@ -399,6 +404,14 @@ export default function EthicalClearanceDetailPage() {
     error,
     refetch,
   } = useEthicalClearance(isValidId ? clearanceId : undefined);
+
+  const proposalId = firstDefined(
+    clearance?.proposalId,
+    clearance?.proposal_id,
+  );
+  const proposalLookupId = proposalId ? String(proposalId) : "";
+
+  const { data: proposalData } = useProposal(proposalLookupId);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [decision, setDecision] = useState<EthicalClearance["status"] | "">("");
@@ -412,7 +425,9 @@ export default function EthicalClearanceDetailPage() {
     if (!isDialogOpen || !clearance) return;
 
     setDecision(clearance.status);
-    setClearanceTypeState(clearance.clearance_type || "");
+    setClearanceTypeState(
+      firstDefined(clearance.clearanceType, clearance.clearance_type) || "",
+    );
     setRequestFile(null);
     setClearanceFile(null);
     setRequestDragging(false);
@@ -454,10 +469,54 @@ export default function EthicalClearanceDetailPage() {
     );
   }
 
+  const clearanceType = firstDefined(clearance.clearanceType, clearance.clearance_type);
+  const requestFileValue = firstDefined(
+    clearance.requestFile,
+    clearance.request_file,
+    (clearance as any)?.files?.request_file,
+  );
+  const clearanceFileValue = firstDefined(
+    clearance.clearanceFile,
+    clearance.clearance_file,
+    (clearance as any)?.files?.clearance_file,
+  );
+  const referenceNumber = firstDefined(clearance.referenceNumber, clearance.reference_number);
+  const proposalShortAbstract = firstDefined(
+    clearance.proposalShortAbstract,
+    clearance.proposal_short_abstract,
+  );
+  const proposalInstitution = firstDefined(
+    clearance.proposalInstitution,
+    clearance.proposal_institution,
+  );
+  const proposalTitle = firstDefined(
+    clearance.proposalTitle,
+    clearance.proposal_title,
+    proposalData?.title,
+  );
+  const proposalIdValue = firstDefined(clearance.proposalId, clearance.proposal_id);
+  const screeningId = firstDefined(clearance.screeningId, clearance.screening_id);
+  const proposalReadyId = firstDefined(
+    clearance.proposalReadyForFundingId,
+    clearance.proposal_ready_for_funding_id,
+  );
+  const needIrb = firstDefined(
+    clearance.needIrbEthicalClearance,
+    clearance.need_irb_ethical_clearance,
+  );
+  const applicationDateValue = firstDefined(
+    clearance.applicationDate,
+    clearance.application_date,
+  );
+  const approvalDateValue = firstDefined(
+    clearance.approvalDate,
+    clearance.approval_date,
+  );
+
   const status = statusConfig[clearance.status];
   const StatusIcon = status.icon;
-  const requestFileUrl = resolveFileUrl(clearance.request_file);
-  const clearanceFileUrl = resolveFileUrl(clearance.clearance_file);
+  const requestFileUrl = resolveFileUrl(requestFileValue);
+  const clearanceFileUrl = resolveFileUrl(clearanceFileValue);
   const piLabel =
     typeof clearance.pi === "string"
       ? clearance.pi
@@ -483,30 +542,33 @@ export default function EthicalClearanceDetailPage() {
       return;
     }
 
-    if (!requestFile) {
+    if (!requestFile && !requestFileValue) {
       toast.error("Request file is required.");
-      return;
-    }
-
-    if (decision === "approved" && !clearanceFile) {
-      toast.error("Clearance file is required for an approved decision.");
       return;
     }
 
     const approvalDate =
       decision === "approved"
-        ? new Date().toISOString().split("T")[0]
+        ? firstDefined(clearance.approvalDate, clearance.approval_date) ||
+          new Date().toISOString().split("T")[0]
         : undefined;
 
+    const applicationDate =
+      firstDefined(clearance.applicationDate, clearance.application_date) ||
+      new Date().toISOString().split("T")[0];
+
     try {
-      await createDecision.mutateAsync({
-        proposal: clearance.proposal,
-        request_file: requestFile,
-        clearance_type: clearanceTypeState,
-        application_date: new Date().toISOString().split("T")[0],
-        status: decision,
-        clearance_file: clearanceFile || undefined,
-        approval_date: approvalDate,
+      await updateDecision.mutateAsync({
+        id: clearance.id,
+        payload: {
+          proposal: clearance.proposal,
+          request_file: requestFile || undefined,
+          clearance_type: clearanceTypeState,
+          application_date: applicationDate,
+          status: decision,
+          clearance_file: clearanceFile || undefined,
+          approval_date: approvalDate,
+        },
       });
 
       await refetch();
@@ -518,8 +580,8 @@ export default function EthicalClearanceDetailPage() {
 
   return (
     <PageContainer
-      title={clearance.proposal_title || "Ethical Clearance"}
-      description={`Ethical Clearance — ${clearance.reference_number || `EC-${clearance.id}`}`}
+      title={proposalTitle || "Ethical Clearance"}
+      description={`Ethical Clearance — ${referenceNumber || `EC-${clearance.id}`}`}
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -568,12 +630,13 @@ export default function EthicalClearanceDetailPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline" className="font-bold">
-                    Proposal {clearance.proposal}
+                    Proposal {proposalIdValue ?? "—"}
                   </Badge>
                   <Badge variant="outline" className="font-bold">
-                    {clearance.need_irb_ethical_clearance
-                      ? "IRB Required"
-                      : "IRB Not Required"}
+                    Ready {clearance.proposal}
+                  </Badge>
+                  <Badge variant="outline" className="font-bold">
+                    {needIrb ? "IRB Required" : "IRB Not Required"}
                   </Badge>
                 </div>
               </div>
@@ -594,13 +657,31 @@ export default function EthicalClearanceDetailPage() {
                     label: "Reference Number",
                     value: (
                       <span className="font-bold text-primary">
-                        {clearance.reference_number || `EC-${clearance.id}`}
+                        {referenceNumber || `EC-${clearance.id}`}
                       </span>
                     ),
                   },
                   {
                     label: "Proposal Title",
-                    value: clearance.proposal_title || "—",
+                    value: proposalTitle || "—",
+                  },
+                  {
+                    label: "Proposal Abstract",
+                    value:
+                      proposalData?.shortAbstract || proposalData?.abstract || proposalShortAbstract || "—",
+                  },
+                  {
+                    label: "Institution",
+                    value:
+                      proposalData?.Organization?.name || proposalData?.organization?.name || proposalData?.institution || proposalInstitution || "—",
+                  },
+                  {
+                    label: "Proposal ID",
+                    value: proposalIdValue ?? "—",
+                  },
+                  {
+                    label: "Funding Ready ID",
+                    value: proposalReadyId ?? "Not assigned",
                   },
                   {
                     label: "Principal Investigator",
@@ -613,34 +694,33 @@ export default function EthicalClearanceDetailPage() {
                         variant="outline"
                         className="font-bold border-primary/20"
                       >
-                        {clearanceTypeLabel[clearance.clearance_type] ||
-                          clearance.clearance_type}
+                        {clearanceType ? (clearanceTypeLabel[clearanceType] || clearanceType) : "—"}
                       </Badge>
                     ),
                   },
                   {
-                    label: "Proposal ID",
-                    value: clearance.proposal,
+                    label: "IRB Required",
+                    value: needIrb ? "Yes" : "No",
                   },
                   {
                     label: "Screening ID",
-                    value: clearance.screening_id ?? "—",
+                    value: screeningId ?? "—",
                   },
                   {
                     label: "Application Date",
                     value: (
                       <span className="flex items-center gap-1.5">
                         <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                        {formatDate(clearance.application_date)}
+                        {formatDate(applicationDateValue)}
                       </span>
                     ),
                   },
                   {
                     label: "Approval Date",
-                    value: clearance.approval_date ? (
+                    value: approvalDateValue ? (
                       <span className="flex items-center gap-1.5 font-bold text-primary">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        {formatDate(clearance.approval_date)}
+                        {formatDate(approvalDateValue)}
                       </span>
                     ) : (
                       <span className="text-xs italic text-muted-foreground/50">
@@ -676,7 +756,7 @@ export default function EthicalClearanceDetailPage() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold">
-                        {getFileName(clearance.request_file) || "Request file"}
+                        {getFileName(requestFileValue) || "Request file"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Request file uploaded with the backend record
@@ -696,7 +776,7 @@ export default function EthicalClearanceDetailPage() {
                 </div>
               </div>
 
-              {clearance.clearance_file ? (
+              {clearanceFileValue ? (
                 <div className="rounded-xl border bg-muted/20 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
@@ -705,7 +785,7 @@ export default function EthicalClearanceDetailPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold">
-                          {getFileName(clearance.clearance_file) ||
+                          {getFileName(clearanceFileValue) ||
                             "Clearance file"}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -755,11 +835,10 @@ export default function EthicalClearanceDetailPage() {
                 Clearance Record
               </p>
               <p className="text-2xl font-black">
-                {clearance.reference_number || `EC-${clearance.id}`}
+                {referenceNumber || `EC-${clearance.id}`}
               </p>
               <Badge className="mt-2 bg-white/20 text-white border-white/30 text-[9px] font-bold uppercase">
-                {clearanceTypeLabel[clearance.clearance_type] ||
-                  clearance.clearance_type}
+                {clearanceType ? (clearanceTypeLabel[clearanceType] || clearanceType) : "—"}
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3 pt-5 text-sm">
@@ -788,16 +867,16 @@ export default function EthicalClearanceDetailPage() {
                   Applied
                 </span>
                 <span className="text-xs font-bold">
-                  {formatDate(clearance.application_date)}
+                  {formatDate(applicationDateValue)}
                 </span>
               </div>
-              {clearance.approval_date && (
+              {approvalDateValue && (
                 <div className="flex justify-between gap-4">
                   <span className="font-medium text-muted-foreground">
                     Approved
                   </span>
                   <span className="text-xs font-bold text-emerald-600">
-                    {formatDate(clearance.approval_date)}
+                    {formatDate(approvalDateValue)}
                   </span>
                 </div>
               )}
@@ -871,7 +950,7 @@ export default function EthicalClearanceDetailPage() {
               helperText="Upload the original request file. Accepted: PDF, DOC, DOCX, or images."
               file={requestFile}
               onFileChange={setRequestFile}
-              existingFileName={getFileName(clearance.request_file)}
+              existingFileName={getFileName(requestFileValue)}
               existingFileUrl={requestFileUrl}
               isDragging={requestDragging}
               setIsDragging={setRequestDragging}
@@ -884,7 +963,7 @@ export default function EthicalClearanceDetailPage() {
               helperText="Upload the clearance certificate when the decision is approved."
               file={clearanceFile}
               onFileChange={setClearanceFile}
-              existingFileName={getFileName(clearance.clearance_file)}
+              existingFileName={getFileName(clearanceFileValue)}
               existingFileUrl={clearanceFileUrl}
               isDragging={clearanceDragging}
               setIsDragging={setClearanceDragging}
@@ -896,16 +975,16 @@ export default function EthicalClearanceDetailPage() {
               type="button"
               variant="outline"
               onClick={clearDialogState}
-              disabled={createDecision.isPending}
+              disabled={updateDecision.isPending}
             >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={handleSave}
-              disabled={createDecision.isPending}
+              disabled={updateDecision.isPending}
             >
-              {createDecision.isPending ? "Saving..." : "Save Decision"}
+              {updateDecision.isPending ? "Saving..." : "Save Decision"}
             </Button>
           </DialogFooter>
         </DialogContent>
