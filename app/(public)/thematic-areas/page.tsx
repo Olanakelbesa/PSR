@@ -159,7 +159,7 @@ export default function ThematicAreasPage() {
                       exit={{ opacity: 0, scale: 0.98 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
+                      <Card className="border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
                         <button
                           type="button"
                           onClick={() =>
@@ -197,12 +197,12 @@ export default function ThematicAreasPage() {
                               transition={{ duration: 0.2, ease: "easeInOut" }}
                               className="overflow-hidden"
                             >
-                              <div className="px-6 pb-6 pt-2 border-t border-white/5 bg-slate-950/20">
+                              <div className="px-6 pb-6 pt-2 border-t border-white/5 ">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   {area.sub_thematic_areas.map((sub) => (
                                     <div
                                       key={sub.id}
-                                      className="p-4 rounded-xl border border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.03] hover:border-primary/10 transition duration-200 flex flex-col justify-between"
+                                      className="p-4 rounded-xl border border-white/[0.03]  hover:bg-white/[0.03] hover:border-primary/10 transition duration-200 flex flex-col justify-between"
                                     >
                                       <div>
                                         <h4 className="text-sm font-bold text-foreground">

@@ -103,9 +103,6 @@ export default function LoginPage() {
 
         {/* Bottom content */}
         <div className="relative z-10 mt-auto p-10 pb-14">
-          <Badge className="bg-primary/20 text-primary-foreground border border-primary/30 mb-5 font-bold uppercase text-[10px] tracking-widest px-3 py-1">
-            Secure Government Portal
-          </Badge>
           <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight mb-4">
             Advancing Policy &<br />Research Governance
           </h1>
@@ -113,12 +110,6 @@ export default function LoginPage() {
             A secure digital platform for policy reform management, research proposal governance,
             and academic collaboration across Ethiopia.
           </p>
-
-          {/* Trust indicators */}
-          <div className="flex items-center gap-2 mt-8 text-white/60 text-xs">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>256-bit SSL encryption · ISO 27001 compliant · Session-based authentication</span>
-          </div>
         </div>
       </div>
 

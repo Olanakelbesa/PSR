@@ -682,11 +682,11 @@ export default function LandingPage() {
         </section>
 
         {/* Public Analytics Section */}
-        <section id="insights" className="py-20 bg-muted/20 border-y border-border/50">
+        <section id="insights" className="p-20 bg-muted/20 border-y border-border/50">
           <div className="container mx-auto px-4 space-y-6">
-            <RevealOnScroll>
+            {/* <RevealOnScroll>
               <StatsStrip overview={derivedOverview} />
-            </RevealOnScroll>
+            </RevealOnScroll> */}
 
             <RevealOnScroll>
               <TrustBand trust={trustPayload} />
@@ -819,7 +819,7 @@ export default function LandingPage() {
         {/* Final CTA */}
         <section className="p-24 container mx-auto px-4">
           <RevealOnScroll className="rounded-[3rem] bg-primary px-8 py-20 text-center text-background relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
+            <div className="absolute top-0 right-0 h-[400px] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
             <div className="max-w-3xl mx-auto space-y-10 relative z-10">
               <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-none">
                 Join the New Standard.

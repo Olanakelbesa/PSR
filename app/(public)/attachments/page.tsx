@@ -312,7 +312,7 @@ export default function AttachmentsPage() {
                 <p className="text-muted-foreground text-sm mt-4">Loading downloadable files...</p>
               </div>
             ) : loadError ? (
-              <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+              <Card className="border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
                 <div className="py-24 text-center px-6">
                   <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4 opacity-80" />
                   <h3 className="text-lg font-bold text-foreground">
@@ -324,7 +324,7 @@ export default function AttachmentsPage() {
                 </div>
               </Card>
             ) : (
-              <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+              <Card className="border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
                 {filtered.length === 0 ? (
                   <div className="py-24 text-center">
                     <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-30" />
