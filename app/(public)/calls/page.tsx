@@ -199,7 +199,7 @@ export default function CallsPage() {
                     exit={{ opacity: 0, scale: 0.98 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Card className="border border-white/5 bg-slate-900/20 hover:bg-slate-900/40 backdrop-blur-md hover:border-primary/20 transition-all duration-300 rounded-2xl overflow-hidden h-full flex flex-col justify-between">
+                    <Card className="border border-white/5 backdrop-blur-md hover:border-primary/20 transition-all duration-300 rounded-2xl overflow-hidden h-full flex flex-col justify-between">
                       <CardContent className="p-6 flex flex-col justify-between h-full space-y-6">
                         <div className="space-y-4">
                           <div className="flex items-center justify-between gap-4">

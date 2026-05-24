@@ -214,7 +214,7 @@ export default function PublicPublicationsPage() {
                 { label: "Organizations", value: stats.organizations, icon: Building2 },
                 { label: "Document Types", value: stats.types, icon: FileText },
               ].map((stat) => (
-                <Card key={stat.label} className="border border-white/5 bg-slate-900/20 backdrop-blur-md rounded-2xl">
+                <Card key={stat.label} className="border border-white/5 backdrop-blur-md rounded-2xl">
                   <CardContent className="p-5 flex items-center justify-between gap-4">
                     <div>
                       <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{stat.label}</p>
@@ -311,7 +311,7 @@ export default function PublicPublicationsPage() {
                         exit={{ opacity: 0, scale: 0.98 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <Card className="border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
+                        <Card className="border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
                           <button
                             type="button"
                             onClick={() => setExpandedId(isExpanded ? null : String(pub.id))}
@@ -358,7 +358,7 @@ export default function PublicPublicationsPage() {
                                 transition={{ duration: 0.2, ease: "easeInOut" }}
                                 className="overflow-hidden"
                               >
-                                <div className="px-6 pb-6 pt-2 border-t border-white/5 bg-slate-950/15 space-y-4">
+                                <div className="px-6 pb-6 pt-2 border-t border-white/5 space-y-4">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground">
                                     <div className="space-y-1.5 md:col-span-2">
                                       <h4 className="text-xs font-bold text-foreground uppercase tracking-widest flex items-center gap-1">

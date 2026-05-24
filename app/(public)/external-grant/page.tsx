@@ -245,7 +245,7 @@ export default function ExternalGrantsPage() {
                   >
                     <Card
                       className={cn(
-                        "border border-white/5 bg-slate-900/30 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300 cursor-pointer h-full flex flex-col justify-between"
+                        "border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300 cursor-pointer h-full flex flex-col justify-between"
                       )}
                       onClick={() => setExpandedId(expandedId === grant.id ? null : grant.id)}
                     >
