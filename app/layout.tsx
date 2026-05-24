@@ -28,9 +28,9 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
+        <Analytics />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Providers session={session}>{children}</Providers>
-          <Analytics />
         </ThemeProvider>
       </body>
     </html>

@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(4, "Password must be at least 4 characters"),
+  password: z.string().min(1, "Password is required"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;

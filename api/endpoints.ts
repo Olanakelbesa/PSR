@@ -256,7 +256,7 @@ export const API_ENDPOINTS = {
 
   // ── Audit Logs ────────────────────────────────────────────────────────────
   AUDIT_LOGS: {
-    LIST: "/audit-logs",
+    LIST: "/v1/audit-logs/",
   },
 
   // ── Ready For Funding ─────────────────────────────────────────────

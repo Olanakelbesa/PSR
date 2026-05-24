@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PageContainer } from "@/components/layout";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 import { toast } from "sonner";
 
 import { readyForFundingService } from "@/api/services/ready-for-funding.service";
@@ -196,9 +197,7 @@ export default function ReadyForFundingDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div
-                    dangerouslySetInnerHTML={{ __html: screening.abstract }}
-                  />
+                  <HtmlContentRenderer content={screening.abstract} />
                 </CardContent>
               </Card>
 

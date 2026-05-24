@@ -271,6 +271,7 @@ export function HtmlContentRenderer({
         dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(processedContent, {
             ADD_ATTR: ["style"],
+            FORBID_TAGS: ["script", "iframe", "object", "embed", "link", "meta"],
           }),
         }}
       />

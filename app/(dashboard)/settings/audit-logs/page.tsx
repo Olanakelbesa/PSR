@@ -6,20 +6,20 @@ import {
   Filter,
   Download,
   Calendar,
-  User,
   FileText,
-  Settings,
-  Shield,
   LogIn,
   LogOut,
   Edit,
   Trash2,
   Plus,
   Eye,
+  Settings,
   RefreshCw,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
+import apiClient from '@/api/client'
+import { API_ENDPOINTS } from '@/api/endpoints'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/popover'
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { PageContainer } from '@/components/layout'
+
 interface AuditLog {
   id: string;
   action: string;
@@ -82,121 +83,86 @@ const actionColors: Record<string, string> = {
   settings: 'text-slate-500 bg-slate-500/10',
 }
 
-// Mock data
-const mockAuditLogs: AuditLog[] = [
-  {
-    id: '1',
-    action: 'login',
-    userId: 'user-1',
-    userName: 'Dr. Sarah Johnson',
-    userRole: 'PSR Officer',
-    resource: 'Authentication',
-    resourceId: '',
-    details: 'User logged in successfully',
-    ipAddress: '192.168.1.100',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    timestamp: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    action: 'create',
-    userId: 'user-2',
-    userName: 'Prof. Michael Chen',
-    userRole: 'Researcher',
-    resource: 'Proposal',
-    resourceId: 'PROP-2024-001',
-    details: 'Created new research proposal: "Health Systems Strengthening in Rural Areas"',
-    ipAddress: '192.168.1.101',
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '3',
-    action: 'update',
-    userId: 'user-3',
-    userName: 'Admin User',
-    userRole: 'System Admin',
-    resource: 'User',
-    resourceId: 'user-15',
-    details: 'Updated user role from "Researcher" to "ROC Reviewer"',
-    ipAddress: '192.168.1.102',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '4',
-    action: 'delete',
-    userId: 'user-1',
-    userName: 'Dr. Sarah Johnson',
-    userRole: 'PSR Officer',
-    resource: 'Draft',
-    resourceId: 'DRAFT-2024-003',
-    details: 'Deleted draft policy document: "Healthcare Financing Reform"',
-    ipAddress: '192.168.1.100',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '5',
-    action: 'view',
-    userId: 'user-4',
-    userName: 'Dr. Amina Hassan',
-    userRole: 'ROC Reviewer',
-    resource: 'Proposal',
-    resourceId: 'PROP-2024-002',
-    details: 'Viewed proposal details for evaluation',
-    ipAddress: '192.168.1.103',
-    userAgent: 'Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X)',
-    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '6',
-    action: 'export',
-    userId: 'user-3',
-    userName: 'Admin User',
-    userRole: 'System Admin',
-    resource: 'Report',
-    resourceId: '',
-    details: 'Exported annual research report to PDF',
-    ipAddress: '192.168.1.102',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '7',
-    action: 'settings',
-    userId: 'user-3',
-    userName: 'Admin User',
-    userRole: 'System Admin',
-    resource: 'Taxonomy',
-    resourceId: 'thematic-areas',
-    details: 'Added new thematic area: "Digital Health"',
-    ipAddress: '192.168.1.102',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '8',
-    action: 'logout',
-    userId: 'user-2',
-    userName: 'Prof. Michael Chen',
-    userRole: 'Researcher',
-    resource: 'Authentication',
-    resourceId: '',
-    details: 'User logged out',
-    ipAddress: '192.168.1.101',
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-    timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-  },
-]
+function normalizeAuditLog(event: any): AuditLog {
+  const actionType = String(event.eventType || 'audit').toLowerCase()
+  const action = (
+    actionType === 'login' ||
+    actionType === 'logout' ||
+    actionType === 'create' ||
+    actionType === 'update' ||
+    actionType === 'delete' ||
+    actionType === 'view' ||
+    actionType === 'export' ||
+    actionType === 'settings'
+  )
+    ? actionType
+    : actionType.includes('create')
+    ? 'create'
+    : actionType.includes('update')
+    ? 'update'
+    : actionType.includes('delete')
+    ? 'delete'
+    : actionType.includes('login')
+    ? 'login'
+    : actionType.includes('logout')
+    ? 'logout'
+    : actionType.includes('submit')
+    ? 'view'
+    : 'settings'
+
+  const metadata = event.metadata || {}
+  const documentType = event.document_type
+  const documentId = event.document_id ? String(event.document_id) : ''
+  const resource =
+    documentType || metadata.title || metadata.action || event.eventType || 'Audit Event'
+  const resourceId = documentId || event.relatedVersion || ''
+
+  return {
+    id: event.eventId ?? String(event.event_id ?? ''),
+    action,
+    userId: String(event.actor?.id ?? metadata.actor_id ?? ''),
+    userName:
+      event.actor?.name || metadata.email || metadata.actor_name || 'System',
+    userRole: metadata.role || '',
+    resource,
+    resourceId,
+    details:
+      metadata.title || metadata.description || metadata.message || event.eventType || '',
+    ipAddress: event.ipAddress || metadata.ip_address || '',
+    userAgent: metadata.user_agent || '',
+    timestamp: event.timestamp || event.created_at || new Date().toISOString(),
+  }
+}
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLog[]>(mockAuditLogs)
+  const [logs, setLogs] = useState<AuditLog[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [actionFilter, setActionFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
+
+  const loadAuditLogs = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.AUDIT_LOGS.LIST)
+      const items = Array.isArray(response.data?.data)
+        ? response.data.data
+        : []
+      setLogs(items.map(normalizeAuditLog))
+    } catch (err) {
+      setError('Unable to load audit logs. Please refresh or try again later.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAuditLogs()
+  }, [])
 
   const filteredLogs = logs.filter(log => {
     if (actionFilter !== 'all' && log.action !== actionFilter) return false
@@ -216,8 +182,7 @@ export default function AuditLogsPage() {
   }
 
   const handleRefresh = () => {
-    setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 1000)
+    loadAuditLogs()
   }
 
   return (
@@ -238,6 +203,12 @@ export default function AuditLogsPage() {
       }
     >
       <div className="space-y-4">
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
