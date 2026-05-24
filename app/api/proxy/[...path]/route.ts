@@ -145,8 +145,25 @@ const handler = auth(async (req, context) => {
     const duration = Date.now() - start;
     log(req.method, apiPath, upstreamRes.status, duration);
 
-    const data = await upstreamRes.json().catch(() => null);
-    return NextResponse.json(data ?? {}, { status: upstreamRes.status });
+    // 204/205/304 must not include a response body.
+    if ([204, 205, 304].includes(upstreamRes.status)) {
+      return new NextResponse(null, { status: upstreamRes.status });
+    }
+
+    const upstreamContentType = upstreamRes.headers.get("content-type") ?? "";
+
+    if (upstreamContentType.includes("application/json")) {
+      const data = await upstreamRes.json().catch(() => ({}));
+      return NextResponse.json(data, { status: upstreamRes.status });
+    }
+
+    const textBody = await upstreamRes.text();
+    return new NextResponse(textBody, {
+      status: upstreamRes.status,
+      headers: {
+        "content-type": upstreamContentType || "text/plain; charset=utf-8",
+      },
+    });
   } catch (err: unknown) {
     const duration = Date.now() - start;
     log(req.method, apiPath, 502, duration);

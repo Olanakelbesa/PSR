@@ -12,6 +12,49 @@ import type { ApiError } from "@/lib/axios";
 
 const isDev = process.env.NODE_ENV === "development";
 
+function normalizeMutationError(error: unknown): {
+  message: string;
+  status: number | null;
+  errors: Record<string, string[]> | null;
+  raw: unknown;
+} {
+  if (
+    error &&
+    typeof error === "object" &&
+    ("message" in error || "status" in error || "errors" in error)
+  ) {
+    const apiErr = error as Partial<ApiError>;
+    return {
+      message:
+        typeof apiErr.message === "string" && apiErr.message.trim().length > 0
+          ? apiErr.message
+          : "Mutation failed",
+      status: typeof apiErr.status === "number" ? apiErr.status : null,
+      errors:
+        apiErr.errors && typeof apiErr.errors === "object"
+          ? apiErr.errors
+          : null,
+      raw: error,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      message: error.message || "Mutation failed",
+      status: null,
+      errors: null,
+      raw: error,
+    };
+  }
+
+  return {
+    message: "Mutation failed",
+    status: null,
+    errors: null,
+    raw: error,
+  };
+}
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -26,11 +69,12 @@ export const queryClient = new QueryClient({
       // Global mutation error handler — logs in dev, silent in production
       onError: (error: unknown) => {
         if (isDev) {
-          const apiErr = error as ApiError;
+          const apiErr = normalizeMutationError(error);
           console.error("[Mutation Error]", {
             message: apiErr.message,
             status: apiErr.status,
             errors: apiErr.errors,
+            raw: apiErr.raw,
           });
         }
       },

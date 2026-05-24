@@ -12,20 +12,57 @@ import { API_ENDPOINTS } from "@/api/endpoints";
 export const UserSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   email: z.string().email(),
-  firstName: z.string().optional().default(""),
-  lastName: z.string().optional().default(""),
-  fullName: z.string().optional(),
-  role: z.string(),
-  status: z.string().optional(),
-  phone: z.string().optional(),
-  institution: z.string().optional(),
-  department: z.string().optional(),
-  position: z.string().optional(),
+  firstName: z.string().nullable().optional().default(""),
+  middleName: z.string().nullable().optional().default(null),
+  lastName: z.string().nullable().optional().default(null),
+  fullName: z.string().nullable().optional().default(""),
+  phone: z.string().nullable().optional(),
+  sex: z.string().nullable().optional(),
+  title: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(Number),
+      name: z.string(),
+    })
+    .nullable()
+    .optional(),
+  organizationType: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(Number),
+      name: z.string(),
+    })
+    .nullable()
+    .optional(),
+  organization: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(Number),
+      name: z.string(),
+    })
+    .nullable()
+    .optional(),
+  unit: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(Number),
+      name: z.string(),
+    })
+    .nullable()
+    .optional(),
+  status: z.string().nullable().optional().default("Active"),
+  enabled: z.boolean().optional().default(true),
   avatar: z.string().nullable().optional(),
   photoUrl: z.string().nullable().optional(),
   createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  lastLogin: z.string().optional(),
+  updatedAt: z.string().nullable().optional(),
+  lastLogin: z.string().nullable().optional(),
+  roles: z
+    .array(
+      z.object({
+        id: z.union([z.string(), z.number()]).transform(Number),
+        name: z.string(),
+        slug: z.string().optional(),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 const PaginatedUsersSchema = z.object({
@@ -110,6 +147,37 @@ export interface UserFilters {
   status?: string;
   page?: number;
   pageSize?: number;
+  limit?: number;
+}
+
+export interface AdminCreateUserPayload {
+  email: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  sex?: string | null;
+  title?: number | null;
+  organization_type?: number | null;
+  organization?: number | null;
+  unit?: number | null;
+  roles?: number[];
+  password: string;
+}
+
+export interface AdminUpdateUserPayload {
+  email?: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  sex?: string | null;
+  title?: number | null;
+  organization?: number | null;
+  unit?: number | null;
+  status?: string;
+  enabled?: boolean;
+  createdAt?: string;
 }
 
 export interface ReviewerSelectorFilters {
@@ -173,15 +241,15 @@ function normalizeReviewerSelectorResponse(payload: unknown) {
 export async function getUsers(
   filters: UserFilters = {},
 ): Promise<PaginatedUsers> {
-  const res = await apiClient.get(API_ENDPOINTS.USERS.LIST, {
+  const res = await apiClient.get(API_ENDPOINTS.USERS.ADMIN.LIST, {
     params: filters,
   });
-  return PaginatedUsersSchema.parse(res.data);
+  return PaginatedUsersSchema.parse(res.data?.data ? res.data : { data: [] });
 }
 
 // ─── GET /users/:id ───────────────────────────────────────────────────────────
 export async function getUserById(id: string): Promise<User> {
-  const res = await apiClient.get(API_ENDPOINTS.USERS.DETAIL(id));
+  const res = await apiClient.get(API_ENDPOINTS.USERS.ADMIN.DETAIL(id));
   return UserSchema.parse(res.data?.data ?? res.data);
 }
 
@@ -198,21 +266,21 @@ export async function getReviewerSelector(
 }
 
 // ─── POST /users ──────────────────────────────────────────────────────────────
-export async function createUser(data: Partial<User>): Promise<User> {
-  const res = await apiClient.post(API_ENDPOINTS.USERS.CREATE, data);
+export async function createUser(data: AdminCreateUserPayload): Promise<User> {
+  const res = await apiClient.post(API_ENDPOINTS.USERS.ADMIN.CREATE, data);
   return UserSchema.parse(res.data?.data ?? res.data);
 }
 
 // ─── PATCH /users/:id ─────────────────────────────────────────────────────────
 export async function updateUser(
   id: string,
-  data: Partial<User>,
+  data: AdminUpdateUserPayload,
 ): Promise<User> {
-  const res = await apiClient.patch(API_ENDPOINTS.USERS.UPDATE(id), data);
+  const res = await apiClient.patch(API_ENDPOINTS.USERS.ADMIN.UPDATE(id), data);
   return UserSchema.parse(res.data?.data ?? res.data);
 }
 
 // ─── DELETE /users/:id ────────────────────────────────────────────────────────
 export async function deleteUser(id: string): Promise<void> {
-  await apiClient.delete(API_ENDPOINTS.USERS.DELETE(id));
+  await apiClient.delete(API_ENDPOINTS.USERS.ADMIN.DELETE(id));
 }

@@ -12,6 +12,8 @@ import {
   deleteUser,
   type UserFilters,
   type User,
+  type AdminCreateUserPayload,
+  type AdminUpdateUserPayload,
 } from "@/api/services/users.service";
 
 // ─── Query Keys ───────────────────────────────────────────────────────────────
@@ -43,7 +45,7 @@ export function useUser(id: string | undefined) {
 export function useCreateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<User>) => createUser(data),
+    mutationFn: (data: AdminCreateUserPayload) => createUser(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
     },
@@ -54,7 +56,7 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<User> }) =>
+    mutationFn: ({ id, data }: { id: string; data: AdminUpdateUserPayload }) =>
       updateUser(id, data),
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: userKeys.all });
