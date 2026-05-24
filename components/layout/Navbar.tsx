@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Menu, X } from "lucide-react";
+import { FileText, Menu, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTheme } from "next-themes";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
@@ -21,6 +22,13 @@ export function Navbar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+   const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+
+    useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -87,6 +95,21 @@ export function Navbar() {
 
           {/* Actions */}
           <div className="hidden lg:flex items-center gap-3">
+             <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10"
+          onClick={() =>
+            setTheme((theme ?? resolvedTheme) === "dark" ? "light" : "dark")
+          }
+          aria-label="Toggle dark mode"
+        >
+          {mounted && (theme === "dark" || resolvedTheme === "dark") ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
+          )}
+        </Button>
             <Button
               variant="ghost"
               size="sm"
