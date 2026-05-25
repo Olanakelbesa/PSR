@@ -56,8 +56,6 @@ export default function ExternalResearchDetailPage() {
     item?.abstract ||
     item?.citation ||
     "No abstract was provided for this record.";
-  const methodologyText =
-    item?.methodology || "No methodology summary is available for this record.";
   const citationValue =
     item?.citation ||
     `${familyName}, ${primaryAuthor[0] || "U"}. (${publicationYear}). ${publicationTitle}. ${sourceName}.`;
@@ -206,15 +204,6 @@ export default function ExternalResearchDetailPage() {
                   {abstractText}
                 </p>
 
-                {/* Methodology Detail */}
-                <div className="space-y-2 border-t pt-5">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Methodology Summary
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {methodologyText}
-                  </p>
-                </div>
               </CardContent>
             </Card>
 

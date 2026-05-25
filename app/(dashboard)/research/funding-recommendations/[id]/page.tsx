@@ -90,6 +90,13 @@ export default function FundingRecommendationDetailPage() {
     context?.reference_number ||
     `FR-${recommendation?.id}`;
 
+  const requestedAmount =
+    recommendation?.budgetRequested ??
+    recommendation?.budget_requested ??
+    context?.budgetRequested ??
+    context?.budget_requested ??
+    null;
+
   const principalInvestigator =
     recommendation?.pi ||
     context?.principalInvestigator ||
@@ -194,19 +201,67 @@ export default function FundingRecommendationDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 space-y-4">
-              <div className="rounded-xl border p-4 bg-emerald-50/20 border-emerald-100 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 block">
-                    Total Recommended Award
+              {/* Requested vs Awarded Comparison */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-xl border p-4 bg-slate-50 border-slate-200">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                    Budget Requested
                   </span>
-                  <span className="text-3xl font-black text-emerald-700 block mt-1">
+                  <span className="text-2xl font-black text-slate-900 block mt-2">
+                    {formatCurrency(requestedAmount)}
+                  </span>
+                </div>
+
+                <div className="rounded-xl border p-4 bg-emerald-50/20 border-emerald-100">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 block">
+                    Total Awarded
+                  </span>
+                  <span className="text-2xl font-black text-emerald-700 block mt-2">
                     {formatCurrency(recommendation.total_award_amount)}
                   </span>
                 </div>
-                <div className="rounded-full bg-emerald-100 p-3 text-emerald-700">
-                  <Award className="h-6 w-6" />
-                </div>
               </div>
+
+              {/* Funding Gap Card */}
+              {requestedAmount && recommendation.total_award_amount ? (
+                <div className="rounded-xl border p-4 bg-slate-100/30 border-slate-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                    Funded Percentage
+                  </span>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-2xl font-black text-slate-800">
+                      {(
+                        ((Number(recommendation.total_award_amount) || 0) /
+                          (Number(requestedAmount) || 1)) *
+                        100
+                      ).toFixed(1)}
+                      %
+                    </span>
+                    <div
+                      className="h-2 flex-1 ml-4 bg-slate-200 rounded-full overflow-hidden"
+                      role="progressbar"
+                      aria-valuenow={Math.round(
+                        ((Number(recommendation.total_award_amount) || 0) /
+                          (Number(requestedAmount) || 1)) *
+                          100,
+                      )}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    >
+                      <div
+                        className="h-full bg-emerald-500"
+                        style={{
+                          width: `${
+                            ((Number(recommendation.total_award_amount) || 0) /
+                              (Number(requestedAmount) || 1)) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="space-y-1.5 pt-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">

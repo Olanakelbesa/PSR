@@ -346,3 +346,24 @@ export async function getReviewedWithMarks(
   // Return the raw response payload (contains success, data, meta)
   return res.data;
 }
+
+export interface ReviewHistoryEvent {
+  action: string;
+  timestamp: string;
+  status: string;
+  comment: string | null;
+}
+
+export interface ReviewHistory {
+  review_timeline: ReviewHistoryEvent[];
+}
+
+export async function getReviewHistory(
+  screeningId: string | number,
+): Promise<ReviewHistory> {
+  const res = await apiClient.get(
+    API_ENDPOINTS.SCREENINGS.REVIEW_HISTORY(screeningId),
+  );
+
+  return res.data?.data ?? res.data;
+}

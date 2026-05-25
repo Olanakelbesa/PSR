@@ -169,7 +169,8 @@ export const API_ENDPOINTS = {
     REVIEWED_WITH_MARKS: "/v1/screenings/reviewed-with-marks/",
     ASSIGN_REVIEWERS: (id: string | number) =>
       `/v1/screenings/${id}/assign-reviewers/`,
-
+    REVIEW_HISTORY: (id: string | number) =>
+      `/v1/screenings/${id}/review-history/`,
     APPROVED_PENDING_FUNDING: (id: string | number) =>
       `/v1/screenings/${id}/approved-pending-funding/`,
   },

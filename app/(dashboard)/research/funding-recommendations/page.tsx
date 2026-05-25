@@ -69,6 +69,8 @@ type PipelineRow = {
   organizationName: string;
   principalInvestigator: FundingRecommendationPi | string | null;
   principalInvestigatorEmail: string;
+  requestedAmount: string | number | null;
+  awardedAmount: string | number | null;
   amount: string | number | null;
   amountLabel: "Requested" | "Awarded";
   averageScorePercentage: number | null;
@@ -96,6 +98,11 @@ function extractId(value: unknown): string | null {
   }
 
   return null;
+}
+
+function normalizeAmount(value: unknown): string | number | null {
+  if (value === null || value === undefined) return null;
+  return typeof value === "string" || typeof value === "number" ? value : null;
 }
 
 function formatCurrency(value?: string | number | null) {
@@ -196,6 +203,10 @@ export default function FundingRecommendationsPage() {
     useState(ALL_FILTER_VALUE);
   const [selectedIrbFilter, setSelectedIrbFilter] = useState(ALL_FILTER_VALUE);
   const [selectedScoreBand, setSelectedScoreBand] = useState(ALL_FILTER_VALUE);
+  const [selectedFundingDecisionStatus, setSelectedFundingDecisionStatus] =
+    useState(ALL_FILTER_VALUE);
+  const [selectedEthicalClearance, setSelectedEthicalClearance] =
+    useState(ALL_FILTER_VALUE);
 
   const { data: openGrantCallsData } = useOpenGrantCallsForSelect();
   const { data: proposalTypes } = useProposalTypes();
@@ -220,9 +231,19 @@ export default function FundingRecommendationsPage() {
     () => ({
       page: 1,
       limit: 100,
+      funding_decision_status:
+        selectedFundingDecisionStatus !== ALL_FILTER_VALUE
+          ? selectedFundingDecisionStatus
+          : undefined,
+      has_ethical_clearance_approval:
+        selectedEthicalClearance === "approved"
+          ? true
+          : selectedEthicalClearance === "not_approved"
+            ? false
+            : undefined,
       ordering: "-recommended_at",
     }),
-    [],
+    [selectedFundingDecisionStatus, selectedEthicalClearance],
   );
 
   const {
@@ -327,6 +348,10 @@ export default function FundingRecommendationsPage() {
         latestRawRecommendation?.recommended_at ??
           latestRawRecommendation?.recommendedAt,
       );
+      const requestedAmount =
+        normalizeAmount(raw.budgetRequested ?? raw.budget_requested) ??
+        normalizeAmount(recommendation?.budgetRequested);
+      const awardedAmount = normalizeAmount(recommendation?.total_award_amount);
 
       return {
         id: `pipeline-${String(raw.screeningId ?? raw.screening_id ?? item.rank)}`,
@@ -343,16 +368,11 @@ export default function FundingRecommendationsPage() {
         organizationName,
         principalInvestigator: pi,
         principalInvestigatorEmail: piEmail,
+        requestedAmount,
+        awardedAmount,
         amount: isFunded
-          ? (recommendation?.total_award_amount ??
-            recommendation?.total_award_amount ??
-            raw.budgetRequested ??
-            raw.budget_requested ??
-            null)
-          : ((raw.budgetRequested ?? raw.budget_requested ?? null) as
-              | string
-              | number
-              | null),
+          ? awardedAmount ?? requestedAmount
+          : requestedAmount,
         amountLabel: isFunded ? "Awarded" : "Requested",
         averageScorePercentage: normalizedScore,
         needIrbEthicalClearance: Boolean(
@@ -414,27 +434,45 @@ export default function FundingRecommendationsPage() {
 
   const totalAwarded = useMemo(
     () =>
-      recommendations.reduce(
-        (sum, item) => sum + Number(item.total_award_amount || 0),
-        0,
+      Number(
+        recommendationData?.meta?.statistics?.totalAwarded ??
+          recommendations.reduce(
+            (sum, item) => sum + Number(item.total_award_amount || 0),
+            0,
+          ),
       ),
-    [recommendations],
+    [recommendations, recommendationData?.meta?.statistics],
+  );
+
+  const totalRequested = useMemo(
+    () =>
+      Number(
+        recommendationData?.meta?.statistics?.totalRequested ??
+          recommendations.reduce(
+            (sum, item) =>
+              sum + Number(item.budgetRequested ?? item.budget_requested ?? 0),
+            0,
+          ),
+      ),
+    [recommendations, recommendationData?.meta?.statistics],
   );
 
   const stats = [
     {
-      title: "Awaiting Recommendation",
-      value: pipelineRows.filter((row) => row.stage === "pending").length,
-      caption: "Approved funding decisions",
-      icon: Clock,
-      accent: "bg-amber-600",
-    },
-    {
-      title: "Recommendations",
-      value: recommendations.length,
+      title: "Total Recommendations",
+      value:
+        recommendationData?.meta?.statistics?.recommendationsCount ??
+        recommendations.length,
       caption: "Submitted funding records",
       icon: BadgeCheck,
       accent: "bg-primary",
+    },
+    {
+      title: "Total Requested",
+      value: formatCurrency(totalRequested),
+      caption: "Budget requested across recommendations",
+      icon: FileText,
+      accent: "bg-slate-600",
     },
     {
       title: "Total Awarded",
@@ -445,9 +483,9 @@ export default function FundingRecommendationsPage() {
     },
     {
       title: "Ethics Cleared",
-      value: recommendations.filter(
-        (item) => item.has_ethical_clearance_approval,
-      ).length,
+      value:
+        recommendationData?.meta?.statistics?.ethicalClearanceApprovedCount ??
+        recommendations.filter((item) => item.has_ethical_clearance_approval).length,
       caption: "Marked with clearance approval",
       icon: ShieldCheck,
       accent: "bg-blue-600",
@@ -521,12 +559,28 @@ export default function FundingRecommendationsPage() {
       ),
     },
     {
-      accessorKey: "amount",
-      header: "Amount",
+      accessorKey: "requestedAmount",
+      header: "Budget Requested",
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-bold">{formatCurrency(row.original.amount)}</span>
-          <span className="text-[10px] text-muted-foreground">{row.original.amountLabel}</span>
+          <span className="font-bold text-slate-900">
+            {formatCurrency(row.original.requestedAmount)}
+          </span>
+          <span className="text-[10px] text-muted-foreground">Requested</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "awardedAmount",
+      header: "Total Awarded",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className={`font-bold ${row.original.awardedAmount ? "text-emerald-700" : "text-muted-foreground"}`}>
+            {row.original.awardedAmount ? formatCurrency(row.original.awardedAmount) : "-"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {row.original.awardedAmount ? "Awarded" : "Pending"}
+          </span>
         </div>
       ),
     },
@@ -651,9 +705,9 @@ export default function FundingRecommendationsPage() {
           <Card className="shadow-sm">
             <CardHeader className="space-y-4">
               <div>
-                <CardTitle>Funding Recommendation Pipeline</CardTitle>
+                <CardTitle>Funding Recommendations</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Ranked by average score percentage with grant call and proposal type filters.
+                  View, filter, and manage all funding recommendations with their approval status and ethical clearance information.
                 </p>
               </div>
 
@@ -692,27 +746,32 @@ export default function FundingRecommendationsPage() {
                 </Select>
 
                 <Select
-                  value={selectedPipelineStage}
-                  onValueChange={setSelectedPipelineStage}
+                  value={selectedFundingDecisionStatus}
+                  onValueChange={setSelectedFundingDecisionStatus}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Filter by stage" />
+                    <SelectValue placeholder="Filter by funding status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>All Stages</SelectItem>
-                    <SelectItem value="pending">Pending Funding</SelectItem>
-                    <SelectItem value="funded">Funded Recommendations</SelectItem>
+                    <SelectItem value={ALL_FILTER_VALUE}>All Status</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="deferred">Deferred</SelectItem>
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedIrbFilter} onValueChange={setSelectedIrbFilter}>
+                <Select
+                  value={selectedEthicalClearance}
+                  onValueChange={setSelectedEthicalClearance}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Filter by IRB" />
+                    <SelectValue placeholder="Filter by ethics clearance" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>All IRB</SelectItem>
-                    <SelectItem value="required">IRB Required</SelectItem>
-                    <SelectItem value="not_required">IRB Not Required</SelectItem>
+                    <SelectItem value={ALL_FILTER_VALUE}>All</SelectItem>
+                    <SelectItem value="approved">Cleared</SelectItem>
+                    <SelectItem value="not_approved">Not Cleared</SelectItem>
                   </SelectContent>
                 </Select>
 

@@ -15,6 +15,8 @@ export interface FundingRecommendation {
   proposalTitle?: string | null;
   proposal_title?: string | null;
   pi?: FundingRecommendationPi | string | null;
+  budgetRequested?: string | number | null;
+  budget_requested?: string | number | null;
   total_award_amount: string | number;
   amount_english_in_words: string;
   has_ethical_clearance_approval: boolean;
@@ -72,11 +74,21 @@ export interface FundingRecommendationListResponse {
   success: boolean;
   data: FundingRecommendation[];
   meta?: {
-    page: number;
-    limit: number;
-    total: number;
+    page?: number;
+    limit?: number;
+    total?: number;
     total_pages?: number;
     totalPages?: number;
+    statistics?: {
+      total_awarded?: number;
+      totalAwarded?: number;
+      total_requested?: number;
+      totalRequested?: number;
+      recommendations_count?: number;
+      recommendationsCount?: number;
+      ethical_clearance_approved_count?: number;
+      ethicalClearanceApprovedCount?: number;
+    };
   };
 }
 

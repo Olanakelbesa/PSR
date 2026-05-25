@@ -33,7 +33,6 @@ export const ProposalSchema = z.object({
   abstract: z.string().optional(),
   background: z.string().optional(),
   objectives: z.string().optional(),
-  methodology: z.string().optional(),
   expectedOutcomes: z.string().optional(),
   institution: z.string().optional(),
   researchArea: z.string().optional(),

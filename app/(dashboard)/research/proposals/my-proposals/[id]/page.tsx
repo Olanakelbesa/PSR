@@ -167,7 +167,31 @@ export default function ProposalDetailPage() {
         if (!isMounted) return;
 
         if (response?.success && response?.data) {
-          setProposal(response.data as ProposalDetail);
+          const proposalData = response.data as ProposalDetail;
+          
+          // Try to fetch comprehensive review history from backend
+          try {
+            const { findScreeningByProposal, getReviewHistory } = await import("@/api/services");
+            const screening = await findScreeningByProposal(proposalData.id);
+            if (screening) {
+              const historyData = await getReviewHistory(screening.id);
+              if (historyData?.review_timeline) {
+                // Merge review history into proposal data
+                proposalData.reviewHistory = (historyData.review_timeline || []).map((event: any) => ({
+                  id: Math.random(),
+                  recommendation: event.status,
+                  comments: event.comment,
+                  createdAt: event.timestamp,
+                  reviewer: null,
+                }));
+              }
+            }
+          } catch (historyError) {
+            // Fall back gracefully if review history endpoint fails
+            console.warn("Could not fetch review history:", historyError);
+          }
+          
+          setProposal(proposalData);
           setHasError(false);
         } else {
           setProposal(null);
@@ -550,28 +574,34 @@ export default function ProposalDetailPage() {
             </CardHeader>
             <CardContent>
               {proposal.reviewHistory?.length ? (
-                <div className="space-y-4">
-                  {proposal.reviewHistory.map((review) => (
-                    <div key={review.id} className="rounded-xl border p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {review.reviewer?.name || "Reviewer"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDateTime(review.createdAt)}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="capitalize">
-                          {review.recommendation || "pending"}
-                        </Badge>
+                <div className="space-y-3">
+                  {proposal.reviewHistory.map((review, idx) => (
+                    <div key={review.id || idx} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
+                        {idx < (proposal.reviewHistory?.length || 0) - 1 && (
+                          <div className="w-0.5 h-12 bg-border mt-2"></div>
+                        )}
                       </div>
-
-                      {review.comments && (
-                        <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">
-                          {review.comments}
-                        </p>
-                      )}
+                      <div className="flex-1 pb-8">
+                        <div className="rounded-xl border bg-card p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm text-foreground">
+                                {review.recommendation?.replace(/_/g, " ") || review.comments?.split("\n")[0] || "Event"}
+                              </p>
+                              {review.comments && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {review.comments}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(review.createdAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

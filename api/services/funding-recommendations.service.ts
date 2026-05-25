@@ -16,6 +16,9 @@ export interface FundingRecommendationFilters {
   search?: string;
   proposal?: number | string;
   has_ethical_clearance_approval?: boolean;
+  funding_decision_status?: string;
+  screening_status?: string;
+  need_irb_ethical_clearance?: boolean;
   ordering?: string;
 }
 
@@ -67,7 +70,7 @@ function normalizeList<T>(
       return {
         success: objectPayload.success ?? true,
         data: objectPayload.data,
-        meta: objectPayload.meta,
+        meta: normalizeMetadata(objectPayload.meta),
       };
     }
 
@@ -79,12 +82,37 @@ function normalizeList<T>(
       return {
         success: objectPayload.success ?? true,
         data: objectPayload.data.data,
-        meta: objectPayload.data.meta ?? objectPayload.meta,
+        meta: normalizeMetadata(objectPayload.data.meta ?? objectPayload.meta),
       };
     }
   }
 
   return { success: true, data: [] };
+}
+
+function normalizeMetadata(meta: any) {
+  if (!meta) return undefined;
+  const normalized: any = {};
+  
+  // Copy pagination fields
+  if (meta.page !== undefined) normalized.page = meta.page;
+  if (meta.limit !== undefined) normalized.limit = meta.limit;
+  if (meta.total !== undefined) normalized.total = meta.total;
+  if (meta.total_pages !== undefined) normalized.total_pages = meta.total_pages;
+  
+  // Normalize statistics
+  if (meta.statistics) {
+    normalized.statistics = {
+      totalAwarded: meta.statistics.total_awarded ?? meta.statistics.totalAwarded,
+      totalRequested: meta.statistics.total_requested ?? meta.statistics.totalRequested,
+      recommendationsCount: meta.statistics.recommendations_count ?? meta.statistics.recommendationsCount,
+      ethicalClearanceApprovedCount:
+        meta.statistics.ethical_clearance_approved_count ??
+        meta.statistics.ethicalClearanceApprovedCount,
+    };
+  }
+  
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 function normalizeDetail<T>(payload: unknown): T {

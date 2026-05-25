@@ -23,9 +23,10 @@ export {
   getScreeningById,
   findScreeningByProposal,
   ensureScreeningForProposal,
+  getReviewHistory,
   ScreeningStatusSchema as ScreeningWorkflowStatusSchema,
 } from "./screenings.service";
-export type { Screening } from "./screenings.service";
+export type { Screening, ReviewHistory, ReviewHistoryEvent } from "./screenings.service";
 export type { ScreeningStatus as ScreeningWorkflowStatus } from "./screenings.service";
 export type { ScreeningStatus as ProposalScreeningStatus } from "./proposals.service";
 
