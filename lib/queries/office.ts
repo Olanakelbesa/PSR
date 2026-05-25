@@ -19,20 +19,31 @@ function extractList(response: any): any[] {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.data)) return response.data;
   if (Array.isArray(response?.results)) return response.results;
+  if (response && typeof response === "object" && response.id !== undefined) {
+    return [response];
+  }
+  if (
+    response?.data &&
+    typeof response.data === "object" &&
+    response.data.id !== undefined
+  ) {
+    return [response.data];
+  }
   return [];
 }
 
 export function useOffice(id: string) {
   return useQuery({
     queryKey: ["office", id],
-    queryFn: async () => {
-      if (!id) return undefined;
+    queryFn: async (): Promise<OfficeOption | null> => {
+      if (!id) return null;
       const { data } = await apiClient.get(API_ENDPOINTS.REFERENCE.OFFICES, {
         params: { id },
       });
-      return extractList(data).find(
+      const office = extractList(data).find(
         (office) => String(office.id) === String(id),
       );
+      return (office as OfficeOption | undefined) ?? null;
     },
     enabled: !!id,
     staleTime: 30 * 60 * 1000,

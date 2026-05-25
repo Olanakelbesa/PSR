@@ -55,7 +55,16 @@ export default function UserDetailPage() {
     return null
   }
 
-  const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+  const displayName = [user.firstName, user.lastName]
+    .map((part) => String(part ?? "").trim())
+    .filter((part) => part.length > 0)
+    .join(" ")
+  const initials = [user.firstName, user.lastName]
+    .map((part) => String(part ?? "").trim())
+    .filter((part) => part.length > 0)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || user.email.slice(0, 2).toUpperCase()
   const roleConfig = ROLES[user.role]
 
   return (
@@ -90,7 +99,7 @@ export default function UserDetailPage() {
                 </AvatarFallback>
               </Avatar>
               <h2 className="text-xl font-semibold">
-                {user.firstName} {user.lastName}
+                {displayName || user.email}
               </h2>
               <p className="text-muted-foreground">{user.position || 'No position'}</p>
               <div className="flex items-center gap-2 mt-3">

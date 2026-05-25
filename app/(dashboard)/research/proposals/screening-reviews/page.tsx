@@ -57,7 +57,7 @@ const statusConfig: Record<
 > = {
   submitted: { label: "Awaiting Screening", variant: "default", icon: Clock },
   screening_under_review: {
-    label: "In Review",
+    label: "Screening Under Review",
     variant: "outline",
     icon: ClipboardCheck,
   },
@@ -222,7 +222,7 @@ export default function ScreeningReviewsPage() {
     },
     {
       accessorKey: "receivingOffice",
-      header: "Receiving Office",
+      header: "Submitting Office",
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground  whitespace-pre-line break-word">
           {row.original.officeName}
@@ -242,7 +242,7 @@ export default function ScreeningReviewsPage() {
             className="gap-1.5 px-2 py-0.5 text-[10px] font-medium"
           >
             <Icon className="h-3 w-3" />
-            {row.original.status.replace(/_/g, " ").toUpperCase()}
+            {config.label}
           </Badge>
         );
       },
@@ -350,7 +350,10 @@ export default function ScreeningReviewsPage() {
                   label: "Status",
                   options: [
                     { value: "submitted", label: "Awaiting Screening" },
-                    { value: "screening_under_review", label: "In Review" },
+                    {
+                      value: "screening_under_review",
+                      label: "Screening Under Review",
+                    },
                     {
                       value: "screening_approved",
                       label: "Screening Approved",

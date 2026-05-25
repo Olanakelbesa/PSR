@@ -652,7 +652,7 @@ export default function ProposalDetailPage() {
                       "No receiving office assigned"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Receiving office
+                    Submitting Office
                   </p>
                 </div>
               </div>

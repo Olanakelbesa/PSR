@@ -127,7 +127,6 @@ export default function NewFundingRecommendationPage() {
   const { data: candidatesData, isLoading: isCandidatesLoading } =
     useFundingRecommendationCandidates({
       has_funding_decision: true,
-      funding_decision_status: "approved",
       has_funding_recommendation: false,
     });
 
@@ -278,7 +277,7 @@ export default function NewFundingRecommendationPage() {
                         )}
                       </FormControl>
                       <FormDescription className="text-xs text-muted-foreground">
-                        Only candidates with approved funding decisions are listed.
+                        Only candidates without an existing funding recommendation are listed.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

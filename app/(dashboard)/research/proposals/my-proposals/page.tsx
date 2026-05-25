@@ -48,7 +48,24 @@ import { cn } from "@/lib/utils";
 type ProposalRow = ResearchProposal & {
   referenceNumber: string;
   thematicArea: string;
+  statusLabel?: string;
 };
+
+const FLOW_STATUS_TO_UI_STATUS: Record<string, ResearchProposal["status"]> = {
+  screening_under_review: "under_review",
+  screening_approved: "approved",
+  screening_rejected: "rejected",
+  revision_required: "revision_requested",
+};
+
+function normalizeProposalStatus(proposal: any): ResearchProposal["status"] {
+  const backendStatus = String(
+    proposal.workflowState ?? proposal.workflow_state ?? proposal.status ?? "draft",
+  ).toLowerCase();
+
+  const mappedStatus = FLOW_STATUS_TO_UI_STATUS[backendStatus] ?? backendStatus;
+  return mappedStatus as ResearchProposal["status"];
+}
 
 const statusConfig: Record<
   string,
@@ -123,7 +140,7 @@ const columns: ColumnDef<ProposalRow>[] = [
       return (
         <Badge variant={config.variant} className="gap-1">
           <Icon className="h-3 w-3" />
-          {config.label}
+          {row.original.statusLabel || config.label}
         </Badge>
       );
     },
@@ -230,7 +247,8 @@ export default function ProposalsPage() {
         total: 0,
       },
       timeline: [],
-      status: proposal.status || "draft",
+      status: normalizeProposalStatus(proposal),
+      statusLabel: proposal.statusDisplay || proposal.status_display,
       attachments: [],
       reviews: [],
       submittedAt: proposal.submittedAt || undefined,
@@ -241,6 +259,8 @@ export default function ProposalsPage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadProposals() {
       setIsLoading(true);
       try {
@@ -248,15 +268,28 @@ export default function ProposalsPage() {
           limit: 100,
         });
         const proposalsData = response.data || [];
+        if (!isMounted) {
+          return;
+        }
         setProposals(proposalsData.map(mapToProposalRow));
       } catch (error) {
         console.error("Failed to load proposals:", error);
+        if (!isMounted) {
+          return;
+        }
         setProposals([]);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
-    loadProposals();
+
+    void loadProposals();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const stats = [

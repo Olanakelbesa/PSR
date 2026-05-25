@@ -23,6 +23,8 @@ export interface FundingRecommendationCandidateFilters {
   page?: number;
   limit?: number;
   search?: string;
+  call?: number | string;
+  funding_decision_id?: number | string;
   organization?: number | string;
   unit?: number | string;
   proposal_type?: number | string;
@@ -135,5 +137,46 @@ export const fundingRecommendationsService = {
     );
 
     return normalizeDetail<FundingRecommendation>(data);
+  },
+
+  async replace(
+    id: string | number,
+    payload: FundingRecommendationCreateInput,
+  ): Promise<FundingRecommendation> {
+    const { data } = await apiClient.put(
+      API_ENDPOINTS.FUNDING_RECOMMENDATIONS.DETAIL(id),
+      payload,
+    );
+
+    return normalizeDetail<FundingRecommendation>(data);
+  },
+
+  async update(
+    id: string | number,
+    payload: Partial<FundingRecommendationCreateInput>,
+  ): Promise<FundingRecommendation> {
+    const { data } = await apiClient.patch(
+      API_ENDPOINTS.FUNDING_RECOMMENDATIONS.DETAIL(id),
+      payload,
+    );
+
+    return normalizeDetail<FundingRecommendation>(data);
+  },
+
+  async remove(id: string | number): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.FUNDING_RECOMMENDATIONS.DETAIL(id));
+  },
+
+  async listReadyForFinalSubmission(
+    filters: FundingRecommendationCandidateFilters = {},
+  ): Promise<FundingRecommendationListResponse> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.FUNDING_RECOMMENDATIONS.READY_FOR_FINAL_SUBMISSION,
+      {
+        params: cleanParams(filters),
+      },
+    );
+
+    return normalizeList<FundingRecommendation>(data);
   },
 };

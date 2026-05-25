@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFundingRecommendation } from "@/hooks";
+import { fundingRecommendationsService } from "@/api/services/funding-recommendations.service";
 import type { FundingRecommendationPi } from "@/types/funding-recommendation";
 
 function formatCurrency(value?: string | number | null) {
@@ -58,6 +60,54 @@ export default function FundingRecommendationDetailPage() {
     isError,
     refetch,
   } = useFundingRecommendation(recommendationId);
+
+  const fundingDecisionId =
+    recommendation?.ready_for_funding_id ?? recommendation?.proposal;
+
+  const { data: contextData } = useQuery({
+    queryKey: ["funding-recommendation", "context", fundingDecisionId ?? ""],
+    queryFn: () =>
+      fundingRecommendationsService.listCandidates({
+        limit: 1,
+        funding_decision_id: fundingDecisionId,
+      }),
+    enabled: Boolean(fundingDecisionId),
+  });
+
+  const context = (contextData?.data?.[0] ?? null) as Record<string, any> | null;
+
+  const proposalTitle =
+    recommendation?.proposal_title ||
+    recommendation?.proposalTitle ||
+    context?.proposalTitle ||
+    context?.proposal_title ||
+    "Untitled Proposal";
+
+  const referenceNumber =
+    recommendation?.reference_number ||
+    recommendation?.referenceNumber ||
+    context?.referenceNumber ||
+    context?.reference_number ||
+    `FR-${recommendation?.id}`;
+
+  const principalInvestigator =
+    recommendation?.pi ||
+    context?.principalInvestigator ||
+    context?.principal_investigator ||
+    context?.pi ||
+    null;
+
+  const screeningStatus =
+    recommendation?.screening_status ||
+    context?.status ||
+    context?.proposal_status ||
+    null;
+
+  const fundingDecisionStatus =
+    recommendation?.funding_decision_status ||
+    context?.fundingDecisionStatus ||
+    context?.funding_decision_status ||
+    "pending";
 
   if (isLoading) {
     return (
@@ -127,10 +177,10 @@ export default function FundingRecommendationDetailPage() {
                 </div>
               </div>
               <CardTitle className="mt-3 text-2xl font-extrabold text-slate-900 leading-snug">
-                {recommendation.proposal_title || "Untitled Proposal"}
+                {proposalTitle}
               </CardTitle>
               <p className="text-sm font-bold text-primary mt-1">
-                Ref: {recommendation.reference_number || `FR-${recommendation.id}`}
+                Ref: {referenceNumber}
               </p>
             </CardHeader>
           </Card>
@@ -227,19 +277,19 @@ export default function FundingRecommendationDetailPage() {
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-muted-foreground font-medium">Funding Decision</span>
                 <Badge
-                  className={recommendation.funding_decision_status === "approved"
+                  className={fundingDecisionStatus === "approved"
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : recommendation.funding_decision_status === "rejected"
+                    : fundingDecisionStatus === "rejected"
                     ? "border-rose-200 bg-rose-50 text-rose-700"
                     : "border-amber-200 bg-amber-50 text-amber-700"
                   }
                 >
-                  {recommendation.funding_decision_status === "approved" ? (
+                  {fundingDecisionStatus === "approved" ? (
                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                  ) : recommendation.funding_decision_status === "rejected" ? (
+                  ) : fundingDecisionStatus === "rejected" ? (
                     <XCircle className="mr-1 h-3.5 w-3.5" />
                   ) : null}
-                  <span className="capitalize">{recommendation.funding_decision_status || "pending"}</span>
+                  <span className="capitalize">{fundingDecisionStatus || "pending"}</span>
                 </Badge>
               </div>
 
@@ -247,7 +297,7 @@ export default function FundingRecommendationDetailPage() {
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-muted-foreground font-medium">Screening Status</span>
                 <span className="font-semibold text-slate-800 capitalize text-xs">
-                  {recommendation.screening_status?.replace(/_/g, " ") || "-"}
+                  {screeningStatus?.replace(/_/g, " ") || "-"}
                 </span>
               </div>
 
@@ -277,11 +327,11 @@ export default function FundingRecommendationDetailPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-bold text-slate-800 truncate">
-                    {piName(recommendation.pi)}
+                    {piName(principalInvestigator)}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {typeof recommendation.pi === "object" && recommendation.pi?.email
-                      ? recommendation.pi.email
+                    {typeof principalInvestigator === "object" && principalInvestigator?.email
+                      ? principalInvestigator.email
                       : "-"}
                   </p>
                 </div>

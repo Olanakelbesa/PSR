@@ -79,6 +79,18 @@ function buildMinimalSessionUser(user: any): MinimalSessionUser {
   };
 }
 
+function buildDisplayName(user: any): string {
+  const parts = [
+    user?.firstName ?? user?.first_name,
+    user?.middleName ?? user?.middle_name,
+    user?.lastName ?? user?.last_name,
+  ]
+    .map((part) => String(part ?? "").trim())
+    .filter((part) => part.length > 0);
+
+  return parts.join(" ") || user?.email || "User";
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
@@ -130,7 +142,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return {
             id: String(user.id),
             email: user.email,
-            name: `${user.firstName} ${user.lastName}`,
+            name: buildDisplayName(user),
             backendToken: token,
             backendRefreshToken: refreshToken,
             backendTokenExpires: data.data?.accessToken?.expires

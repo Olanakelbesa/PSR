@@ -522,7 +522,7 @@ export default function AssignReviewersPage() {
                     </div>
                     <div className="min-w-0">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
-                        Receiving Office
+                        Submitting Office
                       </span>
                       <span
                         className="text-sm font-semibold text-foreground mt-0.5 block truncate"

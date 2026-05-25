@@ -30,6 +30,7 @@ export interface FundingRecommendationCandidate {
   proposalId: number;
   proposalTitle: string | null;
   referenceNumber: string | null;
+  call?: { id: number; title: string } | null;
   proposalType?: { id: number; name: string } | null;
   principalInvestigator?: FundingRecommendationPi | null;
   organization?: { id: number; name: string } | null;

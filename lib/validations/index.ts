@@ -393,7 +393,7 @@ export type ProposalReviewFormData = z.infer<typeof proposalReviewSchema>;
 
 export const proposalScreeningSchema = z.object({
   comments: z.string().min(1, "Comments are required").min(10),
-  recommendation: z.enum(["approve", "revise", "reject"]),
+  recommendation: z.enum(["approve", "under_review", "reject"]),
   assignedReviewers: z.array(z.string()).optional(),
 });
 

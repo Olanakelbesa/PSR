@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -29,17 +29,74 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
 import {
   useFundingRecommendationCandidates,
   useFundingRecommendations,
+  useProposalTypes,
 } from "@/hooks";
+import { useOpenGrantCallsForSelect } from "@/lib/queries/grant-calls";
 import type {
   FundingRecommendation,
   FundingRecommendationCandidate,
   FundingRecommendationPi,
 } from "@/types/funding-recommendation";
+
+const ALL_FILTER_VALUE = "all";
+
+type RankedFundingRecommendationCandidate = FundingRecommendationCandidate & {
+  rank: number;
+};
+
+type PipelineStage = "pending" | "funded";
+
+type PipelineRow = {
+  id: string;
+  stage: PipelineStage;
+  rank: number | null;
+  reference: string;
+  proposalTitle: string;
+  callTitle: string;
+  proposalTypeName: string;
+  organizationName: string;
+  principalInvestigator: FundingRecommendationPi | string | null;
+  principalInvestigatorEmail: string;
+  amount: string | number | null;
+  amountLabel: "Requested" | "Awarded";
+  averageScorePercentage: number | null;
+  needIrbEthicalClearance: boolean;
+  ethicalClearanceStatus: string | null;
+  recommendedAt: string | null;
+  recommendationId: string | null;
+  navigationId: string;
+};
+
+function extractId(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = String(value).trim();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  if (typeof value === "object") {
+    const candidate = value as Record<string, unknown>;
+    const nested = candidate.id;
+    if (typeof nested === "string" || typeof nested === "number") {
+      const normalized = String(nested).trim();
+      return normalized.length > 0 ? normalized : null;
+    }
+  }
+
+  return null;
+}
 
 function formatCurrency(value?: string | number | null) {
   const amount = Number(value ?? 0);
@@ -132,17 +189,31 @@ function StatCard({
 
 export default function FundingRecommendationsPage() {
   const router = useRouter();
+  const [selectedCall, setSelectedCall] = useState(ALL_FILTER_VALUE);
+  const [selectedProposalType, setSelectedProposalType] =
+    useState(ALL_FILTER_VALUE);
+  const [selectedPipelineStage, setSelectedPipelineStage] =
+    useState(ALL_FILTER_VALUE);
+  const [selectedIrbFilter, setSelectedIrbFilter] = useState(ALL_FILTER_VALUE);
+  const [selectedScoreBand, setSelectedScoreBand] = useState(ALL_FILTER_VALUE);
+
+  const { data: openGrantCallsData } = useOpenGrantCallsForSelect();
+  const { data: proposalTypes } = useProposalTypes();
 
   const candidateFilters = useMemo(
     () => ({
       page: 1,
       limit: 100,
+      call: selectedCall !== ALL_FILTER_VALUE ? selectedCall : undefined,
+      proposal_type:
+        selectedProposalType !== ALL_FILTER_VALUE
+          ? selectedProposalType
+          : undefined,
       has_funding_decision: true,
       funding_decision_status: "approved" as const,
-      has_funding_recommendation: false,
       ordering: "-average_score_percentage",
     }),
-    [],
+    [selectedCall, selectedProposalType],
   );
 
   const recommendationFilters = useMemo(
@@ -180,7 +251,166 @@ export default function FundingRecommendationsPage() {
     [candidateData?.data],
   );
 
+  const rankedCandidates = useMemo<RankedFundingRecommendationCandidate[]>(
+    () => candidates.map((candidate, index) => ({ ...candidate, rank: index + 1 })),
+    [candidates],
+  );
+
+  const openGrantCalls = openGrantCallsData?.data ?? [];
+  const proposalTypeOptions = proposalTypes?.data ?? [];
+
   const recommendations = recommendationData?.data ?? [];
+
+  const recommendationByDecisionId = useMemo(() => {
+    const map = new Map<string, FundingRecommendation>();
+    for (const item of recommendations) {
+      const key =
+        extractId(item.ready_for_funding_id) ?? extractId(item.proposal) ?? "";
+      if (key) map.set(key, item);
+    }
+    return map;
+  }, [recommendations]);
+
+  const pipelineRows = useMemo(() => {
+    let rows: PipelineRow[] = rankedCandidates.map((item) => {
+      const raw = item as unknown as Record<string, unknown>;
+      const pi =
+        (raw.principalInvestigator as FundingRecommendationPi | string | null) ??
+        (raw.principal_investigator as FundingRecommendationPi | string | null) ??
+        (raw.pi as FundingRecommendationPi | string | null) ??
+        null;
+
+      const piEmail =
+        typeof pi === "object" && pi && "email" in pi
+          ? String(pi.email ?? "-")
+          : "-";
+
+      const callTitle =
+        (raw.call as { title?: string } | undefined)?.title ?? "No grant call";
+      const proposalTypeName =
+        (raw.proposalType as { name?: string } | undefined)?.name ??
+        (raw.proposal_type as { name?: string } | undefined)?.name ??
+        "No proposal type";
+      const organizationName =
+        (raw.organization as { name?: string } | undefined)?.name ??
+        "Organization not provided";
+
+      const scoreRaw =
+        raw.averageScorePercentage ?? raw.average_score_percentage ?? null;
+      const scoreValue =
+        scoreRaw === null || scoreRaw === undefined || scoreRaw === ""
+          ? null
+          : Number(scoreRaw);
+      const normalizedScore =
+        scoreValue !== null && Number.isFinite(scoreValue) ? scoreValue : null;
+
+      const navigationId =
+        extractId(raw.fundingDecisionId) ??
+        extractId(raw.funding_decision_id) ??
+        extractId(raw.screeningId) ??
+        extractId(raw.screening_id) ??
+        "";
+
+      const recommendation = recommendationByDecisionId.get(navigationId);
+      const recommendationCount = Number(
+        raw.fundingRecommendationsCount ??
+          raw.funding_recommendations_count ??
+          (recommendation ? 1 : 0),
+      );
+      const isFunded = Boolean(recommendation) || recommendationCount > 0;
+      const recommendationId = recommendation ? String(recommendation.id) : null;
+      const rawFundingRecommendations = (
+        raw.funding_recommendations ?? raw.fundingRecommendations ?? []
+      ) as Array<Record<string, unknown>>;
+      const latestRawRecommendation = rawFundingRecommendations[0] ?? null;
+      const recommendedAtFallback = extractId(
+        latestRawRecommendation?.recommended_at ??
+          latestRawRecommendation?.recommendedAt,
+      );
+
+      return {
+        id: `pipeline-${String(raw.screeningId ?? raw.screening_id ?? item.rank)}`,
+        stage: isFunded ? "funded" : "pending",
+        rank: item.rank,
+        reference:
+          String(raw.referenceNumber ?? raw.reference_number ?? "") ||
+          `SCR-${String(raw.screeningId ?? raw.screening_id ?? item.rank)}`,
+        proposalTitle:
+          String(raw.proposalTitle ?? raw.proposal_title ?? "") ||
+          "Untitled proposal",
+        callTitle,
+        proposalTypeName,
+        organizationName,
+        principalInvestigator: pi,
+        principalInvestigatorEmail: piEmail,
+        amount: isFunded
+          ? (recommendation?.total_award_amount ??
+            recommendation?.total_award_amount ??
+            raw.budgetRequested ??
+            raw.budget_requested ??
+            null)
+          : ((raw.budgetRequested ?? raw.budget_requested ?? null) as
+              | string
+              | number
+              | null),
+        amountLabel: isFunded ? "Awarded" : "Requested",
+        averageScorePercentage: normalizedScore,
+        needIrbEthicalClearance: Boolean(
+          raw.needIrbEthicalClearance ?? raw.need_irb_ethical_clearance,
+        ),
+        ethicalClearanceStatus: isFunded
+          ? recommendation?.has_ethical_clearance_approval
+            ? "approved"
+            : String(
+                raw.ethicalClearanceStatus ??
+                  raw.ethical_clearance_status ??
+                  "pending",
+              )
+          : String(
+              raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
+            ) || null,
+        recommendedAt:
+          (recommendation?.recommended_at as string | null) ??
+          (recommendedAtFallback as string | null) ??
+          null,
+        recommendationId,
+        navigationId,
+      };
+    });
+
+    if (selectedPipelineStage !== ALL_FILTER_VALUE) {
+      rows = rows.filter((row) => row.stage === selectedPipelineStage);
+    }
+
+    if (selectedIrbFilter !== ALL_FILTER_VALUE) {
+      rows = rows.filter((row) => {
+        if (selectedIrbFilter === "required") return row.needIrbEthicalClearance;
+        if (selectedIrbFilter === "not_required") {
+          return !row.needIrbEthicalClearance;
+        }
+        return true;
+      });
+    }
+
+    if (selectedScoreBand !== ALL_FILTER_VALUE) {
+      const threshold = Number(selectedScoreBand);
+      if (Number.isFinite(threshold)) {
+      rows = rows.filter(
+          (row) =>
+            typeof row.averageScorePercentage === "number" &&
+            row.averageScorePercentage >= threshold,
+      );
+      }
+    }
+
+    return rows;
+  }, [
+    rankedCandidates,
+    recommendationByDecisionId,
+    selectedIrbFilter,
+    selectedPipelineStage,
+    selectedScoreBand,
+  ]);
 
   const totalAwarded = useMemo(
     () =>
@@ -194,7 +424,7 @@ export default function FundingRecommendationsPage() {
   const stats = [
     {
       title: "Awaiting Recommendation",
-      value: candidates.length,
+      value: pipelineRows.filter((row) => row.stage === "pending").length,
       caption: "Approved funding decisions",
       icon: Clock,
       accent: "bg-amber-600",
@@ -224,14 +454,41 @@ export default function FundingRecommendationsPage() {
     },
   ];
 
-  const candidateColumns: ColumnDef<FundingRecommendationCandidate>[] = [
+  const pipelineColumns: ColumnDef<PipelineRow>[] = [
     {
-      accessorKey: "referenceNumber",
+      accessorKey: "stage",
+      header: "Stage",
+      cell: ({ row }) => (
+        <Badge
+          className={cn(
+            "border shadow-none",
+            row.original.stage === "pending"
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700",
+          )}
+        >
+          {row.original.stage === "pending" ? "Pending" : "Funded"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "rank",
+      header: "Rank",
+      cell: ({ row }) => (
+        row.original.rank ? (
+          <Badge className="border-indigo-200 bg-indigo-50 text-indigo-700 shadow-none">
+            #{row.original.rank}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )
+      ),
+    },
+    {
+      accessorKey: "reference",
       header: "Reference",
       cell: ({ row }) => (
-        <span className="font-bold text-primary">
-          {row.original.referenceNumber || `SCR-${row.original.screeningId}`}
-        </span>
+        <span className="font-bold text-primary">{row.original.reference}</span>
       ),
     },
     {
@@ -243,7 +500,10 @@ export default function FundingRecommendationsPage() {
             {row.original.proposalTitle || "Untitled proposal"}
           </p>
           <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            {row.original.organization?.name || "Organization not provided"}
+            {row.original.callTitle} · {row.original.proposalTypeName}
+          </p>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            {row.original.organizationName}
           </p>
         </div>
       ),
@@ -253,31 +513,34 @@ export default function FundingRecommendationsPage() {
       header: "Principal Investigator",
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="text-sm font-bold">
-            {piName(row.original.principalInvestigator)}
-          </span>
+          <span className="text-sm font-bold">{piName(row.original.principalInvestigator)}</span>
           <span className="text-[10px] text-muted-foreground">
-            {row.original.principalInvestigator?.email || "-"}
+            {row.original.principalInvestigatorEmail}
           </span>
         </div>
       ),
     },
     {
-      accessorKey: "budgetRequested",
-      header: "Requested Budget",
+      accessorKey: "amount",
+      header: "Amount",
       cell: ({ row }) => (
-        <span className="font-bold">
-          {formatCurrency(row.original.budgetRequested)}
-        </span>
+        <div className="flex flex-col">
+          <span className="font-bold">{formatCurrency(row.original.amount)}</span>
+          <span className="text-[10px] text-muted-foreground">{row.original.amountLabel}</span>
+        </div>
       ),
     },
     {
       accessorKey: "averageScorePercentage",
       header: "Score",
       cell: ({ row }) => (
-        <Badge className="border-blue-200 bg-blue-50 text-blue-700 shadow-none">
-          {Number(row.original.averageScorePercentage || 0).toFixed(1)}%
-        </Badge>
+        row.original.averageScorePercentage !== null ? (
+          <Badge className="border-blue-200 bg-blue-50 text-blue-700 shadow-none">
+            {Number(row.original.averageScorePercentage || 0).toFixed(1)}%
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )
       ),
     },
     {
@@ -291,6 +554,11 @@ export default function FundingRecommendationsPage() {
       ),
     },
     {
+      accessorKey: "recommendedAt",
+      header: "Recommended",
+      cell: ({ row }) => formatDate(row.original.recommendedAt),
+    },
+    {
       id: "actions",
       cell: ({ row }) => (
         <DropdownMenu>
@@ -301,107 +569,26 @@ export default function FundingRecommendationsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              onClick={() =>
+              onClick={() => {
+                if (row.original.recommendationId) {
+                  router.push(
+                    `/research/funding-recommendations/${row.original.recommendationId}`,
+                  );
+                  return;
+                }
+
                 router.push(
-                  `/research/funding-recommendations/${row.original.fundingDecisionId}`,
-                )
-              }
+                  `/research/funding-recommendations/new?proposal=${encodeURIComponent(row.original.navigationId)}`,
+                );
+              }}
             >
               <ArrowRight className="mr-2 h-4 w-4" />
-              Open Details
+              {row.original.recommendationId
+                ? "Open Details"
+                : "Create Recommendation"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ),
-    },
-  ];
-
-  const recommendationColumns: ColumnDef<FundingRecommendation>[] = [
-    {
-      accessorKey: "reference_number",
-      header: "Reference",
-      cell: ({ row }) => (
-        <span className="font-bold text-primary">
-          {row.original.reference_number || `FR-${row.original.id}`}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "proposal_title",
-      header: "Proposal",
-      cell: ({ row }) => (
-        <div className="max-w-105">
-          <p className="line-clamp-2 text-sm font-bold">
-            {row.original.proposal_title || "Untitled proposal"}
-          </p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            Ready for Funding ID{" "}
-            {row.original.ready_for_funding_id || row.original.proposal}
-          </p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "pi",
-      header: "Principal Investigator",
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-bold">{piName(row.original.pi)}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {typeof row.original.pi === "object" && row.original.pi?.email
-              ? row.original.pi.email
-              : "-"}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "total_award_amount",
-      header: "Award Amount",
-      cell: ({ row }) => (
-        <span className="font-bold">
-          {formatCurrency(row.original.total_award_amount)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "has_ethical_clearance_approval",
-      header: "Ethics",
-      cell: ({ row }) => (
-        <Badge
-          className={cn(
-            "border text-[10px] font-bold uppercase shadow-none",
-            row.original.has_ethical_clearance_approval
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-slate-200 bg-slate-50 text-slate-700",
-          )}
-        >
-          {row.original.has_ethical_clearance_approval
-            ? "Approved"
-            : "Not marked"}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "recommended_at",
-      header: "Recommended",
-      cell: ({ row }) => formatDate(row.original.recommended_at),
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            router.push(
-              `/research/funding-recommendations/${row.original.ready_for_funding_id || row.original.proposal}`,
-            )
-          }
-        >
-          View
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
       ),
     },
   ];
@@ -461,19 +648,110 @@ export default function FundingRecommendationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <DataTable
-            columns={recommendationColumns}
-            data={recommendations}
-            searchKey="proposal_title"
-            searchPlaceholder="Search submitted recommendations..."
-            onRowClick={(row) =>
-              router.push(
-                `/research/funding-recommendations/${row.ready_for_funding_id || row.proposal}`,
-              )
-            }
-            emptyMessage="No funding recommendations submitted"
-            emptyDescription="Submitted funding recommendation records will appear here."
-          />
+          <Card className="shadow-sm">
+            <CardHeader className="space-y-4">
+              <div>
+                <CardTitle>Funding Recommendation Pipeline</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Ranked by average score percentage with grant call and proposal type filters.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <Select value={selectedCall} onValueChange={setSelectedCall}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by grant call" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>All Grant Calls</SelectItem>
+                    {openGrantCalls.map((call) => (
+                      <SelectItem key={call.id} value={String(call.id)}>
+                        {call.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={selectedProposalType}
+                  onValueChange={setSelectedProposalType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by proposal type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>
+                      All Proposal Types
+                    </SelectItem>
+                    {proposalTypeOptions.map((type) => (
+                      <SelectItem key={String(type.id)} value={String(type.id)}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={selectedPipelineStage}
+                  onValueChange={setSelectedPipelineStage}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>All Stages</SelectItem>
+                    <SelectItem value="pending">Pending Funding</SelectItem>
+                    <SelectItem value="funded">Funded Recommendations</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedIrbFilter} onValueChange={setSelectedIrbFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by IRB" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>All IRB</SelectItem>
+                    <SelectItem value="required">IRB Required</SelectItem>
+                    <SelectItem value="not_required">IRB Not Required</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedScoreBand} onValueChange={setSelectedScoreBand}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by score" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>All Scores</SelectItem>
+                    <SelectItem value="90">90% and above</SelectItem>
+                    <SelectItem value="80">80% and above</SelectItem>
+                    <SelectItem value="70">70% and above</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={pipelineColumns}
+                data={pipelineRows}
+                searchKey="proposalTitle"
+                searchPlaceholder="Search proposals..."
+                onRowClick={(row) => {
+                  if (row.recommendationId) {
+                    router.push(
+                      `/research/funding-recommendations/${row.recommendationId}`,
+                    );
+                    return;
+                  }
+
+                  router.push(
+                    `/research/funding-recommendations/new?proposal=${encodeURIComponent(row.navigationId)}`,
+                  );
+                }}
+                emptyMessage="No proposals found"
+                emptyDescription="No records match the selected filters."
+              />
+            </CardContent>
+          </Card>
         )}
       </div>
     </PageContainer>

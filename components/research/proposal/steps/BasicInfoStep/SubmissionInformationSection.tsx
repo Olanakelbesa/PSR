@@ -135,7 +135,7 @@ export function SubmissionInformationSection() {
             name="receivingOffice"
             render={({ field, fieldState }) => (
               <FormItem>
-                <FormLabel>Receiving Office *</FormLabel>
+                <FormLabel>Submitting Office *</FormLabel>
                 <FormControl>
                   <SearchableSelect
                     key="receiving-office"
