@@ -84,7 +84,6 @@ export default function NewGrantPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("<p></p>");
   const [eligibilityCriteria, setEligibilityCriteria] = useState("<p></p>");
-  const [budget, setBudget] = useState<string>("");
   const [status, setStatus] = useState("draft");
   const [openDate, setOpenDate] = useState("2025-01-01");
   const [closeDate, setCloseDate] = useState("2025-06-01");
@@ -246,7 +245,6 @@ export default function NewGrantPage() {
         installment_number: idx + 1,
         percentage: it.percentage,
       })),
-      budget: budget ? Number(budget) : null,
     };
   }
 
@@ -387,7 +385,6 @@ export default function NewGrantPage() {
     hasMeaningfulContent(description) &&
     openDate.trim().length > 0 &&
     closeDate.trim().length > 0 &&
-    budget.trim().length > 0 &&
     totalPercentage === 100;
 
   useEffect(() => {
@@ -414,7 +411,6 @@ export default function NewGrantPage() {
     title,
     description,
     eligibilityCriteria,
-    budget,
     status,
     openDate,
     closeDate,
@@ -609,24 +605,6 @@ export default function NewGrantPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="budget" className="text-sm font-semibold">
-                  Budget (ETB) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="budget"
-                  placeholder="e.g. 10000000"
-                  className="h-11"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  type="number"
-                />
-                {errors?.error?.details?.budget && (
-                  <p className="text-xs text-destructive mt-1">
-                    {(errors.error.details.budget as string[]).join(" ")}
-                  </p>
-                )}
-              </div>
             </CardContent>
           </Card>
 

@@ -153,16 +153,24 @@ export default function LandingPage() {
 
           setSearchSuggestions(Array.isArray(data?.data) ? data.data : []);
         } catch (error: any) {
-          // Ignore aborts/cancels
-          const isAbort = (error?.name === "CanceledError") || (error?.code === "ERR_CANCELED");
-          if (!isAbort) {
-            // Log richer error details to help debugging (response body, message, stack)
-            const resp = error?.response?.data ?? null;
-            const message = error?.message ?? String(error);
-            console.error("Live search suggestion error:", { message, resp, stack: error?.stack });
-            // Clear suggestions on error to keep UI consistent
-            setSearchSuggestions([]);
+          const isAbort =
+            controller.signal.aborted ||
+            error?.name === "CanceledError" ||
+            error?.code === "ERR_CANCELED";
+
+          if (isAbort) return;
+
+          const resp = error?.response?.data ?? null;
+          const message = error?.message ?? String(error);
+          if (process.env.NODE_ENV === "development") {
+            console.warn("Live search suggestion failed:", {
+              message,
+              resp,
+            });
           }
+
+          // Clear suggestions on error to keep UI consistent.
+          setSearchSuggestions([]);
         } finally {
           if (!controller.signal.aborted) {
             setSuggestionsLoading(false);

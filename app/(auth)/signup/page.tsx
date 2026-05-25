@@ -45,7 +45,9 @@ import { registerSchema, type RegisterFormData } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import api from "@/lib/axios";
+import { API_ENDPOINTS } from "@/api/endpoints";
 import { toast } from "sonner";
+import { useAuthStore } from "@/stores/auth-store";
 
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
@@ -62,6 +64,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const beginOtpFlow = useAuthStore((state) => state.beginOtpFlow);
 
   const { data: titles = [], isLoading: isLoadingTitles } = useTitles();
   const { data: units = [], isLoading: isLoadingUnits } = useUnits();
@@ -181,15 +184,17 @@ export default function SignupPage() {
 
       console.log("Submitting registration to backend:", payload);
 
-      const response = await api.post("/register/", payload);
+      const response = await api.post(API_ENDPOINTS.AUTH.REGISTER, payload);
+
+      beginOtpFlow({ email: data.email, intent: "registration" });
 
       // Clear draft on successful registration so it's not restored next time they visit
       if (typeof window !== "undefined") {
         localStorage.removeItem("signupDraft");
       }
 
-      toast.success("Account registered successfully!");
-      router.push("/login?registered=true");
+      toast.success("Verification code sent to your email!");
+      router.push(`/verify-otp?intent=registration&email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
       console.error("Failed to register:", err);
       

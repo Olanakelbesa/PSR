@@ -17,8 +17,13 @@ export const API_ENDPOINTS = {
     LOGOUT: "/auth/logout",
     REFRESH: "/auth/refresh",
     ME: "/auth/me",
-    REQUEST_OTP: "/auth/request-otp",
-    VERIFY_OTP: "/auth/verify-otp",
+    REGISTER: "/register/",
+    REGISTER_VERIFY: "/register/verify/",
+    PASSWORD_RESET_REQUEST: "/password-reset/request/",
+    PASSWORD_RESET_VERIFY: "/password-reset/verify/",
+    PASSWORD_RESET_COMPLETE: "/password-reset/complete/",
+    REQUEST_OTP: "/password-reset/request/",
+    VERIFY_OTP: "/password-reset/verify/",
   },
 
   // ── Users ─────────────────────────────────────────────────────────────────
@@ -122,7 +127,7 @@ export const API_ENDPOINTS = {
   },
 
   POLICY_REPOSITORY: {
-    LIST: "/v1/policy-repository/",
+    LIST: "/v1/policy-repository",
     DETAIL: (id: string | number) => `/v1/policy-repository/${id}/`,
     REGISTER: "/v1/policy-repository/register/",
   },

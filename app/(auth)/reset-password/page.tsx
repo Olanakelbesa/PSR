@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Eye, EyeOff, Lock, CheckCircle2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,15 +18,19 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import api from '@/lib/axios'
+import { API_ENDPOINTS } from '@/api/endpoints'
 import { resetPasswordSchema, type ResetPasswordFormData } from '@/lib/validations'
 import { cn } from '@/lib/utils'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const email = searchParams.get('email') || ''
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -37,18 +42,37 @@ export default function ResetPasswordPage() {
 
   const password = form.watch('password')
 
+  useEffect(() => {
+    if (!email) {
+      router.replace('/forgot-password')
+    }
+  }, [email, router])
+
   // Password strength indicators
   const hasMinLength = password.length >= 8
   const hasUppercase = /[A-Z]/.test(password)
   const hasLowercase = /[a-z]/.test(password)
   const hasNumber = /[0-9]/.test(password)
 
-  async function onSubmit() {
+  const heading = useMemo(() => 'Set new password', [])
+
+  async function onSubmit(data: ResetPasswordFormData) {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsSuccess(true)
-    setIsLoading(false)
+    try {
+      await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_COMPLETE, {
+        email,
+        new_password: data.password,
+        new_password2: data.confirmPassword,
+      })
+      setIsSuccess(true)
+      toast.success('Password updated successfully')
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ?? error?.message ?? 'Failed to update password'
+      toast.error(message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isSuccess) {
@@ -56,10 +80,10 @@ export default function ResetPasswordPage() {
       <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
         <div className="mx-auto w-full max-w-md text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
-            <CheckCircle2 className="h-8 w-8" />
+            <ShieldCheck className="h-8 w-8" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Success!</h1>
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Your password has been successfully reset. You can now sign in with your new credentials.
           </p>
 
@@ -83,10 +107,15 @@ export default function ResetPasswordPage() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
             <Lock className="h-8 w-8" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Set new password</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{heading}</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             Please choose a strong password that you haven't used before.
           </p>
+          {email ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Resetting password for <span className="font-medium text-foreground">{email}</span>
+            </p>
+          ) : null}
         </div>
 
         <Form {...form}>
