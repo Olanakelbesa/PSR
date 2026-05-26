@@ -89,10 +89,14 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10 p-10">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
+            <div className="h-10 w-10 overflow-hidden rounded-xl bg-background/90 flex items-center justify-center shadow-lg ring-1 ring-white/15">
+              <Image
+                src="/moh_logo.png"
+                alt="RPDMS"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-cover"
+              />
             </div>
             <div>
               <span className="text-white font-bold text-lg">RPDMS</span>
@@ -119,10 +123,14 @@ export default function LoginPage() {
 
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
-              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5z" />
-              </svg>
+            <div className="h-9 w-9 overflow-hidden rounded-xl bg-background flex items-center justify-center shadow-sm ring-1 ring-border/50">
+              <Image
+                src="/moh_logo.png"
+                alt="RPDMS"
+                width={36}
+                height={36}
+                className="h-9 w-9 object-cover"
+              />
             </div>
             <span className="font-bold text-lg">RPDMS</span>
           </div>

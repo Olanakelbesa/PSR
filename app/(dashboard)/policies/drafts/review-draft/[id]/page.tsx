@@ -126,6 +126,9 @@ export default function DraftDetailPage() {
       version: t.version
     }));
 
+    const originalConceptNoteId = rawDraft.concept_note?.id ?? rawDraft.conceptNote?.id ?? rawDraft.currentStatus?.conceptId;
+    const originalConceptLabel = rawDraft.currentStatus?.conceptId || (originalConceptNoteId ? `CN-${String(originalConceptNoteId).padStart(4, "0")}` : "CN");
+
     return {
       id: String(rawDraft.id),
       title: rawDraft.title || "Policy Draft",
@@ -138,7 +141,8 @@ export default function DraftDetailPage() {
         lastName: rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") || "User",
         role: "Submitter"
       },
-      conceptNoteId: rawDraft.currentStatus?.conceptId || "CN",
+      conceptNoteId: originalConceptNoteId,
+      conceptNoteLabel: originalConceptLabel,
       executiveSummary: rawDraft.overview?.executiveSummary || rawDraft.executiveSummary || "No summary provided.",
       draftFile: {
         name: rawDraft.overview?.file?.split("/").pop() || "Draft_Document.pdf",
@@ -229,10 +233,10 @@ export default function DraftDetailPage() {
                       Original Concept
                     </span>
                     <Link
-                      href={`/policies/concept-notes/${draft.conceptNoteId}`}
+                      href={`/policies/concept-notes/review-concept-note/${draft.conceptNoteId}`}
                       className="text-sm font-semibold text-primary hover:underline"
                     >
-                      {draft.conceptNoteId}
+                      {draft.conceptNoteLabel}
                     </Link>
                   </div>
                 </div>

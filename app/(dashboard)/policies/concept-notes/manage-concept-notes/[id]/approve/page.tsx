@@ -76,9 +76,19 @@ const normalizeDecision = (status?: string | null) => {
   return null;
 };
 
-const getRecommendationBadge = (status?: string | null) => {
+const getRecommendationBadge = (
+  status?: string | null,
+  opts?: { pendingWhenMissing?: boolean },
+) => {
   const norm = normalizeStatusKey(status);
   if (!norm || norm === "pending" || norm === "draft" || norm === "unreviewed") {
+    if (opts?.pendingWhenMissing) {
+      return (
+        <Badge className="bg-amber-100 text-amber-700 border-amber-200 border">
+          <Clock className="mr-1 h-3 w-3" /> Pending
+        </Badge>
+      );
+    }
     return (
       <Badge className="bg-slate-100 text-slate-700 border-slate-200 border">
         <ClipboardCheck className="mr-1 h-3 w-3" /> Unreviewed
@@ -108,6 +118,26 @@ const getRecommendationBadge = (status?: string | null) => {
       <AlertCircle className="mr-1 h-3 w-3" /> Reject
     </Badge>
   );
+};
+
+const getApprovalStatusBadge = (
+  approvalDecision?: string | null,
+  workflowStatus?: string | null,
+) => {
+  if (approvalDecision) {
+    return getRecommendationBadge(approvalDecision);
+  }
+
+  const workflow = normalizeStatusKey(workflowStatus);
+  if (
+    workflow === "submitted" ||
+    workflow === "under_review" ||
+    workflow === "resubmitted"
+  ) {
+    return getRecommendationBadge("pending", { pendingWhenMissing: true });
+  }
+
+  return getRecommendationBadge("unreviewed");
 };
 
 const getStatusBadge = (status?: string | null) => {
@@ -331,9 +361,10 @@ export default function ApproveConceptNotePage() {
   const currentStatusLabel = getStatusBadge(currentStatus);
   const approvalStatus =
     note.psrFinalDecision ?? (note as any).psr_final_decision;
-  const approvalStatusLabel = approvalStatus
-    ? getRecommendationBadge(approvalStatus)
-    : getRecommendationBadge("unreviewed");
+  const approvalStatusLabel = getApprovalStatusBadge(
+    approvalStatus,
+    currentStatus,
+  );
 
   return (
     <PageContainer
@@ -559,7 +590,9 @@ export default function ApproveConceptNotePage() {
 
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
                               <div className="flex items-center gap-2">
-                                {getRecommendationBadge(review.finalDecisionStatus)}
+                                {getRecommendationBadge(review.finalDecisionStatus, {
+                                  pendingWhenMissing: true,
+                                })}
                               </div>
                               <p className="text-[10px] text-muted-foreground font-medium">
                                 {formatTimestamp(review.commentGivenAt)}

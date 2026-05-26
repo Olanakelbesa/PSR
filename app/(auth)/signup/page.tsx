@@ -240,16 +240,14 @@ export default function SignupPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         <div className="absolute bottom-12 left-12 right-12 text-white">
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-12 w-12 rounded-xl bg-primary/20 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
-              <svg
-                className="h-7 w-7 text-white"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
+            <div className="h-12 w-12 overflow-hidden rounded-xl bg-background/90 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
+              <Image
+                src="/moh_logo.png"
+                alt="RPDMS"
+                width={48}
+                height={48}
+                className="h-12 w-12 object-cover"
+              />
             </div>
             <div>
               <h2 className="text-xl font-bold tracking-tight">RPDMS</h2>

@@ -29,6 +29,13 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyReviewDetail } from "@/lib/queries/concept-notes";
 
+function formatLabel(value: any, fallback = "N/A") {
+  if (!value) return fallback;
+  return String(value)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default function ConceptNoteDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -80,6 +87,15 @@ export default function ConceptNoteDetailPage() {
   const authorEmail = note.submittedBy?.email || "";
   const authorPhoto = note.submittedBy?.photoUrl;
   const authorInstitution = (note as any).organization?.name || "Ministry of Health";
+  const summaryCardRows = [
+    { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
+    { label: "Status", value: note.currentStatus?.status },
+    { label: "Document Type", value: note.docType?.name || note.documentType?.name },
+    { label: "Category", value: note.documentCategory },
+    { label: "Organization", value: note.organization?.name },
+    { label: "Unit", value: note.unit?.name },
+    { label: "Latest Version", value: note.currentStatus?.version || note.versions?.find((version: any) => version.isLatest)?.versionNumber },
+  ];
   const initials = authorName
     .split(" ")
     .map((n) => n[0])
@@ -116,6 +132,24 @@ export default function ConceptNoteDetailPage() {
 
         {/* Sidebar */}
         <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
+          <Card className="shadow-sm border-primary/10">
+            <CardHeader className="pb-3 border-b bg-muted/30">
+              <CardTitle className="text-sm font-semibold">
+                Concept Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-3">
+              {summaryCardRows.map((item) => (
+                <div key={item.label} className="flex items-start justify-between gap-4">
+                  <span className="text-xs text-muted-foreground">{item.label}</span>
+                  <span className="text-xs font-medium text-foreground text-right max-w-[160px]">
+                    {formatLabel(item.value)}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card className="shadow-sm border-primary/20">
             <CardHeader className="pb-3 border-b bg-primary/5">
               <CardTitle className="text-xs font-bold uppercase tracking-widest text-primary">

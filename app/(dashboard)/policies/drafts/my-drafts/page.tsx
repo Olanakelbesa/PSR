@@ -42,6 +42,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePolicyDrafts, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
+import { useAuth } from "@/hooks/useAuth";
 
 const columns: ColumnDef<PolicyDraftItem>[] = [
   {
@@ -286,7 +287,11 @@ const statusOptions = [
 
 export default function PolicyDraftsPage() {
   const router = useRouter();
-  const { data: policies = [], isLoading } = usePolicyDrafts();
+  const { backendToken } = useAuth();
+  const { data: policies = [], isLoading } = usePolicyDrafts(
+    undefined,
+    backendToken,
+  );
 
   const stats = useMemo(() => {
     return {

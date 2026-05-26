@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Menu, Moon, Sun, X } from "lucide-react";
+import Image from "next/image";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -48,18 +49,24 @@ export function Navbar() {
             : "bg-transparent",
         )}
       >
-        <div className="container mx-auto px-4 h-full flex items-center justify-between">
+        <div className="container mx-auto px-4 h-full flex items-center justify-between gap-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-            <div className="rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20 transition-all duration-300 h-10 w-10">
-              <FileText className="text-primary-foreground transition-all h-5 w-5" />
+          <Link href="/" className="flex items-center gap-2 group cursor-pointer shrink-0">
+            <div className="rounded-lg overflow-hidden bg-background flex items-center justify-center shadow-lg shadow-primary/10 ring-1 ring-border/40 transition-all duration-300 h-10 w-10">
+              <Image
+                src="/moh_logo.png"
+                alt="RPDMS"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-cover"
+              />
             </div>
-            <div className="flex flex-col -space-y-0.5">
-              <span className="font-bold tracking-tighter uppercase transition-all text-xl">
+            <div className="flex flex-col -space-y-0.5 min-w-0">
+              <span className="font-bold tracking-tighter uppercase transition-all text-lg leading-none">
                  <span className="text-primary">RPDMS</span>
               </span>
-              <span className="text-[8px] font-bold text-muted-foreground tracking-[0.2em] uppercase">
-                Platform
+              <span className="hidden xl:block text-[8px] font-bold text-muted-foreground tracking-[0.2em] uppercase whitespace-nowrap">
+                Research and Policy Documents Management System
               </span>
             </div>
           </Link>

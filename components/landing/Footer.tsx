@@ -1,17 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Globe, Users, Lock, BookOpen } from "lucide-react";
+import Image from "next/image";
+import { Globe, Users, Lock, BookOpen } from "lucide-react";
 
 export function Footer() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <footer className="bg-background border-t border-white/5 py-24">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-16 lg:gap-8 mb-24">
           <div className="lg:col-span-4 space-y-8">
             <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                <FileText className="h-6 w-6 text-primary-foreground" />
+              <div className="h-10 w-10 overflow-hidden rounded-lg bg-background shadow-lg shadow-primary/10 ring-1 ring-border/50">
+                <Image
+                  src="/moh_logo.png"
+                  alt="RPDMS"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-cover"
+                />
               </div>
               <span className="text-xl font-bold tracking-tighter uppercase">
                 <span className="text-primary">RPDMS</span>
@@ -93,7 +102,9 @@ export function Footer() {
           </div>
         </div>
         <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-[9px] text-muted-foreground font-bold uppercase tracking-widest">
-          <p>&copy; 2026 RPDMS | Research and Policy Documents Management System.</p>
+          <p>
+            &copy; {currentYear} RPDMS | Research and Policy Documents Management System.
+          </p>
           <div className="flex items-center gap-10">
             <Link href="#" className="hover:text-primary transition-colors">
               Privacy

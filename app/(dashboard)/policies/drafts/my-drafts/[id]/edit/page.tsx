@@ -30,7 +30,8 @@ import { PageContainer } from "@/components/layout";
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import { useAuth } from "@/hooks/useAuth";
-import { useConceptNotes } from "@/lib/queries/concept-notes";
+import { useQueryClient } from "@tanstack/react-query";
+import { useConceptNoteDetail, useConceptNotes } from "@/lib/queries/concept-notes";
 import { usePolicyDraft } from "@/lib/queries/policy-drafts";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useOrganizationTypes } from "@/lib/queries/organization-types";
@@ -148,6 +149,7 @@ export default function EditPolicyDraftPage() {
   const router = useRouter();
   const id = params?.id as string;
   const { backendToken } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedConceptId, setSelectedConceptId] = useState("");
   const [formState, setFormState] = useState<DraftFormState>(DEFAULT_FORM);
@@ -173,6 +175,20 @@ export default function EditPolicyDraftPage() {
     [rawDraft],
   );
 
+  const draftStatusValue = String(
+    rawDraft?.currentStatus?.status ||
+      rawDraft?.current_status ||
+      rawDraft?.status ||
+      "draft",
+  ).toLowerCase();
+  const canEditDraft = draftStatusValue === "resubmission_required";
+
+  const draftConceptId = normalizedDraft.conceptNoteId || selectedConceptId;
+  const { data: currentConceptDetail } = useConceptNoteDetail(
+    draftConceptId,
+    backendToken,
+  );
+
   const conceptNoteOptions = useMemo(() => {
     if (!rawDraft?.conceptNote && !rawDraft?.concept_note) {
       return approvedConcepts;
@@ -190,7 +206,7 @@ export default function EditPolicyDraftPage() {
     }
 
     const existsInList = approvedConcepts.some(
-      (item) => String(item.id) === normalizedDraft.conceptNoteId,
+      (item) => String(item.id) === currentConceptId,
     );
 
     if (existsInList) {
@@ -203,19 +219,21 @@ export default function EditPolicyDraftPage() {
         title:
           (typeof currentConcept === "object" && currentConcept !== null
             ? currentConcept.title
-            : undefined) || rawDraft.title || "Existing concept note",
+            : undefined) ||
+          currentConceptDetail?.title ||
+          "Existing concept note",
         docType:
           typeof currentConcept === "object" && currentConcept !== null
             ? currentConcept.docType
-            : null,
+            : currentConceptDetail?.docType ?? null,
         organization:
           typeof currentConcept === "object" && currentConcept !== null
             ? currentConcept.organization
-            : null,
+            : currentConceptDetail?.organization ?? null,
       },
       ...approvedConcepts,
     ];
-  }, [approvedConcepts, normalizedDraft, rawDraft]);
+  }, [approvedConcepts, currentConceptDetail, rawDraft]);
 
   const selectedConceptSummary = useMemo(
     () =>
@@ -264,10 +282,10 @@ export default function EditPolicyDraftPage() {
         : rawDraft.organization ?? rawDraft.organization_id ?? rawDraft.organizationId) ?? "",
     );
 
-    setSelectedConceptId(normalizedDraft.conceptNoteId);
+    setSelectedConceptId(conceptId || normalizedDraft.conceptNoteId);
     setFormState({
       title: rawDraft.title || "",
-      conceptNote: conceptId,
+      conceptNote: normalizedDraft.conceptNoteId || conceptId,
       docType: docTypeId,
       organization: organizationId,
     });
@@ -319,10 +337,35 @@ export default function EditPolicyDraftPage() {
 
     setSelectedFile(null);
     lastAutosavedFileSignatureRef.current = "";
-  }, [rawDraft]);
+  }, [rawDraft, normalizedDraft.conceptNoteId]);
+
+  useEffect(() => {
+    if (!currentConceptDetail || !draftConceptId) {
+      return;
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      conceptNote: prev.conceptNote || draftConceptId,
+      docType:
+        prev.docType ||
+        (currentConceptDetail.docType?.id
+          ? String(currentConceptDetail.docType.id)
+          : ""),
+      organization:
+        prev.organization ||
+        (currentConceptDetail.organization?.id
+          ? String(currentConceptDetail.organization.id)
+          : ""),
+    }));
+  }, [currentConceptDetail, draftConceptId]);
 
   useEffect(() => {
     if (!(selectedFile instanceof File)) {
+      return;
+    }
+
+    if (!canEditDraft) {
       return;
     }
 
@@ -358,7 +401,7 @@ export default function EditPolicyDraftPage() {
     }, 500);
 
     return () => window.clearTimeout(autosaveTimeout);
-  }, [formState, id, selectedConceptId, selectedFile]);
+  }, [formState, id, selectedConceptId, selectedFile, canEditDraft]);
 
   const handleConceptSelect = (conceptId: string) => {
     setSelectedConceptId(conceptId);
@@ -422,6 +465,11 @@ export default function EditPolicyDraftPage() {
       return;
     }
 
+    if (!canEditDraft) {
+      toast.error("This draft is locked. Only resubmission-required drafts can be edited.");
+      return;
+    }
+
     if (!selectedConceptId) {
       toast.error("Please select an approved concept note.");
       return;
@@ -467,6 +515,11 @@ export default function EditPolicyDraftPage() {
       return;
     }
 
+    if (!canEditDraft) {
+      toast.error("This draft is locked. Only resubmission-required drafts can be resubmitted.");
+      return;
+    }
+
     if (!selectedConceptId) {
       toast.error("Please select an approved concept note.");
       return;
@@ -485,6 +538,64 @@ export default function EditPolicyDraftPage() {
     setIsSubmitting(true);
     try {
       await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(id));
+
+      const submittedAt = new Date().toISOString();
+      queryClient.setQueryData(["policy-draft", id], (currentDraft: any) => {
+        if (!currentDraft) return currentDraft;
+
+        return {
+          ...currentDraft,
+          currentStatus: {
+            ...(typeof currentDraft.currentStatus === "object" && currentDraft.currentStatus !== null
+              ? currentDraft.currentStatus
+              : {}),
+            status: "submitted",
+          },
+          current_status: "submitted",
+          currentStatusDisplay: "Submitted",
+          updatedAt: submittedAt,
+          submissionDate: currentDraft.submissionDate || submittedAt,
+        };
+      });
+
+      queryClient.setQueriesData({ queryKey: ["policy-drafts"] }, (currentList: any) => {
+        if (!Array.isArray(currentList)) return currentList;
+
+        return currentList.map((item: any) =>
+          String(item?.id) === String(id)
+            ? {
+                ...item,
+                currentStatus: "submitted",
+                currentStatusDisplay: "Submitted",
+                updatedAt: submittedAt,
+              }
+            : item,
+        );
+      });
+
+      queryClient.setQueriesData({ queryKey: ["policy-drafts-manage"] }, (currentResponse: any) => {
+        const list = currentResponse?.data;
+        if (!Array.isArray(list)) return currentResponse;
+
+        return {
+          ...currentResponse,
+          data: list.map((item: any) =>
+            String(item?.id) === String(id)
+              ? {
+                  ...item,
+                  currentStatus: "submitted",
+                  currentStatusDisplay: "Submitted",
+                  updatedAt: submittedAt,
+                }
+              : item,
+          ),
+        };
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", id] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+
       toast.success("Policy draft submitted for expert review");
       router.push("/policies/drafts/my-drafts");
     } catch (error: any) {
@@ -514,8 +625,12 @@ export default function EditPolicyDraftPage() {
 
   return (
     <PageContainer
-      title="Edit Policy Draft"
-      description="Update the draft from an approved concept note and submit when ready."
+      title={canEditDraft ? "Edit Policy Draft" : "Locked Policy Draft"}
+      description={
+        canEditDraft
+          ? "Update the draft from an approved concept note and resubmit when ready."
+          : "This draft has already been submitted. Only drafts returned for resubmission can be edited."
+      }
       actions={
         <Button variant="outline" asChild className="shadow-sm">
           <Link href={`/policies/drafts/my-drafts/${id}`}>
@@ -543,15 +658,27 @@ export default function EditPolicyDraftPage() {
                 <Select
                   value={selectedConceptId}
                   onValueChange={handleConceptSelect}
+                  disabled={!canEditDraft}
                 >
                   <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
-                    <SelectValue
-                      placeholder={
-                        isLoadingConcepts
-                          ? "Loading approved concept notes..."
-                          : "Choose an approved concept note..."
-                      }
-                    />
+                    {selectedConceptSummary ? (
+                      <div className="flex items-center gap-2 min-w-0 text-left">
+                        <span className="truncate font-medium">
+                          {selectedConceptSummary.title}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground uppercase">
+                          ID: {selectedConceptSummary.id}
+                        </span>
+                      </div>
+                    ) : (
+                      <SelectValue
+                        placeholder={
+                          isLoadingConcepts
+                            ? "Loading approved concept notes..."
+                            : "Choose an approved concept note..."
+                        }
+                      />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     {conceptNoteOptions.length > 0 ? (
@@ -642,6 +769,7 @@ export default function EditPolicyDraftPage() {
                       }))
                     }
                     placeholder="Policy draft title"
+                      disabled={!canEditDraft}
                   />
                 </div>
               </div>
@@ -656,6 +784,7 @@ export default function EditPolicyDraftPage() {
                     onValueChange={(value) =>
                       setFormState((prev) => ({ ...prev, docType: value }))
                     }
+                    disabled={!canEditDraft}
                   >
                     <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
                       <SelectValue placeholder="Choose a policy document type..." />
@@ -687,6 +816,7 @@ export default function EditPolicyDraftPage() {
                     onValueChange={(value) =>
                       setFormState((prev) => ({ ...prev, organization: value }))
                     }
+                    disabled={!canEditDraft}
                   >
                     <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
                       <SelectValue placeholder="Choose an organization type..." />
@@ -725,7 +855,7 @@ export default function EditPolicyDraftPage() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => canEditDraft && fileInputRef.current?.click()}
                   >
                     <Input
                       ref={fileInputRef}
@@ -733,6 +863,7 @@ export default function EditPolicyDraftPage() {
                       className="absolute inset-0 opacity-0 cursor-pointer"
                       accept=".pdf,.doc,.docx"
                       onChange={handleFileChange}
+                      disabled={!canEditDraft}
                     />
                     <div
                       className={cn(
@@ -799,6 +930,7 @@ export default function EditPolicyDraftPage() {
                           size="sm"
                           className="h-9 px-4 border-primary/20 text-primary hover:bg-primary/5 font-bold text-xs"
                           onClick={() => fileInputRef.current?.click()}
+                          disabled={!canEditDraft}
                         >
                           <UploadCloud className="mr-2 h-3.5 w-3.5" />
                           Re-upload
@@ -812,6 +944,7 @@ export default function EditPolicyDraftPage() {
                             setSelectedFile(null);
                             lastAutosavedFileSignatureRef.current = "";
                           }}
+                          disabled={!canEditDraft}
                         >
                           <X className="mr-2 h-3.5 w-3.5" />
                           Remove
@@ -837,17 +970,20 @@ export default function EditPolicyDraftPage() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Status</span>
                   <Badge variant="outline" className="bg-background">
-                    Edit Draft
+                    {canEditDraft ? "Resubmission Required" : "Locked"}
                   </Badge>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Update the draft, then submit it for expert review when ready.
+                  {canEditDraft
+                    ? "Update the draft, then resubmit it for expert review when ready."
+                    : "Submitted drafts are locked. Only drafts returned for resubmission can be edited."}
                 </p>
               </div>
 
               <Button
                 type="button"
                 className="w-full h-11"
+                disabled={!canEditDraft || isSaving || isSubmitting}
                 onClick={handleSubmit}
               >
                 {isSaving || isSubmitting ? (
@@ -855,13 +991,14 @@ export default function EditPolicyDraftPage() {
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
-                Submit
+                {canEditDraft ? "Resubmit" : "Locked"}
               </Button>
 
               <Button
                 type="button"
                 variant="outline"
                 className="w-full h-11 border-primary/20 text-primary hover:bg-primary/5"
+                disabled={!canEditDraft || isSaving || isSubmitting}
                 onClick={handleSave}
               >
                 {isSaving ? (
@@ -869,7 +1006,7 @@ export default function EditPolicyDraftPage() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Update Draft
+                {canEditDraft ? "Update Draft" : "Locked"}
               </Button>
 
               <Separator />

@@ -53,7 +53,7 @@ export function DraftTabs({ draft, mode = "draft", isFeedbackVisible = true }: D
       <TabsContent value="overview" className="mt-6 space-y-6">
         <DraftOverview 
           executiveSummary={draft.executiveSummary || draft.description} 
-          metadata={isRepository ? draft : null}
+          metadata={draft}
           mode={mode}
         />
       </TabsContent>

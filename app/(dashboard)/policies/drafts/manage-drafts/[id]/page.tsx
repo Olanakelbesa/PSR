@@ -145,6 +145,9 @@ export default function DraftDetailPage() {
       version: t.version
     }));
 
+    const originalConceptNoteId = rawDraft.concept_note?.id ?? rawDraft.conceptNote?.id;
+    const originalConceptLabel = rawDraft.currentStatus?.conceptId || (originalConceptNoteId ? `CN-${String(originalConceptNoteId).padStart(4, "0")}` : "CN");
+
     return {
       id: String(rawDraft.id),
       title: rawDraft.title || "Policy Draft",
@@ -157,7 +160,8 @@ export default function DraftDetailPage() {
         lastName: rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") || "User",
         role: "Submitter"
       },
-      conceptNoteId: rawDraft.currentStatus?.conceptId || "CN",
+      conceptNoteId: originalConceptNoteId,
+      conceptNoteLabel: originalConceptLabel,
       executiveSummary: rawDraft.overview?.executiveSummary || rawDraft.executiveSummary || "No summary provided.",
       draftFile: {
         name: rawDraft.overview?.file?.split("/").pop() || "Draft_Document.pdf",
@@ -221,6 +225,8 @@ export default function DraftDetailPage() {
     );
   }
 
+  const hasAssignedReviewers = draft.reviews.length > 0;
+
   return (
     <PageContainer
       title={draft.title}
@@ -236,13 +242,15 @@ export default function DraftDetailPage() {
           <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5" variant="outline">
             <Link href={`/policies/drafts/manage-drafts/${draft.id}/assign`}>
               <Users className="mr-2 h-4 w-4" />
-              Assign Reviewers
+              {hasAssignedReviewers ? "Change Reviewers" : "Assign Reviewers"}
             </Link>
           </Button>
-          <Button size="sm" className="shadow-sm font-semibold" onClick={() => setIsApproveModalOpen(true)}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Approve / Review
-          </Button>
+          {hasAssignedReviewers && (
+            <Button size="sm" className="shadow-sm font-semibold" onClick={() => setIsApproveModalOpen(true)}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Approve / Review
+            </Button>
+          )}
         </div>
       }
     >
@@ -289,10 +297,10 @@ export default function DraftDetailPage() {
                       Original Concept
                     </span>
                     <Link
-                      href={`/policies/concept-notes/${draft.conceptNoteId}`}
+                      href={draft.conceptNoteId ? `/policies/concept-notes/manage-concept-notes/${draft.conceptNoteId}` : "#"}
                       className="text-sm font-semibold text-primary hover:underline"
                     >
-                      CN-{draft.conceptNoteId}
+                      {draft.conceptNoteLabel}
                     </Link>
                   </div>
                 </div>

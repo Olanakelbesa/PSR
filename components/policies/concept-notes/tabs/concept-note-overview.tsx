@@ -19,9 +19,41 @@ export function ConceptNoteOverview({
     note.overview?.thematicAreas ?? note.thematicAreas ?? [];
   const supportingFile =
     note.overview?.file ?? note.versions?.find((version: any) => version.isLatest)?.file ?? note.attachments?.[0]?.url ?? null;
+  const metadataRows = [
+    { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
+    { label: "Current Status", value: note.currentStatus?.status || note.status?.name || note.status || "Under Review" },
+    { label: "Document Type", value: note.docType?.name || note.documentType?.name || "N/A" },
+    { label: "Category", value: note.documentCategory || "N/A" },
+    { label: "Organization", value: note.organization?.name || "N/A" },
+    { label: "Unit", value: note.unit?.name || "N/A" },
+    { label: "Latest Version", value: note.currentStatus?.version || note.versionNumber || note.versions?.find((version: any) => version.isLatest)?.versionNumber || "N/A" },
+    { label: "Submitted By", value: note.submittedBy?.fullName || "N/A" },
+  ];
 
   return (
     <div className="space-y-6">
+      <Card className="shadow-sm border-primary/10">
+        <CardHeader className="border-b bg-muted/30 pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" /> Concept Metadata
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-5">
+          <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {metadataRows.map((item) => (
+              <div key={item.label} className="space-y-1">
+                <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  {item.label}
+                </dt>
+                <dd className="text-sm font-semibold break-words">
+                  {item.value || "N/A"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+
       <Card className="shadow-sm border-primary/10">
         <CardHeader className="border-b bg-muted/30 pb-4">
           <CardTitle className="text-base flex items-center gap-2">
@@ -75,7 +107,7 @@ export function ConceptNoteOverview({
                 </div>
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-sm font-medium truncate">
-                    {note.title}.pdf
+                    {supportingFile.split("/").pop() || `${note.title}.pdf`}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     Concept note file
@@ -90,7 +122,7 @@ export function ConceptNoteOverview({
                     className="shrink-0 text-primary hover:text-primary hover:bg-primary/10 gap-2"
                     onClick={() =>
                       setViewingFile({
-                        name: `${note.title}.pdf`,
+                          name: supportingFile.split("/").pop() || `${note.title}.pdf`,
                         url: supportingFile,
                       })
                     }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -126,6 +127,7 @@ function draftSignature(formState: DraftFormState, selectedFile: File | null) {
 export default function NewPolicyDraftPage() {
   const router = useRouter();
   const { backendToken } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedConceptId, setSelectedConceptId] = useState("");
   const [formState, setFormState] = useState<DraftFormState>(DEFAULT_FORM);
@@ -219,6 +221,28 @@ export default function NewPolicyDraftPage() {
     setLastSavedAt(null);
     lastSavedSignatureRef.current = "";
   }, [selectedConceptId]);
+
+  useEffect(() => {
+    if (!selectedConceptId || !selectedConceptDetail) {
+      return;
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      conceptNote: selectedConceptId,
+      title: prev.title || selectedConceptDetail.title || "",
+      docType:
+        prev.docType ||
+        (selectedConceptDetail.docType?.id
+          ? String(selectedConceptDetail.docType.id)
+          : ""),
+      organization:
+        prev.organization ||
+        (selectedConceptDetail.organization?.id
+          ? String(selectedConceptDetail.organization.id)
+          : ""),
+    }));
+  }, [selectedConceptId, selectedConceptDetail]);
 
   useEffect(() => {
     let cancelled = false;
@@ -378,6 +402,22 @@ export default function NewPolicyDraftPage() {
 
   const handleConceptSelect = (conceptId: string) => {
     setSelectedConceptId(conceptId);
+
+    const selectedConcept = approvedConcepts.find(
+      (item) => String(item.id) === conceptId,
+    );
+
+    setFormState((prev) => ({
+      ...prev,
+      conceptNote: conceptId,
+      title: selectedConcept?.title || "",
+      docType: selectedConcept?.docType?.id
+        ? String(selectedConcept.docType.id)
+        : "",
+      organization: selectedConcept?.organization?.id
+        ? String(selectedConcept.organization.id)
+        : "",
+    }));
   };
 
   const validateAndSetFile = (file: File) => {
@@ -499,6 +539,28 @@ export default function NewPolicyDraftPage() {
       }
 
       await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(draftId));
+
+      const selectedConceptKey = String(selectedConceptId);
+      queryClient.setQueriesData({ queryKey: ["concept-notes"] }, (current: any) => {
+        if (!current) return current;
+
+        const filterOutSelectedConcept = (items: any[]) =>
+          items.filter((item) => String(item?.id) !== selectedConceptKey);
+
+        if (Array.isArray(current)) {
+          return filterOutSelectedConcept(current);
+        }
+
+        if (Array.isArray(current.data)) {
+          return {
+            ...current,
+            data: filterOutSelectedConcept(current.data),
+          };
+        }
+
+        return current;
+      });
+
       setIsLocked(true);
       toast.success("Policy draft submitted for review.");
       router.push("/policies/drafts/my-drafts");
@@ -582,9 +644,8 @@ export default function NewPolicyDraftPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  The selected concept note only links the draft to that record.
-                  Please enter the title, document type, and organization
-                  manually.
+                  The selected concept note prefills title, document type, and
+                  organization. You can adjust these values before submitting.
                 </p>
               </div>
 
@@ -973,9 +1034,9 @@ export default function NewPolicyDraftPage() {
           <Card className="bg-muted/30 border-dashed">
             <CardContent className="pt-6">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Selecting a concept note only stores its ID for the draft
-                record. Enter the title, document type, organization, and
-                optional file manually, then save or submit when ready.
+                Selecting an approved concept note seeds the draft details. You
+                can update any prefilled field, upload the policy draft file,
+                then save or submit when ready.
               </p>
             </CardContent>
           </Card>

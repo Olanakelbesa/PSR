@@ -131,6 +131,9 @@ export function useMyReviews(
         },
       };
     },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -293,6 +296,9 @@ export function useMyReviewDetail(
       );
       return data.data as ConceptNoteDetail;
     },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -313,6 +319,7 @@ export function useReviewConceptNote() {
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes-manage"] });
       queryClient.invalidateQueries({ queryKey: ["my-reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["my-reviews", {}] });
       queryClient.invalidateQueries({
         queryKey: ["concept-note-detail", variables.id],
       });

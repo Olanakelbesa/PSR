@@ -52,9 +52,28 @@ export interface PolicyDraftFilters {
   search?: string;
 }
 
-export function usePolicyDrafts(filters?: PolicyDraftFilters) {
+function normalizePolicyDraftListResponse(payload: any): PolicyDraftItem[] {
+  const candidates = [
+    payload?.data,
+    payload?.results,
+    payload?.data?.results,
+    payload?.data?.data,
+  ];
+
+  const list = candidates.find((value) => Array.isArray(value));
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  return list as PolicyDraftItem[];
+}
+
+export function usePolicyDrafts(
+  filters?: PolicyDraftFilters,
+  backendToken?: string | null,
+) {
   return useQuery<PolicyDraftItem[]>({
-    queryKey: ["policy-drafts", filters],
+    queryKey: ["policy-drafts", filters, backendToken],
     queryFn: async () => {
       const cleanFilters = filters
         ? Object.fromEntries(
@@ -63,9 +82,12 @@ export function usePolicyDrafts(filters?: PolicyDraftFilters) {
         : {};
 
       const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.LIST, {
-        params: cleanFilters,
+        params: {
+          ...cleanFilters,
+          ...(backendToken ? { backendToken } : {}),
+        },
       });
-      return data.data as PolicyDraftItem[];
+      return normalizePolicyDraftListResponse(data);
     },
   });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -380,20 +381,14 @@ export function AppSidebar() {
               className="hover:bg-sidebar-accent"
             >
               <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="flex aspect-square size-11 items-center justify-center rounded-full bg-primary/20 ring-2 ring-primary/50">
-                  <div className="flex items-center justify-center size-9 rounded-full bg-primary">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className="size-6 text-sidebar"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                      <path d="M2 17l10 5 10-5" />
-                      <path d="M2 12l10 5 10-5" />
-                    </svg>
-                  </div>
+                <div className="flex aspect-square size-11 items-center justify-center overflow-hidden rounded-xl bg-background ring-1 ring-border/50 shadow-sm">
+                  <Image
+                    src="/moh_logo.png"
+                    alt="RPDMS"
+                    width={44}
+                    height={44}
+                    className="size-11 object-cover"
+                  />
                 </div>
                 <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-bold text-base">

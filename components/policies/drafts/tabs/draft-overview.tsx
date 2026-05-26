@@ -12,6 +12,7 @@ interface DraftOverviewProps {
 
 export function DraftOverview({ executiveSummary, metadata, mode }: DraftOverviewProps) {
   const isRepository = mode === "repository";
+  const isDraft = mode === "draft";
 
   return (
     <div className="space-y-6">
@@ -27,6 +28,33 @@ export function DraftOverview({ executiveSummary, metadata, mode }: DraftOvervie
           </p>
         </CardContent>
       </Card>
+
+      {isDraft && metadata && (
+        <Card className="shadow-sm border-primary/10">
+          <CardHeader className="border-b bg-muted/30 pb-4">
+            <CardTitle className="text-base">Draft Details</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-5">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              {[
+                { label: "Title", value: metadata.title },
+                { label: "Document Type", value: metadata.docTypeName || metadata.type },
+                { label: "Organization", value: metadata.organizationName },
+                { label: "Concept Note", value: metadata.conceptNoteLabel || metadata.conceptNoteId },
+                { label: "Current Status", value: metadata.status },
+                { label: "Version", value: metadata.versionNumber },
+              ].map((item) => (
+                <div key={item.label} className="space-y-1">
+                  <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {item.label}
+                  </dt>
+                  <dd className="text-sm font-semibold">{item.value || "N/A"}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
       {isRepository && metadata && (
         <>
