@@ -64,26 +64,32 @@ export default function DraftDetailPage() {
 
     // 2. Map expert reviews from expertFeedback
     const reviewsList: any[] = [];
-    const expertFeedback = rawDraft.expertFeedback || [];
+    const expertFeedback = rawDraft.expertFeedback || rawDraft.expert_feedback || [];
     
     expertFeedback.forEach((vFeed: any) => {
-      const version = vFeed.versionNumber || "v1.0.0";
-      const details = vFeed.feedbackDetail || [];
+      const version = vFeed.versionNumber || vFeed.version_number || "v1.0.0";
+      const details = vFeed.feedbackDetail || vFeed.feedback_detail || [];
       
       details.forEach((det: any, index: number) => {
-        const reviewerName = det.expertReviewer?.fullName || "Anonymous Reviewer";
+        const reviewerData = det.expertReviewer || det.expert_reviewer || {};
+        const reviewerPosition = reviewerData?.position || "Expert Evaluator";
+        const reviewerNameRaw = reviewerData?.fullName || reviewerData?.full_name || "Anonymous Reviewer";
+        const isManagerEntry = reviewerPosition === "PSR Manager" || reviewerNameRaw.includes("PSR Manager");
+
+        // Keep expert reviewers anonymous for draft owners.
+        const reviewerName = isManagerEntry ? "PSR Manager" : "Anonymous Reviewer";
         const [firstName, ...rest] = reviewerName.split(" ");
         const lastName = rest.join(" ") || "Reviewer";
         
-        const checklist = (det.checklistBreakdown || []).map((chk: any) => {
+        const checklist = (det.checklistBreakdown || det.checklist_breakdown || []).map((chk: any) => {
           const isPassed = chk.fulfillment === "yes" || chk.isPassed === true || chk.is_passed === true;
           const isPending = chk.fulfillment === "pending" || ((chk.isPassed === null || chk.isPassed === undefined) && chk.fulfillment == null && chk.is_passed == null);
 
           return {
-            category: chk.questionText || "Criterion",
+            category: chk.questionText || chk.question_text || "Criterion",
             passed: isPassed,
             pending: isPending,
-            feedback: chk.reviewerNote || ""
+            feedback: chk.reviewerNote || chk.reviewer_note || ""
           };
         });
 
@@ -96,17 +102,28 @@ export default function DraftDetailPage() {
           id: String(det.id || `REV-${version}-${index}`),
           version: version,
           reviewer: {
-            id: String(det.expertReviewer?.id || `r-${index}`),
+            id: String(reviewerData?.id || `r-${index}`),
             firstName: firstName,
             lastName: lastName,
-            position: "Expert Evaluator",
-            institution: "PSR Council"
+            position: reviewerPosition,
+            institution: isManagerEntry ? "PSR Management" : "PSR Council"
           },
-          status: det.currentStatus === "graded" || det.finalDecisionStatus === "completed" ? "completed" : "pending",
+          status:
+            (det.currentStatus === "graded" || det.current_status === "graded") ||
+            (det.finalDecisionStatus === "completed" || det.final_decision_status === "completed")
+              ? "completed"
+              : "pending",
           score: det.score ?? computedScore,
           comments: det.comment,
-          createdAt: det.commentGivenAt || new Date().toISOString(),
-          checklist: checklist
+          createdAt: det.commentGivenAt || det.comment_given_at || new Date().toISOString(),
+          checklist: checklist,
+          isPSRManager: isManagerEntry,
+          decision: (() => {
+            const rawDecision = det.finalDecisionStatus || det.final_decision_status || null;
+            if (rawDecision === "approved") return "psr_approved";
+            if (rawDecision === "rejected") return "resubmission_required";
+            return rawDecision;
+          })(),
         });
       });
     });
