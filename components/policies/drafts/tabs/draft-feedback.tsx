@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { 
   Filter, 
   Activity, 
@@ -13,12 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "@/components/ui/accordion";
-import { 
   Select, 
   SelectContent, 
   SelectItem, 
@@ -26,6 +20,12 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
 interface DraftFeedbackProps {
@@ -36,29 +36,51 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
   const [versionFilter, setVersionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const versions = Array.from(new Set(reviews.map((r: any) => r.version)));
+  const versions = useMemo(() => Array.from(new Set(reviews.map((r: any) => r.version))), [reviews]);
 
-  const filteredReviews = reviews.map((review: any) => {
-    const filteredChecklist = review.checklist.filter((item: any) => {
-      if (statusFilter === "all") return true;
-      if (statusFilter === "yes") return item.passed === true;
-      if (statusFilter === "no") return item.passed === false;
-      return true;
+  const filteredReviews = useMemo(() => {
+    return reviews
+      .map((review: any) => {
+        const filteredChecklist = (review.checklist || []).filter((item: any) => {
+          if (statusFilter === "all") return true;
+          if (statusFilter === "yes") return item.passed === true;
+          if (statusFilter === "no") return item.passed === false && !item.pending;
+          return true;
+        });
+
+        return { ...review, checklist: filteredChecklist };
+      })
+      .filter((review: any) => {
+        const matchesVersion = versionFilter === "all" || review.version === versionFilter;
+        const hasMatchingChecklist = statusFilter === "all" || review.checklist.length > 0;
+        return matchesVersion && hasMatchingChecklist;
+      });
+  }, [reviews, versionFilter, statusFilter]);
+
+  const groupedReviews = useMemo(() => {
+    return filteredReviews.reduce((acc: any, review: any) => {
+      const v = review.version || "v1.0.0";
+      if (!acc[v]) acc[v] = [];
+      acc[v].push(review);
+      return acc;
+    }, {});
+  }, [filteredReviews]);
+
+  const sortedVersionEntries = useMemo(() => {
+    return Object.entries(groupedReviews).sort((a, b) =>
+      b[0].localeCompare(a[0]),
+    );
+  }, [groupedReviews]);
+
+  const buildChecklistCategories = (versionReviews: any[]) => {
+    const categories = new Set<string>();
+    versionReviews.forEach((review) => {
+      (review.checklist || []).forEach((item: any) => {
+        categories.add(item.category || item.question || "Checklist item");
+      });
     });
-
-    return { ...review, checklist: filteredChecklist };
-  }).filter((review: any) => {
-    const matchesVersion = versionFilter === "all" || review.version === versionFilter;
-    const hasMatchingChecklist = statusFilter === "all" || review.checklist.length > 0;
-    return matchesVersion && hasMatchingChecklist;
-  });
-
-  const groupedReviews = filteredReviews.reduce((acc: any, review: any) => {
-    const v = review.version || "v1.0.0";
-    if (!acc[v]) acc[v] = [];
-    acc[v].push(review);
-    return acc;
-  }, {});
+    return Array.from(categories);
+  };
 
   return (
     <div className="space-y-6">
@@ -78,8 +100,8 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Versions</SelectItem>
-                    {versions.map(v => (
-                      <SelectItem key={v as string} value={v as string}>{v as string}</SelectItem>
+                    {versions.map((v) => (
+                      <SelectItem key={v} value={v}>{v}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -98,12 +120,15 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {(versionFilter !== "all" || statusFilter !== "all") && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => { setVersionFilter("all"); setStatusFilter("all"); }}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setVersionFilter("all");
+                    setStatusFilter("all");
+                  }}
                   className="text-xs font-bold text-primary hover:text-primary/80"
                 >
                   Clear All
@@ -114,175 +139,208 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
         </CardContent>
       </Card>
 
-      {filteredReviews.length > 0 ? (
-        <Accordion 
-          type="multiple" 
-          defaultValue={Object.keys(groupedReviews).sort((a, b) => b.localeCompare(a))}
-          className="space-y-6"
+      {sortedVersionEntries.length > 0 ? (
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue={sortedVersionEntries[0]?.[0]}
+          className="space-y-4"
         >
-          {Object.entries(groupedReviews)
-            .sort((a, b) => b[0].localeCompare(a[0]))
-            .map(([version, reviews]: [string, any]) => {
-              const avgScore = Math.round(reviews.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / reviews.filter((r: any) => r.score !== null).length || 0);
-              
-              return (
-                <Card key={version} className="shadow-sm border-primary/10 overflow-hidden">
-                  <AccordionItem value={version} className="border-none">
-                    <AccordionTrigger className="hover:no-underline p-6 bg-muted/20 group data-[state=open]:bg-muted/40 transition-colors">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full text-left">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-primary text-primary-foreground shadow-sm group-data-[state=closed]:bg-muted group-data-[state=closed]:text-muted-foreground transition-all duration-300">
-                            <Activity className="h-6 w-6" />
-                          </div>
-                          <div className="space-y-1">
-                            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                              Draft <span className="text-primary">{version}</span>
-                            </h3>
-                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                              {reviews.length} Expert Assessment{reviews.length !== 1 ? "s" : ""} recorded
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6 md:border-l md:pl-6 border-muted-foreground/20">
-                          <div className="flex flex-col items-end">
-                            <Badge 
-                              className={cn(
-                                "font-mono font-bold text-sm px-3 py-1",
-                                avgScore >= 70 ? "bg-green-100 text-green-700 border-green-200" : "bg-orange-100 text-orange-700 border-orange-200"
-                              )}
-                            >
-                              Avg. {avgScore}%
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
+          {sortedVersionEntries.map(([version, versionReviews]: [string, any]) => {
+            const expertReviews = versionReviews.filter((review: any) => !review.isPSRManager);
+            const managerResponses = versionReviews.filter((review: any) => review.isPSRManager);
+            const completedExpertReviews = expertReviews.filter((review: any) => review.score !== null);
+            const avgScore = completedExpertReviews.length
+              ? Math.round(
+                  completedExpertReviews.reduce((sum: number, r: any) => sum + (r.score || 0), 0) /
+                  completedExpertReviews.length
+                )
+              : 0;
+            const expertiseCount = expertReviews.length;
+            const categories = buildChecklistCategories(versionReviews);
 
-                    <AccordionContent className="px-6 pb-6 pt-8">
-                      <div className="grid gap-8 pl-4 border-l-2 border-primary/10 ml-4">
-                        {reviews.map((review: any) => (
-                          <Card
-                            key={review.id}
-                            className="shadow-sm border-primary/5 bg-background overflow-hidden hover:shadow-md transition-shadow duration-300"
-                          >
-                            <CardHeader className="bg-muted/30 border-b py-4">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <Avatar className="h-10 w-10 border-2 border-background">
-                                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                      {review.reviewer.firstName[0]}
-                                      {review.reviewer.lastName[0]}
+            return (
+              <Card key={version} className="shadow-sm border-primary/10 overflow-hidden">
+                <AccordionItem value={version} className="border-none">
+                  <AccordionTrigger className="bg-muted/20 border-b px-6 py-5 hover:bg-muted/30 transition-colors">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Draft Version</p>
+                        <h3 className="text-xl font-bold text-foreground">{version}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {expertiseCount} Expert Assessment{expertiseCount !== 1 ? "s" : ""}
+                        </p>
+                        {managerResponses.length > 0 && (
+                          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700">
+                            <span>PSR Decision:</span>
+                            <span>
+                              {managerResponses[0].decision === "psr_approved"
+                                ? "Approved"
+                                : managerResponses[0].decision === "resubmission_required"
+                                ? "Revision Requested"
+                                : "Final Response"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          className={cn(
+                            "font-mono font-bold text-sm px-3 py-1",
+                            avgScore >= 70
+                              ? "bg-green-100 text-green-700 border-green-200"
+                              : "bg-orange-100 text-orange-700 border-orange-200"
+                          )}
+                        >
+                          Avg. {avgScore}%
+                        </Badge>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+
+                  <AccordionContent className="px-6 py-6">
+                    <div className="overflow-x-auto rounded-xl border border-muted/30 bg-white">
+                      <table className="min-w-full border-collapse text-left">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="border-b border-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Checklist Item
+                          </th>
+                          {expertReviews.map((review: any) => (
+                            <th key={review.id} className="border-b border-muted/20 px-4 py-3 text-left align-top">
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-9 w-9 border border-muted/20">
+                                    <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                                      {review.reviewer.firstName?.[0]}
+                                      {review.reviewer.lastName?.[0]}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-foreground">
+                                  <div>
+                                    <div className="text-sm font-semibold text-foreground">
                                       {review.reviewer.firstName} {review.reviewer.lastName}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {review.reviewer.position || "Expert Reviewer"} · {review.reviewer.institution || "PSR Council"}
-                                    </span>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {review.reviewer.position || "Expert Reviewer"}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="flex flex-col items-end">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Score</span>
-                                    <Badge 
-                                      className={cn(
-                                        "font-mono font-bold text-xs px-2 py-0.5",
-                                        review.score === null ? "bg-muted text-muted-foreground" :
-                                        review.score >= 70 ? "bg-green-100 text-green-700 border-green-200" : "bg-orange-100 text-orange-700 border-orange-200"
-                                      )}
-                                    >
-                                      {review.score !== null ? `${review.score}%` : "N/A"}
-                                    </Badge>
-                                  </div>
-                                </div>
+                                <Badge
+                                  className={cn(
+                                    "font-mono text-[10px] font-semibold px-2 py-1",
+                                    review.score === null
+                                      ? "bg-muted text-muted-foreground"
+                                      : review.score >= 70
+                                      ? "bg-green-100 text-green-700 border-green-200"
+                                      : "bg-orange-100 text-orange-700 border-orange-200"
+                                  )}
+                                >
+                                  {review.score !== null ? `${review.score}%` : "N/A"}
+                                </Badge>
                               </div>
-                            </CardHeader>
-                            <CardContent className="pt-5 pb-6">
-                              <div className="space-y-6">
-                                <div className="space-y-2">
-                                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                                    Expert Feedback
-                                  </h4>
-                                  <p className="text-sm leading-relaxed text-slate-700 italic border-l-4 border-muted pl-4">
-                                    {review.comments || "Review in progress..."}
-                                  </p>
-                                </div>
-
-                                {review.checklist && review.checklist.length > 0 && (
-                                  <div className="pt-2">
-                                    <Accordion type="single" collapsible className="w-full">
-                                      <AccordionItem value="checklist" className="border-none">
-                                        <AccordionTrigger className="flex items-center gap-2 py-2 hover:no-underline group">
-                                          <div className="flex items-center gap-2">
-                                            <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
-                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest group-hover:text-primary transition-colors">
-                                              Checklist Breakdown
-                                            </h4>
-                                          </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="pt-4 pb-0">
-                                          <div className="grid gap-3 pl-4 border-l-2 border-muted/50">
-                                            {review.checklist.map((item: any) => (
-                                              <div key={item.category} className="flex items-start justify-between gap-4 py-1">
-                                                <div className="space-y-1">
-                                                  <p className="text-sm font-medium text-foreground">{item.category}</p>
-                                                  {item.feedback && (
-                                                    <p className="text-xs text-muted-foreground italic">
-                                                      {item.feedback}
-                                                    </p>
-                                                  )}
-                                                </div>
-                                                <Badge 
-                                                  variant="outline"
-                                                  className={cn(
-                                                    "h-6 px-2 text-[10px] font-bold uppercase tracking-wider gap-1 shrink-0",
-                                                    item.passed 
-                                                      ? "bg-green-50 text-green-700 border-green-200" 
-                                                      : "bg-red-50 text-red-700 border-red-200"
-                                                  )}
-                                                >
-                                                  {item.passed ? (
-                                                    <>
-                                                      <CheckCircle2 className="h-3 w-3" />
-                                                      Yes
-                                                    </>
-                                                  ) : (
-                                                    <>
-                                                      <XCircle className="h-3 w-3" />
-                                                      No
-                                                    </>
-                                                  )}
-                                                </Badge>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </AccordionContent>
-                                      </AccordionItem>
-                                    </Accordion>
-                                  </div>
-                                )}
-                              </div>
-                            </CardContent>
-                            <div className="bg-muted/10 border-t py-2 px-4 flex justify-between items-center">
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Calendar className="h-3 w-3" /> Reviewed on {new Date(review.createdAt).toLocaleDateString()}
-                              </span>
-                              <span className="text-[10px] font-mono text-muted-foreground/60">
-                                {review.id}
-                              </span>
-                            </div>
-                          </Card>
-                        ))}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {categories.length > 0 ? (
+                          categories.map((category) => (
+                            <tr key={category} className="border-b last:border-b-0 border-muted/20">
+                              <td className="px-4 py-4 align-top w-48 text-sm font-medium text-foreground">
+                                {category}
+                              </td>
+                              {expertReviews.map((review: any) => {
+                                const item = (review.checklist || []).find((check: any) => check.category === category || check.question === category);
+                                return (
+                                  <td key={`${review.id}-${category}`} className="px-4 py-4 align-top text-sm text-slate-700">
+                                    {item ? (
+                                      <div className="space-y-2">
+                                        <Badge
+                                          className={cn(
+                                            "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wider",
+                                            item.passed
+                                              ? "bg-emerald-100 text-emerald-700"
+                                              : item.pending
+                                              ? "bg-amber-100 text-amber-700"
+                                              : "bg-rose-100 text-rose-700"
+                                          )}
+                                        >
+                                          {item.passed ? (
+                                            <>
+                                              <CheckCircle2 className="h-3 w-3" />
+                                              Yes
+                                            </>
+                                          ) : item.pending ? (
+                                            <>Pending</>
+                                          ) : (
+                                            <>
+                                              <XCircle className="h-3 w-3" />
+                                              No
+                                            </>
+                                          )}
+                                        </Badge>
+                                        {item.feedback ? (
+                                          <p className="text-xs text-muted-foreground leading-snug">
+                                            {item.feedback}
+                                          </p>
+                                        ) : (
+                                          <p className="text-xs text-muted-foreground italic">No comment</p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">No response</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={versionReviews.length + 1} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                              No checklist items available for this version.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  {managerResponses.length > 0 && (
+                    <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 mt-4">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">PSR Manager Decision</p>
+                            <p className="text-xs text-muted-foreground">Final institutional response for this version</p>
+                          </div>
+                          <Badge className="font-mono text-[10px] font-semibold px-2 py-1 bg-orange-100 text-orange-700 border-orange-200">
+                            {managerResponses[0].decision === "psr_approved"
+                              ? "Approved"
+                              : managerResponses[0].decision === "resubmission_required"
+                              ? "Revision Requested"
+                              : "Final Response"}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {managerResponses[0].comments || "No comments provided."}
+                        </div>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Card>
-              );
-            })
-          }
-        </Accordion>
+                    </div>
+                  )}
+                  <div className="bg-muted/10 border-t px-6 py-4 text-xs text-muted-foreground flex flex-col md:flex-row md:justify-between gap-2">
+                    <span>
+                      Version {version} contains {expertReviews.length} expert reviewer{expertReviews.length !== 1 ? "s" : ""}.
+                    </span>
+                    <span>
+                      Last reviewed: {new Date(expertReviews[0]?.createdAt || Date.now()).toLocaleDateString()}
+                    </span>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Card>
+          );
+        })}
+      </Accordion>
       ) : (
         <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
           <ClipboardCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />

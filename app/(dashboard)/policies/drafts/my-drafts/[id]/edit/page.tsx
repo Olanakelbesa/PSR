@@ -177,11 +177,13 @@ export default function EditPolicyDraftPage() {
 
   const draftStatusValue = String(
     rawDraft?.currentStatus?.status ||
-      rawDraft?.current_status ||
-      rawDraft?.status ||
-      "draft",
-  ).toLowerCase();
-  const canEditDraft = draftStatusValue === "resubmission_required";
+    rawDraft?.current_status ||
+    rawDraft?.status ||
+    "draft",
+  )
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const canEditDraft = draftStatusValue === "resubmission_required" || draftStatusValue === "revision_requested";
 
   const draftConceptId = normalizedDraft.conceptNoteId || selectedConceptId;
   const { data: currentConceptDetail } = useConceptNoteDetail(
@@ -537,72 +539,20 @@ export default function EditPolicyDraftPage() {
 
     setIsSubmitting(true);
     try {
-      await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(id));
+      await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.RESUBMIT(id));
 
-      const submittedAt = new Date().toISOString();
-      queryClient.setQueryData(["policy-draft", id], (currentDraft: any) => {
-        if (!currentDraft) return currentDraft;
-
-        return {
-          ...currentDraft,
-          currentStatus: {
-            ...(typeof currentDraft.currentStatus === "object" && currentDraft.currentStatus !== null
-              ? currentDraft.currentStatus
-              : {}),
-            status: "submitted",
-          },
-          current_status: "submitted",
-          currentStatusDisplay: "Submitted",
-          updatedAt: submittedAt,
-          submissionDate: currentDraft.submissionDate || submittedAt,
-        };
-      });
-
-      queryClient.setQueriesData({ queryKey: ["policy-drafts"] }, (currentList: any) => {
-        if (!Array.isArray(currentList)) return currentList;
-
-        return currentList.map((item: any) =>
-          String(item?.id) === String(id)
-            ? {
-                ...item,
-                currentStatus: "submitted",
-                currentStatusDisplay: "Submitted",
-                updatedAt: submittedAt,
-              }
-            : item,
-        );
-      });
-
-      queryClient.setQueriesData({ queryKey: ["policy-drafts-manage"] }, (currentResponse: any) => {
-        const list = currentResponse?.data;
-        if (!Array.isArray(list)) return currentResponse;
-
-        return {
-          ...currentResponse,
-          data: list.map((item: any) =>
-            String(item?.id) === String(id)
-              ? {
-                  ...item,
-                  currentStatus: "submitted",
-                  currentStatusDisplay: "Submitted",
-                  updatedAt: submittedAt,
-                }
-              : item,
-          ),
-        };
-      });
-
+      // Invalidate caches so UI reflects backend state (under_review/resubmitted)
       queryClient.invalidateQueries({ queryKey: ["policy-draft", id] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
 
-      toast.success("Policy draft submitted for expert review");
+      toast.success("Policy draft resubmitted for expert review");
       router.push("/policies/drafts/my-drafts");
     } catch (error: any) {
       toast.error(
         formatApiError(
           error,
-          "An error occurred while submitting the policy draft",
+          "An error occurred while resubmitting the policy draft",
         ),
       );
     } finally {

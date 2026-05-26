@@ -38,7 +38,7 @@ import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PolicyDocument } from "@/lib/types";
-import { usePolicyDrafts } from "@/lib/queries/policy-drafts";
+import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
 import { useRegisterPolicy } from "@/lib/queries/policy-repository";
 
 const READINESS = [
@@ -71,11 +71,11 @@ export default function CreateRepositoryEntryPage() {
     publishNow: false,
   });
 
-  const { data: approvedDraftsData = [], isLoading: isLoadingDrafts } = usePolicyDrafts({
+  const { data: approvedDraftsResponse, isLoading: isLoadingDrafts } = usePolicyDraftsManage({
     current_status: "psr_approved",
   });
 
-  const approvedDrafts = approvedDraftsData || [];
+  const approvedDrafts = approvedDraftsResponse?.data || [];
   const registerMutation = useRegisterPolicy();
 
   const handleDraftSelect = (draftId: string) => {

@@ -73,11 +73,22 @@ export default function DraftDetailPage() {
         const [firstName, ...rest] = reviewerName.split(" ");
         const lastName = rest.join(" ") || "";
         
-        const checklist = (det.checklistBreakdown || []).map((chk: any) => ({
-          category: chk.questionText || "Criterion",
-          passed: chk.isPassed || chk.fulfillment === "yes",
-          feedback: chk.reviewerNote || ""
-        }));
+        const checklist = (det.checklistBreakdown || []).map((chk: any) => {
+          const isPassed = chk.fulfillment === "yes" || chk.isPassed === true || chk.is_passed === true;
+          const isPending = chk.fulfillment === "pending" || ((chk.isPassed === null || chk.isPassed === undefined) && chk.fulfillment == null && chk.is_passed == null);
+
+          return {
+            category: chk.questionText || "Criterion",
+            passed: isPassed,
+            pending: isPending,
+            feedback: chk.reviewerNote || ""
+          };
+        });
+
+        const answeredItems = checklist.filter((item: any) => !item.pending);
+        const computedScore = answeredItems.length > 0
+          ? Math.round((answeredItems.filter((item: any) => item.passed).length / answeredItems.length) * 100)
+          : null;
 
         reviewsList.push({
           id: String(det.id || `REV-${version}-${index}`),
@@ -90,7 +101,7 @@ export default function DraftDetailPage() {
             institution: "PSR Council"
           },
           status: det.currentStatus === "graded" || det.finalDecisionStatus === "completed" ? "completed" : "pending",
-          score: det.score,
+          score: det.score ?? computedScore,
           comments: det.comment,
           createdAt: det.commentGivenAt || new Date().toISOString(),
           checklist: checklist

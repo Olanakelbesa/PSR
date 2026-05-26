@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock,
   Edit,
+  RefreshCw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import type { PolicyStatus, PolicyType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
+import { useAuth } from "@/hooks";
 
 export default function DraftDetailPage() {
   const params = useParams();
@@ -52,11 +54,13 @@ export default function DraftDetailPage() {
       "resubmitted": "resubmitted"
     };
 
-    const statusValue = typeof rawDraft.currentStatus === "string" 
-      ? rawDraft.currentStatus 
+    const statusValue = typeof rawDraft.currentStatus === "string"
+      ? rawDraft.currentStatus
       : rawDraft.currentStatus?.status || rawDraft.current_status || "draft";
-      
-    const resolvedStatus = statusMap[String(statusValue).toLowerCase()] || "under_review";
+
+    const normalizedStatus = String(statusValue).toLowerCase().replace(/[\s-]+/g, "_");
+
+    const resolvedStatus = statusMap[normalizedStatus] || "under_review";
 
     // 2. Map expert reviews from expertFeedback
     const reviewsList: any[] = [];
@@ -71,11 +75,22 @@ export default function DraftDetailPage() {
         const [firstName, ...rest] = reviewerName.split(" ");
         const lastName = rest.join(" ") || "Reviewer";
         
-        const checklist = (det.checklistBreakdown || []).map((chk: any) => ({
-          category: chk.questionText || "Criterion",
-          passed: chk.isPassed || chk.fulfillment === "yes",
-          feedback: chk.reviewerNote || ""
-        }));
+        const checklist = (det.checklistBreakdown || []).map((chk: any) => {
+          const isPassed = chk.fulfillment === "yes" || chk.isPassed === true || chk.is_passed === true;
+          const isPending = chk.fulfillment === "pending" || ((chk.isPassed === null || chk.isPassed === undefined) && chk.fulfillment == null && chk.is_passed == null);
+
+          return {
+            category: chk.questionText || "Criterion",
+            passed: isPassed,
+            pending: isPending,
+            feedback: chk.reviewerNote || ""
+          };
+        });
+
+        const answeredItems = checklist.filter((item: any) => !item.pending);
+        const computedScore = answeredItems.length > 0
+          ? Math.round((answeredItems.filter((item: any) => item.passed).length / answeredItems.length) * 100)
+          : null;
 
         reviewsList.push({
           id: String(det.id || `REV-${version}-${index}`),
@@ -88,7 +103,7 @@ export default function DraftDetailPage() {
             institution: "PSR Council"
           },
           status: det.currentStatus === "graded" || det.finalDecisionStatus === "completed" ? "completed" : "pending",
-          score: det.score,
+          score: det.score ?? computedScore,
           comments: det.comment,
           createdAt: det.commentGivenAt || new Date().toISOString(),
           checklist: checklist
@@ -141,6 +156,7 @@ export default function DraftDetailPage() {
         lastName: rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") || "User",
         role: "Submitter"
       },
+      submittedById: rawDraft.submittedBy?.id ?? null,
       conceptNoteId: originalConceptNoteId,
       conceptNoteLabel: originalConceptLabel,
       conceptNoteTitle: rawDraft.conceptNote?.title || rawDraft.concept_note?.title || "",
@@ -155,6 +171,9 @@ export default function DraftDetailPage() {
       timeline: timeline
     };
   }, [rawDraft]);
+
+  const { user } = useAuth();
+  const isOwner = Boolean(user && draft && draft.submittedById && String(user.id) === String(draft.submittedById));
 
   if (isLoading || !draft) {
     return (
@@ -188,6 +207,14 @@ export default function DraftDetailPage() {
               Edit
             </Link>
           </Button>
+          {draft.status === "resubmission_required" && isOwner && (
+            <Button asChild className="shadow-sm bg-amber-600 hover:bg-amber-700">
+              <Link href={`/policies/drafts/my-drafts/${draft.id}/edit`}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Resubmit Draft
+              </Link>
+            </Button>
+          )}
         </div>
       }
     >

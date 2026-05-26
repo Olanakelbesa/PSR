@@ -103,6 +103,17 @@ export function usePolicyDraft(id: string | number) {
   });
 }
 
+export function usePolicyDraftManage(id?: string | number) {
+  return useQuery<any>({
+    queryKey: ["policy-draft-manage", id],
+    queryFn: async () => {
+      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.MANAGE_DETAIL(id as string | number));
+      return data.data || data;
+    },
+    enabled: !!id,
+  });
+}
+
 export function usePolicyDraftsManage(filters?: PolicyDraftFilters) {
   return useQuery<PolicyDraftResponse>({
     queryKey: ["policy-drafts-manage", filters],
@@ -208,6 +219,10 @@ export function useAssignPSRDecision() {
     },
     onSuccess: (_data, { draftId }) => {
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", String(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", Number(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", String(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", Number(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
     },

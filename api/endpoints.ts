@@ -98,9 +98,11 @@ export const API_ENDPOINTS = {
     LIST: "/v1/policy-drafts/",
     MANAGE: "/v1/policy-drafts/manage/",
     DETAIL: (id: string | number) => `/v1/policy-drafts/${id}/`,
+    MANAGE_DETAIL: (id: string | number) => `/v1/policy-drafts/${id}/manage/`,
     CREATE: "/v1/policy-drafts/",
     UPDATE: (id: string | number) => `/v1/policy-drafts/${id}/`,
     SUBMIT: (id: string | number) => `/v1/policy-drafts/${id}/submit/`,
+    RESUBMIT: (id: string | number) => `/v1/policy-drafts/${id}/resubmit/`,
     ASSIGN_REVIEWERS: (id: string | number) =>
       `/v1/policy-drafts/${id}/assign-reviewers/`,
     ASSIGNED_REVIEWERS: (id: string | number) =>
