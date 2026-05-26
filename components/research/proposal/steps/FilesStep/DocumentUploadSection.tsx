@@ -18,7 +18,12 @@ export function DocumentUploadSection() {
   const fileValue = form.watch("technicalProposal");
   const [isFileDragging, setIsFileDragging] = useState(false);
 
-  const file = fileValue instanceof File ? fileValue : null;
+  const isFile = fileValue instanceof File;
+  const uploadedFile = isFile ? fileValue : null;
+  const existingFile =
+    !isFile && fileValue && typeof fileValue === "object" && "file" in fileValue
+      ? (fileValue as { name?: string; file: string; id?: number })
+      : null;
 
   return (
     <div className="flex-1">
@@ -37,7 +42,7 @@ export function DocumentUploadSection() {
             <FormItem>
               <FormControl>
                 <div className="space-y-4">
-                  {!file ? (
+                  {!uploadedFile && !existingFile ? (
                     <div
                       className={cn(
                         "relative border-2 border-dashed rounded-lg p-12 transition-all duration-200",
@@ -158,15 +163,35 @@ export function DocumentUploadSection() {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-semibold text-sm truncate">
-                                {file?.name || "File"}
+                                {uploadedFile?.name || existingFile?.name || existingFile?.file.split("/").pop() || "File"}
                               </p>
                               <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                             </div>
-                            <p className="text-xs text-muted-foreground mb-3">
-                              {((file?.size || 0) / 1024 / 1024).toFixed(2)} MB
-                            </p>
+                            {uploadedFile ? (
+                              <p className="text-xs text-muted-foreground mb-3">
+                                {((uploadedFile.size || 0) / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            ) : existingFile ? (
+                              <p className="text-xs text-muted-foreground mb-3">
+                                Existing file
+                              </p>
+                            ) : null}
                           </div>
                           <div className="flex gap-2">
+                            {existingFile && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  window.open(existingFile.file, "_blank");
+                                }}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                              >
+                                <FileText className="h-4 w-4 mr-2" />
+                                View File
+                              </Button>
+                            )}
                             <Button
                               type="button"
                               variant="outline"
@@ -178,7 +203,7 @@ export function DocumentUploadSection() {
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
                               <X className="h-4 w-4 mr-2" />
-                              Remove File
+                              {existingFile ? "Remove" : "Remove File"}
                             </Button>
                           </div>
                         </div>

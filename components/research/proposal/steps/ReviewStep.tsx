@@ -536,8 +536,19 @@ export function ProposalReviewStep({
             control={form.control}
             name="signature"
             render={({ field }) => {
+              const signatureValue = field.value;
               const signatureFile =
-                field.value instanceof File ? field.value : null;
+                signatureValue instanceof File
+                  ? signatureValue
+                  : signatureValue && typeof signatureValue === "object"
+                    ? signatureValue
+                    : null;
+              const signatureUrl =
+                signatureValue instanceof File
+                  ? undefined
+                  : typeof signatureValue === "string"
+                    ? signatureValue
+                    : signatureValue?.file;
               return (
                 <FormItem>
                   <div className="space-y-3 ">
@@ -546,6 +557,7 @@ export function ProposalReviewStep({
                     </p>
 
                     <SignaturePad
+                      initialImageUrl={signatureUrl}
                       onSave={(file) => {
                         field.onChange(file);
                         form.setValue("signature", file, {
@@ -564,9 +576,20 @@ export function ProposalReviewStep({
                       <div className="border rounded-md p-3">
                         <p className="font-medium text-sm">Saved Signature</p>
                         <p className="text-xs text-muted-foreground">
-                          {signatureFile.name} (
-                          {(signatureFile.size / 1024).toFixed(1)} KB)
+                          {signatureFile.name || signatureFile.file?.split("/").pop() || "Signature"} (
+                          {signatureFile instanceof File
+                            ? (signatureFile.size / 1024).toFixed(1)
+                            : "—"} KB)
                         </p>
+                        {signatureUrl ? (
+                          <div className="mt-3">
+                            <img
+                              src={signatureUrl}
+                              alt="Saved signature"
+                              className="max-h-40 rounded-md border"
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     )}
                   </div>

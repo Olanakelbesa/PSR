@@ -291,6 +291,101 @@ const hasRequiredFieldsForCreate = (values: ProposalFormInput): boolean => {
   );
 };
 
+// Map backend field names to form field names
+const backendFieldToFormField: Record<string, string> = {
+  "receiving_office": "receivingOffice",
+  "receivingOffice": "receivingOffice",
+  "submission_level": "submissionLevel",
+  "submissionLevel": "submissionLevel",
+  "office_to_submit": "officeToSubmit",
+  "officeToSubmit": "officeToSubmit",
+  "proposal_type": "proposalType",
+  "proposalType": "proposalType",
+  "grant_call": "grantCallId",
+  "grantCallId": "grantCallId",
+  "call": "grantCallId",
+  "thematic_area": "thematicArea",
+  "thematicArea": "thematicArea",
+  "thematic_areas": "thematicAreas",
+  "thematicAreas": "thematicAreas",
+  "sub_thematic_area": "subThematicArea",
+  "subThematicArea": "subThematicArea",
+  "sub_proposal_type": "subProposalTypeId",
+  "subProposalTypeId": "subProposalTypeId",
+  "budget_requested": "budgetRequested",
+  "budgetRequested": "budgetRequested",
+  "start_date": "startDate",
+  "startDate": "startDate",
+  "end_date": "endDate",
+  "endDate": "endDate",
+};
+
+const extractErrorMessage = (error: any): string => {
+  if (typeof error === "string") return error;
+  if (Array.isArray(error) && error.length > 0) return String(error[0]);
+  if (error?.message) return error.message;
+  return "Validation error";
+};
+
+// Extract a comprehensive error message from various error response structures
+const extractFullErrorMessage = (error: any): string => {
+  // Direct error message
+  if (typeof error === "string") return error;
+  
+  // From error.message
+  if (error?.message && typeof error.message === "string") {
+    return error.message;
+  }
+  
+  // From response data
+  if (error?.response?.data?.error?.message) {
+    return error.response.data.error.message;
+  }
+  if (error?.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error?.response?.data?.detail) {
+    return error.response.data.detail;
+  }
+  
+  // From direct data
+  if (error?.data?.error?.message) {
+    return error.data.error.message;
+  }
+  if (error?.data?.message) {
+    return error.data.message;
+  }
+  
+  // Try to extract first validation error
+  const errorDetails = error?.response?.data?.error?.details || 
+                      error?.data?.error?.details ||
+                      error?.details || {};
+  if (Object.keys(errorDetails).length > 0) {
+    const firstKey = Object.keys(errorDetails)[0];
+    const firstError = errorDetails[firstKey];
+    if (typeof firstError === "string") return firstError;
+    if (Array.isArray(firstError) && firstError.length > 0) {
+      return String(firstError[0]);
+    }
+  }
+  
+  return "Failed to process request. Please try again.";
+};
+
+const applyBackendErrorsToForm = (
+  form: any,
+  errorDetails: Record<string, any>,
+) => {
+  Object.entries(errorDetails).forEach(([backendField, errorValue]) => {
+    const formField = backendFieldToFormField[backendField] || backendField;
+    const errorMessage = extractErrorMessage(errorValue);
+    form.setError(formField, {
+      type: "manual",
+      message: errorMessage,
+    });
+  });
+};
+
 const getModifiedFields = (
   current: ProposalFormInput,
   previous: Partial<ProposalFormInput>,
@@ -883,8 +978,19 @@ export function ProposalWizard({
       };
       lastSavedDataRef.current = serializeFormValues(values);
       setSaveStatus("saved");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Auto-save PATCH failed:", error);
+      
+      // Extract error details for form field errors
+      const errorDetails = error?.response?.data?.error?.details || 
+                          error?.data?.error?.details ||
+                          error?.details || {};
+      
+      // Apply backend validation errors to form fields if they exist
+      if (Object.keys(errorDetails).length > 0) {
+        applyBackendErrorsToForm(form, errorDetails);
+      }
+      
       setSaveStatus("failed");
     } finally {
       isSavingRequestRef.current = false;
@@ -1080,7 +1186,11 @@ export function ProposalWizard({
           ? proposal.strategic_objectives.map((so: any) =>
               typeof so === "object" ? String(so.id) : String(so),
             )
-          : [],
+          : Array.isArray(proposal.strategicObjectives)
+            ? proposal.strategicObjectives.map((so: any) =>
+                typeof so === "object" ? String(so.id) : String(so),
+              )
+            : [],
       };
 
       // Map team members
@@ -1357,11 +1467,22 @@ export function ProposalWizard({
       nextSaveValuesRef.current = values;
       toast.info("Save in progress, queuing draft save...");
     } else {
-      toast.promise(performSaveRequest(values), {
-        loading: "Saving draft...",
-        success: "Draft saved!",
-        error: "Failed to save draft.",
-      });
+      try {
+        await performSaveRequest(values);
+        toast.success("Draft saved!");
+      } catch (error: any) {
+        const errorMessage = extractFullErrorMessage(error);
+        const errorDetails = error?.response?.data?.error?.details || 
+                            error?.data?.error?.details ||
+                            error?.details || {};
+        
+        if (Object.keys(errorDetails).length > 0) {
+          applyBackendErrorsToForm(form, errorDetails);
+          toast.error("Please fix the validation errors and try again.");
+        } else {
+          toast.error(errorMessage);
+        }
+      }
     }
   };
 
@@ -1403,59 +1524,74 @@ export function ProposalWizard({
 
       if (hasUnsavedChanges || !currentId) {
         setSaveStatus("saving");
-        if (currentId) {
-          const formData = buildModifiedProposalFormData(modified);
-          await apiClient.patch(
-            API_ENDPOINTS.PROPOSALS.UPDATE(currentId),
-            formData,
-            {
-              headers: { "Content-Type": "multipart/form-data" },
-            },
-          );
-        } else {
-          const formData = buildProposalFormData(values);
-          const res = await apiClient.post(
-            API_ENDPOINTS.PROPOSALS.CREATE,
-            formData,
-            {
-              headers: { "Content-Type": "multipart/form-data" },
-            },
-          );
-          const rawId = res.data?.data?.id ?? res.data?.id;
-          if (rawId) {
-            currentId = String(rawId);
-            setActiveProposalId(currentId);
-            const newUrl = `${window.location.pathname}?edit=${currentId}`;
-            window.history.replaceState(
-              { ...window.history.state, as: newUrl, url: newUrl },
-              "",
-              newUrl,
+        try {
+          if (currentId) {
+            const formData = buildModifiedProposalFormData(modified);
+            await apiClient.patch(
+              API_ENDPOINTS.PROPOSALS.UPDATE(currentId),
+              formData,
+              {
+                headers: { "Content-Type": "multipart/form-data" },
+              },
             );
-
-            await syncProposalTeamMembers(currentId, values);
           } else {
-            throw new Error(
-              "Failed to retrieve proposal ID from create response.",
+            const formData = buildProposalFormData(values);
+            const res = await apiClient.post(
+              API_ENDPOINTS.PROPOSALS.CREATE,
+              formData,
+              {
+                headers: { "Content-Type": "multipart/form-data" },
+              },
             );
-          }
-        }
+            const rawId = res.data?.data?.id ?? res.data?.id;
+            if (rawId) {
+              currentId = String(rawId);
+              setActiveProposalId(currentId);
+              const newUrl = `${window.location.pathname}?edit=${currentId}`;
+              window.history.replaceState(
+                { ...window.history.state, as: newUrl, url: newUrl },
+                "",
+                newUrl,
+              );
 
-        lastSavedValuesRef.current = {
-          ...lastSavedValuesRef.current,
-          ...modified,
-        };
-        lastSavedDataRef.current = serializeFormValues(values);
-        setSaveStatus("saved");
+              await syncProposalTeamMembers(currentId, values);
+            } else {
+              throw new Error(
+                "Failed to retrieve proposal ID from create response.",
+              );
+            }
+          }
+
+          lastSavedValuesRef.current = {
+            ...lastSavedValuesRef.current,
+            ...modified,
+          };
+          lastSavedDataRef.current = serializeFormValues(values);
+          setSaveStatus("saved");
+        } catch (saveError: any) {
+          // Re-throw with context
+          throw saveError;
+        }
       }
 
       if (status === "submitted") {
         if (!currentId) {
           throw new Error("Cannot submit a proposal that has not been saved.");
         }
-        await apiClient.post(API_ENDPOINTS.PROPOSALS.SUBMIT(currentId));
+        
+        try {
+          await apiClient.post(API_ENDPOINTS.PROPOSALS.SUBMIT(currentId));
+        } catch (submitError: any) {
+          throw submitError;
+        }
 
-        if (!proposalId || proposalId === "undefined") {
-          await syncProposalTeamMembers(currentId, values);
+        try {
+          if (!proposalId || proposalId === "undefined") {
+            await syncProposalTeamMembers(currentId, values);
+          }
+        } catch (syncError) {
+          // Log but don't fail submission if team members sync fails
+          console.warn("Warning: Failed to sync team members after submission", syncError);
         }
 
         toast.success("Proposal submitted successfully!");
@@ -1479,9 +1615,24 @@ export function ProposalWizard({
     } catch (error: any) {
       console.error("Proposal submission error:", error);
       setSaveStatus("failed");
-      toast.error(
-        error?.message || "Failed to submit proposal. Please try again.",
-      );
+      
+      // Extract error details for form field errors
+      const errorDetails = error?.response?.data?.error?.details || 
+                          error?.data?.error?.details ||
+                          error?.details || {};
+      
+      // Extract comprehensive error message
+      const errorMessage = extractFullErrorMessage(error);
+      
+      // Apply backend validation errors to form fields if they exist
+      if (Object.keys(errorDetails).length > 0) {
+        applyBackendErrorsToForm(form, errorDetails);
+        toast.error("Please fix the validation errors below and try again.");
+      } else if (errorMessage && errorMessage !== "Failed to process request. Please try again.") {
+        toast.error(errorMessage);
+      } else {
+        toast.error("Failed to submit proposal. Please try again.");
+      }
     } finally {
       setIsSaving(false);
     }

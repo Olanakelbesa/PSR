@@ -8,12 +8,14 @@ import { toast } from "sonner";
 interface SignaturePadProps {
   onSave: (file: File) => void;
   onClear?: () => void;
+  initialImageUrl?: string;
   disabled?: boolean;
 }
 
 export default function SignaturePad({
   onSave,
   onClear,
+  initialImageUrl,
   disabled = false,
 }: SignaturePadProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -64,6 +66,30 @@ export default function SignaturePad({
     window.addEventListener("resize", updateWidth);
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
+
+  useEffect(() => {
+    if (!initialImageUrl || !sigCanvasRef.current) return;
+
+    const canvas = sigCanvasRef.current.getCanvas();
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const ratio = Math.min(
+        canvas.width / image.width,
+        canvas.height / image.height,
+      );
+      const width = image.width * ratio;
+      const height = image.height * ratio;
+      const x = (canvas.width - width) / 2;
+      const y = (canvas.height - height) / 2;
+      ctx.drawImage(image, x, y, width, height);
+    };
+    image.src = initialImageUrl;
+  }, [initialImageUrl]);
 
   const handleClear = () => {
     sigCanvasRef.current?.clear();

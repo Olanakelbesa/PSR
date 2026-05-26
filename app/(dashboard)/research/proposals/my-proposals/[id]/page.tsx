@@ -61,7 +61,28 @@ type ProposalTeamMember = {
   roleName?: string | null;
 };
 
-type ProposalReview = {
+type ProposalTechnicalReview = {
+  id: number;
+  reviewer?: {
+    id?: number;
+    fullName?: string | null;
+    email?: string | null;
+    photoUrl?: string | null;
+  } | null;
+  comments?: string | null;
+  totalScore?: number | null;
+  attachment?: string | null;
+  createdAt?: string | null;
+};
+
+type ProposalReviewHistory = {
+  status?: string | null;
+  decisionRemarks?: string | null;
+  reviewedAt?: string | null;
+  technicalReviews?: ProposalTechnicalReview[] | null;
+};
+
+type ProposalReviewEvent = {
   id: number;
   recommendation?: string | null;
   comments?: string | null;
@@ -87,8 +108,16 @@ type ProposalDetail = {
   subThematicArea?: NamedEntity | null;
   createdBy?: ProposalCreatedBy | null;
   teamMembers?: ProposalTeamMember[] | null;
-  reviewHistory?: ProposalReview[] | null;
+  reviewHistory?: ProposalReviewHistory | ProposalReviewEvent[] | null;
   status?: string | null;
+  statusDisplay?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  budgetRequested?: string | null;
+  proposalFile?: string | null;
+  updatedProposal?: string | null;
+  supportingDocs?: string | null;
+  signature?: string | null;
   createdAt?: string | null;
   rejectionReason?: string | null;
 };
@@ -131,6 +160,27 @@ function formatName(firstName?: string | null, lastName?: string | null) {
   return [firstName, lastName].filter(Boolean).join(" ").trim() || "N/A";
 }
 
+function isReviewHistoryObject(
+  value?: ProposalReviewHistory | ProposalReviewEvent[] | null,
+): value is ProposalReviewHistory {
+  return (
+    !!value &&
+    !Array.isArray(value) &&
+    typeof value === "object" &&
+    ("technicalReviews" in value ||
+      "status" in value ||
+      "decisionRemarks" in value ||
+      "reviewedAt" in value)
+  );
+}
+
+function getReviewHistoryEvents(
+  reviewHistory?: ProposalReviewHistory | ProposalReviewEvent[] | null,
+): ProposalReviewEvent[] {
+  if (Array.isArray(reviewHistory)) return reviewHistory;
+  return reviewHistory?.technicalReviews ?? [];
+}
+
 function DetailLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2">
@@ -168,29 +218,6 @@ export default function ProposalDetailPage() {
 
         if (response?.success && response?.data) {
           const proposalData = response.data as ProposalDetail;
-          
-          // Try to fetch comprehensive review history from backend
-          try {
-            const { findScreeningByProposal, getReviewHistory } = await import("@/api/services");
-            const screening = await findScreeningByProposal(proposalData.id);
-            if (screening) {
-              const historyData = await getReviewHistory(screening.id);
-              if (historyData?.review_timeline) {
-                // Merge review history into proposal data
-                proposalData.reviewHistory = (historyData.review_timeline || []).map((event: any) => ({
-                  id: Math.random(),
-                  recommendation: event.status,
-                  comments: event.comment,
-                  createdAt: event.timestamp,
-                  reviewer: null,
-                }));
-              }
-            }
-          } catch (historyError) {
-            // Fall back gracefully if review history endpoint fails
-            console.warn("Could not fetch review history:", historyError);
-          }
-          
           setProposal(proposalData);
           setHasError(false);
         } else {
@@ -218,7 +245,7 @@ export default function ProposalDetailPage() {
 
   const currentStatus =
     proposal?.status ?? (proposal?.submittedAt ? "submitted" : "draft");
-  const statusLabel = currentStatus.replace(/_/g, " ");
+  const statusLabel = proposal?.statusDisplay ?? currentStatus.replace(/_/g, " ");
   const isEditable =
     !proposal?.submittedAt || currentStatus === "revision_requested";
   const teamMembers = proposal?.teamMembers ?? [];
@@ -228,6 +255,11 @@ export default function ProposalDetailPage() {
   const externalTeam = teamMembers.filter(
     (member) => member.memberType === "external",
   );
+  const reviewHistoryObject =
+    proposal && isReviewHistoryObject(proposal.reviewHistory)
+      ? proposal.reviewHistory
+      : undefined;
+  const reviewHistoryEvents = getReviewHistoryEvents(proposal?.reviewHistory);
 
   if (isLoading) {
     return (
@@ -573,37 +605,63 @@ export default function ProposalDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {proposal.reviewHistory?.length ? (
+              {reviewHistoryObject || reviewHistoryEvents.length ? (
                 <div className="space-y-3">
-                  {proposal.reviewHistory.map((review, idx) => (
-                    <div key={review.id || idx} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
-                        {idx < (proposal.reviewHistory?.length || 0) - 1 && (
-                          <div className="w-0.5 h-12 bg-border mt-2"></div>
-                        )}
+                  {reviewHistoryObject ? (
+                    <div className="rounded-xl border bg-muted/10 p-4">
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <DetailLine
+                          label="Review Status"
+                          value={reviewHistoryObject.status || "N/A"}
+                        />
+                        <DetailLine
+                          label="Reviewed At"
+                          value={formatDateTime(reviewHistoryObject.reviewedAt)}
+                        />
+                        <DetailLine
+                          label="Decision Remarks"
+                          value={reviewHistoryObject.decisionRemarks || "None"}
+                        />
                       </div>
-                      <div className="flex-1 pb-8">
-                        <div className="rounded-xl border bg-card p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <p className="font-semibold text-sm text-foreground">
-                                {review.recommendation?.replace(/_/g, " ") || review.comments?.split("\n")[0] || "Event"}
-                              </p>
-                              {review.comments && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {review.comments}
+                    </div>
+                  ) : null}
+                  {reviewHistoryEvents.length ? (
+                    reviewHistoryEvents.map((review, idx) => (
+                      <div key={review.id || idx} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className="w-3 h-3 rounded-full bg-primary mt-1.5"></div>
+                          {idx < reviewHistoryEvents.length - 1 && (
+                            <div className="w-0.5 h-12 bg-border mt-2"></div>
+                          )}
+                        </div>
+                        <div className="flex-1 pb-8">
+                          <div className="rounded-xl border bg-card p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="font-semibold text-sm text-foreground">
+                                  {review.recommendation?.replace(/_/g, " ") || review.comments?.split("\n")[0] || "Event"}
                                 </p>
-                              )}
-                            </div>
-                            <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                              {formatDate(review.createdAt)}
+                                {review.comments && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {review.comments}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                                {formatDate(review.createdAt)}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed bg-muted/10 p-6 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        No technical reviews available.
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed bg-muted/10 p-6 text-center">
@@ -629,6 +687,18 @@ export default function ProposalDetailPage() {
               <DetailLine
                 label="Submitted"
                 value={proposal.submittedAt ? "Yes" : "No"}
+              />
+              <DetailLine
+                label="Start Date"
+                value={formatDate(proposal.startDate)}
+              />
+              <DetailLine
+                label="End Date"
+                value={formatDate(proposal.endDate)}
+              />
+              <DetailLine
+                label="Budget Requested"
+                value={proposal.budgetRequested ? `ETB ${proposal.budgetRequested}` : "Not set"}
               />
               <DetailLine
                 label="Created"
@@ -686,6 +756,63 @@ export default function ProposalDetailPage() {
                   </p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-primary/10">
+            <CardHeader className="border-b py-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Files & Signature
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-3">
+              {proposal.proposalFile ? (
+                <a
+                  href={proposal.proposalFile}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Proposal Document
+                </a>
+              ) : null}
+              {proposal.updatedProposal ? (
+                <a
+                  href={proposal.updatedProposal}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Updated Proposal
+                </a>
+              ) : null}
+              {proposal.supportingDocs ? (
+                <a
+                  href={proposal.supportingDocs}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Supporting Documents
+                </a>
+              ) : null}
+              {proposal.signature ? (
+                <div className="rounded-xl border p-3">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Digital Signature
+                  </p>
+                  <img
+                    src={proposal.signature}
+                    alt="Proposal signature"
+                    className="mt-2 h-32 w-full max-w-full object-contain rounded-lg border"
+                  />
+                </div>
+              ) : null}
+              {!proposal.proposalFile && !proposal.updatedProposal && !proposal.supportingDocs && !proposal.signature ? (
+                <p className="text-sm text-muted-foreground">
+                  No files or signature available.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 

@@ -5,6 +5,42 @@ import { z } from "zod";
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 
+function toCamelCase(key: string): string {
+  return key.replace(/_([a-z])/g, (_, char) => char.toUpperCase());
+}
+
+function camelize(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(camelize);
+  }
+
+  if (value && typeof value === "object" && value.constructor === Object) {
+    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, rawValue]) => {
+      const transformedValue = camelize(rawValue);
+      acc[toCamelCase(key)] = transformedValue;
+      acc[key] = rawValue;
+      return acc;
+    }, {});
+  }
+
+  return value;
+}
+
+function normalizeProposalPayload(payload: unknown): unknown {
+  const data = payload as unknown;
+  if (data === null || data === undefined) {
+    return data;
+  }
+  const camelized = camelize(data);
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    return {
+      ...(data as Record<string, unknown>),
+      ...(camelized as Record<string, unknown>),
+    };
+  }
+  return camelized;
+}
+
 export const ProposalStatusSchema = z.enum([
   "draft",
   "submitted",
@@ -16,6 +52,9 @@ export const ProposalStatusSchema = z.enum([
   "in_progress",
   "completed",
   "terminated",
+  "screening_under_review",
+  "screening_approved",
+  "screening_rejected",
 ]);
 
 export const ScreeningStatusSchema = z.enum([
@@ -39,7 +78,7 @@ export const ProposalSchema = z.object({
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
   submittedAt: z.string().optional(),
-});
+}).passthrough();
 
 const ManagedProposalUserSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
@@ -69,7 +108,7 @@ const ManagedProposalQueueItemSchema = z.object({
     })
     .optional()
     .nullable(),
-  status: ScreeningStatusSchema,
+  status: ProposalStatusSchema,
   call: z
     .object({
       id: z.union([z.string(), z.number()]).transform(String),
@@ -120,6 +159,7 @@ const ManagedProposalTeamMemberSchema = z.object({
 
 const ManagedProposalDetailSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
+  screeningId: z.union([z.string(), z.number()]).transform(String).optional(),
   referenceNumber: z.string().optional().default(""),
   title: z.string(),
   abstract: z.string().optional().default(""),
@@ -202,8 +242,8 @@ const ManagedProposalDetailSchema = z.object({
   lastSubmittedAt: z.string().optional().nullable(),
   signature: z.unknown().nullable().optional(),
   workflowState: z.string().optional().nullable(),
-  status: ScreeningStatusSchema,
-});
+  status: ProposalStatusSchema,
+}).passthrough();
 
 const ProposalsListSchema = z.object({
   data: z.array(ProposalSchema),
@@ -275,7 +315,7 @@ export async function getProposals(
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.LIST, {
     params: filters,
   });
-  return ProposalsListSchema.parse(res.data);
+  return ProposalsListSchema.parse(normalizeProposalPayload(res.data));
 }
 
 export async function getManagedProposals(
@@ -284,26 +324,28 @@ export async function getManagedProposals(
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.MANAGE, {
     params: filters,
   });
-  return ManagedProposalsListSchema.parse(res.data);
+  return ManagedProposalsListSchema.parse(normalizeProposalPayload(res.data));
 }
 
 export async function getProposalById(id: string): Promise<Proposal> {
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.DETAIL(id));
-  return ProposalSchema.parse(res.data?.data ?? res.data);
+  const payload = normalizeProposalPayload(res.data?.data ?? res.data);
+  return ProposalSchema.parse(payload);
 }
 
 export async function getManagedProposalById(
   id: string | number,
 ): Promise<ManagedProposalDetail> {
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.MANAGE_DETAIL(id));
-  return ManagedProposalDetailSchema.parse(res.data?.data ?? res.data);
+  const payload = normalizeProposalPayload(res.data?.data ?? res.data);
+  return ManagedProposalDetailSchema.parse(payload);
 }
 
 export async function createProposal(
   data: Partial<Proposal>,
 ): Promise<Proposal> {
   const res = await apiClient.post(API_ENDPOINTS.PROPOSALS.CREATE, data);
-  return ProposalSchema.parse(res.data?.data ?? res.data);
+  return ProposalSchema.parse(normalizeProposalPayload(res.data?.data ?? res.data));
 }
 
 export async function updateProposal(
@@ -311,12 +353,12 @@ export async function updateProposal(
   data: Partial<Proposal>,
 ): Promise<Proposal> {
   const res = await apiClient.patch(API_ENDPOINTS.PROPOSALS.UPDATE(id), data);
-  return ProposalSchema.parse(res.data?.data ?? res.data);
+  return ProposalSchema.parse(normalizeProposalPayload(res.data?.data ?? res.data));
 }
 
 export async function submitProposal(id: string): Promise<Proposal> {
   const res = await apiClient.post(API_ENDPOINTS.PROPOSALS.SUBMIT(id), {});
-  return ProposalSchema.parse(res.data?.data ?? res.data);
+  return ProposalSchema.parse(normalizeProposalPayload(res.data?.data ?? res.data));
 }
 
 export async function assignReviewers(

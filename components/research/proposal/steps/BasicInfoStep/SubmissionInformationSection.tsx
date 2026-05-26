@@ -27,6 +27,8 @@ import { useOfficesForSelect } from "@/lib/queries/office";
 export function SubmissionInformationSection() {
   const form = useFormContext<ProposalFormInput>();
   const submissionLevel = form.watch("submissionLevel");
+  const receivingOffice = form.watch("receivingOffice");
+  const officeToSubmit = form.watch("officeToSubmit");
 
   const useReceivingOfficeOptions = useCallback(
     (params?: { search?: string; limit?: number }) => {
@@ -47,6 +49,27 @@ export function SubmissionInformationSection() {
       form.setValue("submissionLevel", value);
       form.setValue("officeToSubmit", undefined);
       form.setValue("receivingOffice", undefined);
+      // Clear any backend validation errors for these fields
+      form.clearErrors("officeToSubmit");
+      form.clearErrors("receivingOffice");
+    },
+    [form],
+  );
+
+  const handleReceivingOfficeChange = useCallback(
+    (value: string) => {
+      form.setValue("receivingOffice", value);
+      // Clear backend validation error when user fixes the field
+      form.clearErrors("receivingOffice");
+    },
+    [form],
+  );
+
+  const handleOfficeToSubmitChange = useCallback(
+    (value: string) => {
+      form.setValue("officeToSubmit", value);
+      // Clear backend validation error when user fixes the field
+      form.clearErrors("officeToSubmit");
     },
     [form],
   );
@@ -108,7 +131,7 @@ export function SubmissionInformationSection() {
                   <SearchableSelect
                     key={`office-${submissionLevel || ""}`}
                     value={field.value || ""}
-                    onValueChange={field.onChange}
+                    onValueChange={handleOfficeToSubmitChange}
                     useQueryHook={useOfficeSubmitOptions}
                     getOptionValue={(office: any) => String(office.id)}
                     getOptionLabel={(office: any) => office.name}
@@ -140,7 +163,7 @@ export function SubmissionInformationSection() {
                   <SearchableSelect
                     key="receiving-office"
                     value={String(field.value || "")}
-                    onValueChange={field.onChange}
+                    onValueChange={handleReceivingOfficeChange}
                     useQueryHook={useReceivingOfficeOptions}
                     getOptionValue={(office: any) => String(office.id)}
                     getOptionLabel={(office: any) => office.name}

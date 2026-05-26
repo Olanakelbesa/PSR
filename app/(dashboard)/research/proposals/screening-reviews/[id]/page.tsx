@@ -258,7 +258,7 @@ export default function ScreeningDetailPage() {
           const { getReviewHistory } = await import("@/api/services");
           
           // Get screening ID from response or find it
-          let screeningId = response.screening_id;
+          let screeningId = response.screeningId ?? response.screening_id;
           if (!screeningId) {
             const screening = await findScreeningByProposal(response.id);
             screeningId = screening?.id;
@@ -277,7 +277,7 @@ export default function ScreeningDetailPage() {
         }
         
         setProposal(mappedProposal);
-        setScreeningId(response.screening_id || response.id);
+        setScreeningId(response.screeningId ?? response.screening_id ?? response.id);
       } catch (error) {
         console.error("Error loading proposal:", error);
         toast.error("Failed to load proposal details");
