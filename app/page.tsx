@@ -631,17 +631,17 @@ export default function LandingPage() {
                   {[
                     {
                       title: "Smart Search",
-                      desc: "Search related policies and .",
+                      desc: "Quickly find research papers, policies, guidelines, and related institutional documents through intelligent search.",
                       icon: Network,
                     },
                     {
-                      title: "Board Portals",
-                      desc: "Dedicated interfaces for reviewers.",
+                      title: "Lifecycle Management",
+                      desc: "Manage document submission, review, approval, updates, and archival within a centralized workflow.",
                       icon: Users,
                     },
                     {
-                      title: "Compliance Guard",
-                      desc: "Real-time auditing engine.",
+                      title: "Secured System",
+                      desc: "Protect sensitive research and policy data with role-based access, secure authentication, and controlled permissions.",
                       icon: Lock,
                     },
                   ].map((item, i) => (

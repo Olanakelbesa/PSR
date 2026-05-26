@@ -4,6 +4,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
+  AlertCircle,
   ChevronLeft,
   Save,
   Send,
@@ -53,12 +54,88 @@ import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import RichTextEditor from "@/components/RichTextEditor";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   updateGrantCall,
   publishGrantCall,
 } from "@/api/services/grant-calls.service";
 import { useProposalTypes } from "@/lib/queries/proposal-type";
 import { useGrantCall } from "@/lib/queries/grant-calls";
+
+function resolveImageUrl(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    if (
+      value.startsWith("http://") ||
+      value.startsWith("https://") ||
+      value.startsWith("/")
+    ) {
+      return value;
+    }
+    return `/${value.replace(/^\/+/, "")}`;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (
+      resolveImageUrl(record.url) ??
+      resolveImageUrl(record.path) ??
+      resolveImageUrl(record.file) ??
+      resolveImageUrl(record.image) ??
+      null
+    );
+  }
+  return null;
+}
+
+const InstallmentPlansPayloadSchema = z
+  .array(
+    z.object({
+      installment_number: z.number(),
+      percentage: z.number().min(0),
+    }),
+  )
+  .superRefine((plans, ctx) => {
+    const total = plans.reduce((sum, plan) => sum + plan.percentage, 0);
+    if (Math.abs(total - 100) > 0.01) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Installment percentages must sum to 100 (got ${total.toFixed(2)}).`,
+      });
+    }
+  });
+
+function extractFirstErrorMessage(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.trim().length > 0 ? value : null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = extractFirstErrorMessage(item);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const orderedKeys = ["message", "error", "details"];
+
+    for (const key of orderedKeys) {
+      if (key in record) {
+        const nested = extractFirstErrorMessage(record[key]);
+        if (nested) return nested;
+      }
+    }
+
+    for (const nestedValue of Object.values(record)) {
+      const nested = extractFirstErrorMessage(nestedValue);
+      if (nested) return nested;
+    }
+  }
+
+  return null;
+}
 
 export default function EditCallPage() {
   const router = useRouter();
@@ -77,8 +154,14 @@ export default function EditCallPage() {
   const [openDate, setOpenDate] = useState("");
   const [closeDate, setCloseDate] = useState("");
 
-  const [installments, setInstallments] = useState<Array<{ id: number; percentage: number }>>([]);
+  const [installments, setInstallments] = useState<
+    Array<{ id: number; percentage: number }>
+  >([]);
   const [errors, setErrors] = useState<any>(null);
+
+  const installmentsTooHigh = useMemo(() => {
+    return installments.reduce((sum, i) => sum + i.percentage, 0) > 100;
+  }, [installments]);
 
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -131,11 +214,18 @@ export default function EditCallPage() {
           })),
         );
       }
-      if (call.thumbnailImage) {
-        setThumbnailPreview(call.thumbnailImage);
+      const thumbnailSource =
+        resolveImageUrl(call.thumbnailImage) ??
+        resolveImageUrl((call as Record<string, unknown>).thumbnail_image);
+      const bannerSource =
+        resolveImageUrl(call.bannerImage) ??
+        resolveImageUrl((call as Record<string, unknown>).banner_image);
+
+      if (thumbnailSource) {
+        setThumbnailPreview(thumbnailSource);
       }
-      if (call.bannerImage) {
-        setBannerPreview(call.bannerImage);
+      if (bannerSource) {
+        setBannerPreview(bannerSource);
       }
       setHasInitialized(true);
     }
@@ -156,6 +246,7 @@ export default function EditCallPage() {
 
   // Installment Logic
   const addInstallment = () => {
+    if (totalPercentage >= 100) return;
     const newId =
       installments.length > 0
         ? Math.max(...installments.map((i) => i.id)) + 1
@@ -164,7 +255,9 @@ export default function EditCallPage() {
   };
 
   const updatePercentage = (installmentId: number, value: string) => {
-    const percentage = parseInt(value) || 0;
+    let percentage = parseInt(value) || 0;
+    if (percentage > 100) percentage = 100;
+    if (percentage < 0) percentage = 0;
     setInstallments(
       installments.map((i) => (i.id === installmentId ? { ...i, percentage } : i)),
     );
@@ -300,6 +393,33 @@ export default function EditCallPage() {
     payloadOverride?: ReturnType<typeof buildGrantCallPayload>,
   ): Promise<string | number | null> {
     const payload = payloadOverride ?? buildGrantCallPayload();
+    const installmentValidation = InstallmentPlansPayloadSchema.safeParse(
+      payload.installment_plans,
+    );
+    if (!installmentValidation.success) {
+      const message =
+        installmentValidation.error.issues[0]?.message ??
+        "Installment percentages are invalid.";
+      setErrors({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid grant call data.",
+          details: {
+            installmentPlans: [message],
+          },
+        },
+      });
+      if (mode !== "autosave") {
+        toast.error(message);
+      }
+      const validationError = new Error(message) as Error & {
+        _persistFailed?: boolean;
+      };
+      validationError._persistFailed = true;
+      throw validationError;
+    }
+
     const signature = serializeGrantCallPayload(payload);
 
     if (mode === "autosave" && signature === lastSavedSignatureRef.current) {
@@ -339,13 +459,13 @@ export default function EditCallPage() {
       const savedId = await savePromise;
       return savedId;
     } catch (err) {
-      console.error(err);
       const envelope =
         (err as any)?.response?.data ?? (err as any)?.data ?? err;
       setErrors(envelope);
       const msg =
-        envelope?.error?.message ??
-        envelope?.message ??
+        extractFirstErrorMessage(envelope?.error?.details?.installmentPlans) ??
+        extractFirstErrorMessage(envelope?.error?.message) ??
+        extractFirstErrorMessage(envelope?.message) ??
         "Failed to save grant call";
       if (mode !== "autosave") {
         toast.error(msg);
@@ -366,10 +486,8 @@ export default function EditCallPage() {
       if (queued) {
         const queuedSignature = serializeGrantCallPayload(queued.payload);
         if (queuedSignature !== lastSavedSignatureRef.current) {
-          void persistGrantCall(queued.mode, queued.payload).catch((err) => {
-            if (queued.mode !== "autosave") {
-              console.error(err);
-            }
+          void persistGrantCall(queued.mode, queued.payload).catch(() => {
+            // errors are already surfaced through toast/inline state
           });
         }
       }
@@ -388,13 +506,13 @@ export default function EditCallPage() {
       toast.success("Grant call published");
       router.push(`/research/manage-grants/${savedId}`);
     } catch (err) {
-      console.error(err);
       if (err && (err as any)._persistFailed === undefined) {
         const envelope =
           (err as any)?.response?.data ?? (err as any)?.data ?? err;
         const msg =
-          envelope?.error?.message ??
-          envelope?.message ??
+          extractFirstErrorMessage(envelope?.error?.details?.installmentPlans) ??
+          extractFirstErrorMessage(envelope?.error?.message) ??
+          extractFirstErrorMessage(envelope?.message) ??
           "Failed to publish grant call";
         toast.error(msg);
       }
@@ -800,22 +918,29 @@ export default function EditCallPage() {
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
                     Total: {totalPercentage}%
+                    {installmentsTooHigh && (
+                      <span className="ml-2 text-destructive font-semibold">
+                        (Total exceeds 100%)
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={addInstallment}
+                      disabled={totalPercentage >= 100}
                     >
                       <Plus className="mr-2 h-4 w-4" /> Add Installment
                     </Button>
                   </div>
                 </div>
 
-                {errors?.error?.details?.installmentPlans && (
-                  <div className="text-xs text-destructive">
-                    Please fix the highlighted installment errors above.
-                  </div>
+                {installmentsTooHigh && (
+                  <p className="text-sm text-destructive font-semibold flex items-center gap-2 mt-4">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    Installment percentages cannot exceed 100%. Please adjust.
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -1063,6 +1188,7 @@ export default function EditCallPage() {
                   variant="outline"
                   className="w-full justify-start h-12 border-border/60 hover:bg-primary/5 hover:border-primary/30 transition-all shadow-xs group font-bold"
                   onClick={() => handleSubmit()}
+                  disabled={installmentsTooHigh}
                 >
                   <Save className="mr-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   Save Draft
@@ -1070,6 +1196,7 @@ export default function EditCallPage() {
                 <Button
                   className="w-full justify-start h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group font-black text-sm"
                   onClick={() => handlePublish()}
+                  disabled={installmentsTooHigh}
                 >
                   <Send className="mr-3 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                   Publish Call

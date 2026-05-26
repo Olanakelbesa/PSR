@@ -183,7 +183,14 @@ export default function EditPolicyDraftPage() {
   )
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
-  const canEditDraft = draftStatusValue === "resubmission_required" || draftStatusValue === "revision_requested";
+  const canEditDraft =
+    draftStatusValue === "draft" ||
+    draftStatusValue === "resubmission_required" ||
+    draftStatusValue === "revision_requested";
+  const canResubmitDraft =
+    draftStatusValue === "resubmission_required" ||
+    draftStatusValue === "revision_requested";
+  const canSubmitDraft = draftStatusValue === "draft";
 
   const draftConceptId = normalizedDraft.conceptNoteId || selectedConceptId;
   const { data: currentConceptDetail } = useConceptNoteDetail(
@@ -468,7 +475,7 @@ export default function EditPolicyDraftPage() {
     }
 
     if (!canEditDraft) {
-      toast.error("This draft is locked. Only resubmission-required drafts can be edited.");
+      toast.error("This draft is locked. Only drafts and resubmission-required drafts can be edited.");
       return;
     }
 
@@ -518,7 +525,7 @@ export default function EditPolicyDraftPage() {
     }
 
     if (!canEditDraft) {
-      toast.error("This draft is locked. Only resubmission-required drafts can be resubmitted.");
+      toast.error("This draft is locked. Only drafts and resubmission-required drafts can be submitted.");
       return;
     }
 
@@ -539,20 +546,30 @@ export default function EditPolicyDraftPage() {
 
     setIsSubmitting(true);
     try {
-      await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.RESUBMIT(id));
+      if (canSubmitDraft) {
+        await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(id));
+      } else {
+        await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.RESUBMIT(id));
+      }
 
-      // Invalidate caches so UI reflects backend state (under_review/resubmitted)
+      // Invalidate caches so UI reflects backend state after submit/resubmit
       queryClient.invalidateQueries({ queryKey: ["policy-draft", id] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
 
-      toast.success("Policy draft resubmitted for expert review");
+      toast.success(
+        canSubmitDraft
+          ? "Policy draft submitted for expert review"
+          : "Policy draft resubmitted for expert review",
+      );
       router.push("/policies/drafts/my-drafts");
     } catch (error: any) {
       toast.error(
         formatApiError(
           error,
-          "An error occurred while resubmitting the policy draft",
+          canSubmitDraft
+            ? "An error occurred while submitting the policy draft"
+            : "An error occurred while resubmitting the policy draft",
         ),
       );
     } finally {
@@ -920,29 +937,53 @@ export default function EditPolicyDraftPage() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Status</span>
                   <Badge variant="outline" className="bg-background">
-                    {canEditDraft ? "Resubmission Required" : "Locked"}
+                    {canResubmitDraft
+                      ? "Resubmission Required"
+                      : canSubmitDraft
+                      ? "Draft"
+                      : "Locked"}
                   </Badge>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {canEditDraft
+                  {canResubmitDraft
                     ? "Update the draft, then resubmit it for expert review when ready."
-                    : "Submitted drafts are locked. Only drafts returned for resubmission can be edited."}
+                    : canSubmitDraft
+                    ? "You can update this draft before submission."
+                    : "Submitted drafts are locked. Only drafts and drafts returned for resubmission can be edited."}
                 </p>
               </div>
 
-              <Button
-                type="button"
-                className="w-full h-11"
-                disabled={!canEditDraft || isSaving || isSubmitting}
-                onClick={handleSubmit}
-              >
-                {isSaving || isSubmitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                {canEditDraft ? "Resubmit" : "Locked"}
-              </Button>
+              {canSubmitDraft && (
+                <Button
+                  type="button"
+                  className="w-full h-11 bg-primary hover:bg-primary/90"
+                  disabled={!canEditDraft || isSubmitting}
+                  onClick={handleSubmit}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Submit
+                </Button>
+              )}
+
+              {canResubmitDraft && (
+                <Button
+                  type="button"
+                  className="w-full h-11"
+                  disabled={!canEditDraft || isSaving || isSubmitting}
+                  onClick={handleSubmit}
+                >
+                  {isSaving || isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Resubmit
+                </Button>
+              )}
 
               <Button
                 type="button"

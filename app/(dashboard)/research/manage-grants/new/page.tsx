@@ -73,12 +73,30 @@ import { cn } from "@/lib/utils";
 import RichTextEditor from "@/components/RichTextEditor";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   createGrantCall,
   updateGrantCall,
   publishGrantCall,
 } from "@/api/services/grant-calls.service";
 import { useProposalTypes } from "@/lib/queries/proposal-type";
+
+const InstallmentPlansPayloadSchema = z
+  .array(
+    z.object({
+      installment_number: z.number(),
+      percentage: z.number().min(0),
+    }),
+  )
+  .superRefine((plans, ctx) => {
+    const total = plans.reduce((sum, plan) => sum + plan.percentage, 0);
+    if (Math.abs(total - 100) > 0.01) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Installment percentages must sum to 100 (got ${total.toFixed(2)}).`,
+      });
+    }
+  });
 
 export default function NewGrantPage() {
   const [title, setTitle] = useState("");
@@ -137,28 +155,43 @@ export default function NewGrantPage() {
 
   // Installment Logic
   const addInstallment = () => {
-    const newId =
-      installments.length > 0
-        ? Math.max(...installments.map((i) => i.id)) + 1
-        : 1;
-    setInstallments([...installments, { id: newId, percentage: 0 }]);
+    setInstallments((prev) => {
+      const total = prev.reduce((sum, item) => sum + item.percentage, 0);
+      if (total >= 100) {
+        toast.warning("Installment total is already 100%. Reduce one row before adding another.");
+        return prev;
+      }
+
+      const newId = prev.length > 0 ? Math.max(...prev.map((i) => i.id)) + 1 : 1;
+      return [...prev, { id: newId, percentage: 0 }];
+    });
   };
 
   const removeInstallment = (id: number) => {
-    setInstallments(installments.filter((i) => i.id !== id));
+    setInstallments((prev) => prev.filter((i) => i.id !== id));
   };
 
   const updatePercentage = (id: number, value: string) => {
-    const percentage = parseInt(value) || 0;
-    setInstallments(
-      installments.map((i) => (i.id === id ? { ...i, percentage } : i)),
-    );
+    const nextPercentage = Math.max(0, parseInt(value) || 0);
+    setInstallments((prev) => {
+      const otherPercentages = prev.reduce(
+        (sum, installment) =>
+          installment.id === id ? sum : sum + installment.percentage,
+        0,
+      );
+      const maxAllowed = Math.max(0, 100 - otherPercentages);
+      const percentage = Math.min(nextPercentage, maxAllowed);
+
+      return prev.map((i) => (i.id === id ? { ...i, percentage } : i));
+    });
   };
 
   const totalPercentage = installments.reduce(
     (sum, i) => sum + i.percentage,
     0,
   );
+  const installmentsTooHigh = totalPercentage > 100;
+  const remainingPercentage = Math.max(0, 100 - totalPercentage);
 
   // Progress Calculation
   const progress = useMemo(() => {
@@ -269,6 +302,33 @@ export default function NewGrantPage() {
     payloadOverride?: ReturnType<typeof buildGrantCallPayload>,
   ): Promise<string | number | null> {
     const payload = payloadOverride ?? buildGrantCallPayload();
+    const installmentValidation = InstallmentPlansPayloadSchema.safeParse(
+      payload.installment_plans,
+    );
+    if (!installmentValidation.success) {
+      const message =
+        installmentValidation.error.issues[0]?.message ??
+        "Installment percentages are invalid.";
+      setErrors({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Invalid grant call data.",
+          details: {
+            installmentPlans: [message],
+          },
+        },
+      });
+      if (mode !== "autosave") {
+        toast.error(message);
+      }
+      const validationError = new Error(message) as Error & {
+        _persistFailed?: boolean;
+      };
+      validationError._persistFailed = true;
+      throw validationError;
+    }
+
     const signature = serializeGrantCallPayload(payload);
 
     if (mode === "autosave" && signature === lastSavedSignatureRef.current) {
@@ -315,7 +375,6 @@ export default function NewGrantPage() {
       const savedId = await savePromise;
       return savedId;
     } catch (err) {
-      console.error(err);
       const envelope =
         (err as any)?.response?.data ?? (err as any)?.data ?? err;
       setErrors(envelope);
@@ -342,10 +401,8 @@ export default function NewGrantPage() {
       if (queued) {
         const queuedSignature = serializeGrantCallPayload(queued.payload);
         if (queuedSignature !== lastSavedSignatureRef.current) {
-          void persistGrantCall(queued.mode, queued.payload).catch((err) => {
-            if (queued.mode !== "autosave") {
-              console.error(err);
-            }
+          void persistGrantCall(queued.mode, queued.payload).catch(() => {
+            // errors are already surfaced through toast/inline state
           });
         }
       }
@@ -364,7 +421,6 @@ export default function NewGrantPage() {
       toast.success("Grant call published");
       router.push(`/research/manage-grants/${savedId}`);
     } catch (err) {
-      console.error(err);
       // If persistGrantCall failed, it already showed a toast error (since mode !== "autosave").
       // But if publishGrantCall failed (which happened after savedId was successfully returned),
       // we need to toast the publish error:
@@ -713,6 +769,9 @@ export default function NewGrantPage() {
                           </Label>
                           <Input
                             type="number"
+                            min={0}
+                            max={100}
+                            step={1}
                             value={String(it.percentage)}
                             onChange={(e) =>
                               updatePercentage(it.id, e.target.value)
@@ -754,9 +813,24 @@ export default function NewGrantPage() {
                   </div>
                 </div>
 
+                {installmentsTooHigh ? (
+                  <div className="text-sm text-destructive font-medium">
+                    Installment percentages cannot exceed 100%. Reduce the values
+                    above before saving.
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    Remaining allowance: {remainingPercentage}%
+                  </div>
+                )}
+
                 {errors?.error?.details?.installmentPlans && (
-                  <div className="text-xs text-destructive">
-                    Please fix the highlighted installment errors above.
+                  <div className="text-xs text-destructive space-y-1">
+                    {errors.error.details.installmentPlans.map(
+                      (message: string, index: number) => (
+                        <p key={`${message}-${index}`}>{message}</p>
+                      ),
+                    )}
                   </div>
                 )}
               </div>
@@ -1005,6 +1079,7 @@ export default function NewGrantPage() {
                   variant="outline"
                   className="w-full justify-start h-12 border-border/60 hover:bg-primary/5 hover:border-primary/30 transition-all shadow-xs group font-bold"
                   onClick={() => handleSubmit()}
+                  disabled={installmentsTooHigh}
                 >
                   <Save className="mr-3 h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   Save Draft
@@ -1012,6 +1087,7 @@ export default function NewGrantPage() {
                 <Button
                   className="w-full justify-start h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group font-black text-sm"
                   onClick={() => handlePublish()}
+                  disabled={installmentsTooHigh}
                 >
                   <Send className="mr-3 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                   Publish Call

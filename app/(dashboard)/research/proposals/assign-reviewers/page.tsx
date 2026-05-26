@@ -28,6 +28,7 @@ import { getScreenings, type Screening } from "@/api/services";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { useServerPermissions } from "@/lib/queries/useServerPermissions";
 
 type ScreeningRow = Screening & {
   proposalId: string;
@@ -47,6 +48,7 @@ export default function AssignReviewersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const { hasPermission } = useServerPermissions();
 
   const formatProposalReference = (id: string | number) =>
     String(id)
@@ -235,16 +237,18 @@ export default function AssignReviewersPage() {
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem asChild>
-              <Link
-                href={`/research/proposals/assign-reviewers/${String(row.original.id)}/assign`}
-                className="flex items-center gap-2"
-              >
-                <UserPlus className="size-4" />
-                Assign Reviewers
-              </Link>
-            </DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="w-48">
+                  {hasPermission("policy_proposals.assign_reviewer") && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/research/proposals/assign-reviewers/${String(row.original.id)}/assign`}
+                        className="flex items-center gap-2"
+                      >
+                        <UserPlus className="size-4" />
+                        Assign Reviewers
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
             <DropdownMenuItem asChild>
               <Link
                 href={`/research/proposals/${String(row.original.proposalId)}`}

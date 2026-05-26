@@ -102,9 +102,7 @@ export default function ThematicAreasPage() {
                 Research <span className="text-primary">Thematic Areas</span>
               </h1>
               <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
-                The PSR System is a centralized platform for policy research,
-                proposal management, and industry collaboration, helping
-                Ethiopian institutions turn evidence into action.
+                The Research and Policy Document Management System supports the organization, management, and accessibility of research and policy documents across key health and institutional focus areas.
               </p>
             </motion.div>
           </div>

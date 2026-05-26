@@ -261,7 +261,7 @@ export default function AttachmentsPage() {
                 Forms & <span className="text-primary">Downloadable Files</span>
               </h1>
               <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
-                The PSR System is a centralized platform for policy research, proposal management, and industry collaboration, helping Ethiopian institutions turn evidence into action.
+                Access essential research, policy, reporting, and administrative forms and downloadable documents through a centralized digital repository.
               </p>
             </motion.div>
           </div>

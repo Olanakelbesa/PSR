@@ -27,8 +27,7 @@ export function Footer() {
               </span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed font-bold max-w-xs">
-              The world's most advanced operating system for policy
-              intelligence and research lifecycles.
+              A modern digital platform for managing research and policy documents, workflows, collaboration, and institutional knowledge.
             </p>
             <div className="flex items-center gap-4">
               {[Globe, Users, Lock, BookOpen].map((Icon, i) => (

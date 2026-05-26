@@ -197,7 +197,7 @@ export default function PublicPublicationsPage() {
                 Publications & <span className="text-primary">Policy Repository</span>
               </h1>
               <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
-                The PSR System is a centralized platform for policy research, proposal management, and industry collaboration, helping Ethiopian institutions turn evidence into action.
+                A centralized repository for accessing research publications, policy documents, reports, guidelines, and institutional resources.
               </p>
             </motion.div>
           </div>

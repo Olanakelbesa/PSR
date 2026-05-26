@@ -262,8 +262,8 @@ export default function TerminalReportApprovalListPage() {
 
   return (
     <PageContainer
-      title="Terminal Report Approval"
-      description="Review submitted terminal reports and record closeout decisions."
+      title="Full Report Approval"
+      description="Review submitted full reports and record closeout decisions."
       actions={
         <Button
           variant="outline"

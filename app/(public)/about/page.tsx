@@ -17,6 +17,9 @@ import {
   GraduationCap,
   Cpu,
   Factory,
+  BookOpen,
+  Handshake as HandshakeIcon,
+
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -214,9 +217,7 @@ export default function AboutPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              The PSR System is a centralized platform for policy research,
-              proposal management, and industry collaboration, helping Ethiopian
-              institutions turn evidence into action.
+              The Research and Policy Document Management System is a centralized platform for managing research and policy documents, streamlining workflows, and supporting evidence-based decision-making across health institutions.
             </motion.p>
           </div>
         </section>
@@ -244,12 +245,10 @@ export default function AboutPage() {
                         <GraduationCap className="w-6 h-6" />
                       </div>
                       <h3 className="text-2xl font-bold mb-4">
-                        Our PSR Focus
+                        Our Research and Policy Focus
                       </h3>
                       <p className="text-muted-foreground leading-relaxed">
-                        We enable research proposals, policy development, and
-                        industry partnerships through a unified digital platform
-                        aligned with Ethiopia&apos;s development priorities.
+                        We enable efficient research and policy document management, review workflows, collaboration, and institutional coordination through a unified digital platform aligned with national health and development priorities.
                       </p>
                     </CardContent>
                   </Card>
@@ -271,10 +270,7 @@ export default function AboutPage() {
                       </div>
                       <h3 className="text-2xl font-bold mb-4">Our Mission</h3>
                       <p className="text-muted-foreground leading-relaxed">
-                        To empower students to excel as specialists and
-                        trailblazers. We ease the path from office proposal
-                        submission to budgeting and follow-up through our
-                        digital Research and Industry Linkage portal.
+                       To strengthen evidence-based decision-making by streamlining the management, submission, review, approval, and tracking of research and policy documents through a centralized digital Research and Policy Management System.
                       </p>
                     </CardContent>
                   </Card>
@@ -289,28 +285,28 @@ export default function AboutPage() {
                 <div className="relative pl-8 border-l-2 border-slate-200 dark:border-slate-700 space-y-10">
                   {[
                     {
-                      year: "2011",
+                      year: "2026",
                       title: "Foundation",
                       description:
-                        "Established as a specialized science and technology university for Ethiopia.",
+                        "Established as a centralized digital platform for managing research and policy documents within the Ministry of Health.",
                     },
                     {
                       year: "Growth",
                       title: "Platform Expansion",
                       description:
-                        "Expanded support for research proposals, reviews, and policy workflows.",
+                        "Expanded capabilities to support research documentation, policy development, review workflows, and institutional knowledge management.",
                     },
                     {
                       year: "Partnerships",
                       title: "Collaborative Reach",
                       description:
-                        "Connecting government, academia, and industry through a shared digital system.",
+                        "Connecting government institutions, healthcare professionals, researchers, and partners through a unified digital management system.",
                     },
                     {
                       year: "Today",
                       title: "Integrated Delivery",
                       description:
-                        "Operating as an integrated platform for research management and decision support.",
+                        "Operating as an integrated platform for research and policy document management, collaboration, tracking, and decision support.",
                       present: true,
                     },
                   ].map((item, idx) => (
@@ -360,7 +356,7 @@ export default function AboutPage() {
               <span className="text-accent font-semibold tracking-wider uppercase text-sm">
                 Key Focus Areas
               </span>
-              <h2 className="text-3xl font-bold mt-2">Pillars of the PSR System</h2>
+              <h2 className="text-3xl font-bold mt-2">Pillars of the Research and Policy Document Management System</h2>
             </motion.div>
             <motion.div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
@@ -370,24 +366,24 @@ export default function AboutPage() {
             >
               {[
                 {
-                  icon: Cpu,
-                  title: "Technology Transfer",
+                  icon: BookOpen,
+                  title: "Research Management",
                   description:
-                    "Bridging the gap between academic innovation and industrial application.",
+                    "Streamlining the submission, review, approval, and tracking of research documents across institutions and departments.",
                   colorClass: "bg-accent/10 text-accent",
                 },
                 {
-                  icon: Factory,
-                  title: "Industry Linkage",
+                  icon: Gavel,
+                  title: "Policy Development",
                   description:
-                    "Directly aligning research with the national industrial development agenda.",
+                    "Supporting the creation, evaluation, revision, and management of evidence-based health policies and strategic documents.",
                   colorClass: "bg-accent/10 text-accent",
                 },
                 {
-                  icon: Users,
-                  title: "Community Engagement",
+                  icon: Handshake,
+                  title: "Knowledge & Document Management",
                   description:
-                    "Translating research into tangible solutions for Ethiopian society.",
+                    "Providing centralized access to research outputs, policy documents, reports, and institutional records for informed decision-making.",
                   colorClass: "bg-accent/10 text-accent",
                 },
               ].map((item, idx) => (
@@ -422,10 +418,9 @@ export default function AboutPage() {
                   : { opacity: 0, y: 20 }
               }
             >
-              <h2 className="text-3xl font-bold">PSR System by the Numbers</h2>
+              <h2 className="text-3xl font-bold">Research and Policy System by the Numbers</h2>
               <p className="mt-4 text-muted-foreground">
-                Impactful statistics driving Ethiopia&apos;s policy research
-                and institutional collaboration.
+               Impactful statistics supporting health research, policy development, institutional collaboration, and evidence-based decision-making.
               </p>
             </motion.div>
             <motion.div

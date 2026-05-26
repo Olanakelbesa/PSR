@@ -34,6 +34,7 @@ import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared";
 import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
 import { POLICY_TYPES } from "@/lib/constants";
+import { useServerPermissions } from "@/lib/queries/useServerPermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -45,235 +46,7 @@ import {
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 
-const columns: ColumnDef<any>[] = [
-  {
-    accessorKey: "title",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent px-0"
-      >
-        Draft Document
-        <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const policy = row.original;
-      return (
-        <div className="flex flex-col gap-1.5 py-2 min-w-[280px] max-w-[400px]">
-          <Link
-            href={`/policies/drafts/manage-drafts/${policy.id}`}
-            className="font-bold text-[14px] leading-tight text-foreground hover:text-primary transition-colors line-clamp-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {policy.title}
-          </Link>
-          <p className="text-[12px] text-muted-foreground line-clamp-1">
-            {policy.organization?.name || "Department of Health Policy"}
-          </p>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "versionNumber",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent"
-      >
-        Version
-        <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const versionNumber = row.getValue("versionNumber") as string;
-      return (
-        <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20">
-          {versionNumber || "V1"}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: "docType",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent"
-      >
-        Type
-        <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const docType = row.original.docType;
-      return (
-        <Badge
-          variant="outline"
-          className="text-[11px] font-medium bg-muted/50 text-muted-foreground"
-        >
-          {docType?.name || "Policy"}
-        </Badge>
-      );
-    },
-    filterFn: (row, id, value) => {
-      return value === row.original.docType?.name;
-    },
-  },
-  {
-    accessorKey: "submittedBy",
-    header: () => <span className="ml-4 font-semibold">Submitted By</span>,
-    cell: ({ row }) => {
-      const submitter = row.original.submittedBy;
-      if (!submitter) {
-        return <span className="text-muted-foreground text-[12px] ml-4 font-medium italic">Anonymous</span>;
-      }
-      return (
-        <div className="flex items-center gap-2 ml-4">
-          <Avatar className="h-8 w-8 border shadow-sm ring-1 ring-border/50">
-            <AvatarImage src={submitter.photoUrl || undefined} />
-            <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-              {submitter.fullName?.split(" ").map((n: string) => n[0]).join("") || "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-foreground leading-tight">{submitter.fullName}</span>
-            <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{submitter.email}</span>
-          </div>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "updatedAt",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent"
-      >
-        Updated
-        <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const date = row.getValue("updatedAt") as string;
-      return (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>
-            {new Date(date).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "status",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="h-8 font-semibold hover:bg-transparent"
-      >
-        Status
-        <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const status = row.original.currentStatus;
-      const display = row.original.currentStatusDisplay || status;
-      
-      let badgeStyles = "bg-slate-100 text-slate-800 border-slate-200/50 hover:bg-slate-100";
-      if (["submitted", "resubmitted"].includes(status)) {
-        badgeStyles = "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50";
-      } else if (["under_review", "review_completed"].includes(status)) {
-        badgeStyles = "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50";
-      } else if (status === "psr_approved") {
-        badgeStyles = "bg-green-50 text-green-700 border-green-200 hover:bg-green-50";
-      } else if (status === "repository_registered") {
-        badgeStyles = "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50";
-      } else if (status === "resubmission_required") {
-        badgeStyles = "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50";
-      }
-      
-      return (
-        <Badge variant="outline" className={`font-semibold text-xs py-0.5 px-2.5 rounded-full ${badgeStyles}`}>
-          {display}
-        </Badge>
-      );
-    },
-    filterFn: (row, id, value) => {
-      return value === row.original.currentStatus;
-    },
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const policy = row.original;
 
-      return (
-        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full"
-              >
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-[180px] p-1 shadow-xl border-muted-foreground/20"
-            >
-              <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5 font-normal uppercase tracking-wider">
-                Draft Actions
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-muted/50" />
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/policies/drafts/manage-drafts/${policy.id}`}
-                  className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/policies/drafts/manage-drafts/${policy.id}/assign`}
-                  className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Assign Reviewers
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/policies/drafts/manage-drafts/${policy.id}/approve`}
-                  className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Approve
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      );
-    },
-  },
-];
 
 
 
@@ -292,6 +65,239 @@ export default function PolicyDraftsPage() {
 
   const { data: manageResponse, isLoading } = usePolicyDraftsManage();
   const policies = manageResponse?.data || [];
+  const { hasPermission } = useServerPermissions();
+
+  const columns: ColumnDef<any>[] = [
+    {
+      accessorKey: "title",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 font-semibold hover:bg-transparent px-0"
+        >
+          Draft Document
+          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const policy = row.original;
+        return (
+          <div className="flex flex-col gap-1.5 py-2 min-w-[280px] max-w-[400px]">
+            <Link
+              href={`/policies/drafts/manage-drafts/${policy.id}`}
+              className="font-bold text-[14px] leading-tight text-foreground hover:text-primary transition-colors line-clamp-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {policy.title}
+            </Link>
+            <p className="text-[12px] text-muted-foreground line-clamp-1">
+              {policy.organization?.name || "Department of Health Policy"}
+            </p>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "versionNumber",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 font-semibold hover:bg-transparent"
+        >
+          Version
+          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const versionNumber = row.getValue("versionNumber") as string;
+        return (
+          <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 border-muted-foreground/20">
+            {versionNumber || "V1"}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "docType",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 font-semibold hover:bg-transparent"
+        >
+          Type
+          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const docType = row.original.docType;
+        return (
+          <Badge
+            variant="outline"
+            className="text-[11px] font-medium bg-muted/50 text-muted-foreground"
+          >
+            {docType?.name || "Policy"}
+          </Badge>
+        );
+      },
+      filterFn: (row, id, value) => {
+        return value === row.original.docType?.name;
+      },
+    },
+    {
+      accessorKey: "submittedBy",
+      header: () => <span className="ml-4 font-semibold">Submitted By</span>,
+      cell: ({ row }) => {
+        const submitter = row.original.submittedBy;
+        if (!submitter) {
+          return <span className="text-muted-foreground text-[12px] ml-4 font-medium italic">Anonymous</span>;
+        }
+        return (
+          <div className="flex items-center gap-2 ml-4">
+            <Avatar className="h-8 w-8 border shadow-sm ring-1 ring-border/50">
+              <AvatarImage src={submitter.photoUrl || undefined} />
+              <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                {submitter.fullName?.split(" ").map((n: string) => n[0]).join("") || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-foreground leading-tight">{submitter.fullName}</span>
+              <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{submitter.email}</span>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "updatedAt",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 font-semibold hover:bg-transparent"
+        >
+          Updated
+          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const date = row.getValue("updatedAt") as string;
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>
+              {new Date(date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 font-semibold hover:bg-transparent"
+        >
+          Status
+          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const status = row.original.currentStatus;
+        const display = row.original.currentStatusDisplay || status;
+        
+        let badgeStyles = "bg-slate-100 text-slate-800 border-slate-200/50 hover:bg-slate-100";
+        if (["submitted", "resubmitted"].includes(status)) {
+          badgeStyles = "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50";
+        } else if (["under_review", "review_completed"].includes(status)) {
+          badgeStyles = "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50";
+        } else if (status === "psr_approved") {
+          badgeStyles = "bg-green-50 text-green-700 border-green-200 hover:bg-green-50";
+        } else if (status === "repository_registered") {
+          badgeStyles = "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50";
+        } else if (status === "resubmission_required") {
+          badgeStyles = "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50";
+        }
+        
+        return (
+          <Badge variant="outline" className={`font-semibold text-xs py-0.5 px-2.5 rounded-full ${badgeStyles}`}>
+            {display}
+          </Badge>
+        );
+      },
+      filterFn: (row, id, value) => {
+        return value === row.original.currentStatus;
+      },
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const policy = row.original;
+
+        return (
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 p-0 hover:bg-muted/80 rounded-full"
+                >
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-[180px] p-1 shadow-xl border-muted-foreground/20"
+              >
+                <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5 font-normal uppercase tracking-wider">
+                  Draft Actions
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-muted/50" />
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={`/policies/drafts/manage-drafts/${policy.id}`}
+                    className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                {hasPermission("policy_development.assign_reviewer") && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={`/policies/drafts/manage-drafts/${policy.id}/assign`}
+                      className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Assign Reviewers
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={`/policies/drafts/manage-drafts/${policy.id}/approve`}
+                    className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Approve
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+    },
+  ];
 
   const typeOptions = useMemo(() => {
     const uniqueTypes = new Set<string>();

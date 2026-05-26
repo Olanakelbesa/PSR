@@ -162,7 +162,8 @@ export async function getGrantCallById(
 }
 
 export async function createGrantCall(payload: GrantCallWriteInput) {
-  const request = buildGrantCallPayload(payload);
+  const { budget: _budget, ...createPayload } = payload;
+  const request = buildGrantCallPayload(createPayload as GrantCallWriteInput);
   const { data } = await apiClient.post(
     API_ENDPOINTS.GRANT_CALLS.LIST,
     request.body,
