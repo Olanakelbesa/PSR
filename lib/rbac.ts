@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — RBAC Utilities
+// RPDMS — RBAC Utilities
 // ============================================================================
 // Centralized role-based access control logic.
 // Use these helpers throughout UI instead of inline role checks.

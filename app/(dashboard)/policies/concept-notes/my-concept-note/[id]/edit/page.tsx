@@ -55,6 +55,7 @@ import { useUnits } from "@/lib/queries/units";
 import { getUnits as fetchUnitsForOrg } from "@/api/services/reference.service";
 import {
   useConceptNoteDetail,
+  useResubmitConceptNote,
   useSubmitConceptNote,
   useUpdateConceptNote,
 } from "@/lib/queries/concept-notes";
@@ -75,6 +76,7 @@ export default function EditConceptNotePage() {
   const { backendToken } = useAuth();
   const updateMutation = useUpdateConceptNote(backendToken);
   const submitMutation = useSubmitConceptNote(backendToken);
+  const resubmitMutation = useResubmitConceptNote(backendToken);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -107,6 +109,18 @@ export default function EditConceptNotePage() {
   const thematicAreas = thematicAreasResponse?.data ?? [];
   const { data: organizations = [], isLoading: isLoadingOrganizations } =
     useOrganizations();
+
+  const isRevisionRequired =
+    String(conceptNote?.currentStatus?.status ?? "")
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_") === "revision_required";
+  const isEditableState =
+    String(conceptNote?.currentStatus?.status ?? "")
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_") === "draft" || isRevisionRequired;
+  const submitActionLabel = isRevisionRequired
+    ? "Resubmit Proposal"
+    : "Submit for Review";
 
   
 
@@ -385,8 +399,13 @@ export default function EditConceptNotePage() {
       await updateMutation.mutateAsync({ id: conceptNoteId, payload });
 
       if (submitForReview) {
-        await submitMutation.mutateAsync(conceptNoteId);
-        toast.success("Concept note updated and submitted for review.");
+        if (isRevisionRequired) {
+          await resubmitMutation.mutateAsync({ id: conceptNoteId });
+          toast.success("Concept note updated and resubmitted successfully.");
+        } else {
+          await submitMutation.mutateAsync(conceptNoteId);
+          toast.success("Concept note updated and submitted for review.");
+        }
       } else {
         toast.success("Concept note updated successfully.");
       }
@@ -437,6 +456,27 @@ export default function EditConceptNotePage() {
     );
   }
 
+  if (!isEditableState) {
+    return (
+      <PageContainer title="Edit Concept Note">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-12 text-center">
+          <p className="font-semibold text-amber-900">
+            This concept note cannot be edited in its current state.
+          </p>
+          <p className="text-sm text-amber-800 mt-2 max-w-lg mx-auto">
+            Only drafts and revision-required concept notes can be edited. The current state is {conceptNote?.currentStatus?.status ?? "unknown"}.
+          </p>
+          <Button variant="outline" className="mt-4" asChild>
+            <Link href={`/policies/concept-notes/my-concept-note/${conceptNoteId}`}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Concept Note
+            </Link>
+          </Button>
+        </div>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer
       title="Edit Concept Note"
@@ -457,7 +497,9 @@ export default function EditConceptNotePage() {
             className="shadow-sm"
           >
             <Send className="mr-2 h-4 w-4" />
-            {isSaving ? "Saving..." : "Submit for Review"}
+            {isSaving
+              ? "Saving..."
+              : submitActionLabel}
           </Button>
         </div>
       }
@@ -1073,7 +1115,7 @@ export default function EditConceptNotePage() {
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
-                Submit for Review
+                {submitActionLabel}
               </Button>
               <div className="grid grid-cols-2 gap-2">
                 <Button

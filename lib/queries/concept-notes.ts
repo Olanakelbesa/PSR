@@ -5,6 +5,7 @@ import {
   getConceptNoteDetailById,
   getManageConceptNoteDetailById,
   approveConceptNote,
+  resubmitConceptNote,
   reviewConceptNote,
   type ConceptNoteDetail,
 } from "@/api/services/concept-notes.service";
@@ -228,6 +229,25 @@ export function useSubmitConceptNote(backendToken?: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    },
+  });
+}
+
+export function useResubmitConceptNote(backendToken?: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+    }: {
+      id: string | number;
+    }) => {
+      return resubmitConceptNote(id);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["concept-note-detail", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", variables.id] });
     },
   });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — Global Providers
+// RPDMS — Global Providers
 // ============================================================================
 // Wraps the entire app with:
 //   ✔ NextAuth SessionProvider (session available everywhere via useSession)

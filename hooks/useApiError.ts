@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — useApiError Hook
+// RPDMS — useApiError Hook
 // ============================================================================
 // Converts ApiError objects into user-friendly toast messages.
 // Usage:

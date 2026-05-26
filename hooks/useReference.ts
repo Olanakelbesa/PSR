@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — TanStack Query Hooks: Reference Data
+// RPDMS — TanStack Query Hooks: Reference Data
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.6, §3.7
 // All lookup/dropdown data is fetched through these hooks.

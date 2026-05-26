@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Canonical API Endpoint Registry
+// RPDMS — Canonical API Endpoint Registry
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.2
 //
@@ -81,6 +81,7 @@ export const API_ENDPOINTS = {
     CREATE: "/v1/concept-notes/",
     UPDATE: (id: string | number) => `/v1/concept-notes/${id}/`,
     SUBMIT: (id: string | number) => `/v1/concept-notes/${id}/submit/`,
+    RESUBMIT: (id: string | number) => `/v1/concept-notes/${id}/resubmit/`,
     REVIEW: (id: string | number) => `/v1/concept-notes/${id}/review/`,
     ASSIGN_REVIEWER: (id: string | number) =>
       `/v1/concept-notes/${id}/assign-reviewer/`,

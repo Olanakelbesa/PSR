@@ -138,7 +138,7 @@ export default function ManualsPage() {
       setDownloading(false);
       // Trigger small mock file download representing the guide book
       const element = document.createElement("a");
-      const file = new Blob(["PSR Platform Full System Documentation Guide Book (PDF Mock)"], { type: "text/plain" });
+      const file = new Blob(["RPDMS Full System Documentation Guide Book (PDF Mock)"], { type: "text/plain" });
       element.href = URL.createObjectURL(file);
       element.download = "PSR_Platform_User_Manual.pdf";
       document.body.appendChild(element);

@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — Login Page (NextAuth v5)
+// RPDMS — Login Page (NextAuth v5)
 // ============================================================================
 
 import { useState } from "react";
@@ -62,7 +62,7 @@ export default function LoginPage() {
         return;
       }
 
-      toast.success("Login Successful", { description: "Welcome to the PSR Platform!" });
+      toast.success("Login Successful", { description: "Welcome to the RPDMS!" });
       router.push("/dashboard");
       router.refresh();
     } catch {
@@ -95,7 +95,7 @@ export default function LoginPage() {
               </svg>
             </div>
             <div>
-              <span className="text-white font-bold text-lg">PSR Platform</span>
+              <span className="text-white font-bold text-lg">RPDMS</span>
               <p className="text-white/50 text-xs">Policy & Research System</p>
             </div>
           </div>
@@ -124,7 +124,7 @@ export default function LoginPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5z" />
               </svg>
             </div>
-            <span className="font-bold text-lg">PSR Platform</span>
+            <span className="font-bold text-lg">RPDMS</span>
           </div>
 
           <div className="mb-8">

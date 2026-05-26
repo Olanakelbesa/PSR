@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Auth Middleware (NextAuth v5)
+// RPDMS — Auth Middleware (NextAuth v5)
 // ============================================================================
 // Protects all dashboard routes server-side.
 // Unauthenticated users are redirected to /login automatically.

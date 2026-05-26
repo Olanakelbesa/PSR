@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Axios HTTP Client (Legacy Adapter)
+// RPDMS — Axios HTTP Client (Legacy Adapter)
 // ============================================================================
 // This file is kept for backward-compatibility with lib/queries/* imports.
 // New code should import from @/api/client instead.

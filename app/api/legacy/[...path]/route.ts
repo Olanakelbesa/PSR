@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Legacy Catch-all Proxy: /api/[...path]
+// RPDMS — Legacy Catch-all Proxy: /api/[...path]
 // ============================================================================
 // NOTE: The canonical proxy is now at /api/proxy/[...path]/route.ts
 // This file is kept as a fallback for any existing calls that still

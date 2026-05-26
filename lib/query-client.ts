@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — TanStack Query Client (Singleton)
+// RPDMS — TanStack Query Client (Singleton)
 // ============================================================================
 // Configured with enterprise-grade defaults:
 //   ✔ 5-minute stale time (reduces redundant fetches)

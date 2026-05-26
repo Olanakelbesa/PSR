@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — TanStack Query Hooks: Concept Notes
+// RPDMS — TanStack Query Hooks: Concept Notes
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.6, §3.7
 // Components must consume data ONLY through these hooks.

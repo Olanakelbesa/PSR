@@ -252,7 +252,7 @@ export default function SignupPage() {
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight">PSR Platform</h2>
+              <h2 className="text-xl font-bold tracking-tight">RPDMS</h2>
               <p className=" text-white/70  font-medium ">Policy & Research</p>
             </div>
           </div>

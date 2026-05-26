@@ -119,6 +119,7 @@ export default function ConceptNoteDetailPage() {
     note.versions?.find((v: any) => v.isLatest)?.versionNumber ??
     "v1.0.0";
   const currentStatus = note.currentStatus?.status ?? "Unknown";
+  const statusKey = String(currentStatus).toLowerCase().replace(/[\s-]+/g, "_");
   const submittedAt =
     note.submittedBy?.submittedAt ??
     note.versions?.[0]?.createdAt ??
@@ -127,8 +128,9 @@ export default function ConceptNoteDetailPage() {
   const executiveSummary = note.overview?.executiveSummary ?? "";
   const submittedByName = note.submittedBy?.fullName ?? "Unknown";
   const submittedByImage = note.submittedBy?.photoUrl ?? "";
-  const submittedByOrganization = "Ministry of Health";
+  const submittedByOrganization = note.organization?.name ?? "Unknown Organization";
   const isDraft = String(currentStatus).toLowerCase() === "draft";
+  const isRevisionRequired = statusKey === "revision_required";
 
   return (
     <PageContainer
@@ -151,6 +153,17 @@ export default function ConceptNoteDetailPage() {
               <Link href={`/policies/concept-notes/my-concept-note/${note.id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
+              </Link>
+            </Button>
+          )}
+          {isRevisionRequired && (
+            <Button
+              asChild
+              className="shadow-sm bg-amber-600 hover:bg-amber-700"
+            >
+              <Link href={`/policies/concept-notes/my-concept-note/${note.id}/edit`}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Resubmit Proposal
               </Link>
             </Button>
           )}
@@ -177,6 +190,18 @@ export default function ConceptNoteDetailPage() {
                 <Badge variant="secondary" className="text-[10px] uppercase">
                   {currentStatus}
                 </Badge>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted-foreground">Organization</span>
+                <span className="text-sm font-medium text-right">
+                  {note.organization?.name ?? "Unknown"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm text-muted-foreground">Unit</span>
+                <span className="text-sm font-medium text-right">
+                  {note.unit?.name ?? "Unknown"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Concept ID</span>
@@ -249,6 +274,19 @@ export default function ConceptNoteDetailPage() {
                   <Link href={`/policies/concept-notes/my-concept-note/${note.id}/edit`}>
                     <Edit className="mr-2 h-4 w-4 text-muted-foreground" />
                     Edit Concept
+                  </Link>
+                </Button>
+              )}
+              {isRevisionRequired && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start h-9 text-sm"
+                  asChild
+                >
+                  <Link href={`/policies/concept-notes/my-concept-note/${note.id}/edit`}>
+                    <RefreshCw className="mr-2 h-4 w-4 text-muted-foreground" />
+                    Resubmit Proposal
                   </Link>
                 </Button>
               )}

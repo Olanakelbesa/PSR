@@ -11,11 +11,11 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "PSR Platform",
-    template: "%s | PSR Platform",
+    default: "RPDMS",
+    template: "%s | RPDMS",
   },
   description:
-    "Policy & Research Platform. Manage policy documents, research proposals, and academic partnerships.",
+    "Research and Policy Documents Management System",
 };
 
 export default async function RootLayout({

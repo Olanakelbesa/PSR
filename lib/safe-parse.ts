@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Zod Validation Safe-Parse Utility
+// RPDMS — Zod Validation Safe-Parse Utility
 // ============================================================================
 // Guards every API response against shape mismatches.
 // Throw early at the service layer rather than crashing silently in UI.

@@ -38,7 +38,7 @@ export default function StatsStrip({ overview }: { overview?: Overview }) {
 
           <div className="bg-card p-6 rounded-2xl text-center">
             <p className="text-3xl font-bold">{fmt(institutions)}</p>
-            <p className="text-xs uppercase text-muted-foreground mt-2">Institutions using system</p>
+            <p className="text-xs uppercase text-muted-foreground mt-2">Total repository files</p>
           </div>
         </div>
       </div>

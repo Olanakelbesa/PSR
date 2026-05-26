@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — NextAuth v5 Route Handler
+// RPDMS — NextAuth v5 Route Handler
 // ============================================================================
 
 import NextAuth, { type Session } from "next-auth";

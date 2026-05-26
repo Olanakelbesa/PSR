@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — API Services Barrel Export
+// RPDMS — API Services Barrel Export
 // ============================================================================
 // Import services from here for a clean import path:
 //   import { login, logout } from "@/api/services"

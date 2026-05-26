@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — TanStack Query Hooks: Proposals
+// RPDMS — TanStack Query Hooks: Proposals
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.6, §3.7
 

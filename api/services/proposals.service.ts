@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Service Layer: Proposals
+// RPDMS — Service Layer: Proposals
 // ============================================================================
 import { z } from "zod";
 import apiClient from "@/api/client";

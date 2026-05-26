@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — TanStack Query Hooks: Grants & Projects
+// RPDMS — TanStack Query Hooks: Grants & Projects
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.6, §3.7
 

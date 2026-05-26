@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — usePermission Hook
+// RPDMS — usePermission Hook
 // ============================================================================
 // Provides RBAC capabilities to any client component.
 // Usage:

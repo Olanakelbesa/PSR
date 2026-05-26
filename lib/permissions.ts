@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Permissions Configuration
+// RPDMS — Permissions Configuration
 // ============================================================================
 // Centralized configuration for all permission strings used in the application.
 // These map to the permissions returned by the backend user profile API.

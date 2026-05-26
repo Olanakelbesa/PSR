@@ -14,7 +14,7 @@ export function Footer() {
                 <FileText className="h-6 w-6 text-primary-foreground" />
               </div>
               <span className="text-xl font-bold tracking-tighter uppercase">
-                PSR <span className="text-primary">Global</span>
+                <span className="text-primary">RPDMS</span>
               </span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed font-bold max-w-xs">
@@ -93,7 +93,7 @@ export function Footer() {
           </div>
         </div>
         <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-[9px] text-muted-foreground font-bold uppercase tracking-widest">
-          <p>© 2026 PSR Global Intelligence.</p>
+          <p>&copy; 2026 RPDMS | Research and Policy Documents Management System.</p>
           <div className="flex items-center gap-10">
             <Link href="#" className="hover:text-primary transition-colors">
               Privacy

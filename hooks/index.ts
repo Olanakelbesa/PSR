@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Hooks Barrel Export
+// RPDMS — Hooks Barrel Export
 // ============================================================================
 // Import hooks from here for a clean import path:
 //   import { useConceptNotes, useConceptNote } from "@/hooks"

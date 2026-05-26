@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — Dashboard Layout (NextAuth v5)
+// RPDMS — Dashboard Layout (NextAuth v5)
 // ============================================================================
 
 import { useEffect } from "react";

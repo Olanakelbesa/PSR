@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — Global Error Boundary
+// RPDMS — Global Error Boundary
 // ============================================================================
 // Catches uncaught runtime errors in child components.
 // Renders a professional fallback UI instead of a blank screen.

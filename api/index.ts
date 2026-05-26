@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — API Layer Barrel Export
+// RPDMS — API Layer Barrel Export
 // ============================================================================
 // Canonical import point for the API layer:
 //   import apiClient from "@/api/client"

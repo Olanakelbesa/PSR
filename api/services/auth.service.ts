@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Service Layer: Auth
+// RPDMS — Service Layer: Auth
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.3
 // Call chain: Hook → Service → apiClient → Proxy → Backend

@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Next.js BFF Proxy: /api/proxy/[...path]
+// RPDMS — Next.js BFF Proxy: /api/proxy/[...path]
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §2
 //

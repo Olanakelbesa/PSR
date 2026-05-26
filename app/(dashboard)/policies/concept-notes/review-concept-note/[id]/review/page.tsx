@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,7 +29,10 @@ import { toast } from "sonner";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
-import { useMyReviewDetail, useReviewConceptNote } from "@/lib/queries/concept-notes";
+import {
+  useMyReviewDetail,
+  useReviewConceptNote,
+} from "@/lib/queries/concept-notes";
 
 export default function ConceptNoteReviewPage() {
   const params = useParams();
@@ -39,12 +42,64 @@ export default function ConceptNoteReviewPage() {
 
   const { data: note, isLoading } = useMyReviewDetail(id);
   const reviewMutation = useReviewConceptNote();
-  
-  // Review Form State
+
   const [comments, setComments] = useState("");
   const [decision, setDecision] = useState<"approve" | "revise" | "reject" | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!note || !user) return;
+
+    const feedbackBlocks = note.expertFeedback || [];
+
+    for (const block of feedbackBlocks) {
+      const details = block?.feedbackDetail || [];
+      const found = details.find((d: any) => {
+        const reviewerId = d?.expertReviewer?.id ?? d?.reviewerId ?? d?.reviewer?.id;
+        return reviewerId && String(reviewerId) === String(user.id);
+      });
+
+      if (!found) continue;
+
+      setComments(found.comment || found.comments || "");
+
+      const statusValue =
+        found.finalDecisionStatus ||
+        found.final_decision ||
+        found.final_decision_status ||
+        found.finalDecision ||
+        found.decision ||
+        found.recommendation ||
+        null;
+
+      if (statusValue) {
+        const normalized = String(statusValue).toLowerCase();
+        if (normalized === "accepted" || normalized === "approve") {
+          setDecision("approve");
+        } else if (
+          normalized === "partially_accepted" ||
+          normalized === "revise" ||
+          normalized === "revision"
+        ) {
+          setDecision("revise");
+        } else if (normalized === "not_accepted" || normalized === "reject") {
+          setDecision("reject");
+        }
+      }
+
+      const reviewFile =
+        found.reviewFile ||
+        found.supportingDocument?.url ||
+        found.review_file ||
+        found.reviewUrl ||
+        null;
+      if (reviewFile) setExistingFileUrl(reviewFile);
+
+      break;
+    }
+  }, [note, user]);
 
   const handleSubmit = async () => {
     if (!decision) {
@@ -56,12 +111,12 @@ export default function ConceptNoteReviewPage() {
       return;
     }
 
-    let backendDecision = "accepted";
-    if (decision === "revise") {
-      backendDecision = "partially_accepted";
-    } else if (decision === "reject") {
-      backendDecision = "not_accepted";
-    }
+    const backendDecision =
+      decision === "revise"
+        ? "partially_accepted"
+        : decision === "reject"
+          ? "not_accepted"
+          : "accepted";
 
     try {
       const formData = new FormData();
@@ -77,7 +132,7 @@ export default function ConceptNoteReviewPage() {
       await reviewMutation.mutateAsync({ id, payload: formData });
       toast.success("Review successfully submitted and recorded.");
       router.push(`/policies/concept-notes/review-concept-note/${id}`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to submit review. Please try again.");
     }
   };
@@ -111,8 +166,6 @@ export default function ConceptNoteReviewPage() {
       }
     >
       <div className="grid gap-6 lg:grid-cols-3 items-start">
-        
-        {/* Left Column: Review Form */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="bg-muted/30 border-b">
@@ -125,12 +178,11 @@ export default function ConceptNoteReviewPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              
               <div className="space-y-3">
                 <Label className="text-sm font-semibold flex items-center gap-2">
                   1. Comprehensive Feedback
                 </Label>
-                <Textarea 
+                <Textarea
                   placeholder="Detail your findings, methodological critiques, and alignment with national strategies..."
                   className="resize-none min-h-[200px] text-sm"
                   value={comments}
@@ -149,17 +201,20 @@ export default function ConceptNoteReviewPage() {
                   accept=".pdf,.doc,.docx"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 10 * 1024 * 1024) {
-                        toast.error("File size must be under 10MB");
-                        return;
-                      }
-                      setSelectedFile(file);
+                    if (!file) return;
+
+                    if (file.size > 10 * 1024 * 1024) {
+                      toast.error("File size must be under 10MB");
+                      return;
                     }
+
+                    setSelectedFile(file);
+                    setExistingFileUrl(null);
                   }}
                 />
-                {!selectedFile ? (
-                  <div 
+
+                {!selectedFile && !existingFileUrl ? (
+                  <div
                     onClick={() => fileInputRef.current?.click()}
                     className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
                   >
@@ -167,7 +222,7 @@ export default function ConceptNoteReviewPage() {
                     <p className="text-sm font-medium text-foreground">Click to upload annotated files</p>
                     <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to 10MB</p>
                   </div>
-                ) : (
+                ) : selectedFile ? (
                   <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 border-emerald-100">
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -180,19 +235,52 @@ export default function ConceptNoteReviewPage() {
                         </span>
                       </div>
                     </div>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setSelectedFile(null)} 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedFile(null)}
                       className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 font-medium text-xs px-2"
                     >
                       Remove
                     </Button>
                   </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 border-emerald-100">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-semibold text-emerald-800 truncate">
+                          {existingFileUrl?.split("/").pop()}
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-medium">
+                          Existing uploaded file
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(existingFileUrl!, "_blank")}
+                        className="h-8 font-medium text-xs px-2"
+                      >
+                        Open
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExistingFileUrl(null)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 font-medium text-xs px-2"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
-
             </CardContent>
           </Card>
 
@@ -204,8 +292,8 @@ export default function ConceptNoteReviewPage() {
               <CardDescription>Select the outcome of this evaluation phase.</CardDescription>
             </CardHeader>
             <CardContent>
-              <RadioGroup 
-                className="grid gap-4 sm:grid-cols-3" 
+              <RadioGroup
+                className="grid gap-4 sm:grid-cols-3"
                 value={decision || ""}
                 onValueChange={(val: any) => setDecision(val)}
               >
@@ -242,9 +330,9 @@ export default function ConceptNoteReviewPage() {
               </RadioGroup>
             </CardContent>
             <CardFooter className="bg-muted/30 pt-6 border-t">
-              <Button 
-                onClick={handleSubmit} 
-                disabled={reviewMutation.isPending} 
+              <Button
+                onClick={handleSubmit}
+                disabled={reviewMutation.isPending}
                 className="w-full h-12 text-md font-semibold bg-primary hover:bg-primary/90"
               >
                 {reviewMutation.isPending ? "Submitting..." : "Submit"}
@@ -253,18 +341,19 @@ export default function ConceptNoteReviewPage() {
           </Card>
         </div>
 
-        {/* Right Column: Reference Info */}
         <div className="space-y-6 lg:sticky lg:top-6">
           <Card className="shadow-sm">
             <CardHeader className="bg-muted/30 border-b pb-4">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Document Reference</CardTitle>
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Document Reference
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
               <div>
                 <p className="font-bold text-sm leading-tight text-foreground">{note.title}</p>
                 <span className="text-xs text-primary font-mono mt-1 block">{note.id}</span>
               </div>
-              
+
               <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground leading-relaxed line-clamp-6">
                 {note.overview?.executiveSummary || "No summary provided."}
               </div>
@@ -272,13 +361,9 @@ export default function ConceptNoteReviewPage() {
               {note.overview?.file && (
                 <div className="pt-2">
                   <p className="text-xs font-semibold mb-2">Original File</p>
-                  <div 
+                  <div
                     className="flex items-center gap-2 p-2 border rounded hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => {
-                      if (note.overview?.file) {
-                        window.open(note.overview.file, "_blank");
-                      }
-                    }}
+                    onClick={() => window.open(note.overview.file!, "_blank")}
                   >
                     <FileText className="h-4 w-4 text-primary shrink-0" />
                     <span className="text-xs truncate">{note.overview.file.split("/").pop()}</span>
@@ -287,7 +372,7 @@ export default function ConceptNoteReviewPage() {
               )}
             </CardContent>
           </Card>
-          
+
           <div className="bg-blue-50/50 rounded-lg p-4 text-xs text-blue-800 border border-blue-100 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-blue-500 shrink-0" />
             <p>
@@ -295,7 +380,6 @@ export default function ConceptNoteReviewPage() {
             </p>
           </div>
         </div>
-
       </div>
     </PageContainer>
   );

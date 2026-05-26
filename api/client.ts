@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Canonical API Client
+// RPDMS — Canonical API Client
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.1
 //

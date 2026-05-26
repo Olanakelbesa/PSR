@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { label: "About Us", href: "/about" },
   { label: "Thematic Areas", href: "/thematic-areas" },
   { label: "Attachments", href: "/attachments" },
-  { label: "Research Calls", href: "/calls" },
+  // { label: "Research Calls", href: "/calls" },
   { label: "Publications", href: "/publications" },
   // { label: "Manuals", href: "/manuals" },
 ];
@@ -56,7 +56,7 @@ export function Navbar() {
             </div>
             <div className="flex flex-col -space-y-0.5">
               <span className="font-bold tracking-tighter uppercase transition-all text-xl">
-                PSR <span className="text-primary">Global</span>
+                 <span className="text-primary">RPDMS</span>
               </span>
               <span className="text-[8px] font-bold text-muted-foreground tracking-[0.2em] uppercase">
                 Platform

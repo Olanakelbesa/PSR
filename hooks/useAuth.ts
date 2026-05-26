@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================================
-// PSR Platform — useAuth Hook (NextAuth v5)
+// RPDMS — useAuth Hook (NextAuth v5)
 // ============================================================================
 // Single hook for all auth needs in client components.
 //

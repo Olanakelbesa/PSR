@@ -349,11 +349,11 @@ export default function LandingPage() {
           <div className="container mx-auto px-4 pt-20 relative">
             <div className="max-w-4xl mx-auto text-center space-y-8">
               <h1 className="text-4xl md:text-7xl font-black tracking-tight leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                Policy & Research{" "}
+                Research and Policy {" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-purple-700 bg-300%  animate-gradient">
-                  Decision
+                  Documents
                 </span>{" "}
-                Management.
+                Management System
               </h1>
 
               <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 opacity-90">
@@ -622,7 +622,7 @@ export default function LandingPage() {
                     </span>
                   </h2>
                   <p className="text-base md:text-lg text-muted-foreground font-medium leading-relaxed max-w-md">
-                    PSR Global maps semantic relationships across your entire
+                    RPDSR maps semantic relationships across your entire
                     institutional memory.
                   </p>
                 </div>
@@ -630,8 +630,8 @@ export default function LandingPage() {
                 <div className="space-y-6">
                   {[
                     {
-                      title: "Smart Linking",
-                      desc: "Connect related policies and results.",
+                      title: "Smart Search",
+                      desc: "Search related policies and .",
                       icon: Network,
                     },
                     {
@@ -833,7 +833,7 @@ export default function LandingPage() {
                 Join the New Standard.
               </h2>
               <p className="text-base md:text-lg opacity-80 leading-relaxed font-medium max-w-xl mx-auto">
-                Modernize your institutional infrastructure with PSR Global.
+                Modernize your institutional infrastructure with RPDMS Global.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 <Button

@@ -397,10 +397,10 @@ export function AppSidebar() {
                 </div>
                 <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-bold text-base">
-                    PSR Platform
+                    RPDMS
                   </span>
                   <span className="truncate text-xs text-sidebar-foreground/70">
-                    Policy & Research Platform
+                    Research and Policy Documents Management System
                   </span>
                 </div>
               </Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -66,8 +66,25 @@ const formatTimestamp = (timestampString?: string | null) => {
 const normalizeStatusKey = (status?: string | null) =>
   (status || "").toLowerCase().replace(/[\s-]+/g, "_");
 
+const normalizeDecision = (status?: string | null) => {
+  const norm = normalizeStatusKey(status);
+  if (norm === "accepted" || norm === "approve") return "approve" as const;
+  if (norm === "partially_accepted" || norm === "revision" || norm === "revise") {
+    return "request-changes" as const;
+  }
+  if (norm === "not_accepted" || norm === "reject") return "reject" as const;
+  return null;
+};
+
 const getRecommendationBadge = (status?: string | null) => {
   const norm = normalizeStatusKey(status);
+  if (!norm || norm === "pending" || norm === "draft" || norm === "unreviewed") {
+    return (
+      <Badge className="bg-slate-100 text-slate-700 border-slate-200 border">
+        <ClipboardCheck className="mr-1 h-3 w-3" /> Unreviewed
+      </Badge>
+    );
+  }
   if (norm === "accepted" || norm === "approve") {
     return (
       <Badge className="bg-primary/10 text-primary border-primary/20 border">
@@ -93,13 +110,57 @@ const getRecommendationBadge = (status?: string | null) => {
   );
 };
 
+const getStatusBadge = (status?: string | null) => {
+  const norm = normalizeStatusKey(status) || "draft";
+  const labelMap: Record<string, string> = {
+    draft: "Draft",
+    submitted: "Submitted",
+    under_review: "Under Review",
+    accepted: "Accepted",
+    partially_accepted: "Partially Accepted",
+    not_accepted: "Not Accepted",
+    revision_required: "Revision Required",
+    resubmitted: "Resubmitted",
+    policy_draft_ready: "Policy Draft Ready",
+    unreviewed: "Unreviewed",
+  };
+
+  const classMap: Record<string, string> = {
+    draft: "bg-slate-100 text-slate-600 border-slate-200",
+    submitted: "bg-blue-100 text-blue-700 border-blue-200",
+    under_review: "bg-amber-100 text-amber-700 border-amber-200",
+    accepted: "bg-green-100 text-green-700 border-green-200",
+    partially_accepted: "bg-orange-100 text-orange-700 border-orange-200",
+    not_accepted: "bg-red-100 text-red-700 border-red-200",
+    revision_required: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    resubmitted: "bg-purple-100 text-purple-700 border-purple-200",
+    policy_draft_ready: "bg-teal-100 text-teal-700 border-teal-200",
+    unreviewed: "bg-slate-100 text-slate-700 border-slate-200",
+  };
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5",
+        classMap[norm] ?? classMap.draft,
+      )}
+    >
+      {labelMap[norm] ?? status ?? "Draft"}
+    </Badge>
+  );
+};
+
 export default function ApproveConceptNotePage() {
   const params = useParams();
   const router = useRouter();
   const { backendToken } = useAuth();
   const id = params.id as string;
 
-  const { data: note, isLoading, isError } = useManageConceptNoteDetail(id);
+  const { data: note, isLoading, isError } = useManageConceptNoteDetail(
+    id,
+    backendToken,
+  );
   const approveMutation = useApproveConceptNote();
 
   const [decision, setDecision] = useState<
@@ -111,6 +172,14 @@ export default function ApproveConceptNotePage() {
     url: string;
     title: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (!note) return;
+    const existingDecision =
+      normalizeDecision(note.psrFinalDecision ?? (note as any).psr_final_decision) ??
+      null;
+    setDecision(existingDecision);
+  }, [note]);
 
   const handleApprove = () => {
     setDecision("approve");
@@ -242,13 +311,29 @@ export default function ApproveConceptNotePage() {
     const commentPresent = Boolean(
       String(detail.comment || detail.recommendation || "").trim(),
     );
-    const hasFinalDecision =
-      finalStatus && finalStatus !== "pending" && finalStatus !== "draft";
+    const hasFinalDecision = Boolean(
+      finalStatus &&
+        finalStatus !== "pending" &&
+        finalStatus !== "draft" &&
+        finalStatus !== "unreviewed",
+    );
 
     return reviewerPresent || commentPresent || hasFinalDecision;
   };
 
   const hasReviewerFeedback = allFeedbacks.some(isReviewDetailCompleted);
+  const currentStatus =
+    note.currentStatus?.status ??
+    (note as any).current_status?.status ??
+    (note as any).current_status?.status_name ??
+    (note as any).current_status ??
+    "draft";
+  const currentStatusLabel = getStatusBadge(currentStatus);
+  const approvalStatus =
+    note.psrFinalDecision ?? (note as any).psr_final_decision;
+  const approvalStatusLabel = approvalStatus
+    ? getRecommendationBadge(approvalStatus)
+    : getRecommendationBadge("unreviewed");
 
   return (
     <PageContainer
@@ -298,6 +383,20 @@ export default function ApproveConceptNotePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
+                <div className="grid gap-3 sm:grid-cols-2 mb-6">
+                  <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Current Status
+                    </p>
+                    <div>{currentStatusLabel}</div>
+                  </div>
+                  <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Approval Status
+                    </p>
+                    <div>{approvalStatusLabel}</div>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={handleApprove}
@@ -460,9 +559,7 @@ export default function ApproveConceptNotePage() {
 
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
                               <div className="flex items-center gap-2">
-                                {getRecommendationBadge(
-                                  review.finalDecisionStatus,
-                                )}
+                                {getRecommendationBadge(review.finalDecisionStatus)}
                               </div>
                               <p className="text-[10px] text-muted-foreground font-medium">
                                 {formatTimestamp(review.commentGivenAt)}
@@ -512,7 +609,7 @@ export default function ApproveConceptNotePage() {
                   <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed rounded-xl">
                     <ClipboardCheck className="h-8 w-8 text-muted-foreground/40 mb-2" />
                     <p className="text-sm font-medium text-muted-foreground">
-                      No reviewer assessments yet
+                      Unreviewed
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-0.5">
                       Assessments will appear here once reviewers submit their

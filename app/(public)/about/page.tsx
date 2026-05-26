@@ -138,7 +138,7 @@ export default function AboutPage() {
     {
       icon: Globe2,
       value: metrics.institutionsUsingSystem ?? 0,
-      label: "Institutions Using System",
+      label: "Total repository files",
       colorClass: "bg-primary/10 text-primary",
     },
     {

@@ -1,5 +1,5 @@
 // ============================================================================
-// PSR Platform — Service Layer: Concept Notes
+// RPDMS — Service Layer: Concept Notes
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.3
 // Call chain: Hook → Service → apiClient → Proxy → Backend
@@ -21,31 +21,56 @@ export const ConceptNoteStatusSchema = z.enum([
   "policy_draft_ready",
 ]);
 
+const IdOnlyOrObjectSchema = z
+  .union([
+    z.object({
+      id: z.union([z.string(), z.number()]),
+      name: z.string().optional().default(""),
+    }),
+    z.union([z.string(), z.number()]),
+  ])
+  .transform((value) =>
+    typeof value === "object" && value !== null && "id" in value
+      ? { id: Number(value.id), name: value.name ?? "" }
+      : { id: Number(value), name: "" },
+  );
+
+const UserOrIdSchema = z
+  .union([
+    z.object({
+      id: z.union([z.string(), z.number()]).transform(String),
+      fullName: z.string(),
+      email: z.string(),
+      photoUrl: z.string().nullable().optional(),
+    }),
+    z.union([z.string(), z.number()]),
+  ])
+  .transform((value) =>
+    typeof value === "object" && value !== null && "id" in value
+      ? value
+      : {
+          id: String(value),
+          fullName: "",
+          email: "",
+          photoUrl: null,
+        },
+  );
+
 export const ConceptNoteSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
   executiveSummary: z.string().optional().default(""),
-  docType: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
+  docType: IdOnlyOrObjectSchema.nullable().optional(),
   versionNumber: z.string().nullable().optional(),
   thematicAreas: z
     .array(z.object({ id: z.number(), name: z.string() }))
     .optional()
     .default([]),
-  submittedBy: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      fullName: z.string(),
-      email: z.string(),
-      photoUrl: z.string().nullable().optional(),
-    })
-    .optional(),
-  organization: z
-    .object({ id: z.number(), name: z.string() })
-    .nullable()
-    .optional(),
-  unit: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
+  submittedBy: UserOrIdSchema.optional(),
+  organization: IdOnlyOrObjectSchema.nullable().optional(),
+  unit: IdOnlyOrObjectSchema.nullable().optional(),
   submissionDate: z.string().optional(),
-  status: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
+  status: IdOnlyOrObjectSchema.nullable().optional(),
   updatedAt: z.string().optional(),
   documentCategory: z.enum(["new", "revision"]).optional(),
   currentStatus: ConceptNoteStatusSchema.optional(),
@@ -96,7 +121,7 @@ const ConceptNoteDetailFeedbackSchema = z.object({
 export const ConceptNoteDetailSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
-  docType: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
+  docType: IdOnlyOrObjectSchema.nullable().optional(),
   overview: z.object({
     executiveSummary: z.string().default(""),
     thematicAreas: z
@@ -105,11 +130,12 @@ export const ConceptNoteDetailSchema = z.object({
     file: z.string().nullable().optional(),
   }),
   documentCategory: z.enum(["new", "revision"]).optional(),
-  organization: z
-    .object({ id: z.number(), name: z.string() })
+  psrFinalDecision: z
+    .enum(["accepted", "partially_accepted", "not_accepted"])
     .nullable()
     .optional(),
-  unit: z.object({ id: z.number(), name: z.string() }).nullable().optional(),
+  organization: IdOnlyOrObjectSchema.nullable().optional(),
+  unit: IdOnlyOrObjectSchema.nullable().optional(),
   expertFeedback: z.array(ConceptNoteDetailFeedbackSchema).default([]),
   timeline: z.array(ConceptNoteDetailTimelineSchema).default([]),
   versions: z.array(ConceptNoteDetailFileSchema).default([]),
@@ -185,7 +211,17 @@ export async function getConceptNoteDetailById(
   id: string | number
 ): Promise<ConceptNoteDetail> {
   const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id));
-  return ConceptNoteDetailResponseSchema.parse(res.data).data;
+  const normalized = {
+    ...res.data,
+    data: {
+      ...res.data?.data,
+      psrFinalDecision:
+        res.data?.data?.psrFinalDecision ?? res.data?.data?.psr_final_decision,
+      currentStatus:
+        res.data?.data?.currentStatus ?? res.data?.data?.current_status,
+    },
+  };
+  return ConceptNoteDetailResponseSchema.parse(normalized).data;
 }
 
 // ─── GET /v1/concept-notes/:id/manage/ (admin detail view) ──────────────────
@@ -199,7 +235,17 @@ export async function getManageConceptNoteDetailById(
       params: backendToken ? { backendToken } : undefined,
     },
   );
-  return ConceptNoteDetailResponseSchema.parse(res.data).data;
+  const normalized = {
+    ...res.data,
+    data: {
+      ...res.data?.data,
+      psrFinalDecision:
+        res.data?.data?.psrFinalDecision ?? res.data?.data?.psr_final_decision,
+      currentStatus:
+        res.data?.data?.currentStatus ?? res.data?.data?.current_status,
+    },
+  };
+  return ConceptNoteDetailResponseSchema.parse(normalized).data;
 }
 
 // ─── POST /v1/concept-notes/ ──────────────────────────────────────────────────
@@ -249,6 +295,14 @@ export async function submitConceptNote(
       ? { headers: { Authorization: `Bearer ${backendToken}` } }
       : {},
   );
+  return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+}
+
+// ─── POST /v1/concept-notes/:id/resubmit/ ───────────────────────────────────
+export async function resubmitConceptNote(
+  id: string | number,
+): Promise<ConceptNote> {
+  const res = await apiClient.post(API_ENDPOINTS.CONCEPT_NOTES.RESUBMIT(id), {});
   return ConceptNoteSchema.parse(res.data?.data ?? res.data);
 }
 
