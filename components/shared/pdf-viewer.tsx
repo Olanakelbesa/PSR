@@ -2,6 +2,7 @@
 
 import { ExternalLink, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState } from "react";
 
 interface PdfViewerProps {
   url: string;
@@ -22,18 +23,49 @@ export function PdfViewer({
     );
   }
 
+  const safeUrl = encodeURI(url);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [blobUrl]);
+
   const handleOpenInNewTab = () => {
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(safeUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleDownload = () => {
     const link = document.createElement("a");
-    link.href = url;
+    link.href = blobUrl || safeUrl;
     link.download = title;
     link.rel = "noopener noreferrer";
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  const fetchAndSetBlob = async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch PDF");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setBlobUrl(objectUrl);
+    } catch (err) {
+      // swallow — iframe will remain blank and user can open in new tab
+      // Optionally, add toast/notification here.
+      // console.error(err);
+    }
+  };
+
+  const handleIframeError = () => {
+    // Try fetching the PDF as a blob and use a blob URL as fallback
+    if (!blobUrl) fetchAndSetBlob();
   };
 
   return (
@@ -57,10 +89,12 @@ export function PdfViewer({
         </div>
       </div>
       <div className="flex-1 w-full bg-muted/20 relative min-h-[700px]">
-        <iframe 
-          src={`${url}#toolbar=0&navpanes=0&scrollbar=0`} 
-          title={title} 
-          className="absolute inset-0 h-full w-full border-0" 
+        <iframe
+          ref={iframeRef}
+          src={(blobUrl || safeUrl) + "#toolbar=0&navpanes=0&scrollbar=0"}
+          title={title}
+          className="absolute inset-0 h-full w-full border-0"
+          onError={handleIframeError}
         />
       </div>
     </div>

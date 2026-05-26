@@ -22,7 +22,7 @@ export function ConceptNoteTabs({
 }: ConceptNoteTabsProps) {
   const feedbackItems = note.expertFeedback ?? note.reviews ?? [];
   const documentUrl =
-    note.overview?.file ?? note.attachments?.[0]?.url ?? "/doc/PSR_FRS_v1.pdf";
+    note.overview?.file ?? note.versions?.find((version: any) => version.isLatest)?.file ?? note.attachments?.[0]?.url ?? "/doc/PSR_FRS_v1.pdf";
 
   return (
     <Tabs defaultValue="overview" className="w-full">

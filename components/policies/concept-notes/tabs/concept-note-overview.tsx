@@ -18,7 +18,7 @@ export function ConceptNoteOverview({
   const thematicAreas =
     note.overview?.thematicAreas ?? note.thematicAreas ?? [];
   const supportingFile =
-    note.overview?.file ?? note.attachments?.[0]?.url ?? null;
+    note.overview?.file ?? note.versions?.find((version: any) => version.isLatest)?.file ?? note.attachments?.[0]?.url ?? null;
 
   return (
     <div className="space-y-6">

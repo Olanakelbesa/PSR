@@ -175,8 +175,14 @@ export function useCreateConceptNote() {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // Invalidate list and also the detail cache for the updated id
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+      if (variables && (variables as any).id) {
+        queryClient.invalidateQueries({
+          queryKey: ["concept-note-detail", (variables as any).id],
+        });
+      }
     },
   });
 }

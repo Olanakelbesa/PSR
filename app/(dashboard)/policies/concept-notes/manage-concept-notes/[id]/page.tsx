@@ -145,6 +145,30 @@ export default function ManageConceptNoteDetailPage() {
   const fileUrl = note.overview?.file;
   const latestVersion = note.versions?.[note.versions.length - 1];
 
+  const isReviewDetailCompleted = (detail: any) => {
+    const finalStatus = String(
+      detail.finalDecisionStatus ?? detail.final_decision_status ?? "",
+    )
+      .trim()
+      .toLowerCase();
+
+    const reviewerPresent = Boolean(
+      detail.expertReviewer || detail.reviewer || detail.expert_reviewer,
+    );
+    const commentPresent = Boolean(
+      String(detail.comment || detail.recommendation || "").trim(),
+    );
+    const hasFinalDecision =
+      finalStatus && finalStatus !== "pending" && finalStatus !== "draft";
+
+    return reviewerPresent || commentPresent || hasFinalDecision;
+  };
+
+  const hasReviewerFeedback =
+    note.expertFeedback?.some((fb: any) =>
+      (fb.feedbackDetail || []).some(isReviewDetailCompleted),
+    ) ?? false;
+
   return (
     <PageContainer
       title={note.title}
@@ -165,18 +189,20 @@ export default function ManageConceptNoteDetailPage() {
               Assign Expert
             </Link>
           </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="border-green-300 text-green-700 hover:bg-green-50"
-          >
-            <Link
-              href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}
+          {hasReviewerFeedback && (
+            <Button
+              asChild
+              variant="outline"
+              className="border-green-300 text-green-700 hover:bg-green-50"
             >
-              <Check className="mr-2 h-4 w-4" />
-              Approve
-            </Link>
-          </Button>
+              <Link
+                href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Approve
+              </Link>
+            </Button>
+          )}
         </div>
       }
     >

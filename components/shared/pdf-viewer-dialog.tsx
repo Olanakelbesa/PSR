@@ -4,6 +4,7 @@ import { ExternalLink, Download, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from "react";
 
 interface PdfViewerDialogProps {
   isOpen: boolean;
@@ -18,6 +19,15 @@ export function PdfViewerDialog({
   url,
   title = "Document preview",
 }: PdfViewerDialogProps) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
   if (!url) return null;
 
   const handleOpenInNewTab = () => {
@@ -26,12 +36,28 @@ export function PdfViewerDialog({
 
   const handleDownload = () => {
     const link = document.createElement("a");
-    link.href = url;
+    link.href = blobUrl || url;
     link.download = title;
     link.rel = "noopener noreferrer";
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  const fetchAndSetBlob = async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch PDF");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setBlobUrl(objectUrl);
+    } catch (err) {
+      // ignore — fallback will be to open in new tab
+    }
+  };
+
+  const handleIframeError = () => {
+    if (!blobUrl) fetchAndSetBlob();
   };
 
   return (
@@ -54,7 +80,13 @@ export function PdfViewerDialog({
           </div>
         </div>
         <div className="flex-1 h-full w-full bg-background">
-          <iframe src={url} title={title} className="h-full w-full border-0" />
+          <iframe
+            ref={iframeRef}
+            src={blobUrl || url}
+            title={title}
+            className="h-full w-full border-0"
+            onError={handleIframeError}
+          />
         </div>
       </DialogContent>
     </Dialog>

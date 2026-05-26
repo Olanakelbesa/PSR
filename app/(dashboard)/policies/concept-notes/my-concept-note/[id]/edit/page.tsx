@@ -52,6 +52,7 @@ import { PageContainer } from "@/components/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/lib/queries/organizations";
 import { useUnits } from "@/lib/queries/units";
+import { getUnits as fetchUnitsForOrg } from "@/api/services/reference.service";
 import {
   useConceptNoteDetail,
   useSubmitConceptNote,
@@ -107,24 +108,66 @@ export default function EditConceptNotePage() {
   const { data: organizations = [], isLoading: isLoadingOrganizations } =
     useOrganizations();
 
+  
+
   useEffect(() => {
     if (!conceptNote) return;
 
     form.reset({
-      title: conceptNote.title ?? "",
-      executiveSummary: conceptNote.overview?.executiveSummary ?? "",
-      documentType: conceptNote.docType?.id,
+      title: String(conceptNote.title ?? ""),
+      executiveSummary: String(conceptNote.overview?.executiveSummary ?? ""),
+      // Preserve numeric id when present; avoid treating 0 as missing
+      documentType:
+        conceptNote.docType && conceptNote.docType.id != null
+          ? Number(conceptNote.docType.id)
+          : undefined,
       organization: conceptNote.organization
         ? [String(conceptNote.organization.id)]
         : [],
-      unit: conceptNote.unit ? String(conceptNote.unit.id) : "",
+      // Use explicit null/undefined check to avoid accidental falsy clears
+      unit: conceptNote.unit && conceptNote.unit.id != null ? String(conceptNote.unit.id) : "",
       thematicAreas:
-        conceptNote.overview?.thematicAreas?.map((area) => String(area.id)) ??
-        [],
-      documentCategory: conceptNote.documentCategory ?? "new",
+        Array.isArray(conceptNote.overview?.thematicAreas) &&
+        conceptNote.overview?.thematicAreas.length > 0
+          ? conceptNote.overview.thematicAreas.map((area) => String(area.id))
+          : [],
+      documentCategory:
+        conceptNote.documentCategory === "revision"
+          ? "revision"
+          : "new",
       file: undefined,
     });
     setExistingFileUrl(conceptNote.overview?.file ?? null);
+
+    // Ensure organization field is explicitly set (helps useUnits refetch)
+    if (conceptNote.organization && conceptNote.organization.id != null) {
+      const orgIdStr = String(conceptNote.organization.id);
+      form.setValue("organization", [orgIdStr]);
+
+      // Immediately fetch units for this organization and add them to options
+      (async () => {
+        try {
+          const { data } = await fetchUnitsForOrg({ organization: orgIdStr });
+          if (Array.isArray(data) && data.length > 0) {
+            setExtraUnits((prev) => {
+              const merged = Array.from(
+                new Map(
+                  [...data, ...prev].map((u) => [String(u.id), u]),
+                ).values(),
+              );
+              return merged as any[];
+            });
+
+            if (conceptNote.unit && conceptNote.unit.id != null) {
+              const found = data.find((u: any) => String(u.id) === String(conceptNote.unit!.id));
+              if (found) form.setValue("unit", String(conceptNote.unit.id));
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+      })();
+    }
   }, [conceptNote, form]);
 
   const title = form.watch("title") || "";
@@ -151,11 +194,18 @@ export default function EditConceptNotePage() {
   }, [selectedDocumentCategory]);
 
   const selectedOrganizationsList = useMemo(
-    () =>
-      organizations.filter((organization) =>
+    () => {
+      const filtered = organizations.filter((organization) =>
         selectedOrganizationIds.includes(String(organization.id)),
-      ),
-    [organizations, selectedOrganizationIds],
+      );
+      if (filtered.length > 0) return filtered;
+      // Fallback: if the organizations list hasn't loaded yet but the
+      // concept note has an organization, show it so the Unit select
+      // isn't incorrectly disabled.
+      if (conceptNote?.organization) return [conceptNote.organization];
+      return [];
+    },
+    [organizations, selectedOrganizationIds, conceptNote],
   );
 
   const selectedAreas = useMemo(
@@ -169,15 +219,72 @@ export default function EditConceptNotePage() {
   const { data: units = [], isLoading: isLoadingUnits } = useUnits(
     selectedOrganizationIds,
   );
+  const [extraUnits, setExtraUnits] = useState<Array<{ id: any; name: string }>>([]);
+
+  const mergedUnits = useMemo(() => {
+    const map = new Map<string, any>();
+    [...(units || []), ...(extraUnits || [])].forEach((u: any) => {
+      map.set(String(u.id), u);
+    });
+    return Array.from(map.values());
+  }, [units, extraUnits]);
+
+  // Re-apply select values after reference data (document types, units)
+  // have loaded so Select components display the correct selection.
+  useEffect(() => {
+    if (!conceptNote) return;
+
+    if (documentTypes && documentTypes.length > 0) {
+      if (conceptNote.docType && conceptNote.docType.id != null) {
+        form.setValue("documentType", Number(conceptNote.docType.id));
+      }
+    }
+
+    if (units && units.length > 0) {
+      if (conceptNote.unit && conceptNote.unit.id != null) {
+        const match = units.some((u) => String(u.id) === String(conceptNote.unit!.id));
+        if (match) {
+          form.setValue("unit", String(conceptNote.unit.id));
+          return;
+        }
+      }
+    }
+
+    // As a fallback, explicitly fetch the units for the concept note's
+    // organization from the API and set the unit if present. This covers
+    // cases where the shared `useUnits` hook may not yet have the unit list.
+    (async () => {
+      try {
+        const orgId = conceptNote.organization?.id;
+        if (!orgId) return;
+        const { data } = await fetchUnitsForOrg({ organization: String(orgId) });
+        if (Array.isArray(data) && data.length > 0) {
+          const merged = Array.from(
+            new Map(
+              [...(data as any[]), ...extraUnits].map((u) => [String(u.id), u]),
+            ).values(),
+          );
+          setExtraUnits(merged as any[]);
+
+          if (conceptNote.unit && conceptNote.unit.id != null) {
+            const found = merged.find((u: any) => String(u.id) === String(conceptNote.unit!.id));
+            if (found) form.setValue("unit", String(conceptNote.unit.id));
+          }
+        }
+      } catch (err) {
+        // ignore — fallback behavior already attempted
+      }
+    })();
+  }, [conceptNote, documentTypes, units, form]);
 
   useEffect(() => {
-    if (!selectedUnit) return;
+    if (!selectedUnit || isLoadingUnits) return;
 
     const isValid = units.some((unit) => String(unit.id) === selectedUnit);
     if (!isValid) {
       form.setValue("unit", "");
     }
-  }, [form, selectedUnit, units]);
+  }, [form, selectedUnit, units, isLoadingUnits]);
 
   useEffect(() => {
     if (selectedOrganizationIds.length === 0) {
@@ -611,7 +718,7 @@ export default function EditConceptNotePage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {units.map((unit) => (
+                          {mergedUnits.map((unit) => (
                             <SelectItem key={unit.id} value={String(unit.id)}>
                               {unit.name}
                             </SelectItem>

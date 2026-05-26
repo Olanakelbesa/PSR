@@ -229,6 +229,27 @@ export default function ApproveConceptNotePage() {
       })),
     ) || [];
 
+  const isReviewDetailCompleted = (detail: any) => {
+    const finalStatus = String(
+      detail.finalDecisionStatus ?? detail.final_decision_status ?? "",
+    )
+      .trim()
+      .toLowerCase();
+
+    const reviewerPresent = Boolean(
+      detail.expertReviewer || detail.reviewer || detail.expert_reviewer,
+    );
+    const commentPresent = Boolean(
+      String(detail.comment || detail.recommendation || "").trim(),
+    );
+    const hasFinalDecision =
+      finalStatus && finalStatus !== "pending" && finalStatus !== "draft";
+
+    return reviewerPresent || commentPresent || hasFinalDecision;
+  };
+
+  const hasReviewerFeedback = allFeedbacks.some(isReviewDetailCompleted);
+
   return (
     <PageContainer
       title={note.title || "Approve Concept Note"}
@@ -245,105 +266,129 @@ export default function ApproveConceptNotePage() {
       <div className="grid gap-6 lg:grid-cols-12 items-start">
         {/* Left Sidebar: Decision Actions */}
         <div className="lg:col-span-4 space-y-6 sticky top-6">
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <CardTitle className="text-lg">Your Decision</CardTitle>
-              <CardDescription>
-                Make the final decision on this concept note based on the
-                reviewer feedback
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleApprove}
-                  className={cn(
-                    "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
-                    decision === "approve"
-                      ? "border-primary/50 bg-primary/10 shadow-sm ring-1 ring-primary/50 dark:bg-primary/10"
-                      : "border-border hover:border-primary/50 hover:bg-muted/50",
-                  )}
-                >
-                  <div
+          {!hasReviewerFeedback ? (
+            <Card className="shadow-sm border-yellow-200 bg-yellow-50/50">
+              <CardHeader className="border-b bg-muted/30 pb-4">
+                <CardTitle className="text-lg">Decision Locked</CardTitle>
+                <CardDescription>
+                  Approval decisions are available after assigned reviewers
+                  submit their review.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4 text-sm text-foreground/80">
+                  <p>
+                    This concept note cannot be approved yet because no reviewer
+                    assessments have been submitted.
+                  </p>
+                  <p>
+                    Please assign an expert or wait for the review to complete
+                    before making a final decision.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="shadow-sm border-primary/10">
+              <CardHeader className="border-b bg-muted/30 pb-4">
+                <CardTitle className="text-lg">Your Decision</CardTitle>
+                <CardDescription>
+                  Make the final decision on this concept note based on the
+                  reviewer feedback
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleApprove}
                     className={cn(
-                      "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                      "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                       decision === "approve"
-                        ? "bg-primary text-white"
-                        : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary group-hover:bg-primary/20 dark:group-hover:bg-primary/30",
+                        ? "border-primary/50 bg-primary/10 shadow-sm ring-1 ring-primary/50 dark:bg-primary/10"
+                        : "border-border hover:border-primary/50 hover:bg-muted/50",
                     )}
                   >
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <div className="ml-3">
-                    <span className="block text-sm font-semibold text-foreground">
-                      Approve Concept Note
-                    </span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">
-                      Ready for the next evaluation phase.
-                    </span>
-                  </div>
-                </button>
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                        decision === "approve"
+                          ? "bg-primary text-white"
+                          : "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary group-hover:bg-primary/20 dark:group-hover:bg-primary/30",
+                      )}
+                    >
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div className="ml-3">
+                      <span className="block text-sm font-semibold text-foreground">
+                        Approve Concept Note
+                      </span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Ready for the next evaluation phase.
+                      </span>
+                    </div>
+                  </button>
 
-                <button
-                  onClick={handleRequestChanges}
-                  className={cn(
-                    "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
-                    decision === "request-changes"
-                      ? "border-yellow-500 bg-yellow-50/80 shadow-sm ring-1 ring-yellow-500 dark:bg-yellow-500/10"
-                      : "border-border hover:border-yellow-500/50 hover:bg-muted/50",
-                  )}
-                >
-                  <div
+                  <button
+                    onClick={handleRequestChanges}
                     className={cn(
-                      "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                      "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                       decision === "request-changes"
-                        ? "bg-yellow-500 text-white"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-500/30",
+                        ? "border-yellow-500 bg-yellow-50/80 shadow-sm ring-1 ring-yellow-500 dark:bg-yellow-500/10"
+                        : "border-border hover:border-yellow-500/50 hover:bg-muted/50",
                     )}
                   >
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div className="ml-3">
-                    <span className="block text-sm font-semibold text-foreground">
-                      Request Changes
-                    </span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">
-                      Needs revision before approval.
-                    </span>
-                  </div>
-                </button>
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                        decision === "request-changes"
+                          ? "bg-yellow-500 text-white"
+                          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 group-hover:bg-yellow-200 dark:group-hover:bg-yellow-500/30",
+                      )}
+                    >
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div className="ml-3">
+                      <span className="block text-sm font-semibold text-foreground">
+                        Request Changes
+                      </span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Needs revision before approval.
+                      </span>
+                    </div>
+                  </button>
 
-                <button
-                  onClick={handleReject}
-                  className={cn(
-                    "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
-                    decision === "reject"
-                      ? "border-red-500 bg-red-50/80 shadow-sm ring-1 ring-red-500 dark:bg-red-500/10"
-                      : "border-border hover:border-red-500/50 hover:bg-muted/50",
-                  )}
-                >
-                  <div
+                  <button
+                    onClick={handleReject}
                     className={cn(
-                      "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                      "flex items-start text-left w-full p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                       decision === "reject"
-                        ? "bg-red-500 text-white"
-                        : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 group-hover:bg-red-200 dark:group-hover:bg-red-500/30",
+                        ? "border-red-500 bg-red-50/80 shadow-sm ring-1 ring-red-500 dark:bg-red-500/10"
+                        : "border-border hover:border-red-500/50 hover:bg-muted/50",
                     )}
                   >
-                    <AlertCircle className="h-5 w-5" />
-                  </div>
-                  <div className="ml-3">
-                    <span className="block text-sm font-semibold text-foreground">
-                      Reject Concept Note
-                    </span>
-                    <span className="block text-xs text-muted-foreground mt-0.5">
-                      Does not meet the criteria.
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg shrink-0 transition-colors duration-200",
+                        decision === "reject"
+                          ? "bg-red-500 text-white"
+                          : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 group-hover:bg-red-200 dark:group-hover:bg-red-500/30",
+                      )}
+                    >
+                      <AlertCircle className="h-5 w-5" />
+                    </div>
+                    <div className="ml-3">
+                      <span className="block text-sm font-semibold text-foreground">
+                        Reject Concept Note
+                      </span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Does not meet the criteria.
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Main Content: Reviewer Assessments */}
