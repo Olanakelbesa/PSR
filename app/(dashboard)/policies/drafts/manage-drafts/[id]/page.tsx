@@ -348,19 +348,14 @@ export default function DraftDetailPage() {
               Back 
             </Link>
           </Button>
-          {(() => {
-            const { hasPermission } = useServerPermissions();
-            return hasPermission("policy_development.assign_reviewer") ? (
-              {hasPermission("policy_development.assign_reviewer") && (
-                <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5" variant="outline">
-                  <Link href={`/policies/drafts/manage-drafts/${draft.id}/assign`}>
-                    <Users className="mr-2 h-4 w-4" />
-                    {hasAssignedReviewers ? "Change Reviewers" : "Assign Reviewers"}
-                  </Link>
-                </Button>
-              )}
-            ) : null;
-          })()}
+          {hasPermission("policy_development.assign_reviewer") && (
+            <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5" variant="outline">
+              <Link href={`/policies/drafts/manage-drafts/${draft.id}/assign`}>
+                <Users className="mr-2 h-4 w-4" />
+                {hasAssignedReviewers ? "Change Reviewers" : "Assign Reviewers"}
+              </Link>
+            </Button>
+          )}
           {canRecordDecision && (
             <Button size="sm" className="shadow-sm font-semibold" onClick={handleOpenDecisionModal}>
               <CheckCircle2 className="mr-2 h-4 w-4" />

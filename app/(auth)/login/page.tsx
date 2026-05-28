@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
+import { queryClient } from "@/lib/query-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
@@ -63,6 +64,7 @@ export default function LoginPage() {
       }
 
       toast.success("Login Successful", { description: "Welcome to the PSR Platform!" });
+      queryClient.clear();
       router.push("/dashboard");
       router.refresh();
     } catch {

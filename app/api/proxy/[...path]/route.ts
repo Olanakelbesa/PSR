@@ -19,7 +19,7 @@
 // NextAuth v5 pattern: handler is wrapped with auth() so req.auth is
 // automatically populated from cookies — do NOT call auth() internally.
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -55,6 +55,11 @@ function log(
   );
 }
 
+// ─── Type definitions for Next.js dynamic routing ──────────────────────────────
+interface RouteContext {
+  params: Promise<{ path: string[] }>;
+}
+
 // ─── Core Handler ─────────────────────────────────────────────────────────────
 // Wrapped with auth() — the correct NextAuth v5 pattern for Route Handlers.
 // This ensures req.auth is populated from the session cookie automatically.
@@ -70,6 +75,7 @@ const handler = auth(async (req, context) => {
     );
   }
 
+  // Safely await params as required by Next.js 15+
   const { path } = (await (context as any).params) as { path: string[] };
   const apiPath = `/${path.join("/")}`;
   const queryString = req.nextUrl.search;
@@ -183,13 +189,13 @@ const handler = auth(async (req, context) => {
   }
 });
 
-// Export handler for all supported HTTP methods
-export {
-  handler as GET,
-  handler as POST,
-  handler as PUT,
-  handler as PATCH,
-  handler as DELETE,
-  handler as OPTIONS,
-  handler as HEAD,
-};
+// ─── Explicit Method Exports ──────────────────────────────────────────────────
+// Wrapped individually so the Next.js compilation engine recognizes them as 
+// proper App Router dynamic endpoints.
+export async function GET(request: NextRequest, context: RouteContext) { return handler(request, context); }
+export async function POST(request: NextRequest, context: RouteContext) { return handler(request, context); }
+export async function PUT(request: NextRequest, context: RouteContext) { return handler(request, context); }
+export async function PATCH(request: NextRequest, context: RouteContext) { return handler(request, context); }
+export async function DELETE(request: NextRequest, context: RouteContext) { return handler(request, context); }
+export async function OPTIONS(request: NextRequest, context: RouteContext) { return handler(request, context); }
+export async function HEAD(request: NextRequest, context: RouteContext) { return handler(request, context); }

@@ -12,6 +12,7 @@ import { useSession, signOut as nextSignOut } from "next-auth/react";
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { tokenStorage } from "@/api/client";
+import { queryClient } from "@/lib/query-client";
 import type { UserRole } from "@/lib/types";
 
 export function useAuth() {
@@ -44,6 +45,7 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     tokenStorage.clear();
+    queryClient.clear();
     await nextSignOut({ redirect: false });
     router.push("/login");
     router.refresh();
