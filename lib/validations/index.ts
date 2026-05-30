@@ -26,14 +26,14 @@ export const registerSchema = z
     title: z.string().min(1, "Title is required"),
     firstName: z.string().min(2, "First name must be at least 2 characters"),
     middleName: z.string().optional(),
-    lastName: z.string().min(2, "Last name must be at least 2 characters"),
+    lastName: z.string().optional(),
     email: z.string().email("Please enter a valid email address"),
     phone: z
       .string()
       .min(10, "Phone number must be at least 10 digits")
       .regex(/^\+?[0-9]+$/, "Please enter a valid phone number"),
     sex: z.enum(["Male", "Female"]),
-    organizationType: z.string().min(1, "Organization type is required"),
+    organizationType: z.string().min(1, "Organization type is required"), 
     organization: z.string().min(1, "Organization is required"),
     unit: z.string().min(1, "Unit/Department is required"),
     password: z.string().min(8, "Password must be at least 8 characters"),

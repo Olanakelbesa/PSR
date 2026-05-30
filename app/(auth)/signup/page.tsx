@@ -197,25 +197,44 @@ export default function SignupPage() {
       router.push(`/verify-otp?intent=registration&email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
       console.error("Failed to register:", err);
-      
-      const errorMessage = err?.message || "Registration failed";
-      
-      // If there are detailed field-specific errors, display them as toasts
-      if (err?.errors && typeof err.errors === "object") {
-        Object.entries(err.errors).forEach(([field, messages]) => {
-          if (Array.isArray(messages)) {
-            messages.forEach((msg) => {
-              // Humanize the field name (e.g. confirmPassword -> Confirm Password)
+
+      const apiError = err as {
+        message?: string;
+        errors?: Record<string, string[]>;
+        error?: Record<string, string[]>;
+        response?: { data?: any };
+      };
+
+      const rawFieldErrors =
+        apiError.errors ??
+        apiError.error ??
+        apiError.response?.data?.errors ??
+        apiError.response?.data?.error;
+
+      const fieldErrorMessages = rawFieldErrors && typeof rawFieldErrors === "object"
+        ? Object.entries(rawFieldErrors).flatMap(([field, messages]) => {
+            const normalizedMessages = Array.isArray(messages)
+              ? messages
+              : [String(messages)];
+            return normalizedMessages.map((message) => {
               const formattedField = field
                 .replace(/([A-Z])/g, " $1")
                 .replace(/^./, (str) => str.toUpperCase())
-                .replace("_", " ");
-              toast.error(`${formattedField}: ${msg}`, { duration: 5000 });
+                .replace(/_/g, " ");
+              return `${formattedField}: ${message}`;
             });
-          } else if (typeof messages === "string") {
-            toast.error(messages, { duration: 5000 });
-          }
-        });
+          })
+        : [];
+
+      const errorMessage =
+        fieldErrorMessages.length > 0
+          ? fieldErrorMessages.join(" ")
+          : apiError.message || "Registration failed";
+
+      if (fieldErrorMessages.length > 0) {
+        fieldErrorMessages.forEach((message) =>
+          toast.error(message, { duration: 5000 }),
+        );
       } else {
         toast.error(errorMessage, { duration: 5000 });
       }
@@ -411,11 +430,11 @@ export default function SignupPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs font-bold uppercase text-muted-foreground">
-                            Middle (Opt)
+                            Father's Name
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Middle Name"
+                              placeholder="Father's Name"
                               className="h-11 bg-muted/30 border-muted"
                               {...field}
                             />
@@ -430,11 +449,11 @@ export default function SignupPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs font-bold uppercase text-muted-foreground">
-                            Last Name
+                            Grandfather's Name
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Last Name"
+                              placeholder="Grandfather's Name"
                               className="h-11 bg-muted/30 border-muted"
                               {...field}
                             />
