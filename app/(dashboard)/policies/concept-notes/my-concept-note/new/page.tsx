@@ -53,7 +53,7 @@ import {
   useUpdateConceptNote,
 } from "@/lib/queries/concept-notes";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
-import { useThematicAreas } from "@/lib/queries/thematic-area";
+// thematic areas removed from concept notes
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { toast } from "sonner";
 import { useOrganizations } from "@/lib/queries/organizations";
@@ -83,12 +83,7 @@ export default function NewConceptNotePage() {
   const isPending =
     createConceptNoteMutation.isPending || submitConceptNoteMutation.isPending;
   const { data: documentTypes = [] } = usePolicyDocumentTypes();
-  const {
-    data: thematicAreasResponse,
-    isLoading: isLoadingThematic,
-    error: thematicError,
-  } = useThematicAreas();
-  const thematicAreas = thematicAreasResponse?.data ?? [];
+  // Thematic areas removed — frontend no longer loads or selects them
 
   const { data: organizations = [] } = useOrganizations();
 
@@ -100,7 +95,6 @@ export default function NewConceptNotePage() {
       documentType: undefined,
       organization: [],
       unit: "",
-      thematicAreas: [],
       documentCategory: "new",
       file: undefined,
     },
@@ -112,7 +106,6 @@ export default function NewConceptNotePage() {
   const selectedDocumentCategory = form.watch("documentCategory");
   const selectedOrganizationIds = form.watch("organization") || [];
   const selectedUnit = form.watch("unit") || "";
-  const selectedThematicIds = form.watch("thematicAreas") || [];
   const selectedFile = form.watch("file") as File | undefined;
 
   const selectedOrganizationsList = organizations.filter((org) =>
@@ -136,9 +129,7 @@ export default function NewConceptNotePage() {
       form.setValue("unit", "");
     }
   }, [unitsOptions, selectedUnit, form]);
-  const selectedAreas = thematicAreas.filter((area) =>
-    selectedThematicIds.includes(String(area.id)),
-  );
+  
   const wordCount = calculateWordCount(executiveSummary);
   const completionItems = [
     title.trim().length > 0,
@@ -146,7 +137,6 @@ export default function NewConceptNotePage() {
     Boolean(selectedDocumentCategory),
     selectedOrganizationIds.length > 0,
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
-    selectedThematicIds.length > 0,
     Boolean(selectedFile),
   ];
   const completion = Math.round(
@@ -195,7 +185,6 @@ export default function NewConceptNotePage() {
     // Resolve fallback IDs from loaded reference data to guarantee they exist in the DB
     const fallbackDocType = documentTypes[0]?.id || 1;
     const fallbackOrg = organizations[0]?.id || 1;
-    const fallbackThematic = thematicAreas[0]?.id || 1;
 
     const parsedDocType = Number(values.documentType);
     const docTypeVal =
@@ -209,16 +198,7 @@ export default function NewConceptNotePage() {
         : NaN;
     const orgVal = isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
 
-    const thematicVal =
-      values.thematicAreas && values.thematicAreas.length > 0
-        ? values.thematicAreas
-            .map(Number)
-            .filter((n: number) => !isNaN(n) && n > 0)
-        : [fallbackThematic];
-
-    if (thematicVal.length === 0) {
-      thematicVal.push(fallbackThematic);
-    }
+    // Thematic areas removed — do not include them in payload
 
     if (isFileUpload) {
       const formData = new FormData();
@@ -235,9 +215,7 @@ export default function NewConceptNotePage() {
         formData.append("file", values.file);
       }
 
-      thematicVal.forEach((id: number) => {
-        formData.append("thematicreas", id.toString());
-      });
+      // No thematic areas to append
 
       return formData;
     } else {
@@ -245,7 +223,7 @@ export default function NewConceptNotePage() {
         title: values.title || "Untitled Draft",
         doc_type: docTypeVal,
         executive_summary: values.executiveSummary || "No summary provided.",
-        thematicreas: thematicVal,
+        // thematicreas removed
         organization: orgVal,
         document_category: values.documentCategory || "new",
       };
@@ -289,14 +267,13 @@ export default function NewConceptNotePage() {
       val1.documentCategory !== val2.documentCategory ||
       val1.unit !== val2.unit ||
       JSON.stringify(val1.organization) !== JSON.stringify(val2.organization) ||
-      JSON.stringify(val1.thematicAreas) !==
-        JSON.stringify(val2.thematicAreas) ||
+      
       val1.file !== val2.file
     );
   };
 
   const organizationDep = JSON.stringify(formValues.organization);
-  const thematicDep = JSON.stringify(formValues.thematicAreas);
+  
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -344,7 +321,6 @@ export default function NewConceptNotePage() {
     formValues.documentCategory,
     formValues.unit,
     organizationDep,
-    thematicDep,
     formValues.file,
     draftId,
   ]);
@@ -779,115 +755,9 @@ export default function NewConceptNotePage() {
                   }}
                 />
               </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden">
-              <CardHeader className="border-b bg-muted/30">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">Thematic areas</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Select every area that should inform routing and review
-                      assignment.
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="w-fit">
-                    {selectedThematicIds.length} selected
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <FormField
-                  control={form.control}
-                  name="thematicAreas"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Areas</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <button
-                              type="button"
-                              className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <span className="flex-1 text-left">
-                                {selectedThematicIds.length > 0
-                                  ? `${selectedThematicIds.length} area${selectedThematicIds.length !== 1 ? "s" : ""} selected`
-                                  : "Select thematic areas"}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-3" align="start">
-                          <div className="space-y-2">
-                            {thematicAreas.map((area) => {
-                              const checked =
-                                field.value?.includes(String(area.id)) || false;
-                              return (
-                                <label
-                                  key={area.id}
-                                  className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
-                                >
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(isChecked) => {
-                                      const currentValue = field.value || [];
-                                      field.onChange(
-                                        isChecked
-                                          ? [...currentValue, String(area.id)]
-                                          : currentValue.filter(
-                                              (id) => id !== String(area.id),
-                                            ),
-                                      );
-                                    }}
-                                  />
-                                  <span className="text-sm font-medium">
-                                    {area.name}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        Select at least one thematic area.
-                      </FormDescription>
-                      {selectedThematicIds.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-3">
-                          {selectedAreas.map((area) => (
-                            <Badge
-                              key={area.id}
-                              variant="secondary"
-                              className="flex items-center gap-2"
-                            >
-                              {area.name}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  field.onChange(
-                                    field.value?.filter(
-                                      (id) => id !== String(area.id),
-                                    ) || [],
-                                  );
-                                }}
-                                className="ml-1 hover:opacity-70"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden">
+              </Card>
+            
+              <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/30">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">

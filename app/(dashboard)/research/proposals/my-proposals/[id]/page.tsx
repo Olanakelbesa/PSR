@@ -388,16 +388,6 @@ export default function ProposalDetailPage() {
                 </div>
                 <div className="rounded-2xl border bg-muted/20 p-4">
                   <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                    Thematic Areas
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">
-                    {proposal.thematicAreas?.length
-                      ? `${proposal.thematicAreas.length} linked`
-                      : "None"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border bg-muted/20 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                     Team Members
                   </p>
                   <p className="mt-2 text-sm font-semibold">
@@ -461,25 +451,6 @@ export default function ProposalDetailPage() {
                   <p className="mt-1 text-sm font-medium">
                     {proposal.subThematicArea?.name || "Not set"}
                   </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                    Thematic Areas
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {proposal.thematicAreas?.length ? (
-                      proposal.thematicAreas.map((area) => (
-                        <Badge key={area.id} variant="outline">
-                          {area.name}
-                        </Badge>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No thematic areas linked.
-                      </p>
-                    )}
-                  </div>
                 </div>
 
                 <div>

@@ -138,9 +138,7 @@ export const conceptNoteSchema = z.object({
   documentType: z.number().min(1, "Document type is required"),
   organization: z.array(z.string()).min(1, "Select at least one organization"),
   unit: z.string().optional(),
-  thematicAreas: z
-    .array(z.string())
-    .min(1, "At least one thematic area is required"),
+  // thematicAreas removed from concept notes
   file: z
     .any()
     .refine(

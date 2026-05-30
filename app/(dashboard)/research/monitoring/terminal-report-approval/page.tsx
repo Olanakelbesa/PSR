@@ -262,7 +262,7 @@ export default function TerminalReportApprovalListPage() {
 
   return (
     <PageContainer
-      title="Full Report Approval"
+      title="Terminal Report Approval"
       description="Review submitted full reports and record closeout decisions."
       actions={
         <Button

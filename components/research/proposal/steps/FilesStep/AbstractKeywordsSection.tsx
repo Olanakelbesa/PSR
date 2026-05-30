@@ -44,7 +44,7 @@ export function AbstractKeywordsSection() {
         render={({ field }) => (
           <FormItem data-field="abstract">
             <FormLabel>
-              Abstract <span className="text-destructive">*</span>
+              Executive Summary <span className="text-destructive">*</span>
             </FormLabel>
             <FormControl>
               <div className="rounded-md border border-input">
@@ -52,7 +52,7 @@ export function AbstractKeywordsSection() {
                   content={field.value ?? ""}
                   onChange={field.onChange}
                   onBlur={field.onBlur}
-                  placeholder="Enter your proposal abstract (minimum 100 characters)..."
+                  placeholder="Enter your proposal executive summary (minimum 100 characters)..."
                 />
               </div>
             </FormControl>

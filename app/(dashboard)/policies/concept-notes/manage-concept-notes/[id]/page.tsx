@@ -319,28 +319,6 @@ export default function ManageConceptNoteDetailPage() {
                 </CardContent>
               </Card>
 
-              {note.overview?.thematicAreas &&
-                note.overview.thematicAreas.length > 0 && (
-                  <Card className="shadow-sm">
-                    <CardHeader className="border-b bg-muted/20 pb-3">
-                      <CardTitle className="text-sm font-semibold">
-                        Thematic Areas
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4 flex flex-wrap gap-2">
-                      {note.overview.thematicAreas.map((area: any) => (
-                        <Badge
-                          key={area.id}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {area.name}
-                        </Badge>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-
               {fileUrl && (
                 <Card className="shadow-sm border-primary/10">
                   <CardHeader className="border-b bg-primary/5 pb-3">

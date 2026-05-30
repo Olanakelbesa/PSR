@@ -67,30 +67,7 @@ export function ConceptNoteOverview({
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm border-primary/10">
-        <CardHeader className="border-b bg-muted/30 pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Tag className="h-4 w-4 text-primary" /> Thematic Areas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-5 flex flex-wrap gap-2">
-          {thematicAreas.length > 0 ? (
-            thematicAreas.map((area: any) => (
-              <Badge
-                key={String(area.id)}
-                variant="secondary"
-                className="px-3 py-1 text-sm"
-              >
-                {area.name}
-              </Badge>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No thematic areas provided.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+
 
       <Card className="shadow-sm border-primary/10">
         <CardHeader className="border-b bg-muted/30 pb-4">

@@ -134,7 +134,7 @@ export default function ConceptNoteDetailPage() {
 
   return (
     <PageContainer
-      title={note.title}
+      title={note.title || "Untitled Concept Note"}
       description={`${conceptId} · ${currentVersion} · ${submittedByName}`}
       actions={
         <div className="flex items-center gap-2">

@@ -60,7 +60,7 @@ import {
   useUpdateConceptNote,
 } from "@/lib/queries/concept-notes";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
-import { useThematicAreas } from "@/lib/queries/thematic-area";
+// thematic areas removed from concept notes
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { toast } from "sonner";
 
@@ -89,7 +89,6 @@ export default function EditConceptNotePage() {
       documentType: undefined,
       organization: [],
       unit: "",
-      thematicAreas: [],
       documentCategory: "new",
       file: undefined,
     },
@@ -104,9 +103,7 @@ export default function EditConceptNotePage() {
 
   const { data: documentTypes = [], isLoading: isLoadingDocumentTypes } =
     usePolicyDocumentTypes();
-  const { data: thematicAreasResponse, isLoading: isLoadingThematicAreas } =
-    useThematicAreas();
-  const thematicAreas = thematicAreasResponse?.data ?? [];
+  // Thematic areas removed — frontend no longer loads or selects them
   const { data: organizations = [], isLoading: isLoadingOrganizations } =
     useOrganizations();
 
@@ -140,11 +137,7 @@ export default function EditConceptNotePage() {
         : [],
       // Use explicit null/undefined check to avoid accidental falsy clears
       unit: conceptNote.unit && conceptNote.unit.id != null ? String(conceptNote.unit.id) : "",
-      thematicAreas:
-        Array.isArray(conceptNote.overview?.thematicAreas) &&
-        conceptNote.overview?.thematicAreas.length > 0
-          ? conceptNote.overview.thematicAreas.map((area) => String(area.id))
-          : [],
+      // thematicAreas removed from concept notes
       documentCategory:
         conceptNote.documentCategory === "revision"
           ? "revision"
@@ -190,7 +183,6 @@ export default function EditConceptNotePage() {
   const selectedDocumentCategory = form.watch("documentCategory");
   const selectedOrganizationIds = form.watch("organization") || [];
   const selectedUnit = form.watch("unit") || "";
-  const selectedThematicIds = form.watch("thematicAreas") || [];
   const selectedFile = form.watch("file") as File | undefined;
 
   const selectedDocumentTypeName = useMemo(() => {
@@ -222,13 +214,7 @@ export default function EditConceptNotePage() {
     [organizations, selectedOrganizationIds, conceptNote],
   );
 
-  const selectedAreas = useMemo(
-    () =>
-      thematicAreas.filter((area) =>
-        selectedThematicIds.includes(String(area.id)),
-      ),
-    [thematicAreas, selectedThematicIds],
-  );
+  
 
   const { data: units = [], isLoading: isLoadingUnits } = useUnits(
     selectedOrganizationIds,
@@ -314,7 +300,6 @@ export default function EditConceptNotePage() {
     selectedOrganizationIds.length > 0,
     Boolean(selectedUnit),
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
-    selectedThematicIds.length > 0,
     Boolean(selectedFile || existingFileUrl),
   ];
   const completion = Math.round(
@@ -324,13 +309,11 @@ export default function EditConceptNotePage() {
   const isLoading =
     isLoadingNote ||
     isLoadingDocumentTypes ||
-    isLoadingThematicAreas ||
     isLoadingOrganizations;
 
   const buildRequestPayload = (values: ConceptNoteFormData) => {
     const fallbackDocType = documentTypes[0]?.id || 1;
     const fallbackOrg = organizations[0]?.id || 1;
-    const fallbackThematic = thematicAreas[0]?.id || 1;
 
     const parsedDocType = Number(values.documentType);
     const docTypeVal =
@@ -345,16 +328,7 @@ export default function EditConceptNotePage() {
     const orgVal =
       Number.isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
 
-    const thematicVal =
-      values.thematicAreas && values.thematicAreas.length > 0
-        ? values.thematicAreas
-            .map(Number)
-            .filter((id) => !Number.isNaN(id) && id > 0)
-        : [fallbackThematic];
-
-    if (thematicVal.length === 0) {
-      thematicVal.push(fallbackThematic);
-    }
+    // Thematic areas removed — do not include them in payload
 
     const payload = new FormData();
     payload.append("title", values.title || "Untitled Draft");
@@ -371,9 +345,7 @@ export default function EditConceptNotePage() {
       payload.append("unit", String(parsedUnit));
     }
 
-    thematicVal.forEach((id) => {
-      payload.append("thematicreas", String(id));
-    });
+    // No thematic areas to append
 
     if (values.file instanceof File) {
       payload.append("file", values.file);
@@ -441,9 +413,7 @@ export default function EditConceptNotePage() {
     return (
       <PageContainer title="Edit Concept Note">
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-12 text-center">
-          <p className="font-semibold text-destructive">
-            Failed to load concept note
-          </p>
+          <p className="font-semibold text-destructive">Failed to load concept note</p>
           <Button
             variant="outline"
             className="mt-4"
@@ -454,66 +424,21 @@ export default function EditConceptNotePage() {
         </div>
       </PageContainer>
     );
-  }
 
-  if (!isEditableState) {
-    return (
-      <PageContainer title="Edit Concept Note">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-12 text-center">
-          <p className="font-semibold text-amber-900">
-            This concept note cannot be edited in its current state.
-          </p>
-          <p className="text-sm text-amber-800 mt-2 max-w-lg mx-auto">
-            Only drafts and revision-required concept notes can be edited. The current state is {conceptNote?.currentStatus?.status ?? "unknown"}.
-          </p>
-          <Button variant="outline" className="mt-4" asChild>
-            <Link href={`/policies/concept-notes/my-concept-note/${conceptNoteId}`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Concept Note
-            </Link>
-          </Button>
-        </div>
-      </PageContainer>
-    );
   }
 
   return (
-    <PageContainer
-      title="Edit Concept Note"
-      description="Update the existing concept note fields and save or resubmit it."
-      actions={
-        <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="shadow-sm">
-            <Link
-              href={`/policies/concept-notes/my-concept-note/${conceptNoteId}`}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Link>
-          </Button>
-          <Button
-            onClick={form.handleSubmit((data) => handleSubmit(data, true))}
-            disabled={isSaving}
-            className="shadow-sm"
-          >
-            <Send className="mr-2 h-4 w-4" />
-            {isSaving
-              ? "Saving..."
-              : submitActionLabel}
-          </Button>
-        </div>
-      }
-    >
+    <PageContainer title="Edit Concept Note">
       <Form {...form}>
-        <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="space-y-6">
+        <form className="grid gap-5 md:grid-cols-2">
+          <div className="space-y-5">
             <Card className="overflow-hidden shadow-sm border-primary/10">
               <CardHeader className="border-b bg-muted/30">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">
                     <CardTitle className="text-lg">Concept details</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Update the title and document type.
+                      Capture the classification and category for this concept note.
                     </p>
                   </div>
                 </div>
@@ -524,28 +449,21 @@ export default function EditConceptNotePage() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="flex items-center justify-between gap-3">
-                        <FormLabel>Title</FormLabel>
-                        <span className="text-xs text-muted-foreground">
-                          {field.value?.length || 0}/{MAX_TITLE_LENGTH}
-                        </span>
-                      </div>
+                      <FormLabel>Title</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Enter concept note title"
                           maxLength={MAX_TITLE_LENGTH}
-                          className="h-11"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription>
-                        Use a clear title reviewers can scan quickly.
+                        Provide a short, clear title for this concept note.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <div className="grid gap-5 md:grid-cols-2">
                   <FormField
                     control={form.control}
@@ -832,106 +750,7 @@ export default function EditConceptNotePage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden shadow-sm border-primary/10">
-              <CardHeader className="border-b bg-muted/30">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-lg">Thematic areas</CardTitle>
-                  <Badge variant="outline" className="w-fit">
-                    {selectedThematicIds.length} selected
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <FormField
-                  control={form.control}
-                  name="thematicAreas"
-                  render={({ field }) => (
-                    <FormItem>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <button
-                              type="button"
-                              className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            >
-                              <span className="flex-1 text-left">
-                                {selectedThematicIds.length > 0
-                                  ? `${selectedThematicIds.length} selected`
-                                  : "Select areas"}
-                              </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
-                            </button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-3" align="start">
-                          <div className="space-y-2">
-                            {thematicAreas.map((area) => {
-                              const checked =
-                                field.value?.includes(String(area.id)) || false;
-                              return (
-                                <label
-                                  key={area.id}
-                                  className="flex cursor-pointer items-center gap-3 rounded-md p-2 hover:bg-muted/50"
-                                >
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(checkedValue) => {
-                                      const currentValue = field.value || [];
-                                      field.onChange(
-                                        checkedValue
-                                          ? [...currentValue, String(area.id)]
-                                          : currentValue.filter(
-                                              (id) => id !== String(area.id),
-                                            ),
-                                      );
-                                    }}
-                                  />
-                                  <span className="text-sm font-medium">
-                                    {area.name}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-
-                      <FormDescription>
-                        Select at least one thematic area.
-                      </FormDescription>
-
-                      {selectedAreas.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-3">
-                          {selectedAreas.map((area) => (
-                            <Badge
-                              key={area.id}
-                              variant="secondary"
-                              className="flex items-center gap-2"
-                            >
-                              {area.name}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  field.onChange(
-                                    field.value?.filter(
-                                      (id) => id !== String(area.id),
-                                    ) || [],
-                                  )
-                                }
-                                className="ml-1 hover:opacity-70"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+            
 
             <Card className="overflow-hidden shadow-sm border-primary/10">
               <CardHeader className="border-b bg-muted/30">
@@ -1094,10 +913,6 @@ export default function EditConceptNotePage() {
                   />
                   <ReadinessItem
                     complete={completionItems[6]}
-                    label="Thematic area tagged"
-                  />
-                  <ReadinessItem
-                    complete={completionItems[7]}
                     label="Document attached"
                   />
                 </div>
