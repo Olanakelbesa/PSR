@@ -172,15 +172,6 @@ const ManagedProposalDetailSchema = z.object({
       }),
     )
     .default([]),
-  strategicObjectives: z
-    .array(
-      z.object({
-        id: z.union([z.string(), z.number()]).transform(String),
-        name: z.string(),
-      }),
-    )
-    .optional()
-    .default([]),
   receivingOffice: z
     .object({
       id: z.union([z.string(), z.number()]).transform(String),

@@ -252,12 +252,6 @@ const buildProposalFormData = (values: ProposalFormInput): FormData => {
     formData.append("needs_irb", String(needsIrb));
   }
 
-  if (Array.isArray(values.strategic_objectives)) {
-    values.strategic_objectives.forEach((so) => {
-      formData.append("strategic_objectives", String(parseInt(String(so), 10)));
-    });
-  }
-
   if (values.submissionType === "on_site") {
     const sectionResponses: Array<{
       template_section: number;
@@ -413,7 +407,6 @@ const getModifiedFields = (
     "signature",
     "needsIrb",
     "needs_irb",
-    "strategic_objectives",
   ];
 
   for (const key of keysToCompare) {
@@ -638,12 +631,6 @@ const buildModifiedProposalFormData = (
   const needsIrb = values.needsIrb ?? values.needs_irb;
   if (needsIrb !== undefined && needsIrb !== null) {
     formData.append("needs_irb", String(needsIrb));
-  }
-
-  if (Array.isArray(values.strategic_objectives)) {
-    values.strategic_objectives.forEach((so) => {
-      formData.append("strategic_objectives", String(parseInt(String(so), 10)));
-    });
   }
 
   if (values.submissionType === "on_site") {
@@ -1182,15 +1169,6 @@ export function ProposalWizard({
           : proposal.keywords || "",
         abstract: proposal.abstract || "",
         needsIrb: proposal.needsIrb ?? proposal.needs_irb ?? false,
-        strategic_objectives: Array.isArray(proposal.strategic_objectives)
-          ? proposal.strategic_objectives.map((so: any) =>
-              typeof so === "object" ? String(so.id) : String(so),
-            )
-          : Array.isArray(proposal.strategicObjectives)
-            ? proposal.strategicObjectives.map((so: any) =>
-                typeof so === "object" ? String(so.id) : String(so),
-              )
-            : [],
       };
 
       // Map team members

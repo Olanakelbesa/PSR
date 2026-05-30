@@ -222,7 +222,6 @@ export default function ScreeningDetailPage() {
         detail.lastSubmittedAt || detail.createdAt || new Date().toISOString(),
       referenceNumber: detail.referenceNumber || `PRP-${detail.id}`,
       keywords: detail.keywords || [],
-      strategicObjectives: detail.strategicObjectives || [],
       receivingOffice: detail.receivingOffice || null,
       Organization: detail.Organization || null,
       Unit: detail.Unit || null,

@@ -47,6 +47,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
+import { StrategicObjectivesField } from "@/components/policies/concept-notes/strategic-objectives-field";
 import {
   useCreateConceptNote,
   useSubmitConceptNote,
@@ -96,6 +97,7 @@ export default function NewConceptNotePage() {
       organization: [],
       unit: "",
       documentCategory: "new",
+      strategicObjectives: [],
       file: undefined,
     },
   });
@@ -107,6 +109,7 @@ export default function NewConceptNotePage() {
   const selectedOrganizationIds = form.watch("organization") || [];
   const selectedUnit = form.watch("unit") || "";
   const selectedFile = form.watch("file") as File | undefined;
+  const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
   const selectedOrganizationsList = organizations.filter((org) =>
     selectedOrganizationIds.includes(String(org.id)),
@@ -136,6 +139,7 @@ export default function NewConceptNotePage() {
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
     selectedOrganizationIds.length > 0,
+    selectedStrategicObjectives.length > 0,
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
     Boolean(selectedFile),
   ];
@@ -181,6 +185,9 @@ export default function NewConceptNotePage() {
 
   const buildRequestPayload = (values: any) => {
     const isFileUpload = values.file instanceof File;
+    const strategicObjectiveIds = Array.isArray(values.strategicObjectives)
+      ? values.strategicObjectives.map((objectiveId: string) => String(objectiveId))
+      : [];
 
     // Resolve fallback IDs from loaded reference data to guarantee they exist in the DB
     const fallbackDocType = documentTypes[0]?.id || 1;
@@ -211,6 +218,10 @@ export default function NewConceptNotePage() {
       formData.append("organization", orgVal.toString());
       formData.append("document_category", values.documentCategory || "new");
 
+      strategicObjectiveIds.forEach((objectiveId) => {
+        formData.append("strategic_objective_ids", objectiveId);
+      });
+
       if (values.file) {
         formData.append("file", values.file);
       }
@@ -226,6 +237,7 @@ export default function NewConceptNotePage() {
         // thematicreas removed
         organization: orgVal,
         document_category: values.documentCategory || "new",
+        strategic_objective_ids: strategicObjectiveIds.map((objectiveId) => Number(objectiveId)),
       };
 
       // Only append string files if needed, but standard file uploads use FormData.
@@ -267,12 +279,15 @@ export default function NewConceptNotePage() {
       val1.documentCategory !== val2.documentCategory ||
       val1.unit !== val2.unit ||
       JSON.stringify(val1.organization) !== JSON.stringify(val2.organization) ||
+      JSON.stringify(val1.strategicObjectives || []) !==
+        JSON.stringify(val2.strategicObjectives || []) ||
       
       val1.file !== val2.file
     );
   };
 
   const organizationDep = JSON.stringify(formValues.organization);
+  const strategicObjectivesDep = JSON.stringify(selectedStrategicObjectives);
   
 
   useEffect(() => {
@@ -321,6 +336,7 @@ export default function NewConceptNotePage() {
     formValues.documentCategory,
     formValues.unit,
     organizationDep,
+    strategicObjectivesDep,
     formValues.file,
     draftId,
   ]);
@@ -528,6 +544,8 @@ export default function NewConceptNotePage() {
                     )}
                   />
                 </div>
+
+                <StrategicObjectivesField />
               </CardContent>
             </Card>
 
@@ -899,15 +917,15 @@ export default function NewConceptNotePage() {
                   />
                   <ReadinessItem
                     complete={completionItems[3]}
-                    label="Summary within limit"
-                  />
-                  <ReadinessItem
-                    complete={completionItems[4]}
                     label="Organization selected"
                   />
                   <ReadinessItem
+                    complete={completionItems[4]}
+                    label="Strategic objectives selected"
+                  />
+                  <ReadinessItem
                     complete={completionItems[5]}
-                    label="Thematic area selected"
+                    label="Summary within limit"
                   />
                   <ReadinessItem
                     complete={completionItems[6]}

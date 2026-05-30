@@ -49,6 +49,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
+import { StrategicObjectivesField } from "@/components/policies/concept-notes/strategic-objectives-field";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/lib/queries/organizations";
 import { useUnits } from "@/lib/queries/units";
@@ -90,6 +91,7 @@ export default function EditConceptNotePage() {
       organization: [],
       unit: "",
       documentCategory: "new",
+      strategicObjectives: [],
       file: undefined,
     },
   });
@@ -124,6 +126,12 @@ export default function EditConceptNotePage() {
   useEffect(() => {
     if (!conceptNote) return;
 
+    const loadedStrategicObjectives = Array.isArray((conceptNote as any).strategicObjectives)
+      ? (conceptNote as any).strategicObjectives.map((objective: any) => String(objective.id))
+      : Array.isArray((conceptNote as any).strategic_objectives)
+        ? (conceptNote as any).strategic_objectives.map((objective: any) => String(objective.id))
+        : [];
+
     form.reset({
       title: String(conceptNote.title ?? ""),
       executiveSummary: String(conceptNote.overview?.executiveSummary ?? ""),
@@ -142,9 +150,18 @@ export default function EditConceptNotePage() {
         conceptNote.documentCategory === "revision"
           ? "revision"
           : "new",
+      strategicObjectives: loadedStrategicObjectives,
       file: undefined,
     });
     setExistingFileUrl(conceptNote.overview?.file ?? null);
+
+    if (loadedStrategicObjectives.length > 0) {
+      form.setValue("strategicObjectives", loadedStrategicObjectives, {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
 
     // Ensure organization field is explicitly set (helps useUnits refetch)
     if (conceptNote.organization && conceptNote.organization.id != null) {
@@ -184,6 +201,7 @@ export default function EditConceptNotePage() {
   const selectedOrganizationIds = form.watch("organization") || [];
   const selectedUnit = form.watch("unit") || "";
   const selectedFile = form.watch("file") as File | undefined;
+  const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
   const selectedDocumentTypeName = useMemo(() => {
     if (!selectedDocumentType) return null;
@@ -298,6 +316,7 @@ export default function EditConceptNotePage() {
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
     selectedOrganizationIds.length > 0,
+    selectedStrategicObjectives.length > 0,
     Boolean(selectedUnit),
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
     Boolean(selectedFile || existingFileUrl),
@@ -339,6 +358,14 @@ export default function EditConceptNotePage() {
     );
     payload.append("organization", String(orgVal));
     payload.append("document_category", values.documentCategory || "new");
+
+    const strategicObjectiveIds = Array.isArray(values.strategicObjectives)
+      ? values.strategicObjectives.map((objectiveId) => String(objectiveId))
+      : [];
+
+    strategicObjectiveIds.forEach((objectiveId) => {
+      payload.append("strategic_objective_ids", objectiveId);
+    });
 
     const parsedUnit = values.unit ? Number(values.unit) : NaN;
     if (!Number.isNaN(parsedUnit) && parsedUnit > 0) {
@@ -537,6 +564,8 @@ export default function EditConceptNotePage() {
                     )}
                   />
                 </div>
+
+                <StrategicObjectivesField />
               </CardContent>
             </Card>
 
@@ -905,14 +934,18 @@ export default function EditConceptNotePage() {
                   />
                   <ReadinessItem
                     complete={completionItems[4]}
-                    label="Unit selected"
+                    label="Strategic objectives selected"
                   />
                   <ReadinessItem
                     complete={completionItems[5]}
-                    label="Summary within limit"
+                    label="Unit selected"
                   />
                   <ReadinessItem
                     complete={completionItems[6]}
+                    label="Summary within limit"
+                  />
+                  <ReadinessItem
+                    complete={completionItems[7]}
                     label="Document attached"
                   />
                 </div>

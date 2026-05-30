@@ -17,6 +17,8 @@ export function ConceptNoteOverview({
   const summary = note.overview?.executiveSummary ?? note.background ?? "";
   const thematicAreas =
     note.overview?.thematicAreas ?? note.thematicAreas ?? [];
+  const strategicObjectives =
+    note.strategicObjectives ?? note.strategic_objectives ?? [];
   const supportingFile =
     note.overview?.file ?? note.versions?.find((version: any) => version.isLatest)?.file ?? note.attachments?.[0]?.url ?? null;
   const metadataRows = [
@@ -64,6 +66,32 @@ export function ConceptNoteOverview({
           <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
             {summary}
           </p>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm border-primary/10">
+        <CardHeader className="border-b bg-muted/30 pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Tag className="h-4 w-4 text-primary" /> Strategic Objectives
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-5">
+          {strategicObjectives.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {strategicObjectives.map((objective: any) => (
+                <Badge
+                  key={String(objective.id ?? objective.name)}
+                  variant="secondary"
+                >
+                  {objective.name ?? objective.title ?? String(objective.id)}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No strategic objectives linked.
+            </p>
+          )}
         </CardContent>
       </Card>
 

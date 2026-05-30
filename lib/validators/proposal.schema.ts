@@ -16,8 +16,6 @@ export interface ProposalFormInput {
   thematicArea?: string;
   thematicAreas?: string[];
   subThematicArea?: string;
-  strategic_objectives?: string[];
-  strategicObjectives?: string[];
   teamMembers?: any[];
   stakeholders?: any[];
   proposalFile?: unknown;

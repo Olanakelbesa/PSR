@@ -138,6 +138,7 @@ export const conceptNoteSchema = z.object({
   documentType: z.number().min(1, "Document type is required"),
   organization: z.array(z.string()).min(1, "Select at least one organization"),
   unit: z.string().optional(),
+  strategicObjectives: z.array(z.string()).optional(),
   // thematicAreas removed from concept notes
   file: z
     .any()
@@ -350,8 +351,6 @@ export const proposalSchema = z
     thematicArea: z.string().optional(),
     thematicAreas: z.array(z.string()).optional(),
     subThematicArea: z.string().optional(),
-    strategic_objectives: z.array(z.string()).optional(),
-    strategicObjectives: z.array(z.string()).optional(),
     proposalFile: z.any().optional(),
     supportingDocs: z.any().optional(),
     technicalProposal: z.any().optional(),

@@ -18,6 +18,7 @@ export interface ConceptNoteItem {
   versionNumber: string | null;
   executiveSummary: string;
   thematicAreas: { id: number; name: string }[];
+  strategicObjectives?: { id: number; name: string }[];
   submittedBy: {
     id: number;
     fullName: string;

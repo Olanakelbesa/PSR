@@ -10,31 +10,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import TagInput from "@/components/ui/tag-input";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
 import RichTextEditor from "@/components/RichTextEditor";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
-import { useStrategicObjectives } from "@/lib/queries/strategic-objective";
 
 export function AbstractKeywordsSection() {
   const form = useFormContext<ProposalFormInput>();
-  const selectedStrategicObjectives =
-    (useWatch({
-      control: form.control,
-      name: "strategic_objectives",
-      defaultValue: [],
-    }) as string[]) ?? [];
-
-  const { data: strategicObjectivesData = [] } = useStrategicObjectives({
-    limit: 1000,
-  });
-
-  const strategicOptions = strategicObjectivesData.map((objective) => ({
-    id: String(objective.id),
-    name: objective.name,
-  }));
 
   return (
     <>
@@ -62,75 +42,6 @@ export function AbstractKeywordsSection() {
       />
 
       {/* Keywords - Common for both modes */}
-      <div className="w-full space-y-4">
-        <FormField
-          control={form.control}
-          name="strategic_objectives"
-          render={({ field, fieldState }) => (
-            <FormItem>
-              <FormLabel className="text-sm font-semibold">
-                Strategic Objectives
-              </FormLabel>
-              <p className="text-sm text-muted-foreground">
-                Select one or more strategic objectives that best align with
-                this proposal.
-              </p>
-             
-              <FormControl>
-                <SearchableSelect<{ id: string; name: string }>
-                  value=""
-                  onValueChange={(v) => {
-                    if (!v) return;
-                    if (selectedStrategicObjectives.includes(v)) return;
-                    field.onChange([...selectedStrategicObjectives, v]);
-                  }}
-                  additionalOptions={strategicOptions}
-                  getOptionValue={(o) => String(o.id)}
-                  getOptionLabel={(o) => o.name}
-                  placeholder="Select Strategic Objective(s)"
-                  searchPlaceholder="Search objectives..."
-                  emptyMessage="No objectives found"
-                  selectedLabel=""
-                />
-              </FormControl>
-               {selectedStrategicObjectives.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {selectedStrategicObjectives.map((objectiveId) => {
-                    const objective = strategicOptions.find(
-                      (item) => item.id === objectiveId,
-                    );
-                    return (
-                      <Badge
-                        key={objectiveId}
-                        variant="secondary"
-                        className="gap-1 pr-1"
-                      >
-                        <span>{objective?.name ?? objectiveId}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4 shrink-0 rounded-full p-0 text-muted-foreground hover:text-foreground"
-                          onClick={() =>
-                            field.onChange(
-                              selectedStrategicObjectives.filter(
-                                (item) => item !== objectiveId,
-                              ),
-                            )
-                          }
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
       <div className="w-full space-y-4">
         <FormField
           control={useFormContext<ProposalFormInput>().control}

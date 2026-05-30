@@ -98,7 +98,6 @@ type ProposalDetail = {
   abstract?: string | null;
   keywords?: string[] | null;
   thematicAreas?: NamedEntity[] | null;
-  strategicObjectives?: NamedEntity[] | null;
   receivingOffice?: NamedEntity | null;
   call?: ProposalCall | null;
   Organization?: NamedEntity | null;
@@ -453,28 +452,6 @@ export default function ProposalDetailPage() {
                   </p>
                 </div>
 
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-                    Strategic Objectives
-                  </p>
-                  {proposal.strategicObjectives?.length ? (
-                    <ul className="mt-2 space-y-2">
-                      {proposal.strategicObjectives.map((objective) => (
-                        <li
-                          key={objective.id}
-                          className="flex items-start gap-2 text-sm text-muted-foreground"
-                        >
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                          <span>{objective.name}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      No strategic objectives linked.
-                    </p>
-                  )}
-                </div>
               </CardContent>
             </Card>
 

@@ -56,6 +56,11 @@ const UserOrIdSchema = z
         },
   );
 
+const StrategicObjectiveSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(Number),
+  name: z.string(),
+});
+
 export const ConceptNoteSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
@@ -69,6 +74,7 @@ export const ConceptNoteSchema = z.object({
   submittedBy: UserOrIdSchema.optional(),
   organization: IdOnlyOrObjectSchema.nullable().optional(),
   unit: IdOnlyOrObjectSchema.nullable().optional(),
+  strategicObjectives: z.array(StrategicObjectiveSchema).default([]),
   submissionDate: z.string().optional(),
   status: IdOnlyOrObjectSchema.nullable().optional(),
   updatedAt: z.string().optional(),
@@ -122,6 +128,7 @@ export const ConceptNoteDetailSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
   docType: IdOnlyOrObjectSchema.nullable().optional(),
+  strategicObjectives: z.array(StrategicObjectiveSchema).default([]),
   overview: z.object({
     executiveSummary: z.string().default(""),
     thematicAreas: z
@@ -171,6 +178,39 @@ const ConceptNotesListSchema = z.object({
     .optional(),
 });
 
+function normalizeConceptNoteItem(raw: any) {
+  if (!raw || typeof raw !== "object") return raw;
+  return {
+    ...raw,
+    psrFinalDecision:
+      raw.psrFinalDecision ?? raw.psr_final_decision,
+    currentStatus: raw.currentStatus ?? raw.current_status,
+    strategicObjectives:
+      raw.strategicObjectives ?? raw.strategic_objectives ?? [],
+  };
+}
+
+function normalizeConceptNotesListResponse(response: any) {
+  if (!response || typeof response !== "object") return response;
+  return {
+    ...response,
+    data: Array.isArray(response.data)
+      ? response.data.map((item: any) => normalizeConceptNoteItem(item))
+      : response.data,
+  };
+}
+
+function normalizeConceptNoteEnvelope(response: any) {
+  if (!response || typeof response !== "object") return response;
+  return {
+    ...response,
+    data:
+      response.data && typeof response.data === "object" && !Array.isArray(response.data)
+        ? normalizeConceptNoteItem(response.data)
+        : response.data,
+  };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type ConceptNote = z.infer<typeof ConceptNoteSchema>;
 export type ConceptNoteDetail = z.infer<typeof ConceptNoteDetailSchema>;
@@ -195,7 +235,7 @@ export async function getConceptNotes(
   const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.LIST, {
     params: filters,
   });
-  return ConceptNotesListSchema.parse(res.data);
+  return ConceptNotesListSchema.parse(normalizeConceptNotesListResponse(res.data));
 }
 
 // ─── GET /v1/concept-notes/:id/ ───────────────────────────────────────────────
@@ -203,7 +243,7 @@ export async function getConceptNoteById(
   id: string | number,
 ): Promise<ConceptNote> {
   const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id));
-  return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+  return ConceptNoteSchema.parse(normalizeConceptNoteItem(res.data?.data ?? res.data));
 }
 
 // ─── GET /v1/concept-notes/:id/ (detail view payload) ───────────────────────
@@ -211,17 +251,7 @@ export async function getConceptNoteDetailById(
   id: string | number
 ): Promise<ConceptNoteDetail> {
   const res = await apiClient.get(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id));
-  const normalized = {
-    ...res.data,
-    data: {
-      ...res.data?.data,
-      psrFinalDecision:
-        res.data?.data?.psrFinalDecision ?? res.data?.data?.psr_final_decision,
-      currentStatus:
-        res.data?.data?.currentStatus ?? res.data?.data?.current_status,
-    },
-  };
-  return ConceptNoteDetailResponseSchema.parse(normalized).data;
+  return ConceptNoteDetailResponseSchema.parse(normalizeConceptNoteEnvelope(res.data)).data;
 }
 
 // ─── GET /v1/concept-notes/:id/manage/ (admin detail view) ──────────────────
@@ -235,17 +265,7 @@ export async function getManageConceptNoteDetailById(
       params: backendToken ? { backendToken } : undefined,
     },
   );
-  const normalized = {
-    ...res.data,
-    data: {
-      ...res.data?.data,
-      psrFinalDecision:
-        res.data?.data?.psrFinalDecision ?? res.data?.data?.psr_final_decision,
-      currentStatus:
-        res.data?.data?.currentStatus ?? res.data?.data?.current_status,
-    },
-  };
-  return ConceptNoteDetailResponseSchema.parse(normalized).data;
+  return ConceptNoteDetailResponseSchema.parse(normalizeConceptNoteEnvelope(res.data)).data;
 }
 
 // ─── POST /v1/concept-notes/ ──────────────────────────────────────────────────
@@ -262,7 +282,7 @@ export async function createConceptNote(
         : undefined,
     },
   );
-  return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+  return ConceptNoteSchema.parse(normalizeConceptNoteItem(res.data?.data ?? res.data));
 }
 
 // ─── PATCH /v1/concept-notes/:id/ ─────────────────────────────────────────────
@@ -280,7 +300,7 @@ export async function updateConceptNote(
         : undefined,
     },
   );
-  return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+  return ConceptNoteSchema.parse(normalizeConceptNoteItem(res.data?.data ?? res.data));
 }
 
 // ─── POST /v1/concept-notes/:id/submit/ ──────────────────────────────────────
@@ -295,7 +315,7 @@ export async function submitConceptNote(
       ? { headers: { Authorization: `Bearer ${backendToken}` } }
       : {},
   );
-  return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+  return ConceptNoteSchema.parse(normalizeConceptNoteItem(res.data?.data ?? res.data));
 }
 
 // ─── POST /v1/concept-notes/:id/resubmit/ ───────────────────────────────────
@@ -303,7 +323,7 @@ export async function resubmitConceptNote(
   id: string | number,
 ): Promise<ConceptNote> {
   const res = await apiClient.post(API_ENDPOINTS.CONCEPT_NOTES.RESUBMIT(id), {});
-  return ConceptNoteSchema.parse(res.data?.data ?? res.data);
+  return ConceptNoteSchema.parse(normalizeConceptNoteItem(res.data?.data ?? res.data));
 }
 
 // ─── POST /v1/concept-notes/:id/psr-approval/ ───────────────────────────────
