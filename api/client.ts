@@ -176,11 +176,11 @@ apiClient.interceptors.response.use(
       try {
         const { data } = await axios.post(
           `/api/proxy${API_ENDPOINTS.AUTH.REFRESH}`,
-          { refreshToken },
+          { refresh: refreshToken },
         );
 
-        const newToken: string = data.accessToken ?? data.token;
-        const newRefresh: string = data.refreshToken ?? refreshToken;
+        const newToken: string = data.access ?? data.accessToken ?? data.token;
+        const newRefresh: string = data.refresh ?? data.refreshToken ?? refreshToken;
 
         tokenStorage.set(newToken);
         tokenStorage.setRefresh(newRefresh);

@@ -167,11 +167,11 @@ api.interceptors.response.use(
         // Exchange refresh token for a new access token via the proxy layer
         const { data } = await axios.post(
           `/api/proxy${API_ENDPOINTS.AUTH.REFRESH}`,
-          { refreshToken },
+          { refresh: refreshToken },
         );
 
-        const newToken: string = data.accessToken ?? data.token;
-        const newRefresh: string = data.refreshToken ?? refreshToken;
+        const newToken: string = data.access ?? data.accessToken ?? data.token;
+        const newRefresh: string = data.refresh ?? data.refreshToken ?? refreshToken;
 
         tokenStorage.set(newToken);
         tokenStorage.setRefresh(newRefresh);

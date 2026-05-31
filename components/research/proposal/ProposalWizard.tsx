@@ -58,7 +58,7 @@ type ExistingProposalTeamMember = {
 const steps = [
   { id: 1, label: "Basic Info" },
   { id: 2, label: "Team Members" },
-  { id: 3, label: "Files" },
+  { id: 3, label: "Proposal Files" },
   { id: 4, label: "Budget" },
   { id: 5, label: "Review & Submit" },
 ];

@@ -62,6 +62,7 @@ import {
   getManagedProposalById,
   updateScreening,
   findScreeningByProposal,
+  type ReviewHistoryEvent,
 } from "@/api/services";
 import type { Attachment } from "@/lib/types";
 import { toast } from "sonner";
@@ -125,13 +126,15 @@ export default function ScreeningDetailPage() {
     }
 
     // Build review timeline from proposal data
-    const reviewTimeline = [];
+    const reviewTimeline: ReviewHistoryEvent[] = [];
     
     // Initial submission event
     if (detail.firstSubmittedAt || detail.createdAt) {
       reviewTimeline.push({
         action: "Proposal Submitted",
-        timestamp: detail.firstSubmittedAt || detail.createdAt,
+        timestamp: String(
+          detail.firstSubmittedAt || detail.createdAt || new Date().toISOString(),
+        ),
         status: "submitted",
         comment: null,
       });
@@ -147,7 +150,9 @@ export default function ScreeningDetailPage() {
       };
       reviewTimeline.push({
         action: statusLabels[detail.status] || `Status: ${detail.status}`,
-        timestamp: detail.lastSubmittedAt || detail.updatedAt,
+        timestamp: String(
+          detail.lastSubmittedAt || detail.updatedAt || new Date().toISOString(),
+        ),
         status: detail.status,
         comment: detail.rejectionReason || null,
       });
@@ -257,14 +262,18 @@ export default function ScreeningDetailPage() {
           const { getReviewHistory } = await import("@/api/services");
           
           // Get screening ID from response or find it
-          let screeningId = response.screeningId ?? response.screening_id;
+          let screeningId = String(
+            response.screeningId ?? response.screening_id ?? "",
+          );
           if (!screeningId) {
-            const screening = await findScreeningByProposal(response.id);
-            screeningId = screening?.id;
+            const screening = await findScreeningByProposal(String(response.id));
+            if (screening?.id) {
+              screeningId = String(screening.id);
+            }
           }
           
           if (screeningId) {
-            const historyData = await getReviewHistory(screeningId);
+            const historyData = await getReviewHistory(String(screeningId));
             if (historyData?.review_timeline) {
               // Use comprehensive timeline from backend
               mappedProposal.reviewTimeline = historyData.review_timeline;
@@ -276,7 +285,9 @@ export default function ScreeningDetailPage() {
         }
         
         setProposal(mappedProposal);
-        setScreeningId(response.screeningId ?? response.screening_id ?? response.id);
+        setScreeningId(
+          String(response.screeningId ?? response.screening_id ?? response.id),
+        );
       } catch (error) {
         console.error("Error loading proposal:", error);
         toast.error("Failed to load proposal details");
