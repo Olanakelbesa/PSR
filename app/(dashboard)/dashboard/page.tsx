@@ -639,6 +639,7 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState("Good morning");
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadAnalytics = useCallback(async () => {
@@ -662,6 +663,10 @@ export default function DashboardPage() {
     if (hour < 12) setGreeting("Good morning");
     else if (hour < 18) setGreeting("Good afternoon");
     else setGreeting("Good evening");
+  }, []);
+
+  useEffect(() => {
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -690,7 +695,11 @@ export default function DashboardPage() {
             Policy & Research Dashboard. Last updated {lastUpdated}.
           </p>
         </div>
-        <Button variant="outline" onClick={loadAnalytics} disabled={isLoading}>
+        <Button
+          variant="outline"
+          onClick={loadAnalytics}
+          disabled={!isHydrated || isLoading}
+        >
           <RefreshCcw className="mr-2 h-4 w-4" />
           Refresh
         </Button>

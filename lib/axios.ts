@@ -86,6 +86,16 @@ function processQueue(error: ApiError | null, token: string | null) {
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = tokenStorage.get();
+    const headers = config.headers as InternalAxiosRequestConfig["headers"] & {
+      Authorization?: string;
+      authorization?: string;
+    };
+
+    if (config.data instanceof FormData && headers) {
+      delete headers["Content-Type"];
+      delete headers["content-type"];
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -327,30 +327,33 @@ export function AppSidebar() {
     };
   }, [backendToken, user?.email]);
 
-  const hasAccess = (roles?: UserRole[], requiredPermissions?: string[]) => {
-    if (!user) return false;
+  const hasAccess = useCallback(
+    (roles?: UserRole[], requiredPermissions?: string[]) => {
+      if (!user) return false;
 
-    if (roles && roles.length > 0 && !roles.includes(user.role)) {
-      return false;
-    }
-
-    if (requiredPermissions && requiredPermissions.length > 0) {
-      if (!permissionsLoaded) {
-        return true;
+      if (roles && roles.length > 0 && !roles.includes(user.role)) {
+        return false;
       }
 
-      const userPerms =
-        serverPermissions.length > 0
-          ? serverPermissions
-          : (user as any).permissions || [];
-      const hasPerm = requiredPermissions.some((perm) =>
-        userPerms.includes(perm),
-      );
-      if (!hasPerm) return false;
-    }
+      if (requiredPermissions && requiredPermissions.length > 0) {
+        if (!permissionsLoaded) {
+          return false;
+        }
 
-    return true;
-  };
+        const userPerms =
+          serverPermissions.length > 0
+            ? serverPermissions
+            : (user as any).permissions || [];
+        const hasPerm = requiredPermissions.some((perm) =>
+          userPerms.includes(perm),
+        );
+        if (!hasPerm) return false;
+      }
+
+      return true;
+    },
+    [permissionsLoaded, serverPermissions, user],
+  );
 
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
@@ -369,6 +372,33 @@ export function AppSidebar() {
     );
     return map;
   });
+
+  useEffect(() => {
+    if (!permissionsLoaded) return;
+
+    const nextOpenMap: Record<string, boolean> = {};
+
+    navigationGroups.forEach((group) => {
+      group.items.forEach((item) => {
+        if (!item.subItems) return;
+
+        const visibleSubItems = item.subItems.filter((sub) =>
+          hasAccess(sub.roles, sub.permissions),
+        );
+
+        if (visibleSubItems.length === 0) return;
+
+        nextOpenMap[item.label] = visibleSubItems.some(
+          (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/"),
+        );
+      });
+    });
+
+    setOpenMap((current) => ({
+      ...current,
+      ...nextOpenMap,
+    }));
+  }, [hasAccess, pathname, permissionsLoaded]);
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">

@@ -80,6 +80,7 @@ export default function NewConceptNotePage() {
   // Thematic areas removed — frontend no longer loads or selects them
 
   const { data: organizations = [] } = useOrganizations();
+  const isReferenceDataReady = documentTypes.length > 0 && organizations.length > 0;
 
   const form = useForm<ConceptNoteFormData>({
     resolver: zodResolver(conceptNoteSchema),
@@ -174,6 +175,10 @@ export default function NewConceptNotePage() {
   };
 
   const buildRequestPayload = (values: any) => {
+    if (!isReferenceDataReady) {
+      throw new Error("Reference data is still loading. Please try again in a moment.");
+    }
+
     const isFileUpload = values.file instanceof File;
     const rawStrategicObjectives: Array<string | number> = Array.isArray(
       values.strategicObjectives,
@@ -185,8 +190,8 @@ export default function NewConceptNotePage() {
     ).map((objectiveId) => Number(objectiveId));
 
     // Resolve fallback IDs from loaded reference data to guarantee they exist in the DB
-    const fallbackDocType = documentTypes[0]?.id || 1;
-    const fallbackOrg = organizations[0]?.id || 1;
+    const fallbackDocType = documentTypes[0]?.id;
+    const fallbackOrg = organizations[0]?.id;
 
     const parsedDocType = Number(values.documentType);
     const docTypeVal =
@@ -199,6 +204,10 @@ export default function NewConceptNotePage() {
         ? Number(values.organization[0])
         : NaN;
     const orgVal = isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
+
+    if (!docTypeVal || !orgVal) {
+      throw new Error("Please select a valid document type and organization before saving.");
+    }
 
     // Thematic areas removed — do not include them in payload
 
@@ -234,13 +243,6 @@ export default function NewConceptNotePage() {
         document_category: values.documentCategory || "new",
         strategic_objective_ids: strategicObjectiveIds,
       };
-
-      // Only append string files if needed, but standard file uploads use FormData.
-      // We omit "file" key entirely if it's null/undefined to prevent Django REST Framework
-      // validation from failing with "This field may not be null" (since file is blank=True but not null=True).
-      if (values.file && typeof values.file === "string") {
-        payload.file = values.file;
-      }
 
       return payload;
     }
@@ -297,6 +299,8 @@ export default function NewConceptNotePage() {
 
     const delayDebounceFn = setTimeout(async () => {
       if (isSavingInProgressRef.current) return;
+
+      if (!isReferenceDataReady) return;
 
       isSavingInProgressRef.current = true;
       setAutosaveStatus("saving");

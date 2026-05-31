@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Avatar as AvatarUI, AvatarFallback as AvatarFallbackUI } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { StatusBadge } from "@/components/shared";
 import { POLICY_TYPES } from "@/lib/constants";
@@ -44,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
+import { ExpertReviewersSection } from "@/components/policies/drafts/expert-reviewers-section";
 import { usePolicyDraftManage, useAssignPSRDecision } from "@/lib/queries/policy-drafts";
 import { toast } from "sonner";
 import { useServerPermissions } from "@/lib/queries/useServerPermissions";
@@ -249,9 +249,20 @@ export default function DraftDetailPage() {
   }, [draft, latestVersionNumber]);
 
   const currentPsrDecision = useMemo(() => {
-    // Only preload PSR decision/comments from the latest version.
-    return latestVersionReviews.find((rev: any) => rev.isPSRManager) ?? null;
-  }, [latestVersionReviews]);
+    if (!draft) return null;
+
+    const managerReviews = (draft.reviews || []).filter((rev: any) => rev.isPSRManager);
+    if (managerReviews.length === 0) return null;
+
+    return [...managerReviews].sort((a: any, b: any) => {
+      if (a.isLatestVersion && !b.isLatestVersion) return -1;
+      if (!a.isLatestVersion && b.isLatestVersion) return 1;
+      if (typeof a.versionOrder === "number" && typeof b.versionOrder === "number") {
+        return a.versionOrder - b.versionOrder;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })[0];
+  }, [draft]);
 
   const handleOpenDecisionModal = () => {
     if (currentPsrDecision) {
@@ -468,69 +479,7 @@ export default function DraftDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center justify-between">
-                Expert Reviewers{" "}
-                <Badge variant="secondary" className="font-normal">
-                  {draft.reviews.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {draft.reviews.length === 0 ? (
-                <div className="text-center py-4 border border-dashed rounded-lg">
-                  <p className="text-sm text-muted-foreground italic">
-                    No experts assigned yet.
-                  </p>
-                </div>
-              ) : (
-                draft.reviews.map((rev) => (
-                  <div
-                    key={rev.id}
-                    className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border border-primary/5"
-                  >
-                    <div className="flex items-center gap-3">
-                      <AvatarUI className="h-8 w-8">
-                        <AvatarFallbackUI className="text-[10px] bg-primary/10 text-primary">
-                          {rev.reviewer.firstName[0]}
-                          {rev.reviewer.lastName[0]}
-                        </AvatarFallbackUI>
-                      </AvatarUI>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
-                          {rev.reviewer.firstName} {rev.reviewer.lastName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1">
-                          {rev.status === "completed" ? (
-                            <>
-                              <CheckCircle2 className="h-3 w-3 text-green-500" />{" "}
-                              Graded
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="h-3 w-3 text-orange-400" />{" "}
-                              Pending
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    {rev.score !== null && (
-                      <Badge
-                        className={cn(
-                          "font-mono font-bold text-white",
-                          rev.score >= 75 ? "bg-green-600 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-50"
-                        )}
-                      >
-                        {rev.score}%
-                      </Badge>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          <ExpertReviewersSection reviews={draft.reviews} />
         </aside>
       </div>
 

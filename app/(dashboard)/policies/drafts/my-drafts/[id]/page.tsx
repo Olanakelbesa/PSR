@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Avatar as AvatarUI, AvatarFallback as AvatarFallbackUI } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { StatusBadge } from "@/components/shared";
 import { POLICY_TYPES } from "@/lib/constants";
@@ -32,6 +31,7 @@ import type { PolicyStatus, PolicyType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
+import { ExpertReviewersSection } from "@/components/policies/drafts/expert-reviewers-section";
 import { useAuth } from "@/hooks";
 
 export default function DraftDetailPage() {
@@ -303,69 +303,7 @@ export default function DraftDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center justify-between">
-                Expert Reviewers{" "}
-                <Badge variant="secondary" className="font-normal">
-                  {draft.reviews.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {draft.reviews.length === 0 ? (
-                <div className="text-center py-4 border border-dashed rounded-lg">
-                  <p className="text-sm text-muted-foreground italic">
-                    No experts assigned yet.
-                  </p>
-                </div>
-              ) : (
-                draft.reviews.map((rev) => (
-                  <div
-                    key={rev.id}
-                    className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border"
-                  >
-                    <div className="flex items-center gap-3">
-                      <AvatarUI className="h-8 w-8">
-                        <AvatarFallbackUI className="text-[10px] bg-primary/10 text-primary">
-                          {rev.reviewer.firstName[0]}
-                          {rev.reviewer.lastName[0]}
-                        </AvatarFallbackUI>
-                      </AvatarUI>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
-                          {rev.reviewer.firstName} {rev.reviewer.lastName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground uppercase flex items-center gap-1">
-                          {rev.status === "completed" ? (
-                            <>
-                              <CheckCircle2 className="h-3 w-3 text-green-500" />{" "}
-                              Graded
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="h-3 w-3 text-orange-400" />{" "}
-                              Pending
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    {rev.score !== null && (
-                      <Badge
-                        className={cn(
-                          "font-mono font-bold",
-                          rev.score >= 70 ? "bg-green-600" : "bg-orange-500",
-                        )}
-                      >
-                        {rev.score}%
-                      </Badge>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          <ExpertReviewersSection reviews={draft.reviews} totalCount={draft.reviews.length} />
         </aside>
       </div>
     </PageContainer>
