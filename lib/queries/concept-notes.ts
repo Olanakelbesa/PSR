@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import {
+  deleteConceptNote,
   getConceptNoteDetailById,
   getManageConceptNoteDetailById,
   approveConceptNote,
@@ -174,9 +175,7 @@ export function useCreateConceptNote() {
       const { data } = await api.post(
         API_ENDPOINTS.CONCEPT_NOTES.CREATE,
         payload,
-        isMultipart
-          ? { headers: { "Content-Type": "multipart/form-data" } }
-          : undefined,
+        undefined,
       );
       return data;
     },
@@ -203,19 +202,30 @@ export function useUpdateConceptNote(backendToken?: string | null) {
       id: string | number;
       payload: Record<string, any> | FormData;
     }) => {
-      const isMultipart = payload instanceof FormData;
-
       const { data } = await api.patch(
         API_ENDPOINTS.CONCEPT_NOTES.UPDATE(id),
         payload,
-        isMultipart
-          ? { headers: { "Content-Type": "multipart/form-data" } }
-          : undefined,
+        undefined,
       );
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    },
+  });
+}
+
+export function useDeleteConceptNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string | number) => {
+      await deleteConceptNote(id);
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+      queryClient.invalidateQueries({ queryKey: ["concept-note-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", id] });
     },
   });
 }

@@ -57,7 +57,7 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      if (result?.error) {
+      if (!result?.ok) {
         toast.error("Login Failed", { description: "Invalid email or password. Please try again." });
         setIsLoading(false);
         return;
@@ -65,7 +65,7 @@ export default function LoginPage() {
 
       toast.success("Login Successful", { description: "Welcome to the PSR Platform!" });
       queryClient.clear();
-      router.push("/dashboard");
+      router.replace("/dashboard");
       router.refresh();
     } catch {
       toast.error("System Error", { description: "An unexpected error occurred. Please try again." });

@@ -5,6 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath || filePath === "#") return null;
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (filePath.startsWith("/api/proxy")) return filePath;
+  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
+  return `/api/proxy/${filePath}`;
+}
+
+function extractFileName(filePath?: string | null) {
+  if (!filePath) return null;
+  return filePath.split("/").pop() || filePath;
+}
+
 interface ConceptNoteOverviewProps {
   note: any;
   setViewingFile?: (file: any) => void;
@@ -20,7 +33,23 @@ export function ConceptNoteOverview({
   const strategicObjectives =
     note.strategicObjectives ?? note.strategic_objectives ?? [];
   const supportingFile =
-    note.overview?.file ?? note.versions?.find((version: any) => version.isLatest)?.file ?? note.attachments?.[0]?.url ?? null;
+    resolveFileUrl(
+      note.overview?.file ??
+        note.versions?.find((version: any) => version.isLatest)?.file ??
+        note.attachments?.find((attachment: any) => attachment?.url && attachment.url !== "#")?.url ??
+        note.attachments?.find((attachment: any) => attachment?.file && attachment.file !== "#")?.file ??
+        null,
+    ) ?? null;
+  const supportingFileName =
+    note.attachments?.find((attachment: any) => attachment?.name)?.name ??
+    extractFileName(
+      note.overview?.file ??
+        note.versions?.find((version: any) => version.isLatest)?.file ??
+        note.attachments?.find((attachment: any) => attachment?.url && attachment.url !== "#")?.url ??
+        note.attachments?.find((attachment: any) => attachment?.file && attachment.file !== "#")?.file ??
+        null,
+    ) ??
+    `${note.title}.pdf`;
   const metadataRows = [
     { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
     { label: "Current Status", value: note.currentStatus?.status || note.status?.name || note.status || "Under Review" },
@@ -112,7 +141,7 @@ export function ConceptNoteOverview({
                 </div>
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-sm font-medium truncate">
-                    {supportingFile.split("/").pop() || `${note.title}.pdf`}
+                    {supportingFileName}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     Concept note file
@@ -127,7 +156,7 @@ export function ConceptNoteOverview({
                     className="shrink-0 text-primary hover:text-primary hover:bg-primary/10 gap-2"
                     onClick={() =>
                       setViewingFile({
-                          name: supportingFile.split("/").pop() || `${note.title}.pdf`,
+                          name: supportingFileName,
                         url: supportingFile,
                       })
                     }
@@ -143,7 +172,7 @@ export function ConceptNoteOverview({
                   onClick={() => {
                     const link = document.createElement("a");
                     link.href = supportingFile;
-                    link.download = `${note.title}.pdf`;
+                    link.download = supportingFileName;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);

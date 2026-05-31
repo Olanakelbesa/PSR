@@ -136,7 +136,7 @@ export const conceptNoteSchema = z.object({
     .min(1, "Executive summary is required")
     .max(1500, "Executive summary must not exceed 250 words"),
   documentType: z.number().min(1, "Document type is required"),
-  organization: z.array(z.string()).min(1, "Select at least one organization"),
+  organization: z.string().min(1, "Select an organization"),
   unit: z.string().optional(),
   strategicObjectives: z.array(z.string()).optional(),
   // thematicAreas removed from concept notes

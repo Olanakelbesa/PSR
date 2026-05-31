@@ -303,6 +303,11 @@ export async function updateConceptNote(
   return ConceptNoteSchema.parse(normalizeConceptNoteItem(res.data?.data ?? res.data));
 }
 
+// ─── DELETE /v1/concept-notes/:id/ ───────────────────────────────────────────
+export async function deleteConceptNote(id: string | number): Promise<void> {
+  await apiClient.delete(API_ENDPOINTS.CONCEPT_NOTES.DETAIL(id));
+}
+
 // ─── POST /v1/concept-notes/:id/submit/ ──────────────────────────────────────
 export async function submitConceptNote(
   id: string | number,

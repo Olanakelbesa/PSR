@@ -6,6 +6,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/policies/concept-notes/my-concept-note/:id/edit",
+        destination: "/policies/concept-notes/my-concept-note/edit/:id",
+      },
+    ];
+  },
   webpack(config) {
     config.resolve.alias.canvas = false;
     return config;

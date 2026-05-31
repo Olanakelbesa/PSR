@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, type ChangeEvent, useMemo } from "react";
+import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
   Check,
-  ChevronDown,
   FileText,
   Loader2,
   Save,
@@ -20,7 +19,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -31,11 +29,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -75,14 +68,14 @@ export default function NewConceptNotePage() {
   const [autosaveStatus, setAutosaveStatus] = useState<
     "saving" | "saved" | "failed" | null
   >(null);
+  const [isDraftSubmitting, setIsDraftSubmitting] = useState(false);
+  const [isSubmitSubmitting, setIsSubmitSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSavedValuesRef = useRef<any>(null);
   const isFirstRender = useRef(true);
   const isSavingInProgressRef = useRef(false);
 
-  const isPending =
-    createConceptNoteMutation.isPending || submitConceptNoteMutation.isPending;
   const { data: documentTypes = [] } = usePolicyDocumentTypes();
   // Thematic areas removed — frontend no longer loads or selects them
 
@@ -94,7 +87,7 @@ export default function NewConceptNotePage() {
       title: "",
       executiveSummary: "",
       documentType: undefined,
-      organization: [],
+      organization: "",
       unit: "",
       documentCategory: "new",
       strategicObjectives: [],
@@ -106,39 +99,36 @@ export default function NewConceptNotePage() {
   const executiveSummary = form.watch("executiveSummary") || "";
   const selectedDocumentType = form.watch("documentType");
   const selectedDocumentCategory = form.watch("documentCategory");
-  const selectedOrganizationIds = form.watch("organization") || [];
+  const selectedOrganization = form.watch("organization") || "";
   const selectedUnit = form.watch("unit") || "";
   const selectedFile = form.watch("file") as File | undefined;
   const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
-  const selectedOrganizationsList = organizations.filter((org) =>
-    selectedOrganizationIds.includes(String(org.id)),
-  );
-
   const { data: units = [], isLoading: isLoadingUnits } = useUnits(
-    selectedOrganizationIds,
+    selectedOrganization ? [selectedOrganization] : null,
   );
-
-  const unitsOptions = useMemo(() => units, [units]);
 
   // Reset selected unit if it is no longer valid for the selected organizations
   useEffect(() => {
-    if (selectedUnit && unitsOptions.length > 0) {
-      const isValid = unitsOptions.some((u) => String(u.id) === selectedUnit);
+    if (!selectedOrganization) {
+      form.setValue("unit", "");
+      return;
+    }
+
+    if (selectedUnit && units.length > 0) {
+      const isValid = units.some((u) => String(u.id) === selectedUnit);
       if (!isValid) {
         form.setValue("unit", "");
       }
-    } else if (unitsOptions.length === 0) {
-      form.setValue("unit", "");
     }
-  }, [unitsOptions, selectedUnit, form]);
+  }, [selectedOrganization, units, selectedUnit, form]);
   
   const wordCount = calculateWordCount(executiveSummary);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
-    selectedOrganizationIds.length > 0,
+    Boolean(selectedOrganization),
     selectedStrategicObjectives.length > 0,
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
     Boolean(selectedFile),
@@ -185,9 +175,14 @@ export default function NewConceptNotePage() {
 
   const buildRequestPayload = (values: any) => {
     const isFileUpload = values.file instanceof File;
-    const strategicObjectiveIds = Array.isArray(values.strategicObjectives)
-      ? values.strategicObjectives.map((objectiveId: string) => String(objectiveId))
+    const rawStrategicObjectives: Array<string | number> = Array.isArray(
+      values.strategicObjectives,
+    )
+      ? (values.strategicObjectives as Array<string | number>)
       : [];
+    const strategicObjectiveIds: number[] = rawStrategicObjectives.map(
+      (objectiveId) => String(objectiveId),
+    ).map((objectiveId) => Number(objectiveId));
 
     // Resolve fallback IDs from loaded reference data to guarantee they exist in the DB
     const fallbackDocType = documentTypes[0]?.id || 1;
@@ -218,9 +213,9 @@ export default function NewConceptNotePage() {
       formData.append("organization", orgVal.toString());
       formData.append("document_category", values.documentCategory || "new");
 
-      strategicObjectiveIds.forEach((objectiveId) => {
-        formData.append("strategic_objective_ids", objectiveId);
-      });
+      for (const objectiveId of strategicObjectiveIds) {
+        formData.append("strategic_objective_ids", String(objectiveId));
+      }
 
       if (values.file) {
         formData.append("file", values.file);
@@ -237,7 +232,7 @@ export default function NewConceptNotePage() {
         // thematicreas removed
         organization: orgVal,
         document_category: values.documentCategory || "new",
-        strategic_objective_ids: strategicObjectiveIds.map((objectiveId) => Number(objectiveId)),
+        strategic_objective_ids: strategicObjectiveIds,
       };
 
       // Only append string files if needed, but standard file uploads use FormData.
@@ -286,7 +281,6 @@ export default function NewConceptNotePage() {
     );
   };
 
-  const organizationDep = JSON.stringify(formValues.organization);
   const strategicObjectivesDep = JSON.stringify(selectedStrategicObjectives);
   
 
@@ -303,11 +297,6 @@ export default function NewConceptNotePage() {
 
     const delayDebounceFn = setTimeout(async () => {
       if (isSavingInProgressRef.current) return;
-
-      if (!values.title?.trim()) {
-        setAutosaveStatus(null);
-        return;
-      }
 
       isSavingInProgressRef.current = true;
       setAutosaveStatus("saving");
@@ -335,14 +324,13 @@ export default function NewConceptNotePage() {
     formValues.documentType,
     formValues.documentCategory,
     formValues.unit,
-    organizationDep,
+    selectedOrganization,
     strategicObjectivesDep,
     formValues.file,
     draftId,
   ]);
 
   async function onSubmit(data: ConceptNoteFormData, submitForReview = false) {
-    if (!backendToken) return;
     try {
       // Guard: file is required by the backend before submission
       if (submitForReview && !(data.file instanceof File)) {
@@ -379,8 +367,11 @@ export default function NewConceptNotePage() {
           return;
         }
 
-        await persistDraft(data);
+        const savedId = await persistDraft(data);
         lastSavedValuesRef.current = data;
+        if (savedId && !draftId) {
+          router.replace(`/policies/concept-notes/my-concept-note/edit/${savedId}`);
+        }
         toast.success("Draft saved successfully!", { id: "draft-flow" });
       }
     } catch (error: any) {
@@ -388,6 +379,12 @@ export default function NewConceptNotePage() {
       toast.error(error?.message || "An error occurred. Please try again.", {
         id: submitForReview ? "submit-flow" : "draft-flow",
       });
+    } finally {
+      if (submitForReview) {
+        setIsSubmitSubmitting(false);
+      } else {
+        setIsDraftSubmitting(false);
+      }
     }
   }
 
@@ -565,101 +562,35 @@ export default function NewConceptNotePage() {
                 <FormField
                   control={form.control}
                   name="organization"
-                  render={({ field }) => {
-                    const currentValue: string[] = (field.value || []).map(
-                      String,
-                    );
-
-                    return (
-                      <FormItem>
-                        <FormLabel>Organization</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <button
-                                type="button"
-                                className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <span className="flex-1 text-left text-muted-foreground">
-                                  {selectedOrganizationsList.length > 0
-                                    ? `${selectedOrganizationsList.length} organization${selectedOrganizationsList.length !== 1 ? "s" : ""} selected`
-                                    : "Select organizations..."}
-                                </span>
-                                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground opacity-50" />
-                              </button>
-                            </FormControl>
-                          </PopoverTrigger>
-
-                          <PopoverContent className="w-75 p-0" align="start">
-                            <div className="p-4">
-                              {organizations.map((organization) => {
-                                const checked = currentValue.includes(
-                                  String(organization.id),
-                                );
-                                return (
-                                  <label
-                                    key={organization.id}
-                                    className="flex items-center space-x-2 p-2 rounded cursor-pointer hover:bg-muted"
-                                  >
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={(isChecked) => {
-                                        const idStr = String(organization.id);
-                                        const nextValue = isChecked
-                                          ? Array.from(
-                                              new Set([...currentValue, idStr]),
-                                            )
-                                          : currentValue.filter(
-                                              (id) => id !== idStr,
-                                            );
-                                        field.onChange(nextValue);
-                                      }}
-                                    />
-                                    <span className="text-sm font-medium">
-                                      {organization.name}
-                                    </span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-
-                        <FormDescription>
-                          Select one or more organizations relevant to the
-                          concept note.
-                        </FormDescription>
-
-                        {selectedOrganizationsList.length > 0 && (
-                          <div className="flex flex-wrap gap-2 pt-3">
-                            {selectedOrganizationsList.map((org) => (
-                              <Badge
-                                key={org.id}
-                                variant="secondary"
-                                className="flex items-center gap-2"
-                              >
-                                {org.name}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    field.onChange(
-                                      currentValue.filter(
-                                        (id) => id !== String(org.id),
-                                      ),
-                                    )
-                                  }
-                                  className="ml-1 hover:opacity-70"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organization</FormLabel>
+                      <Select
+                        value={field.value || ""}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue("unit", "");
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select organization..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {organizations.map((organization) => (
+                            <SelectItem key={organization.id} value={String(organization.id)}>
+                              {organization.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select the organization responsible for this concept note.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <FormField
@@ -669,10 +600,7 @@ export default function NewConceptNotePage() {
                     <FormItem className="pt-2">
                       <FormLabel>Unit / Department</FormLabel>
                       <Select
-                        disabled={
-                          selectedOrganizationsList.length === 0 ||
-                          isLoadingUnits
-                        }
+                        disabled={!selectedOrganization || isLoadingUnits}
                         onValueChange={field.onChange}
                         value={field.value}
                       >
@@ -680,8 +608,8 @@ export default function NewConceptNotePage() {
                           <SelectTrigger className="h-11">
                             <SelectValue
                               placeholder={
-                                selectedOrganizationsList.length === 0
-                                  ? "Select organization(s) first"
+                                !selectedOrganization
+                                  ? "Select organization first"
                                   : isLoadingUnits
                                     ? "Loading units..."
                                     : "Select a unit/department..."
@@ -690,7 +618,7 @@ export default function NewConceptNotePage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {unitsOptions.map((unitOption) => (
+                          {units.map((unitOption) => (
                             <SelectItem
                               key={unitOption.id}
                               value={String(unitOption.id)}
@@ -701,8 +629,7 @@ export default function NewConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Specify the specific department or unit within the
-                        selected organization context.
+                        Specify the specific department or unit within the selected organization.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -939,13 +866,16 @@ export default function NewConceptNotePage() {
               <div className="grid gap-2">
                 <Button
                   type="button"
-                  disabled={isPending}
+                  disabled={isSubmitSubmitting}
                   onClick={form.handleSubmit(
-                    (data) => onSubmit(data, true),
+                    async (data) => {
+                      setIsSubmitSubmitting(true);
+                      await onSubmit(data, true);
+                    },
                     onInvalid,
                   )}
                 >
-                  {isPending ? (
+                  {isSubmitSubmitting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Send className="mr-2 h-4 w-4" />
@@ -956,16 +886,26 @@ export default function NewConceptNotePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={isPending}
-                    onClick={() => onSubmit(form.getValues(), false)}
+                    disabled={isDraftSubmitting || autosaveStatus === "saving"}
+                    onClick={form.handleSubmit(
+                      async (data) => {
+                        setIsDraftSubmitting(true);
+                        await onSubmit(data, false);
+                      },
+                      onInvalid,
+                    )}
                   >
-                    <Save className="mr-2 h-4 w-4" />
+                    {isDraftSubmitting || autosaveStatus === "saving" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
                     Draft
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    disabled={isPending}
+                    disabled={isDraftSubmitting || isSubmitSubmitting}
                     onClick={() => router.back()}
                   >
                     Cancel

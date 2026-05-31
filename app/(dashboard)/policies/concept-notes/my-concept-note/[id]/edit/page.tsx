@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
   Check,
-  ChevronDown,
   FileText,
   Loader2,
   RefreshCw,
@@ -22,7 +21,6 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -33,11 +31,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -53,7 +46,6 @@ import { StrategicObjectivesField } from "@/components/policies/concept-notes/st
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizations } from "@/lib/queries/organizations";
 import { useUnits } from "@/lib/queries/units";
-import { getUnits as fetchUnitsForOrg } from "@/api/services/reference.service";
 import {
   useConceptNoteDetail,
   useResubmitConceptNote,
@@ -88,7 +80,7 @@ export default function EditConceptNotePage() {
       title: "",
       executiveSummary: "",
       documentType: undefined,
-      organization: [],
+      organization: "",
       unit: "",
       documentCategory: "new",
       strategicObjectives: [],
@@ -109,6 +101,32 @@ export default function EditConceptNotePage() {
   const { data: organizations = [], isLoading: isLoadingOrganizations } =
     useOrganizations();
 
+  const documentTypeOptions = useMemo(() => {
+    if (!conceptNote?.docType) return documentTypes;
+
+    const currentDocumentTypeId = String(conceptNote.docType.id);
+    const hasCurrentDocumentType = documentTypes.some(
+      (type) => String(type.id) === currentDocumentTypeId,
+    );
+
+    if (hasCurrentDocumentType) return documentTypes;
+
+    return [conceptNote.docType, ...documentTypes];
+  }, [conceptNote, documentTypes]);
+
+  const organizationOptions = useMemo(() => {
+    if (!conceptNote?.organization) return organizations;
+
+    const currentOrganizationId = String(conceptNote.organization.id);
+    const hasCurrentOrganization = organizations.some(
+      (organization) => String(organization.id) === currentOrganizationId,
+    );
+
+    if (hasCurrentOrganization) return organizations;
+
+    return [conceptNote.organization, ...organizations];
+  }, [conceptNote, organizations]);
+
   const isRevisionRequired =
     String(conceptNote?.currentStatus?.status ?? "")
       .toLowerCase()
@@ -126,6 +144,12 @@ export default function EditConceptNotePage() {
   useEffect(() => {
     if (!conceptNote) return;
 
+    const latestVersionFile =
+      conceptNote.versions?.find((version) => Boolean(version.file))?.file ??
+      null;
+    const existingUrl =
+      conceptNote.overview?.file ?? latestVersionFile ?? null;
+
     const loadedStrategicObjectives = Array.isArray((conceptNote as any).strategicObjectives)
       ? (conceptNote as any).strategicObjectives.map((objective: any) => String(objective.id))
       : Array.isArray((conceptNote as any).strategic_objectives)
@@ -141,8 +165,8 @@ export default function EditConceptNotePage() {
           ? Number(conceptNote.docType.id)
           : undefined,
       organization: conceptNote.organization
-        ? [String(conceptNote.organization.id)]
-        : [],
+        ? String(conceptNote.organization.id)
+        : "",
       // Use explicit null/undefined check to avoid accidental falsy clears
       unit: conceptNote.unit && conceptNote.unit.id != null ? String(conceptNote.unit.id) : "",
       // thematicAreas removed from concept notes
@@ -153,7 +177,7 @@ export default function EditConceptNotePage() {
       strategicObjectives: loadedStrategicObjectives,
       file: undefined,
     });
-    setExistingFileUrl(conceptNote.overview?.file ?? null);
+    setExistingFileUrl(existingUrl);
 
     if (loadedStrategicObjectives.length > 0) {
       form.setValue("strategicObjectives", loadedStrategicObjectives, {
@@ -163,34 +187,20 @@ export default function EditConceptNotePage() {
       });
     }
 
-    // Ensure organization field is explicitly set (helps useUnits refetch)
-    if (conceptNote.organization && conceptNote.organization.id != null) {
-      const orgIdStr = String(conceptNote.organization.id);
-      form.setValue("organization", [orgIdStr]);
+    if (conceptNote.organization?.id != null) {
+      form.setValue("organization", String(conceptNote.organization.id), {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
+    }
 
-      // Immediately fetch units for this organization and add them to options
-      (async () => {
-        try {
-          const { data } = await fetchUnitsForOrg({ organization: orgIdStr });
-          if (Array.isArray(data) && data.length > 0) {
-            setExtraUnits((prev) => {
-              const merged = Array.from(
-                new Map(
-                  [...data, ...prev].map((u) => [String(u.id), u]),
-                ).values(),
-              );
-              return merged as any[];
-            });
-
-            if (conceptNote.unit && conceptNote.unit.id != null) {
-              const found = data.find((u: any) => String(u.id) === String(conceptNote.unit!.id));
-              if (found) form.setValue("unit", String(conceptNote.unit.id));
-            }
-          }
-        } catch (err) {
-          // ignore
-        }
-      })();
+    if (conceptNote.unit?.id != null) {
+      form.setValue("unit", String(conceptNote.unit.id), {
+        shouldDirty: false,
+        shouldTouch: false,
+        shouldValidate: false,
+      });
     }
   }, [conceptNote, form]);
 
@@ -198,8 +208,13 @@ export default function EditConceptNotePage() {
   const executiveSummary = form.watch("executiveSummary") || "";
   const selectedDocumentType = form.watch("documentType");
   const selectedDocumentCategory = form.watch("documentCategory");
-  const selectedOrganizationIds = form.watch("organization") || [];
-  const selectedUnit = form.watch("unit") || "";
+  const selectedDocumentTypeValue = selectedDocumentType
+    ? String(selectedDocumentType)
+    : conceptNote?.docType?.id != null
+      ? String(conceptNote.docType.id)
+      : "";
+  const selectedOrganization = form.watch("organization") || (conceptNote?.organization?.id != null ? String(conceptNote.organization.id) : "");
+  const selectedUnit = form.watch("unit") || (conceptNote?.unit?.id != null ? String(conceptNote.unit.id) : "");
   const selectedFile = form.watch("file") as File | undefined;
   const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
@@ -217,42 +232,16 @@ export default function EditConceptNotePage() {
     return null;
   }, [selectedDocumentCategory]);
 
-  const selectedOrganizationsList = useMemo(
-    () => {
-      const filtered = organizations.filter((organization) =>
-        selectedOrganizationIds.includes(String(organization.id)),
-      );
-      if (filtered.length > 0) return filtered;
-      // Fallback: if the organizations list hasn't loaded yet but the
-      // concept note has an organization, show it so the Unit select
-      // isn't incorrectly disabled.
-      if (conceptNote?.organization) return [conceptNote.organization];
-      return [];
-    },
-    [organizations, selectedOrganizationIds, conceptNote],
-  );
-
-  
-
   const { data: units = [], isLoading: isLoadingUnits } = useUnits(
-    selectedOrganizationIds,
+    selectedOrganization ? [selectedOrganization] : null,
   );
-  const [extraUnits, setExtraUnits] = useState<Array<{ id: any; name: string }>>([]);
-
-  const mergedUnits = useMemo(() => {
-    const map = new Map<string, any>();
-    [...(units || []), ...(extraUnits || [])].forEach((u: any) => {
-      map.set(String(u.id), u);
-    });
-    return Array.from(map.values());
-  }, [units, extraUnits]);
 
   // Re-apply select values after reference data (document types, units)
   // have loaded so Select components display the correct selection.
   useEffect(() => {
     if (!conceptNote) return;
 
-    if (documentTypes && documentTypes.length > 0) {
+    if (documentTypeOptions && documentTypeOptions.length > 0) {
       if (conceptNote.docType && conceptNote.docType.id != null) {
         form.setValue("documentType", Number(conceptNote.docType.id));
       }
@@ -267,55 +256,34 @@ export default function EditConceptNotePage() {
         }
       }
     }
-
-    // As a fallback, explicitly fetch the units for the concept note's
-    // organization from the API and set the unit if present. This covers
-    // cases where the shared `useUnits` hook may not yet have the unit list.
-    (async () => {
-      try {
-        const orgId = conceptNote.organization?.id;
-        if (!orgId) return;
-        const { data } = await fetchUnitsForOrg({ organization: String(orgId) });
-        if (Array.isArray(data) && data.length > 0) {
-          const merged = Array.from(
-            new Map(
-              [...(data as any[]), ...extraUnits].map((u) => [String(u.id), u]),
-            ).values(),
-          );
-          setExtraUnits(merged as any[]);
-
-          if (conceptNote.unit && conceptNote.unit.id != null) {
-            const found = merged.find((u: any) => String(u.id) === String(conceptNote.unit!.id));
-            if (found) form.setValue("unit", String(conceptNote.unit.id));
-          }
-        }
-      } catch (err) {
-        // ignore — fallback behavior already attempted
-      }
-    })();
-  }, [conceptNote, documentTypes, units, form]);
+  }, [conceptNote, documentTypeOptions, units, form]);
 
   useEffect(() => {
+    if (!selectedOrganization) {
+      form.setValue("unit", "");
+      return;
+    }
+
     if (!selectedUnit || isLoadingUnits) return;
 
     const isValid = units.some((unit) => String(unit.id) === selectedUnit);
     if (!isValid) {
       form.setValue("unit", "");
     }
-  }, [form, selectedUnit, units, isLoadingUnits]);
+  }, [form, selectedOrganization, selectedUnit, units, isLoadingUnits]);
 
   useEffect(() => {
-    if (selectedOrganizationIds.length === 0) {
+    if (!selectedOrganization) {
       form.setValue("unit", "");
     }
-  }, [form, selectedOrganizationIds]);
+  }, [form, selectedOrganization]);
 
   const wordCount = calculateWordCount(executiveSummary);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
-    selectedOrganizationIds.length > 0,
+    Boolean(selectedOrganization),
     selectedStrategicObjectives.length > 0,
     Boolean(selectedUnit),
     wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
@@ -340,10 +308,7 @@ export default function EditConceptNotePage() {
         ? fallbackDocType
         : parsedDocType;
 
-    const parsedOrg =
-      values.organization && values.organization.length > 0
-        ? Number(values.organization[0])
-        : NaN;
+    const parsedOrg = values.organization ? Number(values.organization) : NaN;
     const orgVal =
       Number.isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
 
@@ -360,11 +325,11 @@ export default function EditConceptNotePage() {
     payload.append("document_category", values.documentCategory || "new");
 
     const strategicObjectiveIds = Array.isArray(values.strategicObjectives)
-      ? values.strategicObjectives.map((objectiveId) => String(objectiveId))
+      ? values.strategicObjectives.map((objectiveId) => Number(objectiveId))
       : [];
 
     strategicObjectiveIds.forEach((objectiveId) => {
-      payload.append("strategic_objective_ids", objectiveId);
+      payload.append("strategic_objective_ids", String(objectiveId));
     });
 
     const parsedUnit = values.unit ? Number(values.unit) : NaN;
@@ -502,7 +467,7 @@ export default function EditConceptNotePage() {
                           onValueChange={(value) =>
                             field.onChange(Number(value))
                           }
-                          value={field.value ? String(field.value) : undefined}
+                          value={selectedDocumentTypeValue}
                         >
                           <FormControl>
                             <SelectTrigger className="h-11">
@@ -510,7 +475,7 @@ export default function EditConceptNotePage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {documentTypes.map((type) => (
+                            {documentTypeOptions.map((type) => (
                               <SelectItem key={type.id} value={String(type.id)}>
                                 {type.name}
                               </SelectItem>
@@ -584,99 +549,35 @@ export default function EditConceptNotePage() {
                 <FormField
                   control={form.control}
                   name="organization"
-                  render={({ field }) => {
-                    const currentValue = (field.value || []).map(String);
-
-                    return (
-                      <FormItem>
-                        <FormLabel>Organization</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <button
-                                type="button"
-                                className="flex h-11 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-                              >
-                                <span className="flex-1 text-left text-muted-foreground">
-                                  {selectedOrganizationsList.length > 0
-                                    ? `${selectedOrganizationsList.length} organization${selectedOrganizationsList.length !== 1 ? "s" : ""} selected`
-                                    : "Select organization(s)"}
-                                </span>
-                                <ChevronDown className="ml-2 h-4 w-4 text-muted-foreground opacity-50" />
-                              </button>
-                            </FormControl>
-                          </PopoverTrigger>
-
-                          <PopoverContent className="w-75 p-0" align="start">
-                            <div className="p-4">
-                              {organizations.map((organization) => {
-                                const checked = currentValue.includes(
-                                  String(organization.id),
-                                );
-                                return (
-                                  <label
-                                    key={organization.id}
-                                    className="flex cursor-pointer items-center space-x-2 rounded p-2 hover:bg-muted"
-                                  >
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={(isChecked) => {
-                                        const idStr = String(organization.id);
-                                        const nextValue = isChecked
-                                          ? Array.from(
-                                              new Set([...currentValue, idStr]),
-                                            )
-                                          : currentValue.filter(
-                                              (id) => id !== idStr,
-                                            );
-                                        field.onChange(nextValue);
-                                      }}
-                                    />
-                                    <span className="text-sm font-medium">
-                                      {organization.name}
-                                    </span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-
-                        <FormDescription>
-                          Select one or more organizations relevant to the
-                          concept note.
-                        </FormDescription>
-
-                        {selectedOrganizationsList.length > 0 && (
-                          <div className="flex flex-wrap gap-2 pt-3">
-                            {selectedOrganizationsList.map((organization) => (
-                              <Badge
-                                key={organization.id}
-                                variant="secondary"
-                                className="flex items-center gap-2"
-                              >
-                                {organization.name}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    field.onChange(
-                                      currentValue.filter(
-                                        (id) => id !== String(organization.id),
-                                      ),
-                                    )
-                                  }
-                                  className="ml-1 hover:opacity-70"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organization</FormLabel>
+                      <Select
+                        value={selectedOrganization}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue("unit", "");
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select organization..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {organizationOptions.map((organization) => (
+                            <SelectItem key={organization.id} value={String(organization.id)}>
+                              {organization.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select the organization responsible for this concept note.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
 
                 <FormField
@@ -686,19 +587,16 @@ export default function EditConceptNotePage() {
                     <FormItem>
                       <FormLabel>Unit / Department</FormLabel>
                       <Select
-                        disabled={
-                          selectedOrganizationsList.length === 0 ||
-                          isLoadingUnits
-                        }
+                        disabled={!selectedOrganization || isLoadingUnits}
                         onValueChange={field.onChange}
-                        value={field.value}
+                        value={selectedUnit}
                       >
                         <FormControl>
                           <SelectTrigger className="h-11">
                             <SelectValue
                               placeholder={
-                                selectedOrganizationsList.length === 0
-                                  ? "Select organization(s) first"
+                                !selectedOrganization
+                                  ? "Select organization first"
                                   : isLoadingUnits
                                     ? "Loading units..."
                                     : "Select a unit/department..."
@@ -707,7 +605,7 @@ export default function EditConceptNotePage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mergedUnits.map((unit) => (
+                          {units.map((unit) => (
                             <SelectItem key={unit.id} value={String(unit.id)}>
                               {unit.name}
                             </SelectItem>
@@ -715,8 +613,7 @@ export default function EditConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Choose the unit associated with the selected
-                        organization.
+                        Choose the unit associated with the selected organization.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

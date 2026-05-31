@@ -11,6 +11,14 @@ import { ConceptNoteFeedback } from "./tabs/concept-note-feedback";
 import { ConceptNoteTimeline } from "./tabs/concept-note-timeline";
 import { ConceptNoteVersions } from "./tabs/concept-note-versions";
 
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath || filePath === "#") return null;
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (filePath.startsWith("/api/proxy")) return filePath;
+  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
+  return `/api/proxy/${filePath}`;
+}
+
 interface ConceptNoteTabsProps {
   note: any;
   setViewingFile?: (file: any) => void;
@@ -22,7 +30,13 @@ export function ConceptNoteTabs({
 }: ConceptNoteTabsProps) {
   const feedbackItems = note.expertFeedback ?? note.reviews ?? [];
   const documentUrl =
-    note.overview?.file ?? note.versions?.find((version: any) => version.isLatest)?.file ?? note.attachments?.[0]?.url ?? "/doc/PSR_FRS_v1.pdf";
+    resolveFileUrl(
+      note.overview?.file ??
+        note.versions?.find((version: any) => version.isLatest)?.file ??
+        note.attachments?.find((attachment: any) => attachment?.url && attachment.url !== "#")?.url ??
+        note.attachments?.find((attachment: any) => attachment?.file && attachment.file !== "#")?.file ??
+        null,
+    ) ?? "";
 
   return (
     <Tabs defaultValue="overview" className="w-full">

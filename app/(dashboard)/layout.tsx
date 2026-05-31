@@ -22,7 +22,7 @@ export default function DashboardLayout({
   // Redirect to login if session expired or refresh token failed
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || hasTokenError)) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [isAuthenticated, isLoading, hasTokenError, router]);
 

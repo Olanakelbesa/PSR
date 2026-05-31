@@ -62,7 +62,7 @@ export function PdfViewerDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden flex flex-col gap-0">
+      <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0">
         <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
           <div className="min-w-0">
             <DialogTitle className="truncate text-sm font-semibold text-foreground">

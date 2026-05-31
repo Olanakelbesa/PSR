@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
@@ -17,6 +17,16 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +52,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   useConceptNotes,
   type ConceptNoteItem,
+  useDeleteConceptNote,
   useSubmitConceptNote,
   useResubmitConceptNote,
 } from "@/lib/queries/concept-notes";
@@ -105,6 +116,8 @@ export default function ConceptNotesPage() {
 
   const submitMutation = useSubmitConceptNote(backendToken);
   const resubmitMutation = useResubmitConceptNote(backendToken);
+  const deleteMutation = useDeleteConceptNote();
+  const [deleteCandidate, setDeleteCandidate] = useState<ConceptNoteItem | null>(null);
 
   const columns: ColumnDef<ConceptNoteItem>[] = useMemo(() => [
     {
@@ -347,7 +360,7 @@ export default function ConceptNotesPage() {
                 {(note.currentStatus === "draft" || note.currentStatus === "revision_required") && (
                   <DropdownMenuItem asChild>
                     <Link
-                      href={`/policies/concept-notes/my-concept-note/${note.id}/edit`}
+                      href={`/policies/concept-notes/my-concept-note/edit/${note.id}`}
                       className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
                     >
                       Edit
@@ -363,7 +376,13 @@ export default function ConceptNotesPage() {
                   </>
                 )}
                 <DropdownMenuSeparator className="bg-muted/50" />
-                <DropdownMenuItem className="text-destructive font-medium flex items-center px-2 py-2 text-sm rounded-md focus:bg-destructive/10">
+                <DropdownMenuItem
+                  className="text-destructive font-medium flex items-center px-2 py-2 text-sm rounded-md focus:bg-destructive/10"
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setDeleteCandidate(note);
+                  }}
+                >
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -424,6 +443,41 @@ export default function ConceptNotesPage() {
         </div>
       }
     >
+      <AlertDialog
+        open={!!deleteCandidate}
+        onOpenChange={(open) => {
+          if (!open) setDeleteCandidate(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete concept note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive {deleteCandidate ? `"${deleteCandidate.title}"` : "this concept note"} and remove it from the list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteCandidate) return;
+                try {
+                  await deleteMutation.mutateAsync(deleteCandidate.id);
+                  toast.success("Concept note deleted successfully.");
+                  setDeleteCandidate(null);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error(error?.message || "Failed to delete concept note.");
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Stat Cards ── */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-card border-primary/10">
