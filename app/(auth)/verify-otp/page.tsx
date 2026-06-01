@@ -1,184 +1,317 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Loader2, ShieldCheck } from 'lucide-react'
-import { toast } from 'sonner'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle, ArrowLeft, Loader2, Mail } from "lucide-react";
+import { toast } from "sonner";
 
-import { Button } from '@/components/ui/button'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
-import api from '@/lib/axios'
-import { API_ENDPOINTS } from '@/api/endpoints'
-import { useAuthStore } from '@/stores/auth-store'
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { Label } from "@/components/ui/label";
+import api from "@/lib/axios";
+import { API_ENDPOINTS } from "@/api/endpoints";
+import { useAuthStore } from "@/stores/auth-store";
+import { cn } from "@/lib/utils";
 
-type OtpIntent = 'registration' | 'password-reset'
+type OtpIntent = "registration" | "password-reset";
+
+const RESEND_COOLDOWN_SECONDS = 10 * 60;
+
+function formatResendCooldown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 
 export default function VerifyOTPPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { otpEmail, otpIntent, beginOtpFlow, clearOtpFlow } = useAuthStore()
-  const [otp, setOtp] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [resendTimer, setResendTimer] = useState(30)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { otpEmail, otpIntent, beginOtpFlow, clearOtpFlow } = useAuthStore();
 
-  const email = searchParams.get('email') || otpEmail || ''
-  const intent = (searchParams.get('intent') || otpIntent || 'registration') as OtpIntent
+  const [otp, setOtp] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState(RESEND_COOLDOWN_SECONDS);
+  const [hasAttempted, setHasAttempted] = useState(false);
+  const autoSubmitRef = useRef(false);
+
+  const email = searchParams.get("email") || otpEmail || "";
+  const intent = (searchParams.get("intent") ||
+    otpIntent ||
+    "registration") as OtpIntent;
+
+  const copy = useMemo(() => {
+    if (intent === "password-reset") {
+      return {
+        title: "Enter verification code",
+        description:
+          "We sent a 6-digit code to your email. Enter it below to reset your password.",
+        verifyLabel: "Continue",
+        backHref: "/forgot-password",
+        backLabel: "Back to forgot password",
+      };
+    }
+    return {
+      title: "Verify your email",
+      description:
+        "We sent a 6-digit code to your email. Enter it below to activate your account.",
+      verifyLabel: "Verify and continue",
+      backHref: "/signup",
+      backLabel: "Back to sign up",
+    };
+  }, [intent]);
 
   useEffect(() => {
     if (!email) {
-      router.replace('/login')
-      return
+      router.replace("/login");
+      return;
     }
+    beginOtpFlow({ email, intent });
+  }, [beginOtpFlow, email, intent, router]);
 
-    beginOtpFlow({ email, intent })
-
+  useEffect(() => {
     const timer = window.setInterval(() => {
-      setResendTimer((current) => (current > 0 ? current - 1 : 0))
-    }, 1000)
+      setResendTimer((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-    return () => window.clearInterval(timer)
-  }, [beginOtpFlow, email, intent, router])
+  const handleOtpChange = (value: string) => {
+    setOtp(value);
+    if (error) setError(null);
+  };
 
-  const title = useMemo(
-    () => (intent === 'password-reset' ? 'Verify your reset code' : 'Verify your account'),
-    [intent],
-  )
+  const handleVerify = useCallback(async () => {
+    if (otp.length !== 6 || isVerifying) return;
 
-  const description =
-    intent === 'password-reset'
-      ? "Enter the 6-digit code we sent to your email to continue resetting your password."
-      : "Enter the 6-digit code we sent to finish creating your account."
+    setHasAttempted(true);
+    setIsVerifying(true);
+    setError(null);
 
-  async function resendCode() {
     try {
-      setIsLoading(true)
-      setError(null)
-
-      if (intent === 'password-reset') {
-        await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_REQUEST, { email })
-      } else {
-        toast.info('Registration code was already sent during sign up.')
-        return
+      if (intent === "password-reset") {
+        await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_VERIFY, {
+          email,
+          otp,
+        });
+        router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+        return;
       }
 
-      setResendTimer(30)
-      toast.success('A new verification code was sent')
-    } catch (error: any) {
-      toast.error(error?.message ?? 'Unable to resend the verification code')
+      await api.post(API_ENDPOINTS.AUTH.REGISTER_VERIFY, { email, otp });
+      clearOtpFlow();
+      toast.success("Email verified", {
+        description: "You can now sign in with your new account.",
+      });
+      router.push("/login?registered=true");
+    } catch (err: unknown) {
+      const apiErr = err as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      const message =
+        apiErr.response?.data?.message ??
+        apiErr.message ??
+        "Invalid or expired verification code. Please try again.";
+
+      setError(message);
+      setOtp("");
+      autoSubmitRef.current = false;
     } finally {
-      setIsLoading(false)
+      setIsVerifying(false);
+    }
+  }, [clearOtpFlow, email, intent, isVerifying, otp, router]);
+
+  useEffect(() => {
+    if (otp.length !== 6 || isVerifying || autoSubmitRef.current) return;
+    autoSubmitRef.current = true;
+    void handleVerify();
+  }, [otp, isVerifying, handleVerify]);
+
+  async function resendCode() {
+    if (resendTimer > 0 || isResending) return;
+
+    try {
+      setIsResending(true);
+      setError(null);
+
+      if (intent === "password-reset") {
+        await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_REQUEST, { email });
+        setResendTimer(RESEND_COOLDOWN_SECONDS);
+        toast.success("Code sent", {
+          description: "Check your inbox for a new verification code.",
+        });
+        return;
+      }
+
+      toast.info("Use sign up to request a new code", {
+        description:
+          "Registration codes are sent when you submit the sign-up form.",
+      });
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      toast.error(apiErr.message ?? "Unable to resend the verification code");
+    } finally {
+      setIsResending(false);
     }
   }
 
-  async function handleSubmit() {
-    if (otp.length !== 6) return
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      if (intent === 'password-reset') {
-        await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_VERIFY, { email, otp })
-        router.push(`/reset-password?email=${encodeURIComponent(email)}`)
-        return
-      }
-
-      await api.post(API_ENDPOINTS.AUTH.REGISTER_VERIFY, { email, otp })
-      clearOtpFlow()
-      toast.success('Account verified successfully')
-      router.push('/login?registered=true')
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ??
-        error?.message ??
-        'Invalid or expired verification code'
-      setError(message)
-      setOtp('')
-      toast.error(message)
-    } finally {
-      setIsLoading(false)
-    }
+  if (!email) {
+    return null;
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
-      <div className="mx-auto w-full max-w-md">
-        <div className="mb-10 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-8 ring-primary/5">
-            <ShieldCheck className="h-8 w-8" />
+    <main className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-12 sm:px-6">
+
+      <Card className="w-full max-w-md border-border/60 shadow-md">
+        <CardHeader className="space-y-4 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Mail className="h-6 w-6" aria-hidden />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            {description}{' '}
-            <span className="font-semibold text-foreground">{email}</span>
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-semibold tracking-tight">
+              {copy.title}
+            </CardTitle>
+            <CardDescription>{copy.description}{" "}
+              Code sent to{" "}
+              <span className="font-medium text-foreground break-all">
+                {email}
+              </span>
+            </CardDescription>
           </div>
-        )}
+        </CardHeader>
 
-        <div className="space-y-8">
-          <InputOTP
-            maxLength={6}
-            value={otp}
-            onChange={setOtp}
-            containerClassName="justify-center"
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              autoSubmitRef.current = true;
+              void handleVerify();
+            }}
+            className="space-y-6"
+            noValidate
           >
-            <InputOTPGroup>
-              {Array.from({ length: 6 }).map((_, index) => (
-                <InputOTPSlot key={index} index={index} />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
-
-          <Button
-            onClick={handleSubmit}
-            className="h-12 w-full text-base font-semibold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            disabled={isLoading || otp.length !== 6}
-          >
-            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Verify code'}
-          </Button>
-
-          <div className="space-y-5 text-center">
-            {intent === 'password-reset' ? (
-              <p className="text-sm text-muted-foreground">
-                Didn&apos;t receive the code?{' '}
-                {resendTimer > 0 ? (
-                  <span className="font-medium text-foreground">Resend in {resendTimer}s</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={resendCode}
-                    className="font-semibold text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Resend code
-                  </button>
-                )}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Need a new code? Go back to sign up and submit again.
-              </p>
+            {error && hasAttempted && (
+              <div
+                id="otp-error"
+                role="alert"
+                className="flex items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                <span>{error}</span>
+              </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => {
-                clearOtpFlow()
-                router.push(intent === 'password-reset' ? '/forgot-password' : '/signup')
-              }}
-              className="group mx-auto flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            <div className="space-y-3">
+              <Label htmlFor="otp-input" className="sr-only">
+                6-digit verification code
+              </Label>
+              <InputOTP
+                id="otp-input"
+                maxLength={6}
+                value={otp}
+                onChange={handleOtpChange}
+                disabled={isVerifying}
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
+                containerClassName="justify-center"
+                aria-invalid={hasAttempted && !!error}
+                aria-describedby={
+                  error && hasAttempted ? "otp-error otp-hint" : "otp-hint"
+                }
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} className="h-12 w-11 text-base" />
+                  <InputOTPSlot index={1} className="h-12 w-11 text-base" />
+                  <InputOTPSlot index={2} className="h-12 w-11 text-base" />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} className="h-12 w-11 text-base" />
+                  <InputOTPSlot index={4} className="h-12 w-11 text-base" />
+                  <InputOTPSlot index={5} className="h-12 w-11 text-base" />
+                </InputOTPGroup>
+              </InputOTP>
+              <p
+                id="otp-hint"
+                className="text-center text-xs text-muted-foreground"
+              >
+                Enter the 6-digit code from your email
+              </p>
+            </div>
+
+            <Button
+              type="submit"
+              className="h-11 w-full font-medium"
+              disabled={isVerifying || otp.length !== 6}
             >
-              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-              {intent === 'password-reset' ? 'Back to reset request' : 'Back to sign up'}
-            </button>
+              {isVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  Verifying…
+                </>
+              ) : (
+                copy.verifyLabel
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-6 space-y-4 border-t pt-6 text-center text-sm">
+              <p className="text-muted-foreground">
+                Didn&apos;t receive the code?{" "}
+                {resendTimer > 0 ? (
+                  <span className="font-medium text-foreground tabular-nums">
+                    Resend in {formatResendCooldown(resendTimer)}
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 font-medium"
+                    onClick={() => void resendCode()}
+                    disabled={isResending || isVerifying}
+                  >
+                    {isResending ? "Sending…" : "Resend code"}
+                  </Button>
+                )}
+              </p>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(
+                "mx-auto gap-2 text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => {
+                clearOtpFlow();
+                router.push(copy.backHref);
+              }}
+              disabled={isVerifying}
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              {copy.backLabel}
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
-  )
+        </CardContent>
+      </Card>
+
+    </main>
+  );
 }

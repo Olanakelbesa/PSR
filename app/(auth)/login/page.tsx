@@ -7,17 +7,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { queryClient } from "@/lib/query-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Eye, EyeOff, ShieldCheck, AlertCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -26,7 +33,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
+import { getSignInErrorMessage } from "@/lib/api/parse-backend-error";
+import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -34,8 +42,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-
-
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,103 +63,104 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      if (!result?.ok) {
-        toast.error("Login Failed", { description: "Invalid email or password. Please try again." });
-        setIsLoading(false);
+      // Auth.js returns HTTP 200 with error details in the redirect URL, so `ok` alone
+      // is not reliable — always check `error` before treating sign-in as successful.
+      if (result?.error) {
+        const message = getSignInErrorMessage(
+          result,
+          "Invalid email or password.",
+        );
+        toast.error("Sign in failed", { description: message });
         return;
       }
 
-      toast.success("Login Successful", { description: "Welcome to the PSR Platform!" });
+      if (!result?.ok) {
+        toast.error("Sign in failed", {
+          description: "Invalid email or password.",
+        });
+        return;
+      }
+
+      toast.success("Welcome back", {
+        description: "You have been signed in successfully.",
+      });
       queryClient.clear();
       router.replace("/dashboard");
       router.refresh();
     } catch {
-      toast.error("System Error", { description: "An unexpected error occurred. Please try again." });
+      toast.error("Something went wrong", {
+        description: "Please try again in a moment.",
+      });
+    } finally {
       setIsLoading(false);
     }
   }
 
-
-
   return (
-    <div className="flex min-h-screen">
-      {/* ── Left: Hero Panel ── */}
-      <div className="relative hidden lg:flex lg:w-1/2 flex-col">
-        <Image
-          src="/images/auth/login.jpg"
-          alt="Policy and Research Platform"
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/50 to-slate-900/20" />
-
-        {/* Logo */}
-        <div className="relative z-10 p-10">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div>
-              <span className="text-white font-bold text-lg">PSR Platform</span>
-              <p className="text-white/50 text-xs">Policy & Research System</p>
-            </div>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-12 sm:px-6">
+      <div className="mb-8 flex flex-col items-center gap-3 text-center">
+        <Link
+          href="/"
+          className="flex items-center gap-3 rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-background shadow-sm ring-1 ring-border">
+            <Image
+              src="/moh_logo.png"
+              alt=""
+              width={44}
+              height={44}
+              className="h-11 w-11 object-cover"
+              priority
+            />
           </div>
-        </div>
-
-        {/* Bottom content */}
-        <div className="relative z-10 mt-auto p-10 pb-14">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white leading-tight mb-4">
-            Advancing Policy &<br />Research Governance
-          </h1>
-          <p className="text-white/70 text-base leading-relaxed max-w-md">
-            A secure digital platform for policy reform management, research proposal governance,
-            and academic collaboration across Ethiopia.
-          </p>
-        </div>
-      </div>
-
-      {/* ── Right: Login Form ── */}
-      <div className="flex flex-1 flex-col justify-center px-8 py-12 lg:px-16 bg-background">
-        <div className="mx-auto w-full max-w-sm">
-
-          {/* Mobile logo */}
-          <div className="flex items-center gap-3 mb-10 lg:hidden">
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
-              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L2 7l10 5 10-5-10-5z" />
-              </svg>
-            </div>
-            <span className="font-bold text-lg">PSR Platform</span>
-          </div>
-
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Welcome back</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Sign in to your institutional account to continue.
+          <div className="text-left">
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              RPDMS
+            </span>
+            <p className="text-xs text-muted-foreground">
+              Research &amp; Policy Documents
             </p>
           </div>
+        </Link>
+      </div>
 
+      <Card className="w-full max-w-md border-border/60 shadow-md">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-semibold tracking-tight">
+            Sign in
+          </CardTitle>
+          <CardDescription>
+            Use your institutional email and password to access your account.
+          </CardDescription>
+        </CardHeader>
 
-          {/* Login Form */}
+        <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-4"
+              noValidate
+            >
               <FormField
                 control={form.control}
                 name="email"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground/80 text-xs font-bold uppercase tracking-wider">
-                      Email
-                    </FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="Enter your email"
+                        inputMode="email"
+                        placeholder="name@institution.edu"
                         autoComplete="email"
-                        className="h-12 bg-muted/50 border-muted focus:bg-background transition-all rounded-xl"
+                        autoFocus
+                        disabled={isLoading}
+                        className={cn(
+                          "h-11",
+                          fieldState.error &&
+                            "border-destructive focus-visible:ring-destructive/25",
+                        )}
+                        aria-invalid={fieldState.invalid}
                         {...field}
                       />
                     </FormControl>
@@ -165,15 +172,13 @@ export default function LoginPage() {
               <FormField
                 control={form.control}
                 name="password"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel className="text-foreground/80 text-xs font-bold uppercase tracking-wider">
-                        Password
-                      </FormLabel>
+                    <div className="flex items-center justify-between gap-2">
+                      <FormLabel>Password</FormLabel>
                       <Link
                         href="/forgot-password"
-                        className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                        className="text-sm font-medium text-primary hover:underline underline-offset-4"
                       >
                         Forgot password?
                       </Link>
@@ -184,20 +189,31 @@ export default function LoginPage() {
                           type={showPassword ? "text" : "password"}
                           placeholder="Enter your password"
                           autoComplete="current-password"
-                          className="h-12 bg-muted/50 border-muted focus:bg-background transition-all pr-12 rounded-xl"
+                          disabled={isLoading}
+                          className={cn(
+                            "h-11 pr-10",
+                            fieldState.error &&
+                              "border-destructive focus-visible:ring-destructive/25",
+                          )}
+                          aria-invalid={fieldState.invalid}
                           {...field}
                         />
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3.5 text-muted-foreground hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
+                          size="icon"
+                          className="absolute right-0 top-0 h-11 w-10 text-muted-foreground hover:bg-transparent"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                          aria-pressed={showPassword}
+                          tabIndex={-1}
                         >
                           {showPassword ? (
-                            <EyeOff className="h-4.5 w-4.5" />
+                            <EyeOff className="h-4 w-4" aria-hidden />
                           ) : (
-                            <Eye className="h-4.5 w-4.5" />
+                            <Eye className="h-4 w-4" aria-hidden />
                           )}
                         </Button>
                       </div>
@@ -209,13 +225,16 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full h-12 text-sm font-bold rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                className="mt-2 h-11 w-full font-medium"
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Signing in...
+                    <Loader2
+                      className="mr-2 h-4 w-4 animate-spin"
+                      aria-hidden
+                    />
+                    Signing in…
                   </>
                 ) : (
                   "Sign in"
@@ -224,18 +243,17 @@ export default function LoginPage() {
             </form>
           </Form>
 
-          {/* Sign Up Link */}
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Need an account?{" "}
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
             <Link
               href="/signup"
-              className="font-semibold text-primary hover:text-primary/80 transition-colors"
+              className="font-medium text-primary hover:underline underline-offset-4"
             >
-              Sign up
+              Create account
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

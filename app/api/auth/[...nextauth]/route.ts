@@ -2,10 +2,20 @@
 // RPDMS — NextAuth v5 Route Handler
 // ============================================================================
 
-import NextAuth, { type Session } from "next-auth";
+import NextAuth, { type Session, CredentialsSignin } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { User } from "@/lib/types";
 import { isPublicPath } from "@/lib/auth/public-routes";
+import { parseBackendApiMessage } from "@/lib/api/parse-backend-error";
+
+class BackendLoginError extends CredentialsSignin {
+  code: string;
+
+  constructor(message: string) {
+    super();
+    this.code = message;
+  }
+}
 
 // ─── Type augmentation ────────────────────────────────────────────────────────
 declare module "next-auth" {
@@ -132,10 +142,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
 
           if (!res.ok) {
-            console.error(`[NextAuth] Login failed with status: ${res.status}`);
-            const errorText = await res.text();
-            console.error(`[NextAuth] Error response: ${errorText}`);
-            return null;
+            let errorBody: unknown = null;
+            try {
+              errorBody = await res.json();
+            } catch {
+              /* non-JSON error body */
+            }
+
+            const message = parseBackendApiMessage(
+              errorBody,
+              "Invalid email or password.",
+            );
+
+            if (process.env.NODE_ENV === "development") {
+              console.error(
+                `[NextAuth] Login failed with status: ${res.status}`,
+                errorBody,
+              );
+            }
+
+            throw new BackendLoginError(message);
           }
 
           const data = await res.json();
@@ -144,11 +170,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const refreshToken = data.data?.refreshToken?.token;
 
           if (!user || !token) {
-            console.error(
-              `[NextAuth] Missing user or token in response. Data:`,
-              JSON.stringify(data),
+            const message = parseBackendApiMessage(
+              data,
+              "Invalid email or password.",
             );
-            return null;
+            throw new BackendLoginError(message);
           }
 
           return {
@@ -163,11 +189,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             psrUser: buildMinimalSessionUser(user),
           };
         } catch (err) {
-          console.error(
-            `[NextAuth] Network or parsing error during login:`,
-            err,
+          if (err instanceof CredentialsSignin) {
+            throw err;
+          }
+
+          if (process.env.NODE_ENV === "development") {
+            console.error(
+              "[NextAuth] Network or parsing error during login:",
+              err,
+            );
+          }
+
+          throw new BackendLoginError(
+            "Unable to reach the server. Please try again.",
           );
-          return null;
         }
       },
     }),
