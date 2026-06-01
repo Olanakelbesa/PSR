@@ -65,7 +65,7 @@ export default function FundingRecommendationDetailPage() {
   } = useFundingRecommendation(recommendationId);
 
   const fundingDecisionId =
-    recommendation?.ready_for_funding_id ?? recommendation?.proposal;
+    recommendation?.readyForFundingId ?? recommendation?.ready_for_funding_id ?? recommendation?.proposal;
 
   const { data: contextData } = useQuery({
     queryKey: ["funding-recommendation", "context", fundingDecisionId ?? ""],
@@ -212,7 +212,7 @@ export default function FundingRecommendationDetailPage() {
                 </Badge>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
                   <Calendar className="h-3.5 w-3.5" />
-                  <span>Recommended: {formatDate(recommendation.recommended_at)}</span>
+                  <span>Recommended: {formatDate(recommendation.recommendedAt ?? recommendation.recommended_at)}</span>
                 </div>
               </div>
               <CardTitle className="mt-3 text-2xl font-extrabold text-slate-900 leading-snug">
@@ -249,13 +249,13 @@ export default function FundingRecommendationDetailPage() {
                     Total Awarded
                   </span>
                   <span className="text-2xl font-black text-emerald-700 block mt-2">
-                    {formatCurrency(recommendation.total_award_amount)}
+                    {formatCurrency(recommendation.totalAwardAmount ?? recommendation.total_award_amount)}
                   </span>
                 </div>
               </div>
 
               {/* Funding Gap Card */}
-              {requestedAmount && recommendation.total_award_amount ? (
+              {requestedAmount && (recommendation.totalAwardAmount || recommendation.total_award_amount) ? (
                 <div className="rounded-xl border p-4 bg-slate-100/30 border-slate-300">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
                     Funded Percentage
@@ -263,7 +263,7 @@ export default function FundingRecommendationDetailPage() {
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-2xl font-black text-slate-800">
                       {(
-                        ((Number(recommendation.total_award_amount) || 0) /
+                        ((Number(recommendation.totalAwardAmount ?? recommendation.total_award_amount) || 0) /
                           (Number(requestedAmount) || 1)) *
                         100
                       ).toFixed(1)}
@@ -273,7 +273,7 @@ export default function FundingRecommendationDetailPage() {
                       className="h-2 flex-1 ml-4 bg-slate-200 rounded-full overflow-hidden"
                       role="progressbar"
                       aria-valuenow={Math.round(
-                        ((Number(recommendation.total_award_amount) || 0) /
+                        ((Number(recommendation.totalAwardAmount ?? recommendation.total_award_amount) || 0) /
                           (Number(requestedAmount) || 1)) *
                           100,
                       )}
@@ -284,7 +284,7 @@ export default function FundingRecommendationDetailPage() {
                         className="h-full bg-emerald-500"
                         style={{
                           width: `${
-                            ((Number(recommendation.total_award_amount) || 0) /
+                            ((Number(recommendation.totalAwardAmount ?? recommendation.total_award_amount) || 0) /
                               (Number(requestedAmount) || 1)) *
                             100
                           }%`,
@@ -300,7 +300,7 @@ export default function FundingRecommendationDetailPage() {
                   Amount in English Words
                 </span>
                 <p className="text-sm font-semibold text-slate-800 bg-slate-50 border p-3 rounded-xl capitalize">
-                  {recommendation.amount_english_in_words || "No amount words recorded."}
+                  {recommendation.amountEnglishInWords || recommendation.amount_english_in_words || "No amount words recorded."}
                 </p>
               </div>
             </CardContent>
@@ -344,12 +344,12 @@ export default function FundingRecommendationDetailPage() {
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-muted-foreground font-medium">Ethics Approved</span>
                 <Badge
-                  className={recommendation.has_ethical_clearance_approval
+                  className={(recommendation.hasEthicalClearanceApproval ?? recommendation.has_ethical_clearance_approval)
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                     : "border-slate-200 bg-slate-50 text-slate-700"
                   }
                 >
-                  {recommendation.has_ethical_clearance_approval ? (
+                  {(recommendation.hasEthicalClearanceApproval ?? recommendation.has_ethical_clearance_approval) ? (
                     <>
                       <ShieldCheck className="mr-1 h-3.5 w-3.5" />
                       Approved
@@ -389,11 +389,11 @@ export default function FundingRecommendationDetailPage() {
               </div>
 
               {/* Terminal report status */}
-              {recommendation.terminal_report_status && (
+              {(recommendation.terminalReportStatus || recommendation.terminal_report_status) && (
                 <div className="flex justify-between items-center py-2">
                   <span className="text-muted-foreground font-medium">Terminal Report</span>
                   <span className="font-semibold text-slate-800 capitalize text-xs">
-                    {recommendation.terminal_report_status.replace(/_/g, " ")}
+                    {(recommendation.terminalReportStatus || recommendation.terminal_report_status)?.replace(/_/g, " ")}
                   </span>
                 </div>
               )}

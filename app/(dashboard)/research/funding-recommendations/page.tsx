@@ -303,7 +303,7 @@ export default function FundingRecommendationsPage() {
     const map = new Map<string, FundingRecommendation>();
     for (const item of recommendations) {
       const key =
-        extractId(item.ready_for_funding_id) ?? extractId(item.proposal) ?? "";
+        extractId(item.readyForFundingId) ?? extractId(item.ready_for_funding_id) ?? extractId(item.proposal) ?? "";
       if (key) map.set(key, item);
     }
     return map;
@@ -368,7 +368,7 @@ export default function FundingRecommendationsPage() {
       const requestedAmount =
         normalizeAmount(raw.budgetRequested ?? raw.budget_requested) ??
         normalizeAmount(recommendation?.budgetRequested);
-      const awardedAmount = normalizeAmount(recommendation?.total_award_amount);
+      const awardedAmount = normalizeAmount(recommendation?.totalAwardAmount ?? recommendation?.total_award_amount);
 
       return {
         id: `pipeline-${String(raw.screeningId ?? raw.screening_id ?? item.rank)}`,
@@ -396,7 +396,7 @@ export default function FundingRecommendationsPage() {
           raw.needIrbEthicalClearance ?? raw.need_irb_ethical_clearance,
         ),
         ethicalClearanceStatus: isFunded
-          ? recommendation?.has_ethical_clearance_approval
+          ? (recommendation?.hasEthicalClearanceApproval ?? recommendation?.has_ethical_clearance_approval)
             ? "approved"
             : String(
               raw.ethicalClearanceStatus ??
@@ -407,6 +407,7 @@ export default function FundingRecommendationsPage() {
             raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
           ) || null,
         recommendedAt:
+          (recommendation?.recommendedAt as string | null) ??
           (recommendation?.recommended_at as string | null) ??
           (recommendedAtFallback as string | null) ??
           null,
@@ -454,7 +455,7 @@ export default function FundingRecommendationsPage() {
       Number(
         recommendationData?.meta?.statistics?.totalAwarded ??
         recommendations.reduce(
-          (sum, item) => sum + Number(item.total_award_amount || 0),
+          (sum, item) => sum + Number(item.totalAwardAmount || item.total_award_amount || 0),
           0,
         ),
       ),
@@ -502,7 +503,7 @@ export default function FundingRecommendationsPage() {
       title: "Ethics Cleared",
       value:
         recommendationData?.meta?.statistics?.ethicalClearanceApprovedCount ??
-        recommendations.filter((item) => item.has_ethical_clearance_approval).length,
+        recommendations.filter((item) => item.hasEthicalClearanceApproval || item.has_ethical_clearance_approval).length,
       caption: "Marked with clearance approval",
       icon: ShieldCheck,
       accent: { iconBg: "bg-blue-50", iconColor: "text-blue-700" },

@@ -9,7 +9,9 @@ export interface FundingRecommendation {
   id: number;
   proposal: number;
   ready_for_funding_id?: number;
+  readyForFundingId?: number;
   screening_id?: number | null;
+  screeningId?: number | null;
   referenceNumber?: string | null;
   reference_number?: string | null;
   proposalTitle?: string | null;
@@ -18,13 +20,20 @@ export interface FundingRecommendation {
   budgetRequested?: string | number | null;
   budget_requested?: string | number | null;
   total_award_amount: string | number;
+  totalAwardAmount?: string | number;
   amount_english_in_words: string;
+  amountEnglishInWords?: string;
   has_ethical_clearance_approval: boolean;
+  hasEthicalClearanceApproval?: boolean;
   comments: string;
   recommended_at: string;
+  recommendedAt?: string;
   terminal_report_status?: string | null;
+  terminalReportStatus?: string | null;
   funding_decision_status?: string | null;
+  fundingDecisionStatus?: string | null;
   screening_status?: string | null;
+  screeningStatus?: string | null;
 }
 
 export interface FundingRecommendationCandidate {

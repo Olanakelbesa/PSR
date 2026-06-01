@@ -45,7 +45,7 @@ export function useFundingRecommendationDocumentDownload() {
 
       if (!context) {
         const fundingDecisionId =
-          recommendation.ready_for_funding_id ?? recommendation.proposal;
+          recommendation.readyForFundingId ?? recommendation.ready_for_funding_id ?? recommendation.proposal;
 
         if (fundingDecisionId) {
           const candidateResponse =
@@ -53,7 +53,7 @@ export function useFundingRecommendationDocumentDownload() {
               limit: 1,
               funding_decision_id: fundingDecisionId,
             });
-          context = (candidateResponse.data?.[0] ?? null) as Record<
+          context = (candidateResponse.data?.[0] ?? null) as unknown as Record<
             string,
             unknown
           > | null;

@@ -123,15 +123,15 @@ export function mapFundingRecommendationToAwardData(
     readContextString(context, "referenceNumber", "reference_number") ||
     `FR-${recommendation.id}`;
 
-  const recommendedAt = recommendation.recommended_at
-    ? new Date(recommendation.recommended_at)
+  const recommendedAt = (recommendation.recommendedAt ?? recommendation.recommended_at)
+    ? new Date(recommendation.recommendedAt ?? recommendation.recommended_at)
     : new Date();
   const approvalEnd = addDays(recommendedAt, 365);
   const agreementDeadline = addDays(new Date(), 30);
 
-  const totalAward = recommendation.total_award_amount;
+  const totalAward = recommendation.totalAwardAmount ?? recommendation.total_award_amount;
   const amountWords =
-    recommendation.amount_english_in_words?.trim() ||
+    (recommendation.amountEnglishInWords ?? recommendation.amount_english_in_words)?.trim() ||
     formatAmount(totalAward);
 
   const organizationName =
@@ -202,10 +202,10 @@ export function mapFundingRecommendationToContractData(
     center_of_excellence: "—",
     email: piEmail(pi) || "—",
     phone: "—",
-    approved_budget: formatAmount(recommendation.total_award_amount),
+    approved_budget: formatAmount(recommendation.totalAwardAmount ?? recommendation.total_award_amount),
     approved_budget_words:
-      recommendation.amount_english_in_words?.trim() ||
-      formatAmount(recommendation.total_award_amount),
+      (recommendation.amountEnglishInWords ?? recommendation.amount_english_in_words)?.trim() ||
+      formatAmount(recommendation.totalAwardAmount ?? recommendation.total_award_amount),
     day: String(now.getDate()),
     month: now.toLocaleDateString("en-GB", { month: "long" }),
   };
@@ -220,7 +220,7 @@ export async function downloadFundingRecommendationAwardPdf(
     "@/components/document/AwardLetterPDF"
   );
   const data = mapFundingRecommendationToAwardData(recommendation, context);
-  const blob = await pdf(createElement(AwardLetterPDF, { data })).toBlob();
+  const blob = await pdf(createElement(AwardLetterPDF, { data }) as any).toBlob();
   const ref = sanitizeFilename(
     recommendation.reference_number ||
       recommendation.referenceNumber ||
@@ -239,7 +239,7 @@ export async function downloadFundingRecommendationAgreementPdf(
     "@/components/document/ContractDocumentPDF"
   );
   const data = mapFundingRecommendationToContractData(recommendation, context);
-  const blob = await pdf(createElement(ContractDocumentPDF, { data })).toBlob();
+  const blob = await pdf(createElement(ContractDocumentPDF, { data }) as any).toBlob();
   const ref = sanitizeFilename(
     recommendation.reference_number ||
       recommendation.referenceNumber ||
