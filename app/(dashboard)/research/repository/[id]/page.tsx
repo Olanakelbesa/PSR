@@ -191,24 +191,10 @@ export default function ResearchRepositoryDetailPage() {
       }
     >
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4 rounded-3xl border border-muted-foreground/10 bg-white px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            <BadgeCheck className="h-4 w-4 text-emerald-600" />
-            PSR Verified Record
-          </div>
-          <Badge
-            className={cn(
-              "border text-[10px] font-bold uppercase tracking-wide shadow-none",
-              statusTone,
-            )}
-          >
-            {item.status.replace(/_/g, " ")}
-          </Badge>
-        </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-sm">
+            <Card className="overflow-hidden border border-muted-foreground/10 bg-white shadow-sm">
               <CardContent className="space-y-6 p-6 md:p-8">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
                   <Tag className="h-3.5 w-3.5" />
@@ -270,7 +256,7 @@ export default function ResearchRepositoryDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-sm">
+            <Card className="overflow-hidden border border-muted-foreground/10 bg-white shadow-sm">
               <CardHeader className="border-b p-6 md:p-8">
                 <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
                   <FileText className="h-5 w-5 text-primary" />
@@ -298,7 +284,7 @@ export default function ResearchRepositoryDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-sm">
+            <Card className="overflow-hidden border border-muted-foreground/10 bg-white shadow-sm">
               <CardHeader className="border-b p-6 md:p-8">
                 <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
                   <Globe className="h-5 w-5 text-primary" />
@@ -351,7 +337,7 @@ export default function ResearchRepositoryDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden rounded-[1.5rem] border border-emerald-200/50 bg-emerald-50/[0.15] shadow-sm">
+            <Card className="overflow-hidden border border-emerald-200/50 bg-emerald-50/[0.15] shadow-sm">
               <CardContent className="flex items-start gap-4 p-6 md:p-8">
                 <div className="shrink-0 rounded-2xl bg-emerald-100 p-3 text-emerald-600">
                   <TrendingUp className="h-6 w-6" />
@@ -371,13 +357,26 @@ export default function ResearchRepositoryDetailPage() {
           </div>
 
           <div className="space-y-6">
-            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-sm">
+            <Card className="overflow-hidden border border-muted-foreground/10 bg-white shadow-sm">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   Submission Specs
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 p-6">
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    PSR Verified Record
+                  </div>
+                  <Badge
+                    className={cn(
+                      "border text-[10px] font-bold uppercase tracking-wide shadow-none",
+                      statusTone,
+                    )}
+                  >
+                    {item.status.replace(/_/g, " ")}
+                  </Badge>
+                </div>
                 <div className="flex items-center justify-between py-1">
                   <span className="text-xs font-medium text-muted-foreground">
                     Version
@@ -428,7 +427,7 @@ export default function ResearchRepositoryDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-sm">
+            <Card className="overflow-hidden border border-muted-foreground/10 bg-white shadow-sm">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   <FileCode2 className="h-4 w-4 text-primary" />
@@ -478,7 +477,7 @@ export default function ResearchRepositoryDetailPage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden rounded-[1.5rem] border border-muted-foreground/10 bg-white shadow-md">
+            <Card className="overflow-hidden border border-muted-foreground/10 bg-white shadow-md">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   Document Access
