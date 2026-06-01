@@ -25,7 +25,8 @@ export function DraftTimeline({ draft, mode }: DraftTimelineProps) {
       </CardHeader>
       <CardContent className="pt-6">
         <div className="relative">
-          {isRepository && timelineData.length > 0 ? (
+          {isRepository ? (
+            timelineData.length > 0 ? (
             timelineData.map((event: any, index: number) => (
               <div key={index} className="flex gap-4 pb-6 last:pb-0">
                 <div className="flex flex-col items-center">
@@ -56,6 +57,11 @@ export function DraftTimeline({ draft, mode }: DraftTimelineProps) {
                 </div>
               </div>
             ))
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No lifecycle dates recorded for this policy yet.
+              </p>
+            )
           ) : (
             <>
               <div className="flex gap-4 pb-6 last:pb-0">

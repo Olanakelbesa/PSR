@@ -60,9 +60,23 @@ export function DraftTabs({ draft, mode = "draft", isFeedbackVisible = true }: D
 
       {/* Document Tab */}
       <TabsContent value="document" className="mt-6">
-        <DraftDocument 
-          url={draft.url || "/doc/PSR_FRS_v1.pdf"} 
-          fileName={draft.draftFile?.name || draft.serialNumber || draft.title} 
+        <DraftDocument
+          url={
+            isRepository
+              ? typeof draft.draftFile === "string"
+                ? draft.draftFile
+                : draft.documentUrl ?? ""
+              : draft.documentUrl ??
+                (typeof draft.draftFile === "string" ? draft.draftFile : draft.url) ??
+                ""
+          }
+          fileName={
+            draft.documentFileName ??
+            draft.draftFile?.name ??
+            draft.serialNumber ??
+            draft.title ??
+            "Document"
+          }
         />
       </TabsContent>
 

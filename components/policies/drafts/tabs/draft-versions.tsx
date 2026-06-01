@@ -11,9 +11,17 @@ interface DraftVersionsProps {
 }
 
 export function DraftVersions({ versionHistory }: DraftVersionsProps) {
+  if (!versionHistory?.length) {
+    return (
+      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+        No version history available for this document.
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-6">
-      {versionHistory?.map((v: any, index: number) => (
+      {versionHistory.map((v: any, index: number) => (
         <Card key={v.version} className={cn(
           "shadow-sm border-primary/10 overflow-hidden relative group",
           v.status === "current" ? "border-primary/30 bg-primary/[0.02]" : "bg-card"

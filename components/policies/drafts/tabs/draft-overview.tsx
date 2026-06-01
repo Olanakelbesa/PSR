@@ -90,9 +90,21 @@ export function DraftOverview({ executiveSummary, metadata, mode }: DraftOvervie
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 flex flex-wrap gap-2">
-              {metadata.thematicAreas?.map((area: string) => (
-                <Badge key={area} variant="secondary" className="px-3 py-1 text-sm">{area}</Badge>
-              ))}
+              {metadata.thematicAreas?.length > 0 ? (
+                metadata.thematicAreas.map((area: string) => (
+                  <Badge
+                    key={area}
+                    variant="secondary"
+                    className="px-3 py-1 text-sm"
+                  >
+                    {area}
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No thematic areas assigned.
+                </p>
+              )}
             </CardContent>
           </Card>
         </>
