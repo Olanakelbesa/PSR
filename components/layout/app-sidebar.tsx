@@ -234,6 +234,24 @@ const navigationGroups: NavGroup[] = [
         ],
       },
       {
+        label: "Final Report",
+        icon: FileCheck2,
+        subItems: [
+          {
+            label: "My Final Reports",
+            href: "/research/final-report/my-final-reports",
+            icon: Dot,
+            permissions: [PERMISSIONS.MONITORING_VIEW_PROGRESS_REPORT_APPROVAL],
+          },
+          {
+            label: "Final Report Approval",
+            href: "/research/final-report/final-report-approval",
+            icon: Dot,
+            permissions: [PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT_APPROVAL],
+          },
+        ],
+      },
+      {
         label: "Research Repository",
         href: "/research/repository",
         icon: Library,

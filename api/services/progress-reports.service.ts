@@ -16,6 +16,12 @@ export interface ProgressReportSummary {
   status: ReportDecision;
   submitted_at: string;
   general_status?: string;
+  projectTracking?: {
+    projectTrackingId: number;
+    proposalId: number;
+    title: string;
+    status: string;
+  } | null;
 }
 
 export interface ProjectTrackingProposal {
@@ -281,6 +287,7 @@ export const progressReportsService = {
         item.generalStatus ??
         item.generalStatus ??
         undefined,
+      projectTracking: item.projectTracking ?? null,
     }));
 
     return {
@@ -336,6 +343,7 @@ export const progressReportsService = {
         payload.generalStatus ??
         payload.generalStatus ??
         undefined,
+      projectTracking: payload.projectTracking ?? null,
     } as any;
   },
 
