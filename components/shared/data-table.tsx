@@ -53,16 +53,24 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
+export type FilterOptionConfig = {
+  key: string;
+  label: string;
+  options: { value: string; label: string }[];
+  /** Controlled filter (e.g. API); skips column filtering when set with onValueChange */
+  value?: string;
+  onValueChange?: (value: string) => void;
+  placeholder?: string;
+  allValue?: string;
+  allLabel?: string;
+};
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
-  filterOptions?: {
-    key: string;
-    label: string;
-    options: { value: string; label: string }[];
-  }[];
+  filterOptions?: FilterOptionConfig[];
   onRowClick?: (data: TData) => void;
   selectedActions?: React.ReactNode;
   emptyMessage?: string;
@@ -112,122 +120,157 @@ export function DataTable<TData, TValue>({
     return table.getAllColumns().find((col) => col.id === columnId);
   };
 
-  const hasActiveFilters = columnFilters.length > 0;
+  const hasActiveColumnFilters = columnFilters.length > 0;
+  const hasActiveControlledFilters = filterOptions.some(
+    (filter) =>
+      filter.onValueChange &&
+      filter.value !== undefined &&
+      filter.value !== (filter.allValue ?? "all"),
+  );
+  const hasActiveFilters = hasActiveColumnFilters || hasActiveControlledFilters;
   const selectedRows = table.getFilteredSelectedRowModel().rows;
+
+  const clearAllFilters = () => {
+    setColumnFilters([]);
+    for (const filter of filterOptions) {
+      const allValue = filter.allValue ?? "all";
+      if (filter.onValueChange && filter.value !== allValue) {
+        filter.onValueChange(allValue);
+      }
+    }
+  };
+
+  const renderFilterSelect = (filter: FilterOptionConfig) => {
+    const allValue = filter.allValue ?? "all";
+    const isControlled = Boolean(filter.onValueChange);
+
+    const value = isControlled
+      ? (filter.value ?? allValue)
+      : ((getSafeColumn(filter.key)?.getFilterValue() as string) || allValue);
+
+    const onValueChange = isControlled
+      ? filter.onValueChange!
+      : (next: string) =>
+          getSafeColumn(filter.key)?.setFilterValue(
+            next === allValue ? "" : next,
+          );
+
+    return (
+      <Select key={filter.key} value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-10 border-muted-foreground/20 bg-muted/20">
+          {!isControlled ? (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              <SelectValue placeholder={filter.placeholder ?? filter.label} />
+            </div>
+          ) : (
+            <SelectValue placeholder={filter.placeholder ?? filter.label} />
+          )}
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={allValue}>
+            {filter.allLabel ?? `All ${filter.label}`}
+          </SelectItem>
+          {filter.options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
+
+  const columnVisibilityMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 shrink-0 border-muted-foreground/20"
+        >
+          <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          View{" "}
+          <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[180px]">
+        <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {table
+          .getAllColumns()
+          .filter((column) => column.getCanHide())
+          .map((column) => {
+            return (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                className="capitalize"
+                checked={column.getIsVisible()}
+                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+              >
+                {column.id.replace(/_/g, " ")}
+              </DropdownMenuCheckboxItem>
+            );
+          })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="space-y-4 w-full max-w-full">
       {toolbar ? (
         toolbar
       ) : (
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-xl border shadow-sm">
-          <div className="flex flex-1 flex-wrap items-center gap-2 w-full">
-            {searchKey && (
-              <div className="relative w-full max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={searchPlaceholder}
-                  value={
-                    (getSafeColumn(searchKey)?.getFilterValue() as string) ??
-                    ""
-                  }
-                  onChange={(event) =>
-                    getSafeColumn(searchKey)
-                      ?.setFilterValue(event.target.value)
-                  }
-                  className="pl-9 h-10 bg-muted/20 border-muted-foreground/20 focus-visible:ring-primary/20"
-                />
-              </div>
-            )}
-            <div className="flex items-center gap-2 ml-auto">
-              {filterOptions.length > 0 && (
-                <span className="text-sm text-muted-foreground whitespace-nowrap hidden md:inline-block">
-                  Filter by:
-                </span>
+        <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 flex-wrap items-center gap-2">
+              {searchKey && (
+                <div className="relative w-full max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder={searchPlaceholder}
+                    value={
+                      (getSafeColumn(searchKey)?.getFilterValue() as string) ??
+                      ""
+                    }
+                    onChange={(event) =>
+                      getSafeColumn(searchKey)?.setFilterValue(
+                        event.target.value,
+                      )
+                    }
+                    className="h-10 border-muted-foreground/20 bg-muted/20 pl-9 focus-visible:ring-primary/20"
+                  />
+                </div>
               )}
-              {filterOptions.map((filter) => (
-                <Select
-                  key={filter.key}
-                  value={
-                    (getSafeColumn(filter.key)?.getFilterValue() as string) ??
-                    ""
-                  }
-                  onValueChange={(value) =>
-                    getSafeColumn(filter.key)
-                      ?.setFilterValue(value === "all" ? "" : value)
-                  }
-                >
-                  <SelectTrigger className="w-[160px] h-10 bg-muted/20 border-muted-foreground/20">
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      <SelectValue placeholder={filter.label} />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All {filter.label}</SelectItem>
-                    {filter.options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ))}
+            </div>
+            {filterOptions.length > 0 && (
+            <div className="flex gap-2 items-center justify-end">
+              {filterOptions.map((filter) => renderFilterSelect(filter))}
+            </div>
+          )}
+            <div className="flex items-center gap-2">
+              {selectedRows.length > 0 && selectedActions && (
+                <div className="flex animate-in items-center gap-2 fade-in slide-in-from-right-1">
+                  {selectedActions}
+                  <Separator orientation="vertical" className="mx-1 h-6" />
+                </div>
+              )}
               {hasActiveFilters && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setColumnFilters([])}
-                  className="h-10 px-2 lg:px-3 text-muted-foreground hover:text-foreground"
+                  onClick={clearAllFilters}
+                  className="h-10 px-2 text-muted-foreground hover:text-foreground lg:px-3"
                 >
                   <X className="mr-2 h-4 w-4" />
                   Clear
                 </Button>
               )}
+              {columnVisibilityMenu}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {selectedRows.length > 0 && selectedActions && (
-              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-1">
-                {selectedActions}
-                <Separator orientation="vertical" className="h-6 mx-1" />
-              </div>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 border-muted-foreground/20 ml-auto"
-                >
-                  <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                  View{" "}
-                  <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
-                <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {column.id.replace(/_/g, " ")}
-                      </DropdownMenuCheckboxItem>
-                    );
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+
+          
         </div>
       )}
 

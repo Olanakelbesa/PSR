@@ -6,10 +6,12 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   BadgeCheck,
   Banknote,
   CheckCircle2,
   Clock,
+  FileCheck2,
   FileText,
   MoreHorizontal,
   Plus,
@@ -18,31 +20,30 @@ import {
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
-import { DataTable } from "@/components/shared/data-table";
+import {
+  DataTable,
+  type FilterOptionConfig,
+} from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import { cn } from "@/lib/utils";
+import { fundingRecommendationRoutes } from "@/lib/routes/funding-recommendations";
 import {
   useFundingRecommendationCandidates,
   useFundingRecommendations,
   useProposalTypes,
 } from "@/hooks";
+import { useFundingRecommendationDocumentDownload } from "@/hooks/useFundingRecommendationDocumentDownload";
 import { useOpenGrantCallsForSelect } from "@/lib/queries/grant-calls";
 import type {
   FundingRecommendation,
@@ -160,6 +161,11 @@ function StatusBadge({
   );
 }
 
+type StatAccent = {
+  iconBg: string;
+  iconColor: string;
+};
+
 function StatCard({
   title,
   value,
@@ -171,23 +177,32 @@ function StatCard({
   value: string | number;
   caption: string;
   icon: typeof FileText;
-  accent: string;
+  accent: StatAccent;
 }) {
+  const displayValue =
+    typeof value === "number" ? value.toLocaleString() : value;
+
   return (
-    <Card className="overflow-hidden shadow-sm">
-      <div />
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm tracking-[0.2em] text-muted-foreground">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex items-end justify-between gap-4">
-        <div>
-          <div className="text-2xl font-black">{value}</div>
-          <p className="text-xs text-muted-foreground">{caption}</p>
+    <Card className="h-full border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md">
+      <CardContent className="py-5">
+        <div className="flex items-center gap-2">
+
+          <div
+            className={cn("inline-flex rounded-xl p-2.5", accent.iconBg)}
+            aria-hidden
+          >
+            <Icon className={cn("h-5 w-5", accent.iconColor)} />
+          </div>
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
         </div>
-        <div className={cn("rounded-full p-3 text-white", accent)}>
-          <Icon className="h-4 w-4" />
+        <div className="mt-4 space-y-1">
+
+          <p className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+            {displayValue}
+          </p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {caption}
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -196,6 +211,8 @@ function StatCard({
 
 export default function FundingRecommendationsPage() {
   const router = useRouter();
+  const { download: downloadDocument, active: documentDownloadActive } =
+    useFundingRecommendationDocumentDownload();
   const [selectedCall, setSelectedCall] = useState(ALL_FILTER_VALUE);
   const [selectedProposalType, setSelectedProposalType] =
     useState(ALL_FILTER_VALUE);
@@ -335,8 +352,8 @@ export default function FundingRecommendationsPage() {
       const recommendation = recommendationByDecisionId.get(navigationId);
       const recommendationCount = Number(
         raw.fundingRecommendationsCount ??
-          raw.funding_recommendations_count ??
-          (recommendation ? 1 : 0),
+        raw.funding_recommendations_count ??
+        (recommendation ? 1 : 0),
       );
       const isFunded = Boolean(recommendation) || recommendationCount > 0;
       const recommendationId = recommendation ? String(recommendation.id) : null;
@@ -346,7 +363,7 @@ export default function FundingRecommendationsPage() {
       const latestRawRecommendation = rawFundingRecommendations[0] ?? null;
       const recommendedAtFallback = extractId(
         latestRawRecommendation?.recommended_at ??
-          latestRawRecommendation?.recommendedAt,
+        latestRawRecommendation?.recommendedAt,
       );
       const requestedAmount =
         normalizeAmount(raw.budgetRequested ?? raw.budget_requested) ??
@@ -382,13 +399,13 @@ export default function FundingRecommendationsPage() {
           ? recommendation?.has_ethical_clearance_approval
             ? "approved"
             : String(
-                raw.ethicalClearanceStatus ??
-                  raw.ethical_clearance_status ??
-                  "pending",
-              )
+              raw.ethicalClearanceStatus ??
+              raw.ethical_clearance_status ??
+              "pending",
+            )
           : String(
-              raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
-            ) || null,
+            raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
+          ) || null,
         recommendedAt:
           (recommendation?.recommended_at as string | null) ??
           (recommendedAtFallback as string | null) ??
@@ -415,11 +432,11 @@ export default function FundingRecommendationsPage() {
     if (selectedScoreBand !== ALL_FILTER_VALUE) {
       const threshold = Number(selectedScoreBand);
       if (Number.isFinite(threshold)) {
-      rows = rows.filter(
+        rows = rows.filter(
           (row) =>
             typeof row.averageScorePercentage === "number" &&
             row.averageScorePercentage >= threshold,
-      );
+        );
       }
     }
 
@@ -436,10 +453,10 @@ export default function FundingRecommendationsPage() {
     () =>
       Number(
         recommendationData?.meta?.statistics?.totalAwarded ??
-          recommendations.reduce(
-            (sum, item) => sum + Number(item.total_award_amount || 0),
-            0,
-          ),
+        recommendations.reduce(
+          (sum, item) => sum + Number(item.total_award_amount || 0),
+          0,
+        ),
       ),
     [recommendations, recommendationData?.meta?.statistics],
   );
@@ -448,11 +465,11 @@ export default function FundingRecommendationsPage() {
     () =>
       Number(
         recommendationData?.meta?.statistics?.totalRequested ??
-          recommendations.reduce(
-            (sum, item) =>
-              sum + Number(item.budgetRequested ?? item.budget_requested ?? 0),
-            0,
-          ),
+        recommendations.reduce(
+          (sum, item) =>
+            sum + Number(item.budgetRequested ?? item.budget_requested ?? 0),
+          0,
+        ),
       ),
     [recommendations, recommendationData?.meta?.statistics],
   );
@@ -465,21 +482,21 @@ export default function FundingRecommendationsPage() {
         recommendations.length,
       caption: "Submitted funding records",
       icon: BadgeCheck,
-      accent: "bg-primary",
+      accent: { iconBg: "bg-primary/10", iconColor: "text-primary" },
     },
     {
       title: "Total Requested",
       value: formatCurrency(totalRequested),
       caption: "Budget requested across recommendations",
       icon: FileText,
-      accent: "bg-slate-600",
+      accent: { iconBg: "bg-slate-100", iconColor: "text-slate-700" },
     },
     {
       title: "Total Awarded",
       value: formatCurrency(totalAwarded),
       caption: "Across submitted recommendations",
       icon: Banknote,
-      accent: "bg-emerald-600",
+      accent: { iconBg: "bg-emerald-50", iconColor: "text-emerald-700" },
     },
     {
       title: "Ethics Cleared",
@@ -488,9 +505,76 @@ export default function FundingRecommendationsPage() {
         recommendations.filter((item) => item.has_ethical_clearance_approval).length,
       caption: "Marked with clearance approval",
       icon: ShieldCheck,
-      accent: "bg-blue-600",
+      accent: { iconBg: "bg-blue-50", iconColor: "text-blue-700" },
     },
   ];
+
+  const filterOptions = useMemo<FilterOptionConfig[]>(
+    () => [
+      {
+        key: "grant-call",
+        label: "Grant call",
+        value: selectedCall,
+        onValueChange: setSelectedCall,
+        placeholder: "Filter by grant call",
+        allValue: ALL_FILTER_VALUE,
+        allLabel: "All Grant Calls",
+        options: openGrantCalls.map((call) => ({
+          value: String(call.id),
+          label: call.title,
+        })),
+      },
+      {
+        key: "proposal-type",
+        label: "Proposal type",
+        value: selectedProposalType,
+        onValueChange: setSelectedProposalType,
+        placeholder: "Filter by proposal type",
+        allValue: ALL_FILTER_VALUE,
+        allLabel: "All Proposal Types",
+        options: proposalTypeOptions.map((type) => ({
+          value: String(type.id),
+          label: type.name,
+        })),
+      },
+      {
+        key: "funding-status",
+        label: "Funding status",
+        value: selectedFundingDecisionStatus,
+        onValueChange: setSelectedFundingDecisionStatus,
+        placeholder: "Filter by funding status",
+        allValue: ALL_FILTER_VALUE,
+        allLabel: "All Status",
+        options: [
+          { value: "approved", label: "Approved" },
+          { value: "pending", label: "Pending" },
+          { value: "rejected", label: "Rejected" },
+          { value: "deferred", label: "Deferred" },
+        ],
+      },
+      {
+        key: "ethics-clearance",
+        label: "Ethics clearance",
+        value: selectedEthicalClearance,
+        onValueChange: setSelectedEthicalClearance,
+        placeholder: "Filter by ethics clearance",
+        allValue: ALL_FILTER_VALUE,
+        allLabel: "All",
+        options: [
+          { value: "approved", label: "Cleared" },
+          { value: "not_approved", label: "Not Cleared" },
+        ],
+      },
+    ],
+    [
+      openGrantCalls,
+      proposalTypeOptions,
+      selectedCall,
+      selectedEthicalClearance,
+      selectedFundingDecisionStatus,
+      selectedProposalType,
+    ],
+  );
 
   const pipelineColumns: ColumnDef<PipelineRow>[] = [
     {
@@ -614,36 +698,67 @@ export default function FundingRecommendationsPage() {
     },
     {
       id: "actions",
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Open actions">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => {
-                if (row.original.recommendationId) {
-                  router.push(
-                    `/research/funding-recommendations/${row.original.recommendationId}`,
-                  );
-                  return;
-                }
+      cell: ({ row }) => {
+        const recommendationId = row.original.recommendationId;
+        const routes = recommendationId
+          ? fundingRecommendationRoutes(recommendationId)
+          : null;
 
-                router.push(
-                  `/research/funding-recommendations/new?proposal=${encodeURIComponent(row.original.navigationId)}`,
-                );
-              }}
-            >
-              <ArrowRight className="mr-2 h-4 w-4" />
-              {row.original.recommendationId
-                ? "Open Details"
-                : "Create Recommendation"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open actions"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (recommendationId) {
+                    router.push(routes!.detail);
+                    return;
+                  }
+
+                  router.push(
+                    `/research/funding-recommendations/new?proposal=${encodeURIComponent(row.original.navigationId)}`,
+                  );
+                }}
+              >
+                <ArrowRight className="mr-2 h-4 w-4" />
+                {recommendationId ? "Open Details" : "Create Recommendation"}
+              </DropdownMenuItem>
+              {recommendationId && routes ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={documentDownloadActive !== null}
+                    onClick={() =>
+                      void downloadDocument("award", { recommendationId })
+                    }
+                  >
+                    <Award className="mr-2 h-4 w-4" />
+                    Award Generation
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={documentDownloadActive !== null}
+                    onClick={() =>
+                      void downloadDocument("agreement", { recommendationId })
+                    }
+                  >
+                    <FileCheck2 className="mr-2 h-4 w-4" />
+                    Agreement
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -664,8 +779,8 @@ export default function FundingRecommendationsPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={index} className="h-28 rounded-xl" />
-              ))
+              <Skeleton key={index} className="h-[7.5rem] rounded-xl" />
+            ))
             : stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
         </div>
 
@@ -702,115 +817,27 @@ export default function FundingRecommendationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-sm">
-            <CardHeader className="space-y-4">
-              <div>
-                <CardTitle>Funding Recommendations</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  View, filter, and manage all funding recommendations with their approval status and ethical clearance information.
-                </p>
-              </div>
+          <DataTable
+            columns={pipelineColumns}
+            data={pipelineRows}
+            searchKey="proposalTitle"
+            searchPlaceholder="Search proposals..."
+            filterOptions={filterOptions}
+            onRowClick={(row) => {
+              if (row.recommendationId) {
+                router.push(
+                  `/research/funding-recommendations/${row.recommendationId}`,
+                );
+                return;
+              }
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <Select value={selectedCall} onValueChange={setSelectedCall}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by grant call" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>All Grant Calls</SelectItem>
-                    {openGrantCalls.map((call) => (
-                      <SelectItem key={call.id} value={String(call.id)}>
-                        {call.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={selectedProposalType}
-                  onValueChange={setSelectedProposalType}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by proposal type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>
-                      All Proposal Types
-                    </SelectItem>
-                    {proposalTypeOptions.map((type) => (
-                      <SelectItem key={String(type.id)} value={String(type.id)}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={selectedFundingDecisionStatus}
-                  onValueChange={setSelectedFundingDecisionStatus}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by funding status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>All Status</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="deferred">Deferred</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={selectedEthicalClearance}
-                  onValueChange={setSelectedEthicalClearance}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by ethics clearance" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>All</SelectItem>
-                    <SelectItem value="approved">Cleared</SelectItem>
-                    <SelectItem value="not_approved">Not Cleared</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedScoreBand} onValueChange={setSelectedScoreBand}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filter by score" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_FILTER_VALUE}>All Scores</SelectItem>
-                    <SelectItem value="90">90% and above</SelectItem>
-                    <SelectItem value="80">80% and above</SelectItem>
-                    <SelectItem value="70">70% and above</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                columns={pipelineColumns}
-                data={pipelineRows}
-                searchKey="proposalTitle"
-                searchPlaceholder="Search proposals..."
-                onRowClick={(row) => {
-                  if (row.recommendationId) {
-                    router.push(
-                      `/research/funding-recommendations/${row.recommendationId}`,
-                    );
-                    return;
-                  }
-
-                  router.push(
-                    `/research/funding-recommendations/new?proposal=${encodeURIComponent(row.navigationId)}`,
-                  );
-                }}
-                emptyMessage="No proposals found"
-                emptyDescription="No records match the selected filters."
-              />
-            </CardContent>
-          </Card>
+              router.push(
+                `/research/funding-recommendations/new?proposal=${encodeURIComponent(row.navigationId)}`,
+              );
+            }}
+            emptyMessage="No proposals found"
+            emptyDescription="No records match the selected filters."
+          />
         )}
       </div>
     </PageContainer>

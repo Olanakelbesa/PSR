@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFundingRecommendation } from "@/hooks";
+import { useFundingRecommendationDocumentDownload } from "@/hooks/useFundingRecommendationDocumentDownload";
 import { fundingRecommendationsService } from "@/api/services/funding-recommendations.service";
 import type { FundingRecommendationPi } from "@/types/funding-recommendation";
 
@@ -53,6 +54,8 @@ export default function FundingRecommendationDetailPage() {
 
   const routeId = params.id;
   const recommendationId = Array.isArray(routeId) ? routeId[0] : routeId;
+
+  const { download, active } = useFundingRecommendationDocumentDownload();
 
   const {
     data: recommendation,
@@ -159,13 +162,42 @@ export default function FundingRecommendationDetailPage() {
       title="Funding Recommendation"
       description={`Record ID: FR-${recommendation.id}`}
       actions={
-        <Button
-          variant="outline"
-          onClick={() => router.push("/research/funding-recommendations")}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to List
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            disabled={active !== null}
+            onClick={() =>
+              void download("award", { recommendation, context })
+            }
+          >
+            {active === "award" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Award className="mr-2 h-4 w-4" />
+            )}
+            Award Generation
+          </Button>
+          <Button
+            variant="outline"
+            disabled={active !== null}
+            onClick={() =>
+              void download("agreement", { recommendation, context })
+            }
+          >
+            {active === "agreement" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileCheck2 className="mr-2 h-4 w-4" />
+            )}
+            Agreement
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/research/funding-recommendations")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to List
+          </Button>
+        </div>
       }
     >
       <div className="grid xl:grid-cols-[1fr_360px] gap-6 items-start">

@@ -16,11 +16,16 @@ const nextConfig = {
   },
   webpack(config) {
     config.resolve.alias.canvas = false;
+    config.resolve.alias.inherits = "./shims/inherits.cjs";
     return config;
   },
   
 
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      inherits: "./shims/inherits.cjs",
+    },
+  },
 
   // Increase the HTTP server's max header size to fix 431 errors caused by
   // large NextAuth JWT session cookies exceeding the default 8KB Node.js limit.
