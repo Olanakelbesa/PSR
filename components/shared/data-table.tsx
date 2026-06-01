@@ -70,6 +70,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   filterOptions?: FilterOptionConfig[];
   onRowClick?: (data: TData) => void;
   selectedActions?: React.ReactNode;
@@ -84,6 +86,8 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = "Search...",
+  searchValue,
+  onSearchChange,
   filterOptions = [],
   onRowClick,
   selectedActions,
@@ -127,11 +131,17 @@ export function DataTable<TData, TValue>({
       filter.value !== undefined &&
       filter.value !== (filter.allValue ?? "all"),
   );
-  const hasActiveFilters = hasActiveColumnFilters || hasActiveControlledFilters;
+  const hasActiveControlledSearch = Boolean(searchValue?.trim());
+  const hasActiveFilters =
+    hasActiveColumnFilters ||
+    hasActiveControlledFilters ||
+    hasActiveControlledSearch;
   const selectedRows = table.getFilteredSelectedRowModel().rows;
+  const showSearch = Boolean(searchKey || onSearchChange);
 
   const clearAllFilters = () => {
     setColumnFilters([]);
+    onSearchChange?.("");
     for (const filter of filterOptions) {
       const allValue = filter.allValue ?? "all";
       if (filter.onValueChange && filter.value !== allValue) {
@@ -224,20 +234,27 @@ export function DataTable<TData, TValue>({
         <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-1 flex-wrap items-center gap-2">
-              {searchKey && (
+              {showSearch && (
                 <div className="relative w-full max-w-md">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder={searchPlaceholder}
                     value={
-                      (getSafeColumn(searchKey)?.getFilterValue() as string) ??
-                      ""
+                      onSearchChange
+                        ? (searchValue ?? "")
+                        : ((getSafeColumn(searchKey!)?.getFilterValue() as string) ??
+                          "")
                     }
-                    onChange={(event) =>
-                      getSafeColumn(searchKey)?.setFilterValue(
+                    onChange={(event) => {
+                      if (onSearchChange) {
+                        onSearchChange(event.target.value);
+                        return;
+                      }
+
+                      getSafeColumn(searchKey!)?.setFilterValue(
                         event.target.value,
-                      )
-                    }
+                      );
+                    }}
                     className="h-10 border-muted-foreground/20 bg-muted/20 pl-9 focus-visible:ring-primary/20"
                   />
                 </div>

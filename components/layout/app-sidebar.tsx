@@ -225,12 +225,6 @@ const navigationGroups: NavGroup[] = [
             icon: Dot,
             permissions: [PERMISSIONS.MONITORING_VIEW_PROGRESS_REPORT_APPROVAL],
           },
-          {
-            label: "Terminal Report Approval",
-            href: "/research/monitoring/terminal-report-approval",
-            icon: Dot,
-            permissions: [PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT_APPROVAL],
-          },
         ],
       },
       {

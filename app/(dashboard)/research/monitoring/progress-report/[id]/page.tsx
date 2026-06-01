@@ -47,10 +47,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useCreateProgressReport,
-  useCreateTerminalReport,
   useProjectTrackingById,
   useProgressReports,
-  useTerminalReportTypes,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -123,7 +121,6 @@ export default function ProjectTrackingDetailPage() {
     isLoading: isReportsLoading,
     refetch: refetchReports,
   } = useProgressReports({ project_tracking: projectTrackingId });
-  const { data: terminalReportTypes = [] } = useTerminalReportTypes();
 
   const progressReports = progressReportsList?.data || [];
 
@@ -143,10 +140,8 @@ export default function ProjectTrackingDetailPage() {
       : 0;
 
   const createProgressReport = useCreateProgressReport();
-  const createTerminalReport = useCreateTerminalReport();
 
   const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
-  const [isTerminalDialogOpen, setIsTerminalDialogOpen] = useState(false);
 
   const [progressReportName, setProgressReportName] = useState("");
   const [progressActivities, setProgressActivities] = useState("");
@@ -157,16 +152,6 @@ export default function ProjectTrackingDetailPage() {
     null,
   );
   const [progressStatus, setProgressStatus] = useState<ReportStatus>("pending");
-
-  const [terminalReportName, setTerminalReportName] = useState("");
-  const [terminalDeliverables, setTerminalDeliverables] = useState("");
-  const [terminalAttachment, setTerminalAttachment] = useState<File | null>(
-    null,
-  );
-  const [terminalIsPublished, setTerminalIsPublished] = useState(false);
-  const [terminalPublicationLink, setTerminalPublicationLink] = useState("");
-  const [terminalStatus, setTerminalStatus] = useState<ReportStatus>("pending");
-  const [terminalTypeIds, setTerminalTypeIds] = useState<number[]>([]);
 
   async function submitProgressReport() {
     if (!projectTracking) {
@@ -202,44 +187,6 @@ export default function ProjectTrackingDetailPage() {
       await refetchReports();
     } catch (error) {
       toast.error("Progress report submission failed.");
-    }
-  }
-
-  async function submitTerminalReport() {
-    if (!projectTracking) return;
-    if (!terminalDeliverables.trim()) {
-      toast.error("Main deliverables are required.");
-      return;
-    }
-
-    if (terminalTypeIds.length === 0) {
-      toast.error("Please select at least one terminal type.");
-      return;
-    }
-
-    try {
-      await createTerminalReport.mutateAsync({
-        project_tracking: projectTracking.id,
-        report_name: terminalReportName || undefined,
-        main_deliverables: terminalDeliverables,
-        attachment: terminalAttachment,
-        is_published: terminalIsPublished,
-        publication_link: terminalPublicationLink,
-        status: terminalStatus,
-        terminal_type: terminalTypeIds,
-      });
-
-      toast.success("Terminal report submitted successfully.");
-      setIsTerminalDialogOpen(false);
-      setTerminalReportName("");
-      setTerminalDeliverables("");
-      setTerminalAttachment(null);
-      setTerminalIsPublished(false);
-      setTerminalPublicationLink("");
-      setTerminalStatus("pending");
-      setTerminalTypeIds([]);
-    } catch (error) {
-      toast.error("Terminal report submission failed.");
     }
   }
 
@@ -340,14 +287,6 @@ export default function ProjectTrackingDetailPage() {
           >
             <Upload className="mr-2 h-4 w-4" />
             Add Progress
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setIsTerminalDialogOpen(true)}
-            className="shadow-sm"
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />
-            Terminal Report
           </Button>
         </div>
       </div>
@@ -854,154 +793,6 @@ export default function ProjectTrackingDetailPage() {
               {createProgressReport.isPending
                 ? "Submitting..."
                 : "Submit Report"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={isTerminalDialogOpen}
-        onOpenChange={setIsTerminalDialogOpen}
-      >
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
-          <div className="px-6 py-4 border-b bg-emerald-500/10 dark:bg-emerald-500/20">
-            <DialogHeader>
-              <DialogTitle className="text-xl flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" /> Submit Terminal Report
-              </DialogTitle>
-              <DialogDescription>
-                Close out the project by declaring final deliverables and
-                publications.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-
-          <div className="px-6 py-6 space-y-6">
-            <div className="grid gap-2">
-              <Label htmlFor="terminal-report-name">
-                Terminal Report Title
-              </Label>
-              <Input
-                id="terminal-report-name"
-                placeholder="e.g. Final Project Handover"
-                value={terminalReportName}
-                onChange={(event) => setTerminalReportName(event.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="terminal-main-deliverables">
-                Main Deliverables <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="terminal-main-deliverables"
-                placeholder="Summarize the final outcomes and products..."
-                value={terminalDeliverables}
-                onChange={(event) =>
-                  setTerminalDeliverables(event.target.value)
-                }
-                className="min-h-[120px]"
-              />
-            </div>
-
-            <div className="p-4 rounded-xl border bg-muted/10">
-              <div className="grid gap-3">
-                <Label htmlFor="terminal-type-select">
-                  Terminal Type <span className="text-destructive">*</span>
-                </Label>
-                <select
-                  id="terminal-type-select"
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={terminalTypeIds[0]?.toString() ?? ""}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setTerminalTypeIds(value ? [Number(value)] : []);
-                  }}
-                >
-                  <option value="">Select a terminal type</option>
-                  {terminalReportTypes.length > 0 ? (
-                    terminalReportTypes.map((type) => (
-                      <option key={type.id} value={String(type.id)}>
-                        {type.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="" disabled>
-                      Loading terminal types...
-                    </option>
-                  )}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-2 pt-2">
-              <Label htmlFor="terminal-attachment">Final Document</Label>
-              <Input
-                id="terminal-attachment"
-                type="file"
-                className="h-10 cursor-pointer"
-                onChange={(event) =>
-                  setTerminalAttachment(event.target.files?.[0] || null)
-                }
-              />
-            </div>
-
-            <div className="rounded-xl border p-5 space-y-4 bg-muted/5">
-              <div className="flex items-center space-x-3">
-                <input
-                  id="terminal-published"
-                  type="checkbox"
-                  checked={terminalIsPublished}
-                  onChange={(event) =>
-                    setTerminalIsPublished(event.target.checked)
-                  }
-                  className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-600"
-                />
-                <Label
-                  htmlFor="terminal-published"
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  Project resulted in a publication
-                </Label>
-              </div>
-
-              {terminalIsPublished && (
-                <div className="grid gap-2 pl-7 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <Label
-                    htmlFor="terminal-publication-link"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Publication Link
-                  </Label>
-                  <Input
-                    id="terminal-publication-link"
-                    value={terminalPublicationLink}
-                    onChange={(event) =>
-                      setTerminalPublicationLink(event.target.value)
-                    }
-                    placeholder="https://doi.org/..."
-                    className="h-10"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="px-6 py-4 border-t bg-muted/20">
-            <Button
-              variant="ghost"
-              onClick={() => setIsTerminalDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={submitTerminalReport}
-              disabled={createTerminalReport.isPending}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-            >
-              {createTerminalReport.isPending
-                ? "Submitting..."
-                : "Submit Terminal Report"}
             </Button>
           </DialogFooter>
         </DialogContent>
