@@ -5,6 +5,7 @@
 import NextAuth, { type Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { User } from "@/lib/types";
+import { isPublicPath } from "@/lib/auth/public-routes";
 
 // ─── Type augmentation ────────────────────────────────────────────────────────
 declare module "next-auth" {
@@ -76,6 +77,17 @@ function buildMinimalSessionUser(user: any): MinimalSessionUser {
     phone: user?.phone,
     createdAt: user?.createdAt ?? user?.created,
     lastLogin: user?.lastLogin ?? user?.last_login,
+  };
+}
+
+function staleSessionToken(token: Record<string, unknown>) {
+  return {
+    ...token,
+    error: "RefreshTokenError" as const,
+    user: undefined,
+    backendToken: "",
+    backendRefreshToken: "",
+    backendTokenExpires: 0,
   };
 }
 
@@ -161,6 +173,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    authorized({ auth, request: { nextUrl } }) {
+      if (isPublicPath(nextUrl.pathname)) return true;
+      return !!auth;
+    },
     async jwt({ token, user }) {
       if (user) {
         const u = user as any;
@@ -169,6 +185,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.backendTokenExpires = u.backendTokenExpires;
         token.user = u.psrUser;
         token.error = undefined;
+      }
+
+      if (token.error === "RefreshTokenError") {
+        return staleSessionToken(token as Record<string, unknown>);
       }
 
       const now = Date.now();
@@ -183,7 +203,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       if (!token.backendRefreshToken) {
-        return { ...token, error: "RefreshTokenError" };
+        return staleSessionToken(token as Record<string, unknown>);
       }
 
       try {
@@ -194,7 +214,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!res.ok) {
-          throw new Error(`Refresh failed: ${res.status}`);
+          return staleSessionToken(token as Record<string, unknown>);
         }
 
         const data = await res.json();
@@ -208,19 +228,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       } catch (err) {
         if (process.env.NODE_ENV === "development") {
-          console.error("[NextAuth] Token refresh failed:", err);
+          console.warn("[NextAuth] Token refresh failed:", err);
         }
-        return { ...token, error: "RefreshTokenError" };
+        return staleSessionToken(token as Record<string, unknown>);
       }
     },
     async session({ session, token }) {
+      if (token?.error === "RefreshTokenError") {
+        session.user = undefined as unknown as Session["user"];
+        session.backendToken = "";
+        session.backendRefreshToken = undefined;
+        session.error = "RefreshTokenError";
+        return session;
+      }
+
       if (token) {
-        session.user = token.user as any;
+        session.user = token.user as Session["user"];
         session.backendToken = token.backendToken as string;
         session.backendRefreshToken = token.backendRefreshToken as
           | string
           | undefined;
-        session.error = token.error as Session["error"];
+        session.error = undefined;
       }
       return session;
     },

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/app/providers";
 import { auth } from "@/app/api/auth/[...nextauth]/route";
+import { isPublicPath } from "@/lib/auth/public-routes";
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -22,7 +24,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
+  const pathname = (await headers()).get("x-pathname") ?? "/";
+  const session = isPublicPath(pathname) ? null : await auth();
 
   return (
     <html lang="en" suppressHydrationWarning>

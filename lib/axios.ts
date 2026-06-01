@@ -16,6 +16,7 @@
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { isPublicPath } from "@/lib/auth/public-routes";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TOKEN_KEY = "psr_token";
@@ -157,18 +158,8 @@ api.interceptors.response.use(
         tokenStorage.clear();
         processQueue(normalized, null);
         // Let the app handle redirect to login, but skip if already on auth pages
-        if (isBrowser) {
-          const path = window.location.pathname;
-          if (
-            ![
-              "/login",
-              "/signup",
-              "/forgot-password",
-              "/reset-password",
-            ].includes(path)
-          ) {
-            window.location.href = "/login";
-          }
+        if (isBrowser && !isPublicPath(window.location.pathname)) {
+          window.location.href = "/login";
         }
         return Promise.reject(normalized);
       }
@@ -196,18 +187,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         tokenStorage.clear();
         processQueue(normalized, null);
-        if (isBrowser) {
-          const path = window.location.pathname;
-          if (
-            ![
-              "/login",
-              "/signup",
-              "/forgot-password",
-              "/reset-password",
-            ].includes(path)
-          ) {
-            window.location.href = "/login";
-          }
+        if (isBrowser && !isPublicPath(window.location.pathname)) {
+          window.location.href = "/login";
         }
         return Promise.reject(normalized);
       } finally {

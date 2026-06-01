@@ -21,6 +21,7 @@
 
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { API_ENDPOINTS } from "./endpoints";
+import { isPublicPath } from "@/lib/auth/public-routes";
 
 // ─── Normalized Error Shape ───────────────────────────────────────────────────
 export interface ApiError {
@@ -160,15 +161,8 @@ apiClient.interceptors.response.use(
         isRefreshing = false;
         tokenStorage.clear();
         processQueue(normalized, null);
-        if (isBrowser) {
-          const path = window.location.pathname;
-          const authPaths = [
-            "/login",
-            "/signup",
-            "/forgot-password",
-            "/reset-password",
-          ];
-          if (!authPaths.includes(path)) window.location.href = "/login";
+        if (isBrowser && !isPublicPath(window.location.pathname)) {
+          window.location.href = "/login";
         }
         return Promise.reject(normalized);
       }
@@ -196,15 +190,8 @@ apiClient.interceptors.response.use(
       } catch {
         tokenStorage.clear();
         processQueue(normalized, null);
-        if (isBrowser) {
-          const path = window.location.pathname;
-          const authPaths = [
-            "/login",
-            "/signup",
-            "/forgot-password",
-            "/reset-password",
-          ];
-          if (!authPaths.includes(path)) window.location.href = "/login";
+        if (isBrowser && !isPublicPath(window.location.pathname)) {
+          window.location.href = "/login";
         }
         return Promise.reject(normalized);
       } finally {
