@@ -382,7 +382,33 @@ export default function ScreeningDetailPage() {
     );
   }
 
-  if (!proposal) return null;
+  if (!proposal) {
+    return (
+      <PageContainer
+        title="Proposal Not Found"
+        description="The requested proposal could not be loaded."
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => router.push("/research/proposals/screening-reviews")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to List
+          </Button>
+        }
+      >
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <h3 className="font-bold text-amber-900">Proposal Details Unavailable</h3>
+              <p className="text-sm text-amber-800">The proposal details could not be loaded. Please try again or contact support.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
+  }
 
   const coInvestigators = proposal.coInvestigators as Array<{
     name: string;
