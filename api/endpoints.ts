@@ -129,6 +129,10 @@ export const API_ENDPOINTS = {
     PUBLISH: (id: string) => `/policies/${id}/publish`,
   },
 
+  SEARCH: {
+    LIST: "/v1/search/",
+  },
+
   POLICY_REPOSITORY: {
     LIST: "/v1/policy-repository",
     DETAIL: (id: string | number) => `/v1/policy-repository/${id}/`,
