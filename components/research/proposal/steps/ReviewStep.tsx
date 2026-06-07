@@ -49,6 +49,7 @@ interface ProposalReviewStepProps {
   onPrevious: () => void;
   isEditMode?: boolean;
   isDraft?: boolean;
+  isResubmitMode?: boolean;
 }
 
 type TeamMemberValue = {
@@ -78,6 +79,7 @@ export function ProposalReviewStep({
   onPrevious,
   isEditMode = false,
   isDraft = false,
+  isResubmitMode = false,
 }: ProposalReviewStepProps) {
   const form = useFormContext<ProposalFormInput>();
   const values = form.watch() as ProposalFormInput;
@@ -612,16 +614,18 @@ export function ProposalReviewStep({
           Previous
         </Button>
         <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={(e) => handleSubmit(e, "draft")}
-            disabled={isSubmitting}
-            size="lg"
-            className="min-w-37.5"
-          >
-            {isSubmitting ? <span>Saving...</span> : <span>Save as Draft</span>}
-          </Button>
+          {!isResubmitMode && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={(e) => handleSubmit(e, "draft")}
+              disabled={isSubmitting}
+              size="lg"
+              className="min-w-37.5"
+            >
+              {isSubmitting ? <span>Saving...</span> : <span>Save as Draft</span>}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={(e) => handleSubmit(e, "submitted")}
@@ -632,13 +636,21 @@ export function ProposalReviewStep({
             {isSubmitting ? (
               <>
                 <span className="mr-2">
-                  {isEditMode && !isDraft ? "Updating..." : "Submitting..."}
+                  {isResubmitMode
+                    ? "Resubmitting..."
+                    : isEditMode && !isDraft
+                      ? "Updating..."
+                      : "Submitting..."}
                 </span>
               </>
             ) : (
               <>
                 <Send className="mr-2 h-4 w-4" />
-                {isEditMode && !isDraft ? "Update Proposal" : "Submit Proposal"}
+                {isResubmitMode
+                  ? "Resubmit Proposal"
+                  : isEditMode && !isDraft
+                    ? "Update Proposal"
+                    : "Submit Proposal"}
               </>
             )}
           </Button>

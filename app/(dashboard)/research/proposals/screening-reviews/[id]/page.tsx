@@ -146,6 +146,7 @@ export default function ScreeningDetailPage() {
         screening_under_review: "Screening Under Review",
         screening_approved: "Screening Approved",
         screening_rejected: "Screening Rejected",
+        resubmitted: "Resubmitted",
         submitted: "Submitted",
       };
       reviewTimeline.push({
@@ -424,6 +425,7 @@ export default function ScreeningDetailPage() {
   const statusColors: Record<string, string> = {
     draft: "bg-slate-100 text-slate-700 border-slate-200",
     submitted: "bg-blue-100 text-blue-700 border-blue-200",
+    resubmitted: "bg-indigo-100 text-indigo-700 border-indigo-200",
     under_review: "bg-amber-100 text-amber-700 border-amber-200",
     screening_under_review: "bg-amber-100 text-amber-700 border-amber-200",
     approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -447,7 +449,9 @@ export default function ScreeningDetailPage() {
             Back to List
           </Button>
 
-          {(proposal.status === "screening_under_review" || proposal.status === "submitted") && (
+          {(proposal.status === "screening_under_review" ||
+            proposal.status === "submitted" ||
+            proposal.status === "resubmitted") && (
             <Button
               className="bg-primary hover:bg-primary/90"
               onClick={handleStartReview}

@@ -16,6 +16,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  RefreshCw,
   Users,
 } from "lucide-react";
 
@@ -126,6 +127,8 @@ const statusStyles: Record<string, string> = {
     "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-800",
   submitted:
     "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+  resubmitted:
+    "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800",
   under_review:
     "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
   revision_requested:
@@ -134,7 +137,17 @@ const statusStyles: Record<string, string> = {
     "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
   rejected:
     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
+  screening_rejected:
+    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
+  revision_required:
+    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
 };
+
+function normalizeStatusKey(status?: string | null) {
+  return String(status ?? "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
 
 function formatDateTime(value?: string | null) {
   if (!value) return "Not available";
@@ -244,9 +257,13 @@ export default function ProposalDetailPage() {
 
   const currentStatus =
     proposal?.status ?? (proposal?.submittedAt ? "submitted" : "draft");
+  const statusKey = normalizeStatusKey(currentStatus);
   const statusLabel = proposal?.statusDisplay ?? currentStatus.replace(/_/g, " ");
-  const isEditable =
-    !proposal?.submittedAt || currentStatus === "revision_requested";
+  const isScreeningRejected = statusKey === "screening_rejected";
+  const isRevisionRequired = statusKey === "revision_required";
+  const isResubmittable = isScreeningRejected || isRevisionRequired;
+  const isDraft = statusKey === "draft" && !proposal?.submittedAt;
+  const isEditable = isDraft;
   const teamMembers = proposal?.teamMembers ?? [];
   const internalTeam = teamMembers.filter(
     (member) => member.memberType === "internal",
@@ -259,6 +276,10 @@ export default function ProposalDetailPage() {
       ? proposal.reviewHistory
       : undefined;
   const reviewHistoryEvents = getReviewHistoryEvents(proposal?.reviewHistory);
+  const rejectionFeedback =
+    proposal?.rejectionReason ||
+    reviewHistoryObject?.decisionRemarks ||
+    null;
 
   if (isLoading) {
     return (
@@ -320,6 +341,17 @@ export default function ProposalDetailPage() {
               </Link>
             </Button>
           )}
+
+          {isResubmittable && (
+            <Button asChild className="h-9 bg-amber-600 hover:bg-amber-700">
+              <Link
+                href={`/research/proposals/my-proposals/${proposal.id}/edit?mode=resubmit`}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Resubmit Proposal
+              </Link>
+            </Button>
+          )}
         </div>
       }
     >
@@ -333,7 +365,9 @@ export default function ProposalDetailPage() {
                     <Badge
                       className={cn(
                         "border px-2.5 py-1 capitalize font-bold shadow-none",
-                        statusStyles[currentStatus] || statusStyles.draft,
+                        statusStyles[statusKey] ||
+                          statusStyles[currentStatus] ||
+                          statusStyles.draft,
                       )}
                     >
                       {statusLabel}
@@ -367,11 +401,12 @@ export default function ProposalDetailPage() {
             </CardHeader>
 
             <CardContent className="pt-6 space-y-6">
-              {proposal.rejectionReason && currentStatus === "rejected" && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 text-rose-800">
-                  <p className="text-sm font-bold">Rejection feedback</p>
-                  <p className="mt-1 text-sm italic">
-                    {proposal.rejectionReason}
+              {rejectionFeedback && isResubmittable && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+                  <p className="text-sm font-bold">Screening feedback</p>
+                  <p className="mt-1 text-sm italic">{rejectionFeedback}</p>
+                  <p className="mt-3 text-xs text-rose-700/80 dark:text-rose-300/80">
+                    Update your proposal and resubmit it for screening review.
                   </p>
                 </div>
               )}

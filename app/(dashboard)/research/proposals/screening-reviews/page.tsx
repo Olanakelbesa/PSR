@@ -56,6 +56,7 @@ const statusConfig: Record<
   }
 > = {
   submitted: { label: "Awaiting Screening", variant: "default", icon: Clock },
+  resubmitted: { label: "Resubmitted", variant: "default", icon: Clock },
   screening_under_review: {
     label: "Screening Under Review",
     variant: "outline",
@@ -350,6 +351,7 @@ export default function ScreeningReviewsPage() {
                   label: "Status",
                   options: [
                     { value: "submitted", label: "Awaiting Screening" },
+                    { value: "resubmitted", label: "Resubmitted" },
                     {
                       value: "screening_under_review",
                       label: "Screening Under Review",

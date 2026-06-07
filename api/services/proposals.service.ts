@@ -44,8 +44,10 @@ function normalizeProposalPayload(payload: unknown): unknown {
 export const ProposalStatusSchema = z.enum([
   "draft",
   "submitted",
+  "resubmitted",
   "under_review",
   "revision_requested",
+  "revision_required",
   "approved",
   "rejected",
   "contracted",

@@ -40,6 +40,7 @@ import { upsertProposalTeamMember } from "./steps/TeamStep/teamMemberAutosave";
 interface ProposalWizardProps {
   grantCallId?: string;
   proposalId?: string;
+  isResubmitMode?: boolean;
 }
 
 type ExistingProposalTeamMember = {
@@ -666,6 +667,7 @@ const buildModifiedProposalFormData = (
 export function ProposalWizard({
   grantCallId,
   proposalId,
+  isResubmitMode = false,
 }: ProposalWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const router = useRouter();
@@ -721,6 +723,16 @@ export function ProposalWizard({
   const existingProposal: any = proposalQuery.data;
   const isLoadingProposal = proposalQuery.isLoading;
   const proposalError = proposalQuery.error;
+
+  const loadedProposal = existingProposal?.data ?? existingProposal;
+  const loadedStatusKey = String(loadedProposal?.status ?? "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const isResubmitFlow =
+    isResubmitMode ||
+    loadedStatusKey === "screening_rejected" ||
+    loadedStatusKey === "revision_required";
+  const isDraftProposal = loadedStatusKey === "draft";
 
   // Fetch sections dynamically - initially without proposalType filter
   // Will refetch when proposalType is selected in the form
@@ -1577,14 +1589,22 @@ export function ProposalWizard({
           console.warn("Warning: Failed to sync team members after submission", syncError);
         }
 
-        toast.success("Proposal submitted successfully!");
+        toast.success(
+          isResubmitFlow
+            ? "Proposal resubmitted successfully!"
+            : "Proposal submitted successfully!",
+        );
       } else {
         toast.success(
           activeProposalId || proposalId
-            ? "Proposal updated successfully!"
+            ? isResubmitFlow
+              ? "Proposal changes saved."
+              : "Proposal updated successfully!"
             : "Proposal saved as draft!",
           {
-            description: "You can continue editing your proposal later.",
+            description: isResubmitFlow
+              ? "Continue editing, then resubmit when ready."
+              : "You can continue editing your proposal later.",
           },
         );
       }
@@ -1776,10 +1796,8 @@ export function ProposalWizard({
                       isSubmitting={isSubmitting}
                       onPrevious={handlePrevious}
                       isEditMode={!!proposalId}
-                      isDraft={
-                        String(existingProposal?.status || "").toLowerCase() ===
-                        "draft"
-                      }
+                      isDraft={isDraftProposal}
+                      isResubmitMode={isResubmitFlow}
                     />
                   )}
 

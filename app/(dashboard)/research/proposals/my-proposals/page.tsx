@@ -63,6 +63,10 @@ function normalizeProposalStatus(proposal: any): ResearchProposal["status"] {
     proposal.workflowState ?? proposal.workflow_state ?? proposal.status ?? "draft",
   ).toLowerCase();
 
+  if (backendStatus === "resubmitted") {
+    return "resubmitted" as ResearchProposal["status"];
+  }
+
   const mappedStatus = FLOW_STATUS_TO_UI_STATUS[backendStatus] ?? backendStatus;
   return mappedStatus as ResearchProposal["status"];
 }
@@ -77,6 +81,7 @@ const statusConfig: Record<
 > = {
   draft: { label: "Draft", variant: "secondary", icon: FileText },
   submitted: { label: "Submitted", variant: "default", icon: Clock },
+  resubmitted: { label: "Resubmitted", variant: "default", icon: Clock },
   under_review: { label: "Under Review", variant: "outline", icon: Clock },
   approved: { label: "Approved", variant: "default", icon: CheckCircle2 },
   rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
