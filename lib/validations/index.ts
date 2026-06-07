@@ -421,6 +421,16 @@ export const fundingDecisionSchema = z.object({
 
 export type FundingDecisionFormData = z.infer<typeof fundingDecisionSchema>;
 
+export const protocolUploadSchema = z.object({
+  proposalId: z.string().min(1, "Proposal is required"),
+  protocolFile: z
+    .custom<File>((value) => value instanceof File, "Protocol file is required")
+    .refine((file) => file.size > 0, "Protocol file is required"),
+  otherDocument: z.custom<File | null | undefined>().optional(),
+});
+
+export type ProtocolUploadFormData = z.infer<typeof protocolUploadSchema>;
+
 export const conceptNoteReviewSchema = z.object({
   comments: z.string().min(1, "Comments are required").min(50),
   recommendation: z.enum(["approve", "revise", "reject"]),

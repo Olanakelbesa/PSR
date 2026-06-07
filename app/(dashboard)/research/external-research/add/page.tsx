@@ -60,7 +60,6 @@ const formSchema = z.object({
   institution: z.string().min(3, "Institution is required"),
   year: z.string().regex(/^\d{4}$/, "Please provide a valid 4-digit year"),
   department: z.string().optional(),
-  gradedEvidence: z.enum(["high", "medium", "low", "not_graded"]).optional(),
   type: z.string().min(1, "Type is required"),
   keywords: z.string().optional(),
 });
@@ -78,7 +77,6 @@ export default function AddExternalResearchPage() {
       institution: "",
       year: new Date().getFullYear().toString(),
       department: "",
-      gradedEvidence: "not_graded",
       type: "report",
       keywords: "",
     },
@@ -100,7 +98,6 @@ export default function AddExternalResearchPage() {
         institution: values.institution,
         year: Number(values.year),
         department: values.department ?? "",
-        graded_evidence: values.gradedEvidence ?? "",
         research_type: values.type,
         keywords: values.keywords ?? "",
         file,
@@ -216,8 +213,8 @@ export default function AddExternalResearchPage() {
                       />
                     </div>
 
-                    {/* Year, Type & Evidence Grade */}
-                    <div className="grid md:grid-cols-3 gap-6">
+                    {/* Year & Type */}
+                    <div className="grid md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="year"
@@ -265,54 +262,6 @@ export default function AddExternalResearchPage() {
                                 <SelectItem value="thesis">Thesis</SelectItem>
                                 <SelectItem value="policy_brief">
                                   Policy Brief
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="gradedEvidence"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-bold text-slate-700">
-                              Evidence Grade
-                            </FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm">
-                                  <SelectValue placeholder="Select Grade" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="rounded-xl border-primary/10 shadow-lg">
-                                <SelectItem value="high">
-                                  <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                    High
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="medium">
-                                  <span className="text-yellow-700 font-semibold flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                                    Medium
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="low">
-                                  <span className="text-rose-700 font-semibold flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                    Low
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="not_graded">
-                                  <span className="text-slate-700 font-semibold flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                                    Not graded
-                                  </span>
                                 </SelectItem>
                               </SelectContent>
                             </Select>

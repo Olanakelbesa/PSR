@@ -38,3 +38,4 @@ export type { ScreeningStatus as ScreeningWorkflowStatus } from "./screenings.se
 export type { ScreeningStatus as ProposalScreeningStatus } from "./proposals.service";
 
 export { ScreeningStatusSchema as ProposalScreeningStatusSchema } from "./proposals.service";
+export * from "./protocol.service";

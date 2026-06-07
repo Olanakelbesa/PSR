@@ -249,6 +249,12 @@ const navigationGroups: NavGroup[] = [
         ],
       },
       {
+        label: "Protocol",
+        href: "/research/protocol",
+        icon: FileCheck2,
+        // permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
+      },
+      {
         label: "Research Repository",
         href: "/research/repository",
         icon: Library,

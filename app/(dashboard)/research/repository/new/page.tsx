@@ -561,7 +561,7 @@ export default function NewRepositorySubmissionPage() {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="external_link">External Link</Label>
+                  <Label htmlFor="external_link">External Link (optional)</Label>
                   <Input
                     id="external_link"
                     type="url"
@@ -575,7 +575,7 @@ export default function NewRepositorySubmissionPage() {
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="doi">DOI</Label>
+                  <Label htmlFor="doi">DOI (optional)</Label>
                   <Input
                     id="doi"
                     value={form.doi}

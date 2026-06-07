@@ -16,8 +16,6 @@ import {
   Check,
   FileText,
   FileCode2,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -32,7 +30,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useExternalResearch } from "@/hooks";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ExternalResearchDetailPage() {
@@ -206,52 +203,6 @@ export default function ExternalResearchDetailPage() {
 
               </CardContent>
             </Card>
-
-            {/* Evidence Grade Callout Box */}
-            <Card
-              className={cn(
-                "border shadow-sm overflow-hidden rounded-[1.5rem]",
-                item.grade === "good"
-                  ? "border-emerald-200/50 bg-emerald-50/[0.15]"
-                  : "border-rose-200/50 bg-rose-50/[0.15]",
-              )}
-            >
-              <CardContent className="p-6 md:p-8 flex gap-4 items-start">
-                {item.grade === "good" ? (
-                  <>
-                    <div className="p-3 bg-emerald-100 rounded-2xl text-emerald-600 shrink-0">
-                      <CheckCircle2 className="h-6 w-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-emerald-800 uppercase tracking-tight">
-                        Verified Evidence Standard
-                      </h4>
-                      <p className="text-xs leading-relaxed text-emerald-700/90 font-medium">
-                        This document has been graded as reliable national
-                        policymaking evidence. The datasets follow sound
-                        empirical controls.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="p-3 bg-rose-100 rounded-2xl text-rose-600 shrink-0">
-                      <XCircle className="h-6 w-6" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-rose-800 uppercase tracking-tight">
-                        Evidence Warning standard
-                      </h4>
-                      <p className="text-xs leading-relaxed text-rose-700/90 font-medium">
-                        This research dataset contains critical caveats or
-                        inadequate validation frameworks. Should be cited with
-                        appropriate constraints.
-                      </p>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </div>
 
           {/* RIGHT COLUMN: Citation & Files */}
@@ -265,27 +216,6 @@ export default function ExternalResearchDetailPage() {
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Evidence Standing
-                  </span>
-                  {item.grade === "good" ? (
-                    <Badge
-                      variant="secondary"
-                      className="bg-emerald-50 text-emerald-700 border-emerald-200/40 font-bold text-[10px] px-2.5"
-                    >
-                      Good Grade
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="bg-rose-50 text-rose-700 border-rose-200/40 font-bold text-[10px] px-2.5"
-                    >
-                      Poor Grade
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex justify-between items-center py-1 border-t border-slate-50">
                   <span className="text-xs font-medium text-muted-foreground">
                     Format
                   </span>

@@ -24,9 +24,6 @@ import {
   Search,
   Users,
   Plus,
-  Calendar,
-  CheckCircle2,
-  XCircle,
   Download,
   MoreHorizontal,
   Eye,
@@ -130,31 +127,6 @@ export default function ExternalResearchPage() {
       ),
     },
     {
-      accessorKey: "grade",
-      header: "Evidence Grade",
-      cell: ({ row }: any) => (
-        <div className="flex items-center gap-1.5">
-          {row.original.grade === "good" ? (
-            <Badge
-              variant="outline"
-              className="bg-emerald-50 text-emerald-700 border-emerald-200/50 text-[9px] font-bold py-0.5 px-2"
-            >
-              <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600 shrink-0" />
-              Verified Good
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="bg-rose-50 text-rose-700 border-rose-200/50 text-[9px] font-bold py-0.5 px-2"
-            >
-              <XCircle className="h-3 w-3 mr-1 text-rose-600 shrink-0" />
-              Poor Grade
-            </Badge>
-          )}
-        </div>
-      ),
-    },
-    {
       id: "actions",
       cell: ({ row }: any) => (
         <DropdownMenu>
@@ -215,6 +187,7 @@ export default function ExternalResearchPage() {
           searchKey="projectTitle"
           searchPlaceholder="Search title, keywords or publishers..."
           emptyMessage="No external research findings found"
+          onRowClick={(research) => router.push(`/research/external-research/${research.id}`)}
         />
       </div>
     </PageContainer>

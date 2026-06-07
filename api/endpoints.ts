@@ -329,6 +329,13 @@ export const API_ENDPOINTS = {
     CREATE: "/v1/ethical-clearances/",
     UPDATE: (id: number) => `/v1/ethical-clearances/${id}/`,
   },
+
+  PROTOCOLS: {
+    LIST: "/v1/protocols/",
+    DETAIL: (id: string | number) => `/v1/protocols/${id}/`,
+    CREATE: "/v1/protocols/",
+    UPDATE: (id: string | number) => `/v1/protocols/${id}/`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;
