@@ -45,6 +45,33 @@ export interface OTPVerification {
   otp: string;
 }
 
+export type OtpPurpose = "registration" | "password_reset";
+
+export type OtpUiIntent = "registration" | "password-reset";
+
+/** Matches backend resend cooldown (OTPService.RESEND_COOLDOWN_SECONDS). */
+export const RESEND_OTP_COOLDOWN_SECONDS = 60;
+
+export interface ResendOtpResult {
+  email: string;
+  purpose: OtpPurpose;
+  expiresInMinutes: number;
+}
+
+function unwrapEnvelope<T extends Record<string, unknown>>(payload: unknown): T {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    const inner = (payload as { data: unknown }).data;
+    if (inner && typeof inner === "object") {
+      return inner as T;
+    }
+  }
+  return (payload ?? {}) as T;
+}
+
+export function toOtpPurpose(intent: OtpUiIntent): OtpPurpose {
+  return intent === "password-reset" ? "password_reset" : "registration";
+}
+
 // ─── POST /auth/login ─────────────────────────────────────────────────────────
 export async function login(credentials: LoginCredentials): Promise<LoginResponse> {
   const res = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, credentials);
@@ -71,12 +98,48 @@ export async function getMe(): Promise<AuthUser> {
   return UserSchema.parse(data);
 }
 
+// ─── POST /register/verify ────────────────────────────────────────────────────
+export async function verifyRegistrationOtp(
+  data: OTPVerification,
+): Promise<void> {
+  await apiClient.post(API_ENDPOINTS.AUTH.REGISTER_VERIFY, data);
+}
+
+// ─── POST /password-reset/verify ──────────────────────────────────────────────
+export async function verifyPasswordResetOtp(
+  data: OTPVerification,
+): Promise<void> {
+  await apiClient.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_VERIFY, data);
+}
+
+// ─── POST /otp/resend ─────────────────────────────────────────────────────────
+export async function resendOtp(
+  email: string,
+  purpose: OtpPurpose,
+): Promise<ResendOtpResult> {
+  const res = await apiClient.post(API_ENDPOINTS.AUTH.RESEND_OTP, {
+    email,
+    purpose,
+  });
+  const payload = unwrapEnvelope<{
+    email?: string;
+    purpose?: OtpPurpose;
+    expiresInMinutes?: number;
+  }>(res.data);
+
+  return {
+    email: payload.email ?? email,
+    purpose: payload.purpose ?? purpose,
+    expiresInMinutes: payload.expiresInMinutes ?? 10,
+  };
+}
+
 // ─── POST /auth/request-otp ───────────────────────────────────────────────────
 export async function requestOtp(email: string): Promise<void> {
   await apiClient.post(API_ENDPOINTS.AUTH.REQUEST_OTP, { email });
 }
 
-// ─── POST /auth/verify-otp ────────────────────────────────────────────────────
+// ─── POST /auth/verify-otp (legacy alias for password-reset verify) ───────────
 export async function verifyOtp(data: OTPVerification): Promise<LoginResponse> {
   const res = await apiClient.post(API_ENDPOINTS.AUTH.VERIFY_OTP, data);
   const parsed = LoginResponseSchema.parse(res.data);

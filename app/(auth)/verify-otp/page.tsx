@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -22,19 +20,31 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import api from "@/lib/axios";
-import { API_ENDPOINTS } from "@/api/endpoints";
+import { type ApiError } from "@/api/client";
+import {
+  RESEND_OTP_COOLDOWN_SECONDS,
+  resendOtp,
+  toOtpPurpose,
+  verifyPasswordResetOtp,
+  verifyRegistrationOtp,
+  type OtpUiIntent,
+} from "@/api/services/auth.service";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
-
-type OtpIntent = "registration" | "password-reset";
-
-const RESEND_COOLDOWN_SECONDS = 10 * 60;
 
 function formatResendCooldown(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    "status" in error
+  );
 }
 
 export default function VerifyOTPPage() {
@@ -46,14 +56,14 @@ export default function VerifyOTPPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendTimer, setResendTimer] = useState(RESEND_COOLDOWN_SECONDS);
+  const [resendTimer, setResendTimer] = useState(0);
   const [hasAttempted, setHasAttempted] = useState(false);
   const autoSubmitRef = useRef(false);
 
   const email = searchParams.get("email") || otpEmail || "";
   const intent = (searchParams.get("intent") ||
     otpIntent ||
-    "registration") as OtpIntent;
+    "registration") as OtpUiIntent;
 
   const copy = useMemo(() => {
     if (intent === "password-reset") {
@@ -105,29 +115,23 @@ export default function VerifyOTPPage() {
 
     try {
       if (intent === "password-reset") {
-        await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_VERIFY, {
-          email,
-          otp,
-        });
+        await verifyPasswordResetOtp({ email, otp });
         router.push(`/reset-password?email=${encodeURIComponent(email)}`);
         return;
       }
 
-      await api.post(API_ENDPOINTS.AUTH.REGISTER_VERIFY, { email, otp });
+      await verifyRegistrationOtp({ email, otp });
       clearOtpFlow();
       toast.success("Email verified", {
         description: "You can now sign in with your new account.",
       });
       router.push("/login?registered=true");
     } catch (err: unknown) {
-      const apiErr = err as {
-        response?: { data?: { message?: string } };
-        message?: string;
-      };
-      const message =
-        apiErr.response?.data?.message ??
-        apiErr.message ??
-        "Invalid or expired verification code. Please try again.";
+      const message = isApiError(err)
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Invalid or expired verification code. Please try again.";
 
       setError(message);
       setOtp("");
@@ -150,22 +154,26 @@ export default function VerifyOTPPage() {
       setIsResending(true);
       setError(null);
 
-      if (intent === "password-reset") {
-        await api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_REQUEST, { email });
-        setResendTimer(RESEND_COOLDOWN_SECONDS);
-        toast.success("Code sent", {
-          description: "Check your inbox for a new verification code.",
-        });
-        return;
-      }
+      await resendOtp(email, toOtpPurpose(intent));
 
-      toast.info("Use sign up to request a new code", {
-        description:
-          "Registration codes are sent when you submit the sign-up form.",
+      setResendTimer(RESEND_OTP_COOLDOWN_SECONDS);
+      toast.success("Code sent", {
+        description: "Check your inbox for a new verification code.",
       });
     } catch (err: unknown) {
-      const apiErr = err as { message?: string };
-      toast.error(apiErr.message ?? "Unable to resend the verification code");
+      if (isApiError(err)) {
+        const retryAfter = err.data?.retryAfterSeconds;
+        if (typeof retryAfter === "number" && retryAfter > 0) {
+          setResendTimer(retryAfter);
+        }
+        toast.error(err.message);
+      } else {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Unable to resend the verification code",
+        );
+      }
     } finally {
       setIsResending(false);
     }
@@ -177,7 +185,6 @@ export default function VerifyOTPPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-12 sm:px-6">
-
       <Card className="w-full max-w-md border-border/60 shadow-md">
         <CardHeader className="space-y-4 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -187,8 +194,8 @@ export default function VerifyOTPPage() {
             <CardTitle className="text-2xl font-semibold tracking-tight">
               {copy.title}
             </CardTitle>
-            <CardDescription>{copy.description}{" "}
-              Code sent to{" "}
+            <CardDescription>
+              {copy.description} Code sent to{" "}
               <span className="font-medium text-foreground break-all">
                 {email}
               </span>
@@ -274,24 +281,24 @@ export default function VerifyOTPPage() {
           </form>
 
           <div className="mt-6 space-y-4 border-t pt-6 text-center text-sm">
-              <p className="text-muted-foreground">
-                Didn&apos;t receive the code?{" "}
-                {resendTimer > 0 ? (
-                  <span className="font-medium text-foreground tabular-nums">
-                    Resend in {formatResendCooldown(resendTimer)}
-                  </span>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0 font-medium"
-                    onClick={() => void resendCode()}
-                    disabled={isResending || isVerifying}
-                  >
-                    {isResending ? "Sending…" : "Resend code"}
-                  </Button>
-                )}
-              </p>
+            <p className="text-muted-foreground">
+              Didn&apos;t receive the code?{" "}
+              {resendTimer > 0 ? (
+                <span className="font-medium text-foreground tabular-nums">
+                  Resend in {formatResendCooldown(resendTimer)}
+                </span>
+              ) : (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 font-medium"
+                  onClick={() => void resendCode()}
+                  disabled={isResending || isVerifying}
+                >
+                  {isResending ? "Sending…" : "Resend code"}
+                </Button>
+              )}
+            </p>
 
             <Button
               type="button"
@@ -311,7 +318,6 @@ export default function VerifyOTPPage() {
           </div>
         </CardContent>
       </Card>
-
     </main>
   );
 }

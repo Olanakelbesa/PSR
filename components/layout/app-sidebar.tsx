@@ -60,7 +60,7 @@ import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLES } from "@/lib/constants";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, PERMISSION_GROUPS, hasAnyPermission, type PermissionValue } from "@/lib/permissions";
 import type { UserRole } from "@/lib/types";
 
 interface SubNavItem {
@@ -68,7 +68,7 @@ interface SubNavItem {
   href: string;
   icon?: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
-  permissions?: string[];
+  permissions?: PermissionValue[];
 }
 
 interface NavItem {
@@ -76,7 +76,7 @@ interface NavItem {
   href?: string;
   icon?: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
-  permissions?: string[];
+  permissions?: PermissionValue[];
   subItems?: SubNavItem[];
 }
 
@@ -106,13 +106,13 @@ const navigationGroups: NavGroup[] = [
             label: "Manage Concept Notes",
             href: "/policies/concept-notes/manage-concept-notes",
             icon: Dot,
-            permissions: [PERMISSIONS.POLICY_VIEW_CONCEPT_NOTE_WORKFLOW],
+            permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
           },
           {
             label: "Review Concept Note",
             href: "/policies/concept-notes/review-concept-note",
             icon: Dot,
-            permissions: [PERMISSIONS.POLICY_REVIEW_CONCEPT_NOTE],
+            permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
           },
         ],
       },
@@ -129,13 +129,13 @@ const navigationGroups: NavGroup[] = [
             label: "Manage Drafts",
             href: "/policies/drafts/manage-drafts",
             icon: Dot,
-            permissions: [PERMISSIONS.POLICY_VIEW_DRAFT_WORKFLOW],
+            permissions: [...PERMISSION_GROUPS.DRAFT_MANAGE],
           },
           {
             label: "Review Draft",
             href: "/policies/drafts/review-draft",
             icon: Dot,
-            permissions: [PERMISSIONS.POLICY_REVIEW_DRAFT],
+            permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
           },
         ],
       },
@@ -181,7 +181,7 @@ const navigationGroups: NavGroup[] = [
             label: "Assign Reviewers",
             href: "/research/proposals/assign-reviewers",
             icon: Dot,
-            permissions: [PERMISSIONS.RESEARCH_CHANGE_PROPOSAL],
+            permissions: [...PERMISSION_GROUPS.PROPOSAL_ASSIGN_REVIEWERS],
           },
           {
             label: "Technical Reviews",
@@ -235,7 +235,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Final Reports",
             href: "/research/final-report/my-final-reports",
             icon: Dot,
-            permissions: [PERMISSIONS.MONITORING_VIEW_PROGRESS_REPORT_APPROVAL],
+            permissions: [
+              PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
+              PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
+            ],
           },
           {
             label: "Final Report Approval",
@@ -284,16 +287,13 @@ const navigationGroups: NavGroup[] = [
         label: "Settings",
         href: "/settings",
         icon: Settings,
-        permissions: [
-          PERMISSIONS.SETTING_CHANGE_GRANTSETTING,
-          PERMISSIONS.SETTING_CHANGE_RESEARCHSETTING,
-        ],
+        permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
       },
       {
         label: "Audit Logs",
         href: "/settings/audit-logs",
         icon: History,
-        permissions: [PERMISSIONS.ADMIN_VIEW_LOGENTRY],
+        permissions: [...PERMISSION_GROUPS.AUDIT_LOGS],
       },
     ],
   },
@@ -340,7 +340,7 @@ export function AppSidebar() {
   }, [backendToken, user?.email]);
 
   const hasAccess = useCallback(
-    (roles?: UserRole[], requiredPermissions?: string[]) => {
+    (roles?: UserRole[], requiredPermissions?: PermissionValue[]) => {
       if (!user) return false;
 
       if (roles && roles.length > 0 && !roles.includes(user.role)) {
@@ -355,11 +355,11 @@ export function AppSidebar() {
         const userPerms =
           serverPermissions.length > 0
             ? serverPermissions
-            : (user as any).permissions || [];
-        const hasPerm = requiredPermissions.some((perm) =>
-          userPerms.includes(perm),
-        );
-        if (!hasPerm) return false;
+            : (user as { permissions?: string[] }).permissions ?? [];
+
+        if (!hasAnyPermission(userPerms, requiredPermissions)) {
+          return false;
+        }
       }
 
       return true;

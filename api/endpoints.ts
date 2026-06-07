@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
     ME: "/auth/me",
     REGISTER: "/register/",
     REGISTER_VERIFY: "/register/verify/",
+    RESEND_OTP: "/otp/resend/",
     PASSWORD_RESET_REQUEST: "/password-reset/request/",
     PASSWORD_RESET_VERIFY: "/password-reset/verify/",
     PASSWORD_RESET_COMPLETE: "/password-reset/complete/",

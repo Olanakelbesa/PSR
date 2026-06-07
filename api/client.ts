@@ -28,6 +28,8 @@ export interface ApiError {
   message: string;
   status: number;
   errors?: Record<string, string[]>;
+  /** Extra payload from the backend envelope (e.g. retryAfterSeconds on 429). */
+  data?: Record<string, unknown>;
 }
 
 // ─── Token Storage (browser-only) ────────────────────────────────────────────
@@ -115,6 +117,7 @@ apiClient.interceptors.response.use(
   async (
     error: AxiosError<{
       message?: string;
+      data?: Record<string, unknown>;
       errors?: Record<string, string[]>;
       error?: Record<string, string[]>;
     }>,
@@ -123,18 +126,24 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
+    const responseData = error.response?.data;
+
     const normalized: ApiError = {
       message:
-        error.response?.data?.message ??
-        (error.response?.data as Record<string, unknown>)?.error?.toString() ??
+        responseData?.message ??
+        (responseData as Record<string, unknown> | undefined)?.error?.toString() ??
         error.message ??
         "Something went wrong",
       status: error.response?.status ?? 0,
       errors:
-        error.response?.data?.errors ??
-        ((error.response?.data as Record<string, unknown>)?.error as
+        responseData?.errors ??
+        ((responseData as Record<string, unknown> | undefined)?.error as
           | Record<string, string[]>
           | undefined),
+      data:
+        responseData?.data && typeof responseData.data === "object"
+          ? (responseData.data as Record<string, unknown>)
+          : undefined,
     };
 
     // ── 401 → attempt silent token refresh ────────────────────────────────
