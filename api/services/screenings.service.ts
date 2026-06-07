@@ -5,6 +5,7 @@
 import { z } from "zod";
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { ProposalStatusSchema } from "./proposals.service";
 
 export const ScreeningStatusSchema = z.enum([
   "screening_under_review",
@@ -41,7 +42,7 @@ const ScreeningProposalSchema = z
       })
       .optional()
       .nullable(),
-    status: ScreeningStatusSchema.optional(),
+    status: ProposalStatusSchema.optional(),
     call: z
       .object({
         id: z.union([z.string(), z.number()]).transform(String),

@@ -72,6 +72,7 @@ import {
   proposalScreeningSchema,
   type ProposalScreeningFormData,
 } from "@/lib/validations";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 type ManagedTeamMember = Awaited<
   ReturnType<typeof getManagedProposalById>
@@ -502,34 +503,14 @@ export default function ScreeningDetailPage() {
                 <CardContent className="space-y-6">
                   <div>
                     <h4 className="text-sm font-bold text-foreground mb-2">
-                      Technical Abstract
+                      Abstract
                     </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.abstract || "No abstract provided."}
-                    </p>
+                    <div className="text-sm text-muted-foreground leading-relaxed">
+                      <HtmlContentRenderer
+                        content={proposal.abstract || "No abstract provided."}
+                      />
+                    </div>
                   </div>
-                  <div className="pt-4 border-t border-dashed">
-                    <h4 className="text-sm font-bold text-foreground mb-2">
-                      Research Background & Rationale
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {proposal.background || "No background provided."}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-sm border-primary/5">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    Research Objectives
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {proposal.objectives || "No objectives provided."}
-                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
