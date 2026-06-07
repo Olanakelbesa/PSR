@@ -152,7 +152,7 @@ export default function ConceptNoteDetailPage() {
             >
               <Link href={`/policies/concept-notes/my-concept-note/edit/${note.id}`}>
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Resubmit Proposal
+                Resubmit Concept Note
               </Link>
             </Button>
           )}

@@ -139,21 +139,24 @@ export default function EditConceptNotePage() {
     ? "Resubmit Proposal"
     : "Submit for Review";
 
-  
-
   useEffect(() => {
     if (!conceptNote) return;
 
     const latestVersionFile =
       conceptNote.versions?.find((version) => Boolean(version.file))?.file ??
       null;
-    const existingUrl =
-      conceptNote.overview?.file ?? latestVersionFile ?? null;
+    const existingUrl = conceptNote.overview?.file ?? latestVersionFile ?? null;
 
-    const loadedStrategicObjectives = Array.isArray((conceptNote as any).strategicObjectives)
-      ? (conceptNote as any).strategicObjectives.map((objective: any) => String(objective.id))
+    const loadedStrategicObjectives = Array.isArray(
+      (conceptNote as any).strategicObjectives,
+    )
+      ? (conceptNote as any).strategicObjectives.map((objective: any) =>
+          String(objective.id),
+        )
       : Array.isArray((conceptNote as any).strategic_objectives)
-        ? (conceptNote as any).strategic_objectives.map((objective: any) => String(objective.id))
+        ? (conceptNote as any).strategic_objectives.map((objective: any) =>
+            String(objective.id),
+          )
         : [];
 
     form.reset({
@@ -168,12 +171,13 @@ export default function EditConceptNotePage() {
         ? String(conceptNote.organization.id)
         : "",
       // Use explicit null/undefined check to avoid accidental falsy clears
-      unit: conceptNote.unit && conceptNote.unit.id != null ? String(conceptNote.unit.id) : "",
+      unit:
+        conceptNote.unit && conceptNote.unit.id != null
+          ? String(conceptNote.unit.id)
+          : "",
       // thematicAreas removed from concept notes
       documentCategory:
-        conceptNote.documentCategory === "revision"
-          ? "revision"
-          : "new",
+        conceptNote.documentCategory === "revision" ? "revision" : "new",
       strategicObjectives: loadedStrategicObjectives,
       file: undefined,
     });
@@ -213,8 +217,14 @@ export default function EditConceptNotePage() {
     : conceptNote?.docType?.id != null
       ? String(conceptNote.docType.id)
       : "";
-  const selectedOrganization = form.watch("organization") || (conceptNote?.organization?.id != null ? String(conceptNote.organization.id) : "");
-  const selectedUnit = form.watch("unit") || (conceptNote?.unit?.id != null ? String(conceptNote.unit.id) : "");
+  const selectedOrganization =
+    form.watch("organization") ||
+    (conceptNote?.organization?.id != null
+      ? String(conceptNote.organization.id)
+      : "");
+  const selectedUnit =
+    form.watch("unit") ||
+    (conceptNote?.unit?.id != null ? String(conceptNote.unit.id) : "");
   const selectedFile = form.watch("file") as File | undefined;
   const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
@@ -249,7 +259,9 @@ export default function EditConceptNotePage() {
 
     if (units && units.length > 0) {
       if (conceptNote.unit && conceptNote.unit.id != null) {
-        const match = units.some((u) => String(u.id) === String(conceptNote.unit!.id));
+        const match = units.some(
+          (u) => String(u.id) === String(conceptNote.unit!.id),
+        );
         if (match) {
           form.setValue("unit", String(conceptNote.unit.id));
           return;
@@ -294,9 +306,7 @@ export default function EditConceptNotePage() {
   );
 
   const isLoading =
-    isLoadingNote ||
-    isLoadingDocumentTypes ||
-    isLoadingOrganizations;
+    isLoadingNote || isLoadingDocumentTypes || isLoadingOrganizations;
 
   const buildRequestPayload = (values: ConceptNoteFormData) => {
     const fallbackDocType = documentTypes[0]?.id || 1;
@@ -405,7 +415,9 @@ export default function EditConceptNotePage() {
     return (
       <PageContainer title="Edit Concept Note">
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-12 text-center">
-          <p className="font-semibold text-destructive">Failed to load concept note</p>
+          <p className="font-semibold text-destructive">
+            Failed to load concept note
+          </p>
           <Button
             variant="outline"
             className="mt-4"
@@ -416,21 +428,21 @@ export default function EditConceptNotePage() {
         </div>
       </PageContainer>
     );
-
   }
 
   return (
     <PageContainer title="Edit Concept Note">
       <Form {...form}>
-        <form className="grid gap-5 md:grid-cols-2">
-          <div className="space-y-5">
+        <form className="grid gap-5 md:grid-cols-4">
+          <div className="space-y-5 col-span-3">
             <Card className="overflow-hidden shadow-sm border-primary/10">
               <CardHeader className="border-b bg-muted/30">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1">
                     <CardTitle className="text-lg">Concept details</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Capture the classification and category for this concept note.
+                      Capture the classification and category for this concept
+                      note.
                     </p>
                   </div>
                 </div>
@@ -566,14 +578,18 @@ export default function EditConceptNotePage() {
                         </FormControl>
                         <SelectContent>
                           {organizationOptions.map((organization) => (
-                            <SelectItem key={organization.id} value={String(organization.id)}>
+                            <SelectItem
+                              key={organization.id}
+                              value={String(organization.id)}
+                            >
                               {organization.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Select the organization responsible for this concept note.
+                        Select the organization responsible for this concept
+                        note.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -613,7 +629,8 @@ export default function EditConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Choose the unit associated with the selected organization.
+                        Choose the unit associated with the selected
+                        organization.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -675,8 +692,6 @@ export default function EditConceptNotePage() {
                 />
               </CardContent>
             </Card>
-
-            
 
             <Card className="overflow-hidden shadow-sm border-primary/10">
               <CardHeader className="border-b bg-muted/30">
@@ -764,7 +779,7 @@ export default function EditConceptNotePage() {
                                 size="sm"
                                 onClick={() => fileInputRef.current?.click()}
                               >
-                                Replace file
+                                upload updated concept note document
                               </Button>
                             </div>
                           ) : (
@@ -780,7 +795,7 @@ export default function EditConceptNotePage() {
                                   Choose a document to upload
                                 </span>
                                 <span className="block text-xs text-muted-foreground">
-                                  PDF, DOC, DOCX, or TXT up to 10MB
+                                  PDF up to 10MB
                                 </span>
                               </span>
                             </div>
@@ -798,7 +813,7 @@ export default function EditConceptNotePage() {
             </Card>
           </div>
 
-          <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
+          <aside className="space-y-4 col-span-1 md:sticky md:top-20 md:h-fit">
             <Card className="shadow-sm border-primary/20">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base">Review readiness</CardTitle>

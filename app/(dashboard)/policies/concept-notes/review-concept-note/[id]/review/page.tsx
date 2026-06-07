@@ -59,7 +59,7 @@ export default function ConceptNoteReviewPage() {
       const found = details.find((d: any) => {
         const reviewerId = d?.expertReviewer?.id ?? d?.reviewerId ?? d?.reviewer?.id;
         return reviewerId && String(reviewerId) === String(user.id);
-      });
+      }) as any;
 
       if (!found) continue;
 
@@ -314,7 +314,7 @@ export default function ConceptNoteReviewPage() {
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-50 [&:has([data-state=checked])]:border-orange-500 cursor-pointer transition-all"
                   >
                     <AlertCircle className="mb-3 h-6 w-6 text-orange-500" />
-                    <span className="font-semibold text-orange-700">Partial Acceptance</span>
+                    <span className="font-semibold text-orange-700">Partial Accepted</span>
                   </Label>
                 </div>
                 <div>
@@ -324,7 +324,7 @@ export default function ConceptNoteReviewPage() {
                     className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-red-500 peer-data-[state=checked]:bg-red-50 [&:has([data-state=checked])]:border-red-500 cursor-pointer transition-all"
                   >
                     <XCircle className="mb-3 h-6 w-6 text-red-500" />
-                    <span className="font-semibold text-red-700">Reject</span>
+                    <span className="font-semibold text-red-700">Not Accepted</span>
                   </Label>
                 </div>
               </RadioGroup>

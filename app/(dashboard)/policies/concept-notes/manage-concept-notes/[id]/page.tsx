@@ -390,6 +390,22 @@ export default function ManageConceptNoteDetailPage() {
                       {fb.feedbackDetail && fb.feedbackDetail.length > 0 ? (
                         <div className="space-y-3">
                           {fb.feedbackDetail.map((detail: any, di: number) => {
+                            if (!detail.expertReviewer && !detail.reviewer) {
+                              return (
+                                <div
+                                  key={di}
+                                  className="p-4 rounded-lg border border-dashed border-muted bg-muted/10 text-center space-y-1"
+                                >
+                                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                    Expert reviewer is not assigned
+                                  </p>
+                                  <p className="text-xs text-muted-foreground/80">
+                                    This version is awaiting reviewer assignment.
+                                  </p>
+                                </div>
+                              );
+                            }
+
                             const reviewerName =
                               detail.expertReviewer?.fullName ??
                               detail.reviewer ??

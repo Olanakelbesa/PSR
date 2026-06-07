@@ -43,7 +43,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="flex h-svh flex-col overflow-hidden">
+      <SidebarInset className="flex flex-col overflow-hidden">
         <AppHeader />
         <main className="flex-1 flex min-h-0 flex-col min-w-0 overflow-y-auto">
           {children}

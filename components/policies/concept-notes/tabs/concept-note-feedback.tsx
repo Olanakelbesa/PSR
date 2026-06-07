@@ -136,7 +136,7 @@ export function ConceptNoteFeedback({
                     <div className="h-px flex-1 bg-gradient-to-r from-primary/10 to-transparent" />
                     <div className="flex items-center gap-4 mr-4">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        {feedbackList.length} Expert Assessment
+                        { feedbackList.length > 0 ? `${feedbackList.length} Expert Assessment` : "Expert reviewer is not assigned"}
                         {feedbackList.length !== 1 ? "s" : ""}
                       </span>
                     </div>
@@ -145,13 +145,35 @@ export function ConceptNoteFeedback({
                 <AccordionContent className="px-6 pb-6 pt-2">
                   <div className="grid gap-6">
                     {feedbackList.map((review: any, idx: number) => {
-                      const reviewerName =
-                        review.expertReviewer?.fullName || "Anonymous Reviewer";
+                      const reviewerName = review.expertReviewer
+                        ? review.expertReviewer.fullName || "Anonymous Reviewer"
+                        : "Expert reviewer is not assigned";
                       const reviewerEmail = review.expertReviewer?.email || "";
                       const reviewerPhoto = review.expertReviewer?.photoUrl;
                       const reviewerId =
                         review.expertReviewer?.id || `rev-${idx}`;
                       const uniqueCardKey = `${version}-${reviewerId}-${idx}`;
+
+                      if (!review.expertReviewer) {
+                        return (
+                          <Card
+                            key={uniqueCardKey}
+                            className="shadow-sm border-dashed border-muted bg-muted/5 overflow-hidden hover:shadow-md transition-all duration-300"
+                          >
+                            <CardContent className="py-8 flex flex-col items-center justify-center text-center">
+                              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3 text-muted-foreground/60">
+                                <ClipboardCheck className="h-6 w-6" />
+                              </div>
+                              <h4 className="text-sm font-bold text-foreground">
+                                Expert reviewer is not assigned
+                              </h4>
+                              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                                This concept note is awaiting assignment to an expert reviewer. Feedback and evaluation will appear here once assigned and submitted.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
 
                       return (
                         <Card

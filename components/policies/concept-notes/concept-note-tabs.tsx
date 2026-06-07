@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { FileText, ClipboardCheck, Clock, GitBranch } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,29 @@ export function ConceptNoteTabs({
   setViewingFile,
 }: ConceptNoteTabsProps) {
   const feedbackItems = note.expertFeedback ?? note.reviews ?? [];
+  
+  const assignedFeedbackCount = useMemo(() => {
+    const hasNestedDetails = feedbackItems.some((item: any) =>
+      Array.isArray(item.feedbackDetail),
+    );
+
+    if (hasNestedDetails) {
+      return feedbackItems.reduce((acc: number, item: any) => {
+        const details = item.feedbackDetail || [];
+        const assignedInBlock = details.filter(
+          (d: any) => d.expertReviewer !== null && d.expertReviewer !== undefined
+        ).length;
+        return acc + assignedInBlock;
+      }, 0);
+    }
+
+    return feedbackItems.filter((item: any) => {
+      const reviewer = item.reviewer || item.expertReviewer;
+      const reviewerId = item.reviewerId || item.id;
+      return reviewer !== null && reviewer !== undefined && reviewerId !== undefined;
+    }).length;
+  }, [feedbackItems]);
+
   const documentUrl =
     resolveFileUrl(
       note.overview?.file ??
@@ -48,7 +72,7 @@ export function ConceptNoteTabs({
             value: "feedback",
             label: "Expert Feedback",
             icon: ClipboardCheck,
-            badge: feedbackItems.length,
+            badge: assignedFeedbackCount,
           },
           { value: "timeline", label: "Timeline", icon: Clock },
           { value: "versions", label: "Versions", icon: GitBranch },
