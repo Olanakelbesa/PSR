@@ -66,6 +66,30 @@ type StakeholderValue = {
   role?: string;
 };
 
+type SavedSignatureValue = {
+  file?: string;
+  name?: string;
+};
+
+function isSavedSignatureValue(value: unknown): value is SavedSignatureValue {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getSignatureUrl(value: unknown): string | undefined {
+  if (value instanceof File) return undefined;
+  if (typeof value === "string") return value;
+  if (isSavedSignatureValue(value)) return value.file;
+  return undefined;
+}
+
+function getSignatureLabel(value: unknown): string {
+  if (value instanceof File) return value.name;
+  if (isSavedSignatureValue(value)) {
+    return value.name || value.file?.split("/").pop() || "Signature";
+  }
+  return "Signature";
+}
+
 type ProposalTemplateSection = {
   id: string | number;
   order: number;
@@ -539,18 +563,9 @@ export function ProposalReviewStep({
             name="signature"
             render={({ field }) => {
               const signatureValue = field.value;
-              const signatureFile =
-                signatureValue instanceof File
-                  ? signatureValue
-                  : signatureValue && typeof signatureValue === "object"
-                    ? signatureValue
-                    : null;
-              const signatureUrl =
-                signatureValue instanceof File
-                  ? undefined
-                  : typeof signatureValue === "string"
-                    ? signatureValue
-                    : signatureValue?.file;
+              const signatureUrl = getSignatureUrl(signatureValue);
+              const hasSavedSignature =
+                signatureValue instanceof File || isSavedSignatureValue(signatureValue);
               return (
                 <FormItem>
                   <div className="space-y-3 ">
@@ -574,13 +589,13 @@ export function ProposalReviewStep({
                       }}
                     />
 
-                    {signatureFile && (
+                    {hasSavedSignature && (
                       <div className="border rounded-md p-3">
                         <p className="font-medium text-sm">Saved Signature</p>
                         <p className="text-xs text-muted-foreground">
-                          {signatureFile.name || signatureFile.file?.split("/").pop() || "Signature"} (
-                          {signatureFile instanceof File
-                            ? (signatureFile.size / 1024).toFixed(1)
+                          {getSignatureLabel(signatureValue)} (
+                          {signatureValue instanceof File
+                            ? (signatureValue.size / 1024).toFixed(1)
                             : "—"} KB)
                         </p>
                         {signatureUrl ? (

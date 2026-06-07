@@ -6,6 +6,23 @@ import { z } from "zod";
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 
+export const PermissionCategorySchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
+  color: z.string().optional(),
+  order: z.number().optional(),
+  isSystem: z.boolean().optional(),
+  is_system: z.boolean().optional(),
+});
+
+const permissionIdSchema = z.union([
+  z.number(),
+  z.string().transform(Number),
+  z.object({ id: z.union([z.string(), z.number()]).transform(Number) }).transform((o) => o.id),
+]);
+
 export const RoleSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(Number),
   name: z.string(),
@@ -13,10 +30,7 @@ export const RoleSchema = z.object({
   description: z.string().nullable().optional(),
   isActive: z.boolean().optional().default(true),
   hasAllPermissions: z.boolean().optional().default(false),
-  permissions: z
-    .array(z.union([z.string(), z.number()]).transform(Number))
-    .optional()
-    .default([]),
+  permissions: z.array(permissionIdSchema).optional().default([]),
   groups: z
     .array(z.union([z.string(), z.number()]).transform(Number))
     .optional()
@@ -27,17 +41,8 @@ export const PermissionCatalogItemSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(Number),
   codename: z.string(),
   name: z.string(),
-  appLabel: z.string(),
-});
-
-export const PermissionCategorySchema = z.object({
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  icon: z.string().optional(),
-  color: z.string().optional(),
-  order: z.number().optional(),
-  isSystem: z.boolean().optional(),
+  appLabel: z.string().optional(),
+  app_label: z.string().optional(),
 });
 
 export const PermissionCatalogSchema = z.object({
@@ -139,5 +144,14 @@ export async function deleteRole(id: string | number): Promise<void> {
 
 export async function getPermissionCatalog(): Promise<PermissionCatalog> {
   const res = await apiClient.get(API_ENDPOINTS.PERMISSIONS.CATALOG);
-  return PermissionCatalogSchema.parse(res.data?.data ?? res.data);
+  const raw = (res.data?.data ?? res.data) as Record<string, unknown>;
+  const permissionsByCategory =
+    raw.permissionsByCategory ??
+    raw.permissions_by_category ??
+    {};
+
+  return PermissionCatalogSchema.parse({
+    categories: raw.categories ?? [],
+    permissionsByCategory,
+  });
 }

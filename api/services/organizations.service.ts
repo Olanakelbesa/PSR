@@ -1,66 +1,133 @@
 // ============================================================================
 // RPDMS — Service Layer: Organizations & Organization Types
 // ============================================================================
-// Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.3
-// Call chain: Hook → Service → apiClient → Proxy → Backend
 
 import { z } from "zod";
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 
-// ─── Zod Schemas ──────────────────────────────────────────────────────────────
+function normalizeListResponse(payload: unknown) {
+  const root = (payload ?? {}) as Record<string, unknown>;
+  const data = Array.isArray(root.data) ? root.data : [];
+  const rawMeta = (root.meta as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    data,
+    meta: {
+      page: Number(rawMeta.page ?? 1),
+      limit: Number(rawMeta.limit ?? (data.length || 25)),
+      total: Number(rawMeta.total ?? data.length),
+      totalPages: Number(
+        rawMeta.totalPages ??
+          rawMeta.total_pages ??
+          (Number(rawMeta.limit) > 0
+            ? Math.ceil(Number(rawMeta.total ?? data.length) / Number(rawMeta.limit))
+            : 1),
+      ),
+    },
+  };
+}
+
+function parseOrgType(value: unknown): number {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value);
+  if (typeof value === "object" && value !== null && "id" in value) {
+    return Number((value as { id: unknown }).id);
+  }
+  return 0;
+}
+
+function normalizeOrganization(raw: Record<string, unknown>) {
+  return {
+    id: Number(raw.id),
+    name: String(raw.name ?? ""),
+    orgType: parseOrgType(raw.orgType ?? raw.org_type),
+    address: (raw.address as string | null | undefined) ?? null,
+    organizationEmail:
+      (raw.organizationEmail ?? raw.organization_email ?? null) as string | null,
+    organizationWebsite:
+      (raw.organizationWebsite ?? raw.organization_website ?? null) as string | null,
+    description: (raw.description as string | null | undefined) ?? null,
+    createdAt: String(raw.createdAt ?? raw.created_at ?? ""),
+    updatedAt: (raw.updatedAt ?? raw.updated_at ?? null) as string | null,
+  };
+}
+
+function normalizeOrganizationType(raw: Record<string, unknown>) {
+  return {
+    id: Number(raw.id),
+    name: String(raw.name ?? ""),
+    code: String(raw.code ?? ""),
+    description: (raw.description as string | null | undefined) ?? null,
+  };
+}
+
+function parseOrganizationPayload(payload: unknown) {
+  const root = (payload ?? {}) as Record<string, unknown>;
+  const item = (root.data ?? payload) as Record<string, unknown>;
+  return normalizeOrganization(item);
+}
+
+function parseOrganizationTypePayload(payload: unknown) {
+  const root = (payload ?? {}) as Record<string, unknown>;
+  const item = (root.data ?? payload) as Record<string, unknown>;
+  return normalizeOrganizationType(item);
+}
+
+function toOrganizationWritePayload(
+  input: CreateOrganizationInput | UpdateOrganizationInput,
+) {
+  const payload: Record<string, unknown> = {};
+
+  if (input.name !== undefined) payload.name = input.name;
+  if (input.orgType !== undefined) payload.org_type = Number(input.orgType);
+  if (input.address !== undefined) payload.address = input.address || null;
+  if (input.organizationEmail !== undefined) {
+    payload.organization_email = input.organizationEmail || null;
+  }
+  if (input.organizationWebsite !== undefined) {
+    payload.organization_website = input.organizationWebsite || null;
+  }
+  if (input.description !== undefined) payload.description = input.description || null;
+
+  return payload;
+}
+
+function toOrganizationTypeWritePayload(
+  input: CreateOrganizationTypeInput | UpdateOrganizationTypeInput,
+) {
+  const payload: Record<string, unknown> = {};
+
+  if ("name" in input && input.name !== undefined) payload.name = input.name;
+  if ("code" in input && input.code !== undefined) payload.code = input.code;
+  if (input.description !== undefined) payload.description = input.description || null;
+
+  return payload;
+}
+
 export const OrganizationSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(Number),
+  id: z.number(),
   name: z.string(),
-  orgType: z.union([z.string(), z.number()]).transform(Number),
+  orgType: z.number(),
   address: z.string().nullable().optional(),
-  organizationEmail: z.string().email().nullable().optional(),
-  organizationWebsite: z.string().url().nullable().optional(),
+  organizationEmail: z.string().nullable().optional(),
+  organizationWebsite: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 
 export const OrganizationTypeSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(Number),
+  id: z.number(),
   name: z.string(),
   code: z.string(),
   description: z.string().nullable().optional(),
 });
 
-const PaginatedOrganizationsSchema = z.object({
-  success: z.boolean().optional(),
-  data: z.array(OrganizationSchema),
-  meta: z
-    .object({
-      page: z.number(),
-      limit: z.number(),
-      total: z.number(),
-      totalPages: z.number(),
-    })
-    .optional(),
-});
-
-const PaginatedOrganizationTypesSchema = z.object({
-  success: z.boolean().optional(),
-  data: z.array(OrganizationTypeSchema),
-  meta: z
-    .object({
-      page: z.number(),
-      limit: z.number(),
-      total: z.number(),
-      totalPages: z.number(),
-    })
-    .optional(),
-});
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 export type Organization = z.infer<typeof OrganizationSchema>;
 export type OrganizationType = z.infer<typeof OrganizationTypeSchema>;
-export type PaginatedOrganizations = z.infer<typeof PaginatedOrganizationsSchema>;
-export type PaginatedOrganizationTypes = z.infer<typeof PaginatedOrganizationTypesSchema>;
 
-// ─── Form Input Types ─────────────────────────────────────────────────────────
 export interface CreateOrganizationInput {
   name: string;
   orgType: number | string;
@@ -91,7 +158,6 @@ export interface UpdateOrganizationTypeInput {
   description?: string;
 }
 
-// ─── GET /v1/organizations/ ───────────────────────────────────────────────────
 export async function getOrganizations(params?: {
   search?: string;
   limit?: number;
@@ -101,161 +167,56 @@ export async function getOrganizations(params?: {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ORGANIZATIONS, {
     params,
   });
-  const parsed = PaginatedOrganizationsSchema.safeParse(res.data);
+  const normalized = normalizeListResponse(res.data);
   return {
-    data: parsed.success ? parsed.data.data : [],
-    meta: parsed.success ? parsed.data.meta : undefined,
+    data: z.array(OrganizationSchema).parse(
+      normalized.data.map((item) =>
+        normalizeOrganization(item as Record<string, unknown>),
+      ),
+    ),
+    meta: normalized.meta,
   };
 }
 
-// ─── GET /v1/organizations/{id}/ ──────────────────────────────────────────────
 export async function getOrganization(id: string | number) {
   const res = await apiClient.get(
     `${API_ENDPOINTS.REFERENCE.ORGANIZATIONS}${id}/`,
   );
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  // Fallback: try direct parse as Organization
-  const fallback = OrganizationSchema.safeParse(res.data);
-  return fallback.success ? fallback.data : null;
+  return OrganizationSchema.parse(parseOrganizationPayload(res.data));
 }
 
-// ─── POST /v1/organizations/ ──────────────────────────────────────────────────
 export async function createOrganization(
   input: CreateOrganizationInput,
 ): Promise<Organization> {
-  const payload = {
-    name: input.name,
-    orgType: Number(input.orgType),
-    address: input.address || null,
-    organizationEmail: input.organizationEmail || null,
-    organizationWebsite: input.organizationWebsite || null,
-    description: input.description || null,
-  };
-
   const res = await apiClient.post(
     API_ENDPOINTS.REFERENCE.ORGANIZATIONS,
-    payload,
+    toOrganizationWritePayload(input),
   );
-
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationSchema.safeParse(res.data);
-  if (fallback.success) {
-    return fallback.data;
-  }
-
-  throw new Error("Failed to parse create organization response");
+  return OrganizationSchema.parse(parseOrganizationPayload(res.data));
 }
 
-// ─── PUT /v1/organizations/{id}/ ──────────────────────────────────────────────
 export async function updateOrganization(
   id: string | number,
   input: UpdateOrganizationInput,
 ): Promise<Organization> {
-  const payload: any = {};
-
-  if (input.name !== undefined) payload.name = input.name;
-  if (input.orgType !== undefined) payload.orgType = Number(input.orgType);
-  if (input.address !== undefined) payload.address = input.address;
-  if (input.organizationEmail !== undefined)
-    payload.organizationEmail = input.organizationEmail;
-  if (input.organizationWebsite !== undefined)
-    payload.organizationWebsite = input.organizationWebsite;
-  if (input.description !== undefined) payload.description = input.description;
-
-  const res = await apiClient.put(
+  const res = await apiClient.patch(
     `${API_ENDPOINTS.REFERENCE.ORGANIZATIONS}${id}/`,
-    payload,
+    toOrganizationWritePayload(input),
   );
-
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationSchema.safeParse(res.data);
-  if (fallback.success) {
-    return fallback.data;
-  }
-
-  throw new Error("Failed to parse update organization response");
+  return OrganizationSchema.parse(parseOrganizationPayload(res.data));
 }
 
-// ─── PATCH /v1/organizations/{id}/ ────────────────────────────────────────────
 export async function patchOrganization(
   id: string | number,
   input: Partial<UpdateOrganizationInput>,
 ): Promise<Organization> {
-  const payload: any = {};
-
-  if (input.name !== undefined) payload.name = input.name;
-  if (input.orgType !== undefined) payload.orgType = Number(input.orgType);
-  if (input.address !== undefined) payload.address = input.address;
-  if (input.organizationEmail !== undefined)
-    payload.organizationEmail = input.organizationEmail;
-  if (input.organizationWebsite !== undefined)
-    payload.organizationWebsite = input.organizationWebsite;
-  if (input.description !== undefined) payload.description = input.description;
-
-  const res = await apiClient.patch(
-    `${API_ENDPOINTS.REFERENCE.ORGANIZATIONS}${id}/`,
-    payload,
-  );
-
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationSchema.safeParse(res.data);
-  if (fallback.success) {
-    return fallback.data;
-  }
-
-  throw new Error("Failed to parse patch organization response");
+  return updateOrganization(id, input);
 }
 
-// ─── DELETE /v1/organizations/{id}/ ───────────────────────────────────────────
 export async function deleteOrganization(id: string | number): Promise<void> {
   await apiClient.delete(`${API_ENDPOINTS.REFERENCE.ORGANIZATIONS}${id}/`);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ─── ORGANIZATION TYPES ────────────────────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════════
-
-// ─── GET /v1/organizationtypes/ ───────────────────────────────────────────────
 export async function getOrganizationTypes(params?: {
   search?: string;
   limit?: number;
@@ -265,138 +226,52 @@ export async function getOrganizationTypes(params?: {
     API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES,
     { params },
   );
-  const parsed = PaginatedOrganizationTypesSchema.safeParse(res.data);
+  const normalized = normalizeListResponse(res.data);
   return {
-    data: parsed.success ? parsed.data.data : [],
-    meta: parsed.success ? parsed.data.meta : undefined,
+    data: z.array(OrganizationTypeSchema).parse(
+      normalized.data.map((item) =>
+        normalizeOrganizationType(item as Record<string, unknown>),
+      ),
+    ),
+    meta: normalized.meta,
   };
 }
 
-// ─── GET /v1/organizationtypes/{id}/ ──────────────────────────────────────────
 export async function getOrganizationType(id: string | number) {
   const res = await apiClient.get(
     `${API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES}${id}/`,
   );
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationTypeSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationTypeSchema.safeParse(res.data);
-  return fallback.success ? fallback.data : null;
+  return OrganizationTypeSchema.parse(parseOrganizationTypePayload(res.data));
 }
 
-// ─── POST /v1/organizationtypes/ ──────────────────────────────────────────────
 export async function createOrganizationType(
   input: CreateOrganizationTypeInput,
 ): Promise<OrganizationType> {
-  const payload = {
-    name: input.name,
-    code: input.code,
-    description: input.description || null,
-  };
-
   const res = await apiClient.post(
     API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES,
-    payload,
+    toOrganizationTypeWritePayload(input),
   );
-
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationTypeSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationTypeSchema.safeParse(res.data);
-  if (fallback.success) {
-    return fallback.data;
-  }
-
-  throw new Error("Failed to parse create organization type response");
+  return OrganizationTypeSchema.parse(parseOrganizationTypePayload(res.data));
 }
 
-// ─── PUT /v1/organizationtypes/{id}/ ──────────────────────────────────────────
 export async function updateOrganizationType(
   id: string | number,
   input: UpdateOrganizationTypeInput,
 ): Promise<OrganizationType> {
-  const payload: any = {};
-
-  if (input.name !== undefined) payload.name = input.name;
-  if (input.code !== undefined) payload.code = input.code;
-  if (input.description !== undefined) payload.description = input.description;
-
-  const res = await apiClient.put(
+  const res = await apiClient.patch(
     `${API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES}${id}/`,
-    payload,
+    toOrganizationTypeWritePayload(input),
   );
-
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationTypeSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationTypeSchema.safeParse(res.data);
-  if (fallback.success) {
-    return fallback.data;
-  }
-
-  throw new Error("Failed to parse update organization type response");
+  return OrganizationTypeSchema.parse(parseOrganizationTypePayload(res.data));
 }
 
-// ─── PATCH /v1/organizationtypes/{id}/ ────────────────────────────────────────
 export async function patchOrganizationType(
   id: string | number,
   input: Partial<UpdateOrganizationTypeInput>,
 ): Promise<OrganizationType> {
-  const payload: any = {};
-
-  if (input.name !== undefined) payload.name = input.name;
-  if (input.code !== undefined) payload.code = input.code;
-  if (input.description !== undefined) payload.description = input.description;
-
-  const res = await apiClient.patch(
-    `${API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES}${id}/`,
-    payload,
-  );
-
-  const parsed = z
-    .object({
-      success: z.boolean().optional(),
-      data: OrganizationTypeSchema.optional(),
-    })
-    .safeParse(res.data);
-
-  if (parsed.success && parsed.data.data) {
-    return parsed.data.data;
-  }
-
-  const fallback = OrganizationTypeSchema.safeParse(res.data);
-  if (fallback.success) {
-    return fallback.data;
-  }
-
-  throw new Error("Failed to parse patch organization type response");
+  return updateOrganizationType(id, input);
 }
 
-// ─── DELETE /v1/organizationtypes/{id}/ ───────────────────────────────────────
 export async function deleteOrganizationType(id: string | number): Promise<void> {
   await apiClient.delete(
     `${API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES}${id}/`,

@@ -1,229 +1,365 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-  Building2, 
-  Search, 
-  Plus, 
-  MapPin, 
-  Globe, 
-  Users, 
-  ChevronRight, 
-  ExternalLink,
-  Layers,
-  LayoutGrid,
-  Info,
-  Calendar,
-  MoreHorizontal,
+import {
+  Building2,
+  Search,
+  Plus,
+  Globe,
   Mail,
-  GraduationCap,
-  Gavel,
-  Network,
+  MapPin,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Eye,
   Loader2,
-  AlertCircle
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { useOrganizationsList, useOrganizationTypesList } from "@/hooks/useOrganizations";
+import { useDebounce } from "@/hooks/useDebounce";
+import type { Organization } from "@/api/services/organizations.service";
+import {
+  useDeleteOrganization,
+  useOrganizationsList,
+  useOrganizationTypesList,
+} from "@/hooks/useOrganizations";
 
-const orgTypeIconMap: Record<number, { label: string; icon: any; color: string; bg: string }> = {};
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 export default function OrganizationsPage() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [deleteCandidate, setDeleteCandidate] = useState<Organization | null>(null);
+  const debouncedSearch = useDebounce(search, 400);
 
-  const { data: organizationsResponse, isLoading: orgsLoading, error: orgsError } = useOrganizationsList();
-  const { data: typesResponse } = useOrganizationTypesList();
+  const {
+    data: organizationsResponse,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useOrganizationsList({
+    limit: 200,
+    search: debouncedSearch || undefined,
+    org_type: typeFilter !== "all" ? Number(typeFilter) : undefined,
+  });
+  const { data: typesResponse } = useOrganizationTypesList({ limit: 100 });
+  const deleteMutation = useDeleteOrganization();
 
-  // Build icon map from types
   const typeMap = useMemo(() => {
-    if (!typesResponse?.data) return {};
-    const map: Record<number, any> = {};
-    typesResponse.data.forEach((type, idx) => {
-      const icons = [Gavel, GraduationCap, Network, Globe];
-      const colors = ["text-blue-600", "text-indigo-600", "text-amber-600", "text-emerald-600"];
-      const bgs = ["bg-blue-50", "bg-indigo-50", "bg-amber-50", "bg-emerald-50"];
-      map[type.id] = {
-        label: type.name,
-        icon: icons[idx % icons.length],
-        color: colors[idx % colors.length],
-        bg: bgs[idx % bgs.length],
-      };
+    const map: Record<number, string> = {};
+    (typesResponse?.data ?? []).forEach((type) => {
+      map[type.id] = type.name;
     });
     return map;
   }, [typesResponse?.data]);
 
   const organizations = organizationsResponse?.data ?? [];
-  
-  const filteredOrgs = useMemo(() =>
-    organizations.filter(org => 
-      org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (typeMap[org.orgType]?.label ?? "").toLowerCase().includes(searchTerm.toLowerCase())
-    ),
-    [organizations, searchTerm, typeMap]
-  );
+  const totalCount = organizationsResponse?.meta?.total ?? organizations.length;
 
-  // Count organizations by type
   const typeCounts = useMemo(() => {
     const counts: Record<number, number> = {};
-    organizations.forEach(org => {
+    organizations.forEach((org) => {
       counts[org.orgType] = (counts[org.orgType] ?? 0) + 1;
     });
     return counts;
   }, [organizations]);
 
+  const handleDelete = async () => {
+    if (!deleteCandidate) return;
+    try {
+      await deleteMutation.mutateAsync(deleteCandidate.id);
+      toast.success("Organization deleted.");
+      setDeleteCandidate(null);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete organization."));
+    }
+  };
+
   return (
     <PageContainer
-      title="Partner Organizations"
-      description="Manage institutional affiliations, research units, and regulatory partners."
+      title="Organizations"
+      description="Manage institutional partners used in user profiles, proposals, and policy workflows."
       actions={
-        <Button 
-          className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 h-10 px-4"
-          onClick={() => router.push("/organizations/add")}
-        >
-           <Plus className="h-4 w-4 mr-2" /> Register Organization
+        <Button onClick={() => router.push("/organizations/add")}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Organization
         </Button>
       }
     >
-      <div className="space-y-8">
-        
-        {/* Type Distribution */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-           {(typesResponse?.data ?? []).map((type) => {
-             const meta = typeMap[type.id];
-             const Icon = meta?.icon || Building2;
-             const count = typeCounts[type.id] ?? 0;
-             return (
-               <Card key={type.id} className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer group bg-white">
-                  <CardContent className="p-6">
-                     <div className={cn("h-10 w-10 rounded-xl mb-4 flex items-center justify-center transition-transform group-hover:scale-110", meta?.bg ?? "bg-slate-50")}>
-                        <Icon className={cn("h-5 w-5", meta?.color ?? "text-slate-600")} />
-                     </div>
-                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{type.name}</p>
-                     <p className="text-xl font-black mt-1">{count} <span className="text-[10px] text-muted-foreground font-bold lowercase">Entities</span></p>
-                  </CardContent>
-               </Card>
-             );
-           })}
-        </div>
-
-        {/* Search & Layout Toggle */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-           <div className="relative w-full md:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search organizations..." 
-                className="pl-10 h-11 rounded-xl border-muted bg-white shadow-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-           </div>
-           <div className="flex gap-2">
-              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-white border-muted shadow-sm"><LayoutGrid className="h-4 w-4" /></Button>
-              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-white border-muted shadow-sm text-muted-foreground"><Layers className="h-4 w-4" /></Button>
-           </div>
-        </div>
-
-        {/* Error State */}
-        {orgsError && (
-          <Card className="border-l-4 border-l-red-500 bg-red-50">
-            <CardContent className="p-6 flex items-center gap-4">
-              <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
-              <div>
-                <h3 className="font-bold text-red-900">Failed to load organizations</h3>
-                <p className="text-sm text-red-800">{(orgsError as Error).message}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Loading State */}
-        {orgsLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
-
-        {/* Organizations Grid */}
-        {!orgsLoading && filteredOrgs.length === 0 && (
-          <Card className="border-none shadow-sm bg-white">
-            <CardContent className="p-12 text-center">
-              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-              <p className="text-muted-foreground font-medium">No organizations found</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {!orgsLoading && filteredOrgs.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-             {filteredOrgs.map((org) => {
-               const typeMeta = typeMap[org.orgType];
-               const createdDate = new Date(org.createdAt).getFullYear();
-               return (
-                 <Card key={org.id} className="group border-none shadow-sm hover:shadow-xl transition-all duration-500 bg-white overflow-hidden rounded-[1.5rem]">
-                    <CardHeader className="p-8 pb-0">
-                       <div className="flex justify-between items-start">
-                          <div className="h-14 w-14 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-primary/10">
-                             <Building2 className="h-7 w-7 text-primary" />
-                          </div>
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-widest">{typeMeta?.label ?? "Unknown"}</Badge>
-                       </div>
-                       <div className="pt-6">
-                          <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{org.name}</h3>
-                          <p className="text-[11px] text-muted-foreground font-medium mt-2 line-clamp-2 leading-relaxed">
-                             {org.description}
-                          </p>
-                       </div>
-                    </CardHeader>
-                    
-                    <CardContent className="p-8 space-y-6">
-                       <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
-                          <div className="space-y-1">
-                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                                <Mail className="h-3 w-3" /> Email
-                             </p>
-                             <p className="text-[10px] font-bold text-slate-700 truncate">{org.organizationEmail || "—"}</p>
-                          </div>
-                          <div className="space-y-1">
-                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                                <Globe className="h-3 w-3" /> Website
-                             </p>
-                             <p className="text-[10px] font-bold text-slate-700 truncate">{org.organizationWebsite ? "Linked" : "—"}</p>
-                          </div>
-                       </div>
-
-                       <div className="space-y-3">
-                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Address</p>
-                          <p className="text-[10px] text-slate-600">{org.address || "Not specified"}</p>
-                       </div>
-
-                       <div className="pt-4 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">EST. {createdDate}</span>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 group/btn"
-                            onClick={() => router.push(`/organizations/${org.id}`)}
-                          >
-                             Manage <ChevronRight className="ml-1.5 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                          </Button>
-                       </div>
-                    </CardContent>
-                 </Card>
-               );
-             })}
-          </div>
-        )}
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <span>Organization types are managed under</span>
+        <Link
+          href="/settings/taxonomy"
+          className="inline-flex items-center gap-1 text-primary hover:underline"
+        >
+          Settings → Taxonomy
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
       </div>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Building2 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="text-2xl font-semibold">{totalCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        {(typesResponse?.data ?? []).slice(0, 3).map((type) => (
+          <Card key={type.id}>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">{type.name}</p>
+              <p className="text-2xl font-semibold">{typeCounts[type.id] ?? 0}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle>All Organizations</CardTitle>
+              <CardDescription>
+                Search, filter by type, and manage organization records.
+              </CardDescription>
+            </div>
+            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or description..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {(typesResponse?.data ?? []).map((type) => (
+                  <SelectItem key={type.id} value={String(type.id)}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {isError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              {getErrorMessage(error, "Failed to load organizations.")}
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Added</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
+                      Loading organizations...
+                    </TableCell>
+                  </TableRow>
+                ) : organizations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      No organizations found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  organizations.map((org) => (
+                    <TableRow
+                      key={org.id}
+                      className="cursor-pointer"
+                      onClick={() => router.push(`/organizations/${org.id}`)}
+                    >
+                      <TableCell>
+                        <div className="font-medium">{org.name}</div>
+                        {org.description && (
+                          <p className="mt-0.5 max-w-xs truncate text-xs text-muted-foreground">
+                            {org.description}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {typeMap[org.orgType] ?? "Unknown"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {org.organizationEmail ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            {org.organizationEmail}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {org.address ? (
+                          <span className="inline-flex max-w-[180px] items-center gap-1.5 truncate text-sm">
+                            <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            {org.address}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {org.createdAt
+                          ? new Date(org.createdAt).toLocaleDateString()
+                          : "—"}
+                      </TableCell>
+                      <TableCell onClick={(event) => event.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/organizations/${org.id}`)}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/organizations/${org.id}/edit`)}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            {org.organizationWebsite && (
+                              <DropdownMenuItem asChild>
+                                <a
+                                  href={org.organizationWebsite}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Globe className="mr-2 h-4 w-4" />
+                                  Website
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteCandidate(org)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!deleteCandidate} onOpenChange={() => setDeleteCandidate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete organization?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove &quot;{deleteCandidate?.name}&quot;. Users and
+              records linked to this organization may be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   );
 }

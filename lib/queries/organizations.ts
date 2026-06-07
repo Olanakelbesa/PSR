@@ -1,31 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/axios";
-import { API_ENDPOINTS } from "@/api/endpoints";
-import { getOrganizations } from "@/api/services/reference.service";
+import {
+  getOrganizations,
+  type Organization,
+} from "@/api/services/organizations.service";
 
-export interface Organization {
-  id: number;
-  name: string;
-  orgType: number;
-  address: string | null;
-  organizationEmail: string | null;
-  organizationWebsite: string | null;
-  description: string;
-  createdAt: string;
-}
+export type { Organization };
 
 export function useOrganizations() {
   return useQuery({
-    queryKey: ["organizations"],
+    queryKey: ["organizations", "lookup"],
     queryFn: async () => {
-      try {
-        const { data } = await api.get(API_ENDPOINTS.REFERENCE.ORGANIZATIONS);
-        return data.data as Organization[];
-      } catch (err) {
-        console.warn("[API] Failed to fetch organizations dynamically.", err);
-        return [] as Organization[];
-      }
+      const { data } = await getOrganizations({ limit: 200 });
+      return data;
     },
+    staleTime: 1000 * 60 * 30,
   });
 }
 
@@ -34,7 +22,14 @@ export function useOrganizationsForSelect(params?: {
   limit?: number;
 }) {
   return useQuery({
-    queryKey: ["organizations", "select", params],
-    queryFn: () => getOrganizations(params),
+    queryKey: ["organizations", "select", params ?? {}],
+    queryFn: async () => {
+      const { data } = await getOrganizations({
+        search: params?.search,
+        limit: params?.limit ?? 50,
+      });
+      return data;
+    },
+    staleTime: 1000 * 60 * 5,
   });
 }

@@ -69,6 +69,8 @@ import {
   useRoles,
   useUpdateRole,
 } from "@/hooks/useRoles";
+import { getRoleById } from "@/api/services/roles.service";
+import type { PermissionCatalogItem } from "@/api/services/roles.service";
 import type { Role } from "@/api/services/roles.service";
 import { PERMISSIONS, hasAnyPermission } from "@/lib/permissions";
 import { useServerPermissions } from "@/lib/queries/useServerPermissions";
@@ -99,6 +101,15 @@ function slugify(value: string) {
     .replace(/^_+|_+$/g, "");
 }
 
+function permissionMatchesQuery(
+  permission: PermissionCatalogItem,
+  categoryName: string,
+  query: string,
+) {
+  const haystack = `${permission.name} ${permission.codename} ${categoryName}`.toLowerCase();
+  return haystack.includes(query);
+}
+
 export default function RolesManagementPage() {
   const { permissions, hasPermission } = useServerPermissions();
   const canViewRoles = hasAnyPermission(permissions, [PERMISSIONS.ROLE_VIEW]);
@@ -107,18 +118,26 @@ export default function RolesManagementPage() {
   const canDeleteRoles = hasPermission(PERMISSIONS.ROLE_DELETE);
 
   const [search, setSearch] = useState("");
+  const [permissionSearch, setPermissionSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Role | null>(null);
   const [form, setForm] = useState<RoleFormState>(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
+  const permissionQuery = permissionSearch.trim().toLowerCase();
   const { data, isLoading, isFetching, refetch } = useRoles({
     search: debouncedSearch || undefined,
     limit: 100,
   });
-  const { data: catalog, isLoading: catalogLoading } = usePermissionCatalog();
+  const {
+    data: catalog,
+    isLoading: catalogLoading,
+    isError: catalogError,
+    refetch: refetchCatalog,
+  } = usePermissionCatalog();
   const createRoleMutation = useCreateRole();
   const updateRoleMutation = useUpdateRole();
   const deleteRoleMutation = useDeleteRole();
@@ -129,25 +148,58 @@ export default function RolesManagementPage() {
     [catalog?.categories],
   );
 
+  const filteredPermissionResults = useMemo(() => {
+    if (!permissionQuery || !catalog) return [];
+
+    return sortedCategories.flatMap((category) => {
+      const items = catalog.permissionsByCategory?.[category.slug] ?? [];
+      return items
+        .filter((item) => permissionMatchesQuery(item, category.name, permissionQuery))
+        .map((item) => ({ ...item, categoryName: category.name }));
+    });
+  }, [permissionQuery, catalog, sortedCategories]);
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setPermissionSearch("");
+      setEditingRoleId(null);
+      setLoadingEdit(false);
+    }
+  };
+
   const openCreate = () => {
-    setEditingRole(null);
+    setEditingRoleId(null);
     setForm(emptyForm);
     setSlugTouched(false);
+    setPermissionSearch("");
     setDialogOpen(true);
   };
 
-  const openEdit = (role: Role) => {
-    setEditingRole(role);
-    setForm({
-      name: role.name,
-      slug: role.slug,
-      description: role.description ?? "",
-      isActive: role.isActive ?? true,
-      hasAllPermissions: role.hasAllPermissions ?? false,
-      permissionIds: role.permissions ?? [],
-    });
+  const openEdit = async (role: Role) => {
+    setEditingRoleId(role.id);
     setSlugTouched(true);
+    setPermissionSearch("");
     setDialogOpen(true);
+    setLoadingEdit(true);
+
+    try {
+      const detail = await getRoleById(role.id);
+      setForm({
+        name: detail.name,
+        slug: detail.slug,
+        description: detail.description ?? "",
+        isActive: detail.isActive ?? true,
+        hasAllPermissions: detail.hasAllPermissions ?? false,
+        permissionIds: detail.permissions ?? [],
+      });
+    } catch (error) {
+      toast.error((error as { message?: string })?.message ?? "Failed to load role details.");
+      setDialogOpen(false);
+      setEditingRoleId(null);
+    } finally {
+      setLoadingEdit(false);
+    }
   };
 
   const togglePermission = (permissionId: number, checked: boolean) => {
@@ -181,8 +233,8 @@ export default function RolesManagementPage() {
     };
 
     try {
-      if (editingRole) {
-        await updateRoleMutation.mutateAsync({ id: editingRole.id, data: payload });
+      if (editingRoleId) {
+        await updateRoleMutation.mutateAsync({ id: editingRoleId, data: payload });
         toast.success("Role updated successfully.");
       } else {
         await createRoleMutation.mutateAsync(payload);
@@ -190,7 +242,7 @@ export default function RolesManagementPage() {
       }
       setDialogOpen(false);
     } catch (error) {
-      const fallback = editingRole ? "Failed to update role." : "Failed to create role.";
+      const fallback = editingRoleId ? "Failed to update role." : "Failed to create role.";
       toast.error((error as { message?: string })?.message ?? fallback);
     }
   };
@@ -356,10 +408,10 @@ export default function RolesManagementPage() {
         </Card>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden p-0">
           <DialogHeader className="border-b px-6 py-4">
-            <DialogTitle>{editingRole ? "Edit Role" : "Create Role"}</DialogTitle>
+            <DialogTitle>{editingRoleId ? "Edit Role" : "Create Role"}</DialogTitle>
             <DialogDescription>
               Configure role metadata and assign permissions by category.
             </DialogDescription>
@@ -433,9 +485,86 @@ export default function RolesManagementPage() {
 
               {!form.hasAllPermissions && (
                 <div className="space-y-3">
-                  <Label>Permissions</Label>
-                  {catalogLoading ? (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Label>Permissions</Label>
+                    {!catalogLoading && !catalogError && !loadingEdit && (
+                      <p className="text-xs text-muted-foreground">
+                        {form.permissionIds.length} selected
+                      </p>
+                    )}
+                  </div>
+
+                  {!loadingEdit && !catalogLoading && !catalogError && (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search permissions by name or codename..."
+                        value={permissionSearch}
+                        onChange={(event) => setPermissionSearch(event.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  )}
+
+                  {loadingEdit ? (
+                    <p className="text-sm text-muted-foreground">Loading role permissions...</p>
+                  ) : catalogLoading ? (
                     <p className="text-sm text-muted-foreground">Loading permission catalog...</p>
+                  ) : catalogError ? (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                      <p className="font-medium text-destructive">
+                        Failed to load permission catalog.
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        Permissions cannot be displayed until the catalog loads.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => refetchCatalog()}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ) : sortedCategories.every(
+                      (category) =>
+                        (catalog?.permissionsByCategory?.[category.slug] ?? []).length === 0,
+                    ) ? (
+                    <p className="text-sm text-muted-foreground">
+                      No permissions found in the catalog.
+                    </p>
+                  ) : permissionQuery && filteredPermissionResults.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No permissions match &quot;{permissionSearch.trim()}&quot;.
+                    </p>
+                  ) : permissionQuery ? (
+                    <div className="max-h-72 space-y-2 overflow-y-auto rounded-lg border p-2">
+                      {filteredPermissionResults.map((permission) => (
+                        <label
+                          key={permission.id}
+                          className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                        >
+                          <Checkbox
+                            className="mt-0.5"
+                            checked={form.permissionIds.includes(permission.id)}
+                            onCheckedChange={(checked) =>
+                              togglePermission(permission.id, checked === true)
+                            }
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{permission.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {permission.codename}
+                            </p>
+                            <p className="text-xs text-muted-foreground/80">
+                              {permission.categoryName}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
                   ) : (
                     <Accordion type="multiple" className="rounded-lg border px-3">
                       {sortedCategories.map((category) => {
@@ -490,14 +619,14 @@ export default function RolesManagementPage() {
           </ScrollArea>
 
           <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancel
             </Button>
             <Button
               onClick={saveRole}
               disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
             >
-              {editingRole ? "Save Changes" : "Create Role"}
+              {editingRoleId ? "Save Changes" : "Create Role"}
             </Button>
           </DialogFooter>
         </DialogContent>

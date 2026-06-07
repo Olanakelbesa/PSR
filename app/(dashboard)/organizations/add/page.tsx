@@ -1,264 +1,67 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { 
-  Building2, 
-  ArrowLeft, 
-  Save, 
-  Info, 
-  Globe, 
-  ShieldCheck, 
-  MapPin, 
-  Mail, 
-  Phone,
-  Loader2
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import type { ApiError } from "@/api/client";
+import { OrganizationForm } from "@/components/organizations/organization-form";
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { useCreateOrganization } from "@/hooks/useOrganizations";
-import { useOrganizationTypesList } from "@/hooks/useOrganizations";
+  useCreateOrganization,
+  useOrganizationTypesList,
+} from "@/hooks/useOrganizations";
 
-const formSchema = z.object({
-  name: z.string().min(3, "Organization name must be at least 3 characters"),
-  orgType: z.string().min(1, "Please select an organization type"),
-  description: z.string().optional(),
-  organizationEmail: z.string().email("Please provide a valid official email").optional().or(z.literal("")),
-  organizationWebsite: z.string().url("Please provide a valid URL").optional().or(z.literal("")),
-  address: z.string().optional(),
-});
+const emptyDefaults = {
+  name: "",
+  orgType: "",
+  description: "",
+  organizationEmail: "",
+  organizationWebsite: "",
+  address: "",
+};
 
 export default function RegisterOrganizationPage() {
   const router = useRouter();
-  const { data: typesResponse } = useOrganizationTypesList();
+  const { data: typesResponse } = useOrganizationTypesList({ limit: 100 });
   const createOrgMutation = useCreateOrganization();
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      orgType: "",
-      description: "",
-      organizationEmail: "",
-      organizationWebsite: "",
-      address: "",
-    },
-  });
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      await createOrgMutation.mutateAsync({
-        name: values.name,
-        orgType: Number(values.orgType),
-        description: values.description,
-        organizationEmail: values.organizationEmail || undefined,
-        organizationWebsite: values.organizationWebsite || undefined,
-        address: values.address,
-      });
-      
-      toast.success("Organization registered successfully!");
-      setTimeout(() => router.push("/organizations"), 1500);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Failed to register organization";
-      toast.error(errorMsg);
-      console.error("[RegisterOrg]", error);
-    }
-  }
 
   return (
     <PageContainer
-      title="Register Organization"
-      description="Onboard a new institutional partner into the PSR system."
+      title="Add Organization"
+      description="Create a new institutional partner record."
       actions={
         <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Cancel
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
         </Button>
       }
     >
-      <div className="max-w-4xl mx-auto">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Card className="border-none shadow-sm overflow-hidden bg-white">
-              <CardHeader className="bg-primary/5 p-8 border-b border-primary/10 flex flex-row items-center gap-6">
-                <div className="h-14 w-14 rounded-2xl bg-white flex items-center justify-center border shadow-sm">
-                   <Building2 className="h-7 w-7 text-primary" />
-                </div>
-                <div>
-                   <CardTitle className="text-xl font-black tracking-tight">Institutional Metadata</CardTitle>
-                   <CardDescription>Primary identification and classification</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                 <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Full Organization Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Ethiopian Public Health Institute" className="h-12 rounded-xl" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="orgType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Organization Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="h-12 rounded-xl">
-                                <SelectValue placeholder="Select Type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="rounded-xl border-primary/10">
-                              {(typesResponse?.data ?? []).map((type) => (
-                                <SelectItem key={type.id} value={String(type.id)}>
-                                  {type.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Physical Address</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                              <Input placeholder="City, Region, Country" className="pl-10 h-12 rounded-xl" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                 </div>
-
-                 <FormField
-                   control={form.control}
-                   name="description"
-                   render={({ field }) => (
-                     <FormItem>
-                       <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description & Mandate</FormLabel>
-                       <FormControl>
-                         <Textarea 
-                           placeholder="Briefly describe the organization's role and mission..." 
-                           className="min-h-[120px] rounded-2xl resize-none" 
-                           {...field} 
-                         />
-                       </FormControl>
-                       <FormMessage />
-                     </FormItem>
-                   )}
-                 />
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm overflow-hidden bg-white">
-              <CardHeader className="p-8 pb-4">
-                 <CardTitle className="text-lg font-black tracking-tight">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 pt-0 space-y-6">
-                 <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="organizationEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Official Email Address</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                               <Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                               <Input placeholder="admin@org.gov.et" className="pl-10 h-12 rounded-xl" type="email" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="organizationWebsite"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Organization Website</FormLabel>
-                          <FormControl>
-                             <div className="relative">
-                               <Globe className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                               <Input placeholder="https://example.gov.et" className="pl-10 h-12 rounded-xl" type="url" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col gap-6">
-               <div className="p-6 bg-amber-50 rounded-2xl border border-amber-200 flex gap-4">
-                  <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-medium text-amber-900 leading-relaxed">
-                     **Audit Note:** Registering a new organization enables it for selection during user registration and institutional assignments. The organization type determines role and permission scoping in the system.
-                  </p>
-               </div>
-
-               <Button 
-                 type="submit" 
-                 disabled={createOrgMutation.isPending}
-                 className="w-full h-14 text-base font-black bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 rounded-2xl group disabled:opacity-50"
-               >
-                 {createOrgMutation.isPending ? (
-                   <>
-                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                     Registering...
-                   </>
-                 ) : (
-                   <>
-                     <Save className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                     Authorize Institutional Registration
-                   </>
-                 )}
-               </Button>
-            </div>
-          </form>
-        </Form>
+      <div className="mx-auto max-w-3xl">
+        <OrganizationForm
+          defaultValues={emptyDefaults}
+          organizationTypes={typesResponse?.data ?? []}
+          submitLabel="Create Organization"
+          isPending={createOrgMutation.isPending}
+          onSubmit={async (values) => {
+            try {
+              const created = await createOrgMutation.mutateAsync({
+                name: values.name,
+                orgType: Number(values.orgType),
+                description: values.description,
+                organizationEmail: values.organizationEmail || undefined,
+                organizationWebsite: values.organizationWebsite || undefined,
+                address: values.address,
+              });
+              toast.success("Organization created successfully.");
+              router.push(`/organizations/${created.id}`);
+            } catch (error) {
+              const apiError = error as ApiError;
+              toast.error(apiError?.message ?? "Failed to create organization.");
+            }
+          }}
+        />
       </div>
     </PageContainer>
   );

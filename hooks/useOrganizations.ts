@@ -84,11 +84,11 @@ export function useCreateOrganization() {
     mutationFn: (input: CreateOrganizationInput) =>
       createOrganization(input),
     onSuccess: (newOrg) => {
-      // Invalidate the organizations list to refetch
       queryClient.invalidateQueries({
         queryKey: organizationKeys.lists(),
       });
-      // Add the new organization to the cache if possible
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["reference", "organizations"] });
       queryClient.setQueryData(
         organizationKeys.detail(newOrg.id),
         newOrg,
@@ -104,15 +104,15 @@ export function useUpdateOrganization(id: string | number) {
     mutationFn: (input: UpdateOrganizationInput) =>
       updateOrganization(id, input),
     onSuccess: (updatedOrg) => {
-      // Update the detail query
       queryClient.setQueryData(
         organizationKeys.detail(id),
         updatedOrg,
       );
-      // Invalidate the list to refetch
       queryClient.invalidateQueries({
         queryKey: organizationKeys.lists(),
       });
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["reference", "organizations"] });
     },
   });
 }
@@ -131,6 +131,8 @@ export function usePatchOrganization(id: string | number) {
       queryClient.invalidateQueries({
         queryKey: organizationKeys.lists(),
       });
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["reference", "organizations"] });
     },
   });
 }
@@ -144,6 +146,8 @@ export function useDeleteOrganization() {
       queryClient.invalidateQueries({
         queryKey: organizationKeys.lists(),
       });
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["reference", "organizations"] });
     },
   });
 }
