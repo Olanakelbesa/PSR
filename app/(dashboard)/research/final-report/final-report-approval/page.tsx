@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Calendar,
   CheckCircle2,
@@ -86,6 +87,7 @@ function formatDate(value: string | null | undefined) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TerminalReportApprovalListPage() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState(ALL_STATUS_VALUE);
   const [searchInput, setSearchInput] = useState("");
@@ -283,7 +285,7 @@ export default function TerminalReportApprovalListPage() {
       cell: ({ row }: any) => (
         <Button asChild variant="ghost" size="sm" className="h-8 px-2">
           <Link
-            href={`/research/monitoring/terminal-report-approval/${row.original.id}`}
+            href={`/research/final-report/final-report-approval/${row.original.id}`}
           >
             <Eye className="h-4 w-4" />
           </Link>
@@ -354,6 +356,11 @@ export default function TerminalReportApprovalListPage() {
           filterOptions={filterOptions}
           emptyMessage="No terminal reports found"
           emptyDescription="Try adjusting your filters or refresh the list."
+          onRowClick={(report) =>
+            router.push(
+              `/research/final-report/final-report-approval/${report.id}`,
+            )
+          }
         />
       </div>
     </PageContainer>

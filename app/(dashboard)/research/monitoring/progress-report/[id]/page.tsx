@@ -237,7 +237,7 @@ export default function ProjectTrackingDetailPage() {
   const projStatus = statusConfig(projectTracking.status);
 
   return (
-    <div className="space-y-6 p-6 pb-16 max-w-7xl mx-auto">
+    <div className="space-y-6 p-6 pb-16 w-full mx-auto">
       {/* Page Header Area */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1.5">
@@ -410,14 +410,6 @@ export default function ProjectTrackingDetailPage() {
               <Separator />
               <CardContent className="p-0">
                 <dl className="grid sm:grid-cols-2 text-sm">
-                  <div className="p-5 border-b sm:border-r border-border/40">
-                    <dt className="text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
-                      <Hash className="h-3.5 w-3.5" /> Tracking ID
-                    </dt>
-                    <dd className="font-semibold text-foreground">
-                      #{projectTracking.id}
-                    </dd>
-                  </div>
                   <div className="p-5 border-b border-border/40">
                     <dt className="text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5" /> Proposal ID

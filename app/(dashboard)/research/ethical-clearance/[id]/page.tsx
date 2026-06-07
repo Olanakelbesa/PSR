@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import type { EthicalClearance } from "@/types/ethical-clearance";
 import { useUpdateEthicalClearance, useEthicalClearance } from "@/lib/queries/ethical-clearance";
 import { useProposal } from "@/lib/queries/proposals";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 const clearanceTypeLabel: Record<string, string> = {
   full_board: "Full Board Review",
@@ -667,8 +668,7 @@ export default function EthicalClearanceDetailPage() {
                   },
                   {
                     label: "Proposal Abstract",
-                    value:
-                      proposalData?.shortAbstract || proposalData?.abstract || proposalShortAbstract || "—",
+                    value: <HtmlContentRenderer content={proposalShortAbstract || ""} />
                   },
                   {
                     label: "Institution",
