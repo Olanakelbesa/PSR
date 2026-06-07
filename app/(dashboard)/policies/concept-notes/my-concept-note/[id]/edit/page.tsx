@@ -813,7 +813,7 @@ export default function EditConceptNotePage() {
             </Card>
           </div>
 
-          <aside className="space-y-4 col-span-1 md:sticky md:top-20 md:h-fit">
+          <aside className="space-y-4 col-span-1 md:sticky md:top-20 md:h-fit md:self-start">
             <Card className="shadow-sm border-primary/20">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base">Review readiness</CardTitle>

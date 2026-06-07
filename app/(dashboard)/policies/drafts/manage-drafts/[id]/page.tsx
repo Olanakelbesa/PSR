@@ -360,7 +360,7 @@ export default function DraftDetailPage() {
             </Link>
           </Button>
           {hasPermission("policy_development.assign_reviewer") && (
-            <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5" variant="outline">
+            <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
               <Link href={`/policies/drafts/manage-drafts/${draft.id}/assign`}>
                 <Users className="mr-2 h-4 w-4" />
                 {hasAssignedReviewers ? "Change Reviewers" : "Assign Reviewers"}

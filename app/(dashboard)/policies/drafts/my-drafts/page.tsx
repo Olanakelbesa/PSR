@@ -441,7 +441,12 @@ export default function PolicyDraftsPage() {
               <EmptyDescription>
                 There are no policy drafts in the development pipeline.
               </EmptyDescription>
-            </EmptyHeader>
+              <Button asChild className="mt-4 w-full">
+                <Link href="/policies/drafts/my-drafts/new">
+                  Create a new draft
+                </Link>
+              </Button>
+            </EmptyHeader>  
           </Empty>
         )}
       </div>

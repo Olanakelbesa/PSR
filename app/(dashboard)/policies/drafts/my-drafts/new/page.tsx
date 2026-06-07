@@ -541,25 +541,28 @@ export default function NewPolicyDraftPage() {
       await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(draftId));
 
       const selectedConceptKey = String(selectedConceptId);
-      queryClient.setQueriesData({ queryKey: ["concept-notes"] }, (current: any) => {
-        if (!current) return current;
+      queryClient.setQueriesData(
+        { queryKey: ["concept-notes"] },
+        (current: any) => {
+          if (!current) return current;
 
-        const filterOutSelectedConcept = (items: any[]) =>
-          items.filter((item) => String(item?.id) !== selectedConceptKey);
+          const filterOutSelectedConcept = (items: any[]) =>
+            items.filter((item) => String(item?.id) !== selectedConceptKey);
 
-        if (Array.isArray(current)) {
-          return filterOutSelectedConcept(current);
-        }
+          if (Array.isArray(current)) {
+            return filterOutSelectedConcept(current);
+          }
 
-        if (Array.isArray(current.data)) {
-          return {
-            ...current,
-            data: filterOutSelectedConcept(current.data),
-          };
-        }
+          if (Array.isArray(current.data)) {
+            return {
+              ...current,
+              data: filterOutSelectedConcept(current.data),
+            };
+          }
 
-        return current;
-      });
+          return current;
+        },
+      );
 
       setIsLocked(true);
       toast.success("Policy draft submitted for review.");
@@ -692,25 +695,6 @@ export default function NewPolicyDraftPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2 ">
-                  <label className="text-sm font-semibold text-foreground">
-                    Title
-                  </label>
-                  <Input
-                    value={formState.title}
-                    onChange={(event) =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        title: event.target.value,
-                      }))
-                    }
-                    placeholder="Policy draft title"
-                    disabled={isLocked}
-                  />
-                </div>
-              </div>
-
               <div className=" grid grid-cols-1 lg:grid-cols-2 w-full">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground">
@@ -784,6 +768,9 @@ export default function NewPolicyDraftPage() {
               </div>
 
               <div className="space-y-4">
+                <label className="text-sm font-semibold text-foreground mb-5">
+                  Draft Document
+                </label>
                 {!selectedFile ? (
                   <div
                     className={cn(
@@ -896,7 +883,7 @@ export default function NewPolicyDraftPage() {
           </Card>
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-10 xl:h-fit">
+        <aside className="space-y-4 md:sticky md:top-20 md:h-fit md:self-start">
           <Card className="shadow-md border-primary/10 overflow-hidden">
             <CardHeader className="bg-primary text-primary-foreground py-4">
               <CardTitle className="text-sm font-bold uppercase tracking-wider">

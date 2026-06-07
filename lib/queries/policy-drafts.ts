@@ -262,6 +262,9 @@ export function usePolicyDraftVersionChecklist(id: string | number, versionId: s
       return data;
     },
     enabled: !!id && !!versionId,
+    // Always fetch fresh data — never use cached checklist responses
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
