@@ -20,12 +20,51 @@ const ScreeningUserSchema = z.object({
   email: z.string().email().optional(),
 });
 
+const ScreeningAssignedReviewerSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(Number),
+    fullName: z.string().optional().default(""),
+    email: z.string().email().optional().default(""),
+    role: z.string().optional().default(""),
+  })
+  .passthrough();
+
+const ScreeningTechnicalReviewSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(Number),
+  reviewer: z
+    .object({
+      id: z.union([z.string(), z.number()]).transform(Number),
+      fullName: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+      photoUrl: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+  comments: z.string().nullable().optional(),
+  totalScore: z.number().nullable().optional(),
+  attachment: z.string().nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+});
+
+const ScreeningReviewHistorySchema = z.object({
+  status: z.string().nullable().optional(),
+  decisionRemarks: z.string().nullable().optional(),
+  reviewedAt: z.string().nullable().optional(),
+  technicalReviews: z
+    .array(ScreeningTechnicalReviewSchema)
+    .optional()
+    .default([]),
+});
+
 const ScreeningProposalSchema = z
   .object({
     id: z.union([z.string(), z.number()]).transform(String),
     referenceNumber: z.string().optional().default(""),
     title: z.string().optional().default("Untitled Proposal"),
     shortAbstract: z.string().optional().default(""),
+    abstract: z.string().optional().default(""),
+    keywords: z.array(z.string()).optional().default([]),
+    statusDisplay: z.string().nullable().optional(),
     thematicAreas: z
       .array(
         z.object({
@@ -73,6 +112,22 @@ const ScreeningProposalSchema = z
       .optional()
       .nullable(),
     createdBy: ScreeningUserSchema.optional().nullable(),
+    teamMembers: z.array(z.record(z.string(), z.unknown())).optional().default([]),
+    reviewHistory: ScreeningReviewHistorySchema.nullable().optional(),
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+    budgetRequested: z.string().nullable().optional(),
+    proposalFile: z.string().nullable().optional(),
+    updatedProposal: z.string().nullable().optional(),
+    supportingDocs: z.string().nullable().optional(),
+    signature: z.string().nullable().optional(),
+    version: z.number().nullable().optional(),
+    resubmissionCount: z.number().nullable().optional(),
+    workflowState: z.string().nullable().optional(),
+    firstSubmittedAt: z.string().nullable().optional(),
+    lastSubmittedAt: z.string().nullable().optional(),
+    needsIrb: z.boolean().nullable().optional(),
+    createdAt: z.string().nullable().optional(),
   })
   .passthrough();
 
@@ -107,6 +162,10 @@ const ScreeningSchema = z
     assignedReviewersCount: z.number().optional().default(0),
     assignedReviewerIds: z
       .array(z.union([z.string(), z.number()]).transform(String))
+      .optional()
+      .default([]),
+    assignedReviewers: z
+      .array(ScreeningAssignedReviewerSchema)
       .optional()
       .default([]),
     createdAt: z.string().nullable().optional(),
@@ -194,6 +253,11 @@ export type ApprovedPendingFundingScreening = z.infer<
   typeof ApprovedPendingFundingSchema
 >;
 
+export type ScreeningProposalDetail = z.infer<typeof ScreeningProposalSchema>;
+export type ScreeningTechnicalReview = z.infer<
+  typeof ScreeningTechnicalReviewSchema
+>;
+export type ScreeningReviewHistory = z.infer<typeof ScreeningReviewHistorySchema>;
 export type Screening = z.infer<typeof ScreeningSchema>;
 export type ScreeningsList = z.infer<typeof ScreeningsListSchema>;
 export type ScreeningStatus = z.infer<typeof ScreeningStatusSchema>;
@@ -216,15 +280,6 @@ export interface ScreeningWritePayload {
 export interface AssignReviewersPayload {
   reviewer_ids: Array<string | number>;
 }
-
-const ScreeningAssignedReviewerSchema = z
-  .object({
-    id: z.union([z.string(), z.number()]).transform(Number),
-    fullName: z.string().optional().default(""),
-    email: z.string().email().optional().default(""),
-    role: z.string().optional().default(""),
-  })
-  .passthrough();
 
 const ScreeningAssignedReviewersSchema = z.object({
   screeningId: z.union([z.string(), z.number()]).transform(Number),

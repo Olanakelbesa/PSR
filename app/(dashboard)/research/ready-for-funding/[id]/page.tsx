@@ -33,6 +33,7 @@ import {
   getApprovedPendingFundingScreening,
   type ApprovedPendingFundingScreening,
 } from "@/api/services/screenings.service";
+import { fundingDecisionSchema } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 
 export default function ReadyForFundingDetailPage() {
@@ -49,6 +50,11 @@ export default function ReadyForFundingDetailPage() {
   const [requiresEthicalClearance, setRequiresEthicalClearance] = useState("");
   const [committeeRemarks, setCommitteeRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<{
+    fundingDecision?: string;
+    requiresEthicalClearance?: string;
+    committeeRemarks?: string;
+  }>({});
 
   useEffect(() => {
     async function load() {
@@ -79,6 +85,7 @@ export default function ReadyForFundingDetailPage() {
       screening?.fundingStatus?.needIrbEthicalClearance ? "yes" : "no",
     );
     setCommitteeRemarks(screening?.fundingStatus?.remark || "");
+    setFormErrors({});
     setIsFundingModalOpen(true);
   };
 
@@ -96,8 +103,20 @@ export default function ReadyForFundingDetailPage() {
   if (!screening) return null;
 
   const handleSubmit = async () => {
-    if (!fundingDecision) {
-      toast.error("Select funding decision");
+    const validation = fundingDecisionSchema.safeParse({
+      fundingDecision,
+      requiresEthicalClearance,
+      committeeRemarks,
+    });
+
+    if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors;
+      setFormErrors({
+        fundingDecision: fieldErrors.fundingDecision?.[0],
+        requiresEthicalClearance: fieldErrors.requiresEthicalClearance?.[0],
+        committeeRemarks: fieldErrors.committeeRemarks?.[0],
+      });
+      toast.error("Please fix the highlighted fields before saving.");
       return;
     }
 
@@ -106,12 +125,14 @@ export default function ReadyForFundingDetailPage() {
       return;
     }
 
+    setFormErrors({});
     setIsSubmitting(true);
     try {
       const payload = {
-        Remark: committeeRemarks.trim(),
-        need_irb_ethical_clearance: requiresEthicalClearance === "yes",
-        decision_status: fundingDecision as
+        Remark: validation.data.committeeRemarks,
+        need_irb_ethical_clearance:
+          validation.data.requiresEthicalClearance === "yes",
+        decision_status: validation.data.fundingDecision as
           | "pending"
           | "approved"
           | "rejected"
@@ -130,9 +151,10 @@ export default function ReadyForFundingDetailPage() {
               ...current,
               fundingStatus: {
                 ...current.fundingStatus,
-                decision: fundingDecision,
-                remark: committeeRemarks.trim(),
-                needIrbEthicalClearance: requiresEthicalClearance === "yes",
+                decision: validation.data.fundingDecision,
+                remark: validation.data.committeeRemarks,
+                needIrbEthicalClearance:
+                  validation.data.requiresEthicalClearance === "yes",
                 state: "funding_decision_exists",
               },
             }
@@ -352,28 +374,55 @@ export default function ReadyForFundingDetailPage() {
           <div className="space-y-6 py-4">
             {/* Decision Select */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Funding Decision</label>
+              <label className="text-sm font-medium">
+                Funding Decision <span className="text-rose-500">*</span>
+              </label>
               <select
-                className="w-full h-11 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary"
+                className={cn(
+                  "w-full h-11 rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary",
+                  formErrors.fundingDecision
+                    ? "border-rose-500 focus:ring-rose-500"
+                    : "border-input",
+                )}
                 value={fundingDecision}
-                onChange={(e) => setFundingDecision(e.target.value)}
+                onChange={(e) => {
+                  setFundingDecision(e.target.value);
+                  if (formErrors.fundingDecision) {
+                    setFormErrors((current) => ({
+                      ...current,
+                      fundingDecision: undefined,
+                    }));
+                  }
+                }}
               >
                 <option value="">Select decision</option>
                 <option value="approved">Approved</option>
                 <option value="deferred">Deferred</option>
                 <option value="rejected">Rejected</option>
               </select>
+              {formErrors.fundingDecision ? (
+                <p className="text-xs text-rose-600">{formErrors.fundingDecision}</p>
+              ) : null}
             </div>
 
             {/* Ethical Clearance */}
             <div className="space-y-3">
               <label className="text-sm font-medium">
-                Ethical Clearance Requirement
+                Ethical Clearance Requirement{" "}
+                <span className="text-rose-500">*</span>
               </label>
 
               <RadioGroup
                 value={requiresEthicalClearance}
-                onValueChange={setRequiresEthicalClearance}
+                onValueChange={(value) => {
+                  setRequiresEthicalClearance(value);
+                  if (formErrors.requiresEthicalClearance) {
+                    setFormErrors((current) => ({
+                      ...current,
+                      requiresEthicalClearance: undefined,
+                    }));
+                  }
+                }}
                 className="grid grid-cols-1 gap-3"
               >
                 {/* YES CARD */}
@@ -416,20 +465,44 @@ export default function ReadyForFundingDetailPage() {
                   </div>
                 </label>
               </RadioGroup>
+              {formErrors.requiresEthicalClearance ? (
+                <p className="text-xs text-rose-600">
+                  {formErrors.requiresEthicalClearance}
+                </p>
+              ) : null}
             </div>
 
             {/* Remarks */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Committee Remarks</label>
+              <label className="text-sm font-medium">
+                Committee Remarks <span className="text-rose-500">*</span>
+              </label>
               <textarea
-                className="w-full min-h-28 rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                className={cn(
+                  "w-full min-h-28 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary",
+                  formErrors.committeeRemarks
+                    ? "border-rose-500 focus:ring-rose-500"
+                    : "border-input",
+                )}
                 placeholder="Add detailed justification, conditions, or notes..."
                 value={committeeRemarks}
-                onChange={(e) => setCommitteeRemarks(e.target.value)}
+                onChange={(e) => {
+                  setCommitteeRemarks(e.target.value);
+                  if (formErrors.committeeRemarks) {
+                    setFormErrors((current) => ({
+                      ...current,
+                      committeeRemarks: undefined,
+                    }));
+                  }
+                }}
               />
-              <p className="text-[11px] text-muted-foreground">
-                Provide clear reasoning for audit and governance tracking.
-              </p>
+              {formErrors.committeeRemarks ? (
+                <p className="text-xs text-rose-600">{formErrors.committeeRemarks}</p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Provide clear reasoning for audit and governance tracking.
+                </p>
+              )}
             </div>
           </div>
 

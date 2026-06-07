@@ -400,6 +400,27 @@ export const proposalScreeningSchema = z.object({
 
 export type ProposalScreeningFormData = z.infer<typeof proposalScreeningSchema>;
 
+export const fundingDecisionSchema = z.object({
+  fundingDecision: z
+    .string()
+    .min(1, "Funding decision is required")
+    .refine((value) => ["approved", "deferred", "rejected"].includes(value), {
+      message: "Select a valid funding decision",
+    }),
+  requiresEthicalClearance: z
+    .string()
+    .min(1, "Ethical clearance requirement is required")
+    .refine((value) => value === "yes" || value === "no", {
+      message: "Select whether ethical clearance is required",
+    }),
+  committeeRemarks: z
+    .string()
+    .trim()
+    .min(1, "Committee remarks are required"),
+});
+
+export type FundingDecisionFormData = z.infer<typeof fundingDecisionSchema>;
+
 export const conceptNoteReviewSchema = z.object({
   comments: z.string().min(1, "Comments are required").min(50),
   recommendation: z.enum(["approve", "revise", "reject"]),
