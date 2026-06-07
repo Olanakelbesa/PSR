@@ -31,6 +31,7 @@ import {
   Globe,
   FileUp,
   Lightbulb,
+  Shield,
 } from "lucide-react";
 
 import {
@@ -278,12 +279,6 @@ const navigationGroups: NavGroup[] = [
     label: "ADMINISTRATION",
     items: [
       {
-        label: "Users",
-        href: "/users",
-        icon: Users,
-        permissions: [PERMISSIONS.USER_VIEW],
-      },
-      {
         label: "Organizations",
         href: "/organizations",
         icon: Building2,
@@ -291,15 +286,40 @@ const navigationGroups: NavGroup[] = [
       },
       {
         label: "Settings",
-        href: "/settings",
         icon: Settings,
         permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
-      },
-      {
-        label: "Audit Logs",
-        href: "/settings/audit-logs",
-        icon: History,
-        permissions: [...PERMISSION_GROUPS.AUDIT_LOGS],
+        subItems: [
+          {
+            label: "General",
+            href: "/settings",
+            icon: Settings2Icon,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+          },
+          {
+            label: "User Management",
+            href: "/settings/access-control/users",
+            icon: Users,
+            permissions: [...PERMISSION_GROUPS.USER_MANAGEMENT],
+          },
+          {
+            label: "Roles & Permissions",
+            href: "/settings/access-control/roles",
+            icon: Shield,
+            permissions: [...PERMISSION_GROUPS.ROLE_MANAGEMENT],
+          },
+          {
+            label: "Audit Logs",
+            href: "/settings/audit-logs",
+            icon: History,
+            permissions: [...PERMISSION_GROUPS.AUDIT_LOGS],
+          },
+          {
+            label: "Taxonomy",
+            href: "/settings/taxonomy",
+            icon: Tags,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+          },
+        ],
       },
     ],
   },
@@ -533,8 +553,10 @@ export function AppSidebar() {
                               {validSubItems.map((sub) => {
                                 const SubIcon = sub.icon;
                                 const isSubActive =
-                                  pathname === sub.href ||
-                                  pathname.startsWith(sub.href + "/");
+                                  sub.href === "/settings"
+                                    ? pathname === "/settings"
+                                    : pathname === sub.href ||
+                                      pathname.startsWith(sub.href + "/");
                                 return (
                                   <SidebarMenuSubItem key={sub.href}>
                                     <SidebarMenuSubButton

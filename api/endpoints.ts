@@ -275,6 +275,10 @@ export const API_ENDPOINTS = {
     MARK_READ: (id: string | number) => `/v1/notifications/${id}/mark-read/`,
   },
 
+  NOTIFICATION_SETTINGS: {
+    ME: "/v1/notification-settings/me/",
+  },
+
   // ── Audit Logs ────────────────────────────────────────────────────────────
   AUDIT_LOGS: {
     LIST: "/v1/audit-logs/",
@@ -335,6 +339,18 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/protocols/${id}/`,
     CREATE: "/v1/protocols/",
     UPDATE: (id: string | number) => `/v1/protocols/${id}/`,
+  },
+
+  ROLES: {
+    LIST: "/v1/roles/",
+    DETAIL: (id: string | number) => `/v1/roles/${id}/`,
+    CREATE: "/v1/roles/",
+    UPDATE: (id: string | number) => `/v1/roles/${id}/`,
+    DELETE: (id: string | number) => `/v1/roles/${id}/`,
+  },
+
+  PERMISSIONS: {
+    CATALOG: "/v1/permissions/catalog/",
   },
 } as const;
 

@@ -13,7 +13,11 @@ export const PERMISSIONS = {
   USER_VIEW: "user_managment.view_user",
   USER_CHANGE: "user_managment.change_user",
   USER_ADD: "user_managment.add_user",
+  USER_DELETE: "user_managment.delete_user",
   ROLE_VIEW: "user_managment.view_role",
+  ROLE_CHANGE: "user_managment.change_role",
+  ROLE_ADD: "user_managment.add_role",
+  ROLE_DELETE: "user_managment.delete_role",
   REPORTS_VIEW: "user_managment.view_reports",
   REPORTS_GENERATE: "user_managment.generate_reports",
 
@@ -119,6 +123,20 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.SETTING_CHANGE_RESEARCHSETTING,
     PERMISSIONS.SETTING_VIEW_GRANTSETTING,
     PERMISSIONS.SETTING_VIEW_RESEARCHSETTING,
+    PERMISSIONS.USER_VIEW,
+    PERMISSIONS.ROLE_VIEW,
+  ],
+  USER_MANAGEMENT: [
+    PERMISSIONS.USER_VIEW,
+    PERMISSIONS.USER_ADD,
+    PERMISSIONS.USER_CHANGE,
+    PERMISSIONS.USER_DELETE,
+  ],
+  ROLE_MANAGEMENT: [
+    PERMISSIONS.ROLE_VIEW,
+    PERMISSIONS.ROLE_ADD,
+    PERMISSIONS.ROLE_CHANGE,
+    PERMISSIONS.ROLE_DELETE,
   ],
   AUDIT_LOGS: [
     PERMISSIONS.AUDIT_VIEW_DOCUMENT_EVENT,

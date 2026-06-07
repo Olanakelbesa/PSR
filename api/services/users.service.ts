@@ -177,7 +177,7 @@ export interface AdminUpdateUserPayload {
   unit?: number | null;
   status?: string;
   enabled?: boolean;
-  createdAt?: string;
+  roles?: number[];
 }
 
 export interface ReviewerSelectorFilters {
