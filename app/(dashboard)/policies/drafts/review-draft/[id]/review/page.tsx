@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -62,6 +62,8 @@ export default function ScoreDraftPage() {
   const [responses, setResponses] = useState<
     Record<string, { is_passed: "yes" | "no" | null; reviewer_note: string }>
   >({});
+  const responsesInitializedRef = useRef(false);
+  const responsesDirtyRef = useRef(false);
 
   // Convert API items to the component's expected format
   const checklistQuestions = useMemo(() => {
@@ -75,25 +77,39 @@ export default function ScoreDraftPage() {
     }));
   }, [checklistData]);
 
-  // Pre-populate response state from any existing answers returned by GET
+  // Pre-populate from saved answers once; do not overwrite while the user is editing.
   useEffect(() => {
-    if (checklistData?.items) {
-      const initialResponses: Record<string, any> = {};
-      checklistData.items.forEach((item: any) => {
-        let isPassedValue: "yes" | "no" | null = null;
-        if (item.reviewerAnswer === true) {
-          isPassedValue = "yes";
-        } else if (item.reviewerAnswer === false) {
-          isPassedValue = "no";
-        }
-        
-        initialResponses[String(item.id)] = {
-          is_passed: isPassedValue,
-          reviewer_note: item.reviewerNote || "",
-        };
-      });
-      setResponses(initialResponses);
+    responsesInitializedRef.current = false;
+    responsesDirtyRef.current = false;
+    setResponses({});
+  }, [draftId, versionId]);
+
+  useEffect(() => {
+    if (!checklistData?.items || responsesDirtyRef.current || responsesInitializedRef.current) {
+      return;
     }
+
+    const initialResponses: Record<
+      string,
+      { is_passed: "yes" | "no" | null; reviewer_note: string }
+    > = {};
+
+    checklistData.items.forEach((item: any) => {
+      let isPassedValue: "yes" | "no" | null = null;
+      if (item.reviewerAnswer === true) {
+        isPassedValue = "yes";
+      } else if (item.reviewerAnswer === false) {
+        isPassedValue = "no";
+      }
+
+      initialResponses[String(item.id)] = {
+        is_passed: isPassedValue,
+        reviewer_note: item.reviewerNote || "",
+      };
+    });
+
+    setResponses(initialResponses);
+    responsesInitializedRef.current = true;
   }, [checklistData]);
 
   const submitMutation = useSubmitPolicyDraftChecklistReview();
@@ -103,6 +119,7 @@ export default function ScoreDraftPage() {
     field: "is_passed" | "reviewer_note",
     value: string,
   ) => {
+    responsesDirtyRef.current = true;
     setResponses((prev) => ({
       ...prev,
       [id]: {
@@ -112,19 +129,15 @@ export default function ScoreDraftPage() {
     }));
   };
 
-  const calculateScore = () => {
+  const calculateScore = (source: typeof responses) => {
     if (checklistQuestions.length === 0) return 0;
     let passedCount = 0;
-    let answeredCount = 0;
-    Object.values(responses).forEach((res) => {
-      if (res.is_passed !== null) {
-        answeredCount++;
-        if (res.is_passed === "yes") passedCount++;
+    checklistQuestions.forEach((question: any) => {
+      if (source[question.id]?.is_passed === "yes") {
+        passedCount++;
       }
     });
-    return answeredCount === 0
-      ? 0
-      : Math.round((passedCount / checklistQuestions.length) * 100);
+    return Math.round((passedCount / checklistQuestions.length) * 100);
   };
 
   const handleSubmit = async () => {
@@ -150,16 +163,21 @@ export default function ScoreDraftPage() {
     }));
 
     try {
-      await submitMutation.mutateAsync({
+      const result = await submitMutation.mutateAsync({
         id: Number(draftId),
         versionId: Number(versionId),
         reviewerId: Number(user.id),
         responses: payloadResponses,
       });
 
-      const finalScore = calculateScore();
+      const serverScores = result?.data?.checklistScores ?? result?.data?.checklist_scores;
+      const serverScore =
+        typeof serverScores?.[String(user.id)] === "number"
+          ? Math.round(serverScores[String(user.id)])
+          : calculateScore(responses);
+
       toast.success(
-        `Draft successfully scored at ${finalScore}%. Evaluation submitted to the committee.`
+        `Draft successfully scored at ${serverScore}%. Evaluation submitted to the committee.`,
       );
       router.push(`/policies/drafts/review-draft/${draftId}`);
     } catch (error: any) {
@@ -181,7 +199,10 @@ export default function ScoreDraftPage() {
     );
   }
 
-  const currentScore = calculateScore();
+  const currentScore =
+    typeof checklistData?.reviewerScore === "number" && !responsesDirtyRef.current
+      ? Math.round(checklistData.reviewerScore)
+      : calculateScore(responses);
 
   return (
     <PageContainer
