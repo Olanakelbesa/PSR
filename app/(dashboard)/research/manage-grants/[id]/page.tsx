@@ -248,24 +248,6 @@ export default function CallDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Budget</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">
-                    Allocated
-                  </span>
-                  <span className="text-lg font-bold">
-                    {formatBudget(call.budget)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
               <CardTitle>Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -362,10 +344,9 @@ export default function CallDetailPage() {
               {installmentPlans.length > 0 ? (
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow >
                       <TableHead>Plan</TableHead>
                       <TableHead>Percentage</TableHead>
-                      <TableHead>Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -373,9 +354,6 @@ export default function CallDetailPage() {
                       <TableRow key={plan.id}>
                         <TableCell>{plan.installmentNumber}</TableCell>
                         <TableCell>{plan.percentage}%</TableCell>
-                        <TableCell>
-                          {plan.installmentAmount ?? "Not set"}
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

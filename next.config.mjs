@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -16,14 +21,18 @@ const nextConfig = {
   },
   webpack(config) {
     config.resolve.alias.canvas = false;
-    config.resolve.alias.inherits = "./shims/inherits.cjs";
+    config.resolve.alias.inherits = path.join(__dirname, "shims/inherits.cjs");
+    config.resolve.alias["trim-canvas"] = path.join(
+      __dirname,
+      "shims/trim-canvas.cjs",
+    );
     return config;
   },
-  
 
   turbopack: {
     resolveAlias: {
       inherits: "./shims/inherits.cjs",
+      "trim-canvas": "./shims/trim-canvas.cjs",
     },
   },
 

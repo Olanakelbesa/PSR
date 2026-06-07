@@ -347,7 +347,7 @@ export const proposalSchema = z
     grantCallId: z.string().optional(),
     submissionLevel: z.string().optional(),
     officeToSubmit: z.string().optional(),
-    receivingOffice: z.string().optional(),
+    receivingOffice: z.string().min(1, "Receiving office is required"),
     thematicArea: z.string().optional(),
     thematicAreas: z.array(z.string()).optional(),
     subThematicArea: z.string().optional(),

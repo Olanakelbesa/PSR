@@ -31,7 +31,7 @@ export function DocumentUploadSection() {
         <div className="mb-6">
           <h2 className="text-2xl font-semibold mb-2">Document Upload</h2>
           <p className="text-sm text-muted-foreground">
-            Upload your complete technical proposal document (PDF or Word, max
+            Upload your complete proposal document (PDF, max
             10MB)
           </p>
         </div>
@@ -99,7 +99,7 @@ export function DocumentUploadSection() {
                             form.setError("technicalProposal", {
                               type: "manual",
                               message:
-                                "Only PDF and Word documents are allowed",
+                                "Only PDF documents are allowed",
                             });
                           }
                         }
@@ -111,7 +111,7 @@ export function DocumentUploadSection() {
                       <input
                         id="file-upload-input"
                         type="file"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf"
                         onChange={(e) => {
                           const selectedFile = e.target.files?.[0];
                           if (selectedFile) {
@@ -146,7 +146,7 @@ export function DocumentUploadSection() {
                               : "Click to upload or drag and drop"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            PDF or Word document (max 10MB)
+                            PDF document (max 10MB)
                           </p>
                         </div>
                       </div>

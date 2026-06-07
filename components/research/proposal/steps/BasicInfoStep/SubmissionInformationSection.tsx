@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import {
   FormField,
@@ -22,17 +22,29 @@ import {
 import { cn } from "@/lib/utils";
 import { useOrganizationsForSelect } from "@/lib/queries/organizations";
 import { useUnitsForSelect } from "@/lib/queries/units";
-import { useOfficesForSelect } from "@/lib/queries/office";
+import {
+  useOffice,
+  useOfficesForSelect,
+} from "@/lib/queries/office";
 
 export function SubmissionInformationSection() {
   const form = useFormContext<ProposalFormInput>();
   const submissionLevel = form.watch("submissionLevel");
   const receivingOffice = form.watch("receivingOffice");
-  const officeToSubmit = form.watch("officeToSubmit");
+
+  const { data: researchOffices = [] } = useOfficesForSelect({
+    is_research_office: true,
+    is_active: true,
+  });
+  const { data: selectedReceivingOffice } = useOffice(receivingOffice ?? "");
 
   const useReceivingOfficeOptions = useCallback(
     (params?: { search?: string; limit?: number }) => {
-      return useOfficesForSelect(params);
+      return useOfficesForSelect({
+        ...params,
+        is_research_office: true,
+        is_active: true,
+      });
     },
     [],
   );
@@ -44,12 +56,57 @@ export function SubmissionInformationSection() {
     [submissionLevel],
   );
 
+  // Clear stale receiving office values that are not active research offices.
+  useEffect(() => {
+    if (!receivingOffice) return;
+
+    const isListed = researchOffices.some(
+      (office) => String(office.id) === String(receivingOffice),
+    );
+    const isResearchOffice =
+      selectedReceivingOffice?.isResearchOffice === true &&
+      selectedReceivingOffice?.isActive !== false;
+
+    if (researchOffices.length > 0 && !isListed) {
+      form.setValue("receivingOffice", undefined);
+      form.setError("receivingOffice", {
+        type: "manual",
+        message: "Please select a valid research office (PSR).",
+      });
+      return;
+    }
+
+    if (
+      selectedReceivingOffice &&
+      !isResearchOffice &&
+      researchOffices.length > 0
+    ) {
+      form.setValue("receivingOffice", undefined);
+      form.setError("receivingOffice", {
+        type: "manual",
+        message: "Please select a valid research office (PSR).",
+      });
+    }
+  }, [
+    receivingOffice,
+    researchOffices,
+    selectedReceivingOffice,
+    form,
+  ]);
+
+  // Auto-select when only one research office exists.
+  useEffect(() => {
+    if (receivingOffice || researchOffices.length !== 1) return;
+    form.setValue("receivingOffice", String(researchOffices[0].id), {
+      shouldValidate: true,
+    });
+  }, [receivingOffice, researchOffices, form]);
+
   const handleSubmissionLevelChange = useCallback(
     (value: string) => {
       form.setValue("submissionLevel", value);
       form.setValue("officeToSubmit", undefined);
       form.setValue("receivingOffice", undefined);
-      // Clear any backend validation errors for these fields
       form.clearErrors("officeToSubmit");
       form.clearErrors("receivingOffice");
     },
@@ -59,7 +116,6 @@ export function SubmissionInformationSection() {
   const handleReceivingOfficeChange = useCallback(
     (value: string) => {
       form.setValue("receivingOffice", value);
-      // Clear backend validation error when user fixes the field
       form.clearErrors("receivingOffice");
     },
     [form],
@@ -68,7 +124,6 @@ export function SubmissionInformationSection() {
   const handleOfficeToSubmitChange = useCallback(
     (value: string) => {
       form.setValue("officeToSubmit", value);
-      // Clear backend validation error when user fixes the field
       form.clearErrors("officeToSubmit");
     },
     [form],
@@ -158,7 +213,7 @@ export function SubmissionInformationSection() {
             name="receivingOffice"
             render={({ field, fieldState }) => (
               <FormItem>
-                <FormLabel>Submitting Office *</FormLabel>
+                <FormLabel>Receiving Office *</FormLabel>
                 <FormControl>
                   <SearchableSelect
                     key="receiving-office"
@@ -169,7 +224,7 @@ export function SubmissionInformationSection() {
                     getOptionLabel={(office: any) => office.name}
                     placeholder="Select Receiving Office"
                     searchPlaceholder="Search offices..."
-                    emptyMessage="No offices found"
+                    emptyMessage="No research offices found"
                     className={cn(
                       fieldState.error &&
                         "border-destructive focus:border-destructive focus:ring-destructive",

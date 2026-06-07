@@ -494,7 +494,7 @@ export function ProposalReviewStep({
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                   <span className="text-sm font-medium">
-                    Technical Proposal
+                    Proposal Document
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 ml-6">
@@ -504,7 +504,7 @@ export function ProposalReviewStep({
                       (values.technicalProposal as any)?.file
                         ?.split("/")
                         .pop() ||
-                      "Technical Proposal"}
+                      "Proposal Document"}
                 </p>
               </div>
             )}

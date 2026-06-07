@@ -224,24 +224,6 @@ export default function CallDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Budget</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">
-                    Allocated
-                  </span>
-                  <span className="text-lg font-bold">
-                    {formatBudget(call.budget)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

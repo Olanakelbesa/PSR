@@ -27,9 +27,45 @@ import { isPublicPath } from "@/lib/auth/public-routes";
 export interface ApiError {
   message: string;
   status: number;
+  code?: string;
   errors?: Record<string, string[]>;
   /** Extra payload from the backend envelope (e.g. retryAfterSeconds on 429). */
   data?: Record<string, unknown>;
+}
+
+type BackendErrorEnvelope = {
+  success?: boolean;
+  message?: string;
+  errors?: Record<string, string[]>;
+  error?: {
+    code?: string;
+    message?: string;
+    details?: Record<string, string[]>;
+  };
+};
+
+function parseBackendError(
+  responseData: BackendErrorEnvelope | undefined,
+  fallbackMessage: string,
+): Pick<ApiError, "message" | "code" | "errors"> {
+  const envelopeError = responseData?.error;
+  if (envelopeError && typeof envelopeError === "object") {
+    return {
+      message:
+        (typeof envelopeError.message === "string" && envelopeError.message) ||
+        fallbackMessage,
+      code:
+        typeof envelopeError.code === "string" ? envelopeError.code : undefined,
+      errors: envelopeError.details ?? undefined,
+    };
+  }
+
+  return {
+    message:
+      (typeof responseData?.message === "string" && responseData.message) ||
+      fallbackMessage,
+    errors: responseData?.errors,
+  };
 }
 
 // ─── Token Storage (browser-only) ────────────────────────────────────────────
@@ -126,20 +162,17 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    const responseData = error.response?.data;
+    const responseData = error.response?.data as BackendErrorEnvelope | undefined;
+    const parsed = parseBackendError(
+      responseData,
+      error.message ?? "Something went wrong",
+    );
 
     const normalized: ApiError = {
-      message:
-        responseData?.message ??
-        (responseData as Record<string, unknown> | undefined)?.error?.toString() ??
-        error.message ??
-        "Something went wrong",
+      message: parsed.message,
       status: error.response?.status ?? 0,
-      errors:
-        responseData?.errors ??
-        ((responseData as Record<string, unknown> | undefined)?.error as
-          | Record<string, string[]>
-          | undefined),
+      code: parsed.code,
+      errors: parsed.errors,
       data:
         responseData?.data && typeof responseData.data === "object"
           ? (responseData.data as Record<string, unknown>)

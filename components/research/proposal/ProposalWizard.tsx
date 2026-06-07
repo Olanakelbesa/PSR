@@ -281,7 +281,18 @@ const hasRequiredFieldsForCreate = (values: ProposalFormInput): boolean => {
     values.grantCallId &&
     values.submissionLevel &&
     values.officeToSubmit &&
+    values.receivingOffice &&
     values.technicalProposal
+  );
+};
+
+const getApiErrorDetails = (error: any): Record<string, any> => {
+  return (
+    error?.errors ??
+    error?.response?.data?.error?.details ??
+    error?.data?.error?.details ??
+    error?.details ??
+    {}
   );
 };
 
@@ -325,13 +336,23 @@ const extractErrorMessage = (error: any): string => {
 const extractFullErrorMessage = (error: any): string => {
   // Direct error message
   if (typeof error === "string") return error;
-  
-  // From error.message
+
+  const errorDetails = getApiErrorDetails(error);
+  if (Object.keys(errorDetails).length > 0) {
+    const firstKey = Object.keys(errorDetails)[0];
+    const firstError = errorDetails[firstKey];
+    if (typeof firstError === "string") return firstError;
+    if (Array.isArray(firstError) && firstError.length > 0) {
+      return String(firstError[0]);
+    }
+  }
+
+  // From normalized ApiError.message
   if (error?.message && typeof error.message === "string") {
     return error.message;
   }
-  
-  // From response data
+
+  // From response data envelope
   if (error?.response?.data?.error?.message) {
     return error.response.data.error.message;
   }
@@ -341,7 +362,7 @@ const extractFullErrorMessage = (error: any): string => {
   if (error?.response?.data?.detail) {
     return error.response.data.detail;
   }
-  
+
   // From direct data
   if (error?.data?.error?.message) {
     return error.data.error.message;
@@ -349,20 +370,7 @@ const extractFullErrorMessage = (error: any): string => {
   if (error?.data?.message) {
     return error.data.message;
   }
-  
-  // Try to extract first validation error
-  const errorDetails = error?.response?.data?.error?.details || 
-                      error?.data?.error?.details ||
-                      error?.details || {};
-  if (Object.keys(errorDetails).length > 0) {
-    const firstKey = Object.keys(errorDetails)[0];
-    const firstError = errorDetails[firstKey];
-    if (typeof firstError === "string") return firstError;
-    if (Array.isArray(firstError) && firstError.length > 0) {
-      return String(firstError[0]);
-    }
-  }
-  
+
   return "Failed to process request. Please try again.";
 };
 
@@ -969,9 +977,7 @@ export function ProposalWizard({
       console.error("Auto-save PATCH failed:", error);
       
       // Extract error details for form field errors
-      const errorDetails = error?.response?.data?.error?.details || 
-                          error?.data?.error?.details ||
-                          error?.details || {};
+      const errorDetails = getApiErrorDetails(error);
       
       // Apply backend validation errors to form fields if they exist
       if (Object.keys(errorDetails).length > 0) {
@@ -1394,6 +1400,7 @@ export function ProposalWizard({
           "endDate",
           "submissionLevel",
           "officeToSubmit",
+          "receivingOffice",
           "thematicAreas",
           "subThematicArea",
         ];
@@ -1450,9 +1457,7 @@ export function ProposalWizard({
         toast.success("Draft saved!");
       } catch (error: any) {
         const errorMessage = extractFullErrorMessage(error);
-        const errorDetails = error?.response?.data?.error?.details || 
-                            error?.data?.error?.details ||
-                            error?.details || {};
+        const errorDetails = getApiErrorDetails(error);
         
         if (Object.keys(errorDetails).length > 0) {
           applyBackendErrorsToForm(form, errorDetails);
@@ -1595,9 +1600,7 @@ export function ProposalWizard({
       setSaveStatus("failed");
       
       // Extract error details for form field errors
-      const errorDetails = error?.response?.data?.error?.details || 
-                          error?.data?.error?.details ||
-                          error?.details || {};
+      const errorDetails = getApiErrorDetails(error);
       
       // Extract comprehensive error message
       const errorMessage = extractFullErrorMessage(error);
