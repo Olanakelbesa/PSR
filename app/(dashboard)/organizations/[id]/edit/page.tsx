@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -11,11 +11,10 @@ import {
   Save, 
   Info, 
   Globe, 
-  ShieldCheck, 
   MapPin, 
   Mail, 
-  Phone,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -26,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -40,22 +38,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useCreateOrganization } from "@/hooks/useOrganizations";
-import { useOrganizationTypesList } from "@/hooks/useOrganizations";
+import { useUpdateOrganization, useOrganization, useOrganizationTypesList } from "@/hooks/useOrganizations";
 
 const formSchema = z.object({
   name: z.string().min(3, "Organization name must be at least 3 characters"),
   orgType: z.string().min(1, "Please select an organization type"),
   description: z.string().optional(),
-  organizationEmail: z.string().email("Please provide a valid official email").optional().or(z.literal("")),
+  organizationEmail: z.string().email("Please provide a valid email").optional().or(z.literal("")),
   organizationWebsite: z.string().url("Please provide a valid URL").optional().or(z.literal("")),
   address: z.string().optional(),
 });
 
-export default function RegisterOrganizationPage() {
+export default function EditOrganizationPage() {
+  const { id } = useParams() as { id: string };
   const router = useRouter();
+  
+  const { data: org, isLoading: orgLoading, error: orgError } = useOrganization(id);
   const { data: typesResponse } = useOrganizationTypesList();
-  const createOrgMutation = useCreateOrganization();
+  const updateMutation = useUpdateOrganization(id);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,9 +69,23 @@ export default function RegisterOrganizationPage() {
     },
   });
 
+  // Populate form when org data loads
+  useEffect(() => {
+    if (org) {
+      form.reset({
+        name: org.name,
+        orgType: String(org.orgType),
+        description: org.description || "",
+        organizationEmail: org.organizationEmail || "",
+        organizationWebsite: org.organizationWebsite || "",
+        address: org.address || "",
+      });
+    }
+  }, [org, form]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await createOrgMutation.mutateAsync({
+      await updateMutation.mutateAsync({
         name: values.name,
         orgType: Number(values.orgType),
         description: values.description,
@@ -80,19 +94,53 @@ export default function RegisterOrganizationPage() {
         address: values.address,
       });
       
-      toast.success("Organization registered successfully!");
-      setTimeout(() => router.push("/organizations"), 1500);
+      toast.success("Organization updated successfully!");
+      setTimeout(() => router.push(`/organizations/${id}`), 1500);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Failed to register organization";
+      const errorMsg = error instanceof Error ? error.message : "Failed to update organization";
       toast.error(errorMsg);
-      console.error("[RegisterOrg]", error);
+      console.error("[EditOrg]", error);
     }
+  }
+
+  if (orgLoading) {
+    return (
+      <PageContainer title="Loading..." description="Fetching organization details">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (orgError || !org) {
+    return (
+      <PageContainer
+        title="Error"
+        description="Could not load organization"
+        actions={
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+        }
+      >
+        <Card className="border-l-4 border-l-red-500 bg-red-50">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+            <div>
+              <h3 className="font-bold text-red-900">Failed to load organization</h3>
+              <p className="text-sm text-red-800">{orgError instanceof Error ? orgError.message : "Unknown error"}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
   }
 
   return (
     <PageContainer
-      title="Register Organization"
-      description="Onboard a new institutional partner into the PSR system."
+      title="Edit Organization"
+      description={`Update details for ${org.name}`}
       actions={
         <Button variant="outline" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Cancel
@@ -109,7 +157,7 @@ export default function RegisterOrganizationPage() {
                 </div>
                 <div>
                    <CardTitle className="text-xl font-black tracking-tight">Institutional Metadata</CardTitle>
-                   <CardDescription>Primary identification and classification</CardDescription>
+                   <CardDescription>Update organization identification and classification</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
@@ -119,9 +167,9 @@ export default function RegisterOrganizationPage() {
                       name="name"
                       render={({ field }) => (
                         <FormItem className="md:col-span-2">
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Full Organization Name</FormLabel>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Organization Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., Ethiopian Public Health Institute" className="h-12 rounded-xl" {...field} />
+                            <Input placeholder="e.g., Ministry of Health" className="h-12 rounded-xl" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -133,7 +181,7 @@ export default function RegisterOrganizationPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Organization Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="h-12 rounded-xl">
                                 <SelectValue placeholder="Select Type" />
@@ -177,7 +225,7 @@ export default function RegisterOrganizationPage() {
                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description & Mandate</FormLabel>
                        <FormControl>
                          <Textarea 
-                           placeholder="Briefly describe the organization's role and mission..." 
+                           placeholder="Describe the organization's role and mission..." 
                            className="min-h-[120px] rounded-2xl resize-none" 
                            {...field} 
                          />
@@ -200,7 +248,7 @@ export default function RegisterOrganizationPage() {
                       name="organizationEmail"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Official Email Address</FormLabel>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Official Email</FormLabel>
                           <FormControl>
                             <div className="relative">
                                <Mail className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
@@ -216,7 +264,7 @@ export default function RegisterOrganizationPage() {
                       name="organizationWebsite"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Organization Website</FormLabel>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Website</FormLabel>
                           <FormControl>
                              <div className="relative">
                                <Globe className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
@@ -232,27 +280,27 @@ export default function RegisterOrganizationPage() {
             </Card>
 
             <div className="flex flex-col gap-6">
-               <div className="p-6 bg-amber-50 rounded-2xl border border-amber-200 flex gap-4">
-                  <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-medium text-amber-900 leading-relaxed">
-                     **Audit Note:** Registering a new organization enables it for selection during user registration and institutional assignments. The organization type determines role and permission scoping in the system.
+               <div className="p-6 bg-blue-50 rounded-2xl border border-blue-200 flex gap-4">
+                  <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-medium text-blue-900 leading-relaxed">
+                     **Update Note:** Changes to organization details will be reflected system-wide. Users affiliated with this organization will automatically see the updated information.
                   </p>
                </div>
 
                <Button 
                  type="submit" 
-                 disabled={createOrgMutation.isPending}
+                 disabled={updateMutation.isPending}
                  className="w-full h-14 text-base font-black bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 rounded-2xl group disabled:opacity-50"
                >
-                 {createOrgMutation.isPending ? (
+                 {updateMutation.isPending ? (
                    <>
                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                     Registering...
+                     Updating...
                    </>
                  ) : (
                    <>
                      <Save className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                     Authorize Institutional Registration
+                     Update Organization
                    </>
                  )}
                </Button>

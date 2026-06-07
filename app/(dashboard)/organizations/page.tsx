@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Building2, 
@@ -19,7 +19,9 @@ import {
   Mail,
   GraduationCap,
   Gavel,
-  Network
+  Network,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -28,62 +30,53 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useOrganizationsList, useOrganizationTypesList } from "@/hooks/useOrganizations";
 
-// Mock data based on Organization & Unit models
-const mockOrgs = [
-  {
-    id: "org-1",
-    name: "Ministry of Health",
-    type: "Government / Regulatory",
-    typeCode: "moh",
-    description: "The primary regulatory body for healthcare and research in Ethiopia.",
-    unitsCount: 14,
-    usersCount: 450,
-    established: "1948",
-    status: "active",
-    units: ["Epidemiology Directorate", "Resource Mobilization", "Policy & Planning"]
-  },
-  {
-    id: "org-2",
-    name: "Addis Ababa University",
-    type: "Academic / Research",
-    typeCode: "univ",
-    description: "Leading national institution for health sciences and clinical research.",
-    unitsCount: 8,
-    usersCount: 210,
-    established: "1950",
-    status: "active",
-    units: ["College of Health Sciences", "Tikur Anbessa Hospital", "School of Public Health"]
-  },
-  {
-    id: "org-3",
-    name: "Armauer Hansen Research Institute",
-    type: "Research Agency",
-    typeCode: "agency",
-    description: "Specialized laboratory and clinical research hub.",
-    unitsCount: 6,
-    usersCount: 180,
-    established: "1970",
-    status: "active",
-    units: ["TB Research Unit", "Immunology Lab", "Clinical Trials"]
-  },
-];
-
-const orgTypes = [
-  { label: "Government", icon: Gavel, color: "text-blue-600", bg: "bg-blue-50" },
-  { label: "Academic", icon: GraduationCap, color: "text-indigo-600", bg: "bg-indigo-50" },
-  { label: "NGO / Agency", icon: Network, color: "text-amber-600", bg: "bg-amber-50" },
-  { label: "International", icon: Globe, color: "text-emerald-600", bg: "bg-emerald-50" },
-];
+const orgTypeIconMap: Record<number, { label: string; icon: any; color: string; bg: string }> = {};
 
 export default function OrganizationsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOrgs = mockOrgs.filter(org => 
-    org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    org.typeCode.toLowerCase().includes(searchTerm.toLowerCase())
+  const { data: organizationsResponse, isLoading: orgsLoading, error: orgsError } = useOrganizationsList();
+  const { data: typesResponse } = useOrganizationTypesList();
+
+  // Build icon map from types
+  const typeMap = useMemo(() => {
+    if (!typesResponse?.data) return {};
+    const map: Record<number, any> = {};
+    typesResponse.data.forEach((type, idx) => {
+      const icons = [Gavel, GraduationCap, Network, Globe];
+      const colors = ["text-blue-600", "text-indigo-600", "text-amber-600", "text-emerald-600"];
+      const bgs = ["bg-blue-50", "bg-indigo-50", "bg-amber-50", "bg-emerald-50"];
+      map[type.id] = {
+        label: type.name,
+        icon: icons[idx % icons.length],
+        color: colors[idx % colors.length],
+        bg: bgs[idx % bgs.length],
+      };
+    });
+    return map;
+  }, [typesResponse?.data]);
+
+  const organizations = organizationsResponse?.data ?? [];
+  
+  const filteredOrgs = useMemo(() =>
+    organizations.filter(org => 
+      org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (typeMap[org.orgType]?.label ?? "").toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    [organizations, searchTerm, typeMap]
   );
+
+  // Count organizations by type
+  const typeCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    organizations.forEach(org => {
+      counts[org.orgType] = (counts[org.orgType] ?? 0) + 1;
+    });
+    return counts;
+  }, [organizations]);
 
   return (
     <PageContainer
@@ -102,17 +95,22 @@ export default function OrganizationsPage() {
         
         {/* Type Distribution */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-           {orgTypes.map((type, i) => (
-             <Card key={i} className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer group bg-white">
-                <CardContent className="p-6">
-                   <div className={cn("h-10 w-10 rounded-xl mb-4 flex items-center justify-center transition-transform group-hover:scale-110", type.bg)}>
-                      <type.icon className={cn("h-5 w-5", type.color)} />
-                   </div>
-                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{type.label}</p>
-                   <p className="text-xl font-black mt-1">12 <span className="text-[10px] text-muted-foreground font-bold lowercase">Entities</span></p>
-                </CardContent>
-             </Card>
-           ))}
+           {(typesResponse?.data ?? []).map((type) => {
+             const meta = typeMap[type.id];
+             const Icon = meta?.icon || Building2;
+             const count = typeCounts[type.id] ?? 0;
+             return (
+               <Card key={type.id} className="border-none shadow-sm hover:shadow-md transition-all cursor-pointer group bg-white">
+                  <CardContent className="p-6">
+                     <div className={cn("h-10 w-10 rounded-xl mb-4 flex items-center justify-center transition-transform group-hover:scale-110", meta?.bg ?? "bg-slate-50")}>
+                        <Icon className={cn("h-5 w-5", meta?.color ?? "text-slate-600")} />
+                     </div>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{type.name}</p>
+                     <p className="text-xl font-black mt-1">{count} <span className="text-[10px] text-muted-foreground font-bold lowercase">Entities</span></p>
+                  </CardContent>
+               </Card>
+             );
+           })}
         </div>
 
         {/* Search & Layout Toggle */}
@@ -132,70 +130,99 @@ export default function OrganizationsPage() {
            </div>
         </div>
 
+        {/* Error State */}
+        {orgsError && (
+          <Card className="border-l-4 border-l-red-500 bg-red-50">
+            <CardContent className="p-6 flex items-center gap-4">
+              <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+              <div>
+                <h3 className="font-bold text-red-900">Failed to load organizations</h3>
+                <p className="text-sm text-red-800">{(orgsError as Error).message}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {orgsLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+
         {/* Organizations Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {filteredOrgs.map((org) => (
-             <Card key={org.id} className="group border-none shadow-sm hover:shadow-xl transition-all duration-500 bg-white overflow-hidden rounded-[1.5rem]">
-                <CardHeader className="p-8 pb-0">
-                   <div className="flex justify-between items-start">
-                      <div className="h-14 w-14 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-primary/10">
-                         <Building2 className="h-7 w-7 text-primary" />
-                      </div>
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-widest">{org.typeCode}</Badge>
-                   </div>
-                   <div className="pt-6">
-                      <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{org.name}</h3>
-                      <p className="text-[11px] text-muted-foreground font-medium mt-2 line-clamp-2 leading-relaxed">
-                         {org.description}
-                      </p>
-                   </div>
-                </CardHeader>
-                
-                <CardContent className="p-8 space-y-6">
-                   <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
-                      <div className="space-y-1">
-                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                            <Layers className="h-3 w-3" /> Units
-                         </p>
-                         <p className="text-sm font-black">{org.unitsCount} <span className="text-[10px] text-muted-foreground font-medium">Internal</span></p>
-                      </div>
-                      <div className="space-y-1">
-                         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                            <Users className="h-3 w-3" /> Users
-                         </p>
-                         <p className="text-sm font-black">{org.usersCount} <span className="text-[10px] text-muted-foreground font-medium">Linked</span></p>
-                      </div>
-                   </div>
+        {!orgsLoading && filteredOrgs.length === 0 && (
+          <Card className="border-none shadow-sm bg-white">
+            <CardContent className="p-12 text-center">
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+              <p className="text-muted-foreground font-medium">No organizations found</p>
+            </CardContent>
+          </Card>
+        )}
 
-                   <div className="space-y-3">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Primary Research Units</p>
-                      <div className="flex flex-wrap gap-1.5">
-                         {org.units.map((unit, i) => (
-                            <Badge key={i} variant="outline" className="bg-slate-50 text-slate-500 border-slate-100 text-[9px] font-bold px-2 py-0.5">
-                               {unit}
-                            </Badge>
-                         ))}
-                      </div>
-                   </div>
+        {!orgsLoading && filteredOrgs.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {filteredOrgs.map((org) => {
+               const typeMeta = typeMap[org.orgType];
+               const createdDate = new Date(org.createdAt).getFullYear();
+               return (
+                 <Card key={org.id} className="group border-none shadow-sm hover:shadow-xl transition-all duration-500 bg-white overflow-hidden rounded-[1.5rem]">
+                    <CardHeader className="p-8 pb-0">
+                       <div className="flex justify-between items-start">
+                          <div className="h-14 w-14 rounded-2xl bg-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-primary/10">
+                             <Building2 className="h-7 w-7 text-primary" />
+                          </div>
+                          <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-widest">{typeMeta?.label ?? "Unknown"}</Badge>
+                       </div>
+                       <div className="pt-6">
+                          <h3 className="text-xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{org.name}</h3>
+                          <p className="text-[11px] text-muted-foreground font-medium mt-2 line-clamp-2 leading-relaxed">
+                             {org.description}
+                          </p>
+                       </div>
+                    </CardHeader>
+                    
+                    <CardContent className="p-8 space-y-6">
+                       <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
+                          <div className="space-y-1">
+                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                                <Mail className="h-3 w-3" /> Email
+                             </p>
+                             <p className="text-[10px] font-bold text-slate-700 truncate">{org.organizationEmail || "—"}</p>
+                          </div>
+                          <div className="space-y-1">
+                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                                <Globe className="h-3 w-3" /> Website
+                             </p>
+                             <p className="text-[10px] font-bold text-slate-700 truncate">{org.organizationWebsite ? "Linked" : "—"}</p>
+                          </div>
+                       </div>
 
-                   <div className="pt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                         <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">EST. {org.established}</span>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 group/btn"
-                        onClick={() => router.push(`/organizations/${org.id}`)}
-                      >
-                         Manage Org <ChevronRight className="ml-1.5 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                      </Button>
-                   </div>
-                </CardContent>
-             </Card>
-           ))}
-        </div>
+                       <div className="space-y-3">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Address</p>
+                          <p className="text-[10px] text-slate-600">{org.address || "Not specified"}</p>
+                       </div>
+
+                       <div className="pt-4 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">EST. {createdDate}</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 group/btn"
+                            onClick={() => router.push(`/organizations/${org.id}`)}
+                          >
+                             Manage <ChevronRight className="ml-1.5 h-3.5 w-3.5 group-hover/btn:translate-x-1 transition-transform" />
+                          </Button>
+                       </div>
+                    </CardContent>
+                 </Card>
+               );
+             })}
+          </div>
+        )}
       </div>
     </PageContainer>
   );

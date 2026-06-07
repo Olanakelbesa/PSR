@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BarChart3,
   ChevronRight,
+  Download,
   FileText,
   Search,
   Users,
@@ -23,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { publicApi } from "@/api/legacy-apis";
-import api from "@/lib/axios";
+import { tokenStorage } from "@/api";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import { createPortal } from "react-dom";
 import StatsStrip from "@/components/landing/StatsStrip";
@@ -31,6 +32,7 @@ import TrustBand from "@/components/landing/TrustBand";
 import TrendsCard from "@/components/landing/TrendsCard";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
+import type { SearchResultItem } from "@/lib/queries/search";
 
 const grantCallCardThemes = [
   {
@@ -104,10 +106,29 @@ function RevealOnScroll({
   );
 }
 
+function formatDate(dateValue?: string | null) {
+  if (!dateValue) return "N/A";
+  const parsed = new Date(dateValue);
+  return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString();
+}
+
+function resolveFileUrl(filePath?: string | null) {
+  if (!filePath) return "#";
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  if (filePath.startsWith("/api/proxy")) return filePath;
+  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
+  return `/api/proxy/${filePath}`;
+}
+
+function extractFileName(filePath?: string | null) {
+  if (!filePath) return "No file";
+  return filePath.split("/").pop() || filePath;
+}
+
 export default function LandingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<SearchResultItem[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionRect, setSuggestionRect] = useState<DOMRect | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -142,16 +163,37 @@ export default function LandingPage() {
     const controller = new AbortController();
     const debounce = window.setTimeout(async () => {
         try {
-          const { data } = await api.get(API_ENDPOINTS.POLICY_REPOSITORY.LIST, {
-            params: {
-              access_level: "public",
-              search: query,
-              limit: 5,
-            },
-            signal: controller.signal,
+          const params = new URLSearchParams({
+            access_level: "public",
+            explain: "false",
+            mode: "hybrid",
+            page: "1",
+            page_size: "5",
+            search: query,
+            sort: "relevance",
+            source: "all",
           });
 
-          setSearchSuggestions(Array.isArray(data?.data) ? data.data : []);
+          const headers: HeadersInit = { accept: "application/json" };
+          const token = tokenStorage.get();
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+
+          const response = await fetch(
+            `/api/proxy${API_ENDPOINTS.SEARCH.LIST}?${params.toString()}`,
+            {
+              headers,
+              signal: controller.signal,
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error(`Search request failed with status ${response.status}`);
+          }
+
+          const data = await response.json();
+          setSearchSuggestions(Array.isArray(data?.results) ? data.results : []);
         } catch (error: any) {
           const isAbort =
             controller.signal.aborted ||
@@ -183,6 +225,20 @@ export default function LandingPage() {
       controller.abort();
     };
   }, [searchQuery]);
+
+  const openSearchPage = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    const selectedItem = searchSuggestions[0];
+    const selectedParams = selectedItem
+      ? `&selected=${encodeURIComponent(String(selectedItem.id))}&selected_source=${encodeURIComponent(selectedItem.source)}`
+      : "";
+
+    router.push(
+      `/search?search=${encodeURIComponent(trimmed)}&access_level=public&mode=hybrid&sort=relevance&source=all${selectedParams}`,
+    );
+  };
 
   useEffect(() => {
     const update = () => {
@@ -365,10 +421,7 @@ export default function LandingPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const query = searchQuery.trim();
-                  if (query) {
-                    router.push(`/publications?search=${encodeURIComponent(query)}`);
-                  }
+                  openSearchPage(searchQuery);
                 }}
                 className="relative w-full max-w-2xl mx-auto pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000"
               >
@@ -384,12 +437,9 @@ export default function LandingPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        // If suggestions available, select the first one instead of submitting
                         if (searchSuggestions.length > 0) {
                           e.preventDefault();
-                          const item = searchSuggestions[0];
-                          // Navigate directly to the publications page and request the item to be expanded
-                          router.push(`/publications?selected=${encodeURIComponent(String(item.id))}`);
+                          openSearchPage(searchQuery);
                         }
                       }
                     }}
@@ -426,17 +476,56 @@ export default function LandingPage() {
                             type="button"
                             onMouseDown={(ev) => ev.preventDefault()}
                             onClick={() => {
-                              // Navigate to publications and request expansion of this item
-                              router.push(`/publications?selected=${encodeURIComponent(String(item.id))}`);
+                              router.push(
+                                `/search?search=${encodeURIComponent(searchQuery.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all&selected=${encodeURIComponent(String(item.id))}&selected_source=${encodeURIComponent(item.source)}`,
+                              );
                             }}
-                            className="w-full text-left p-3 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                            className="w-full text-left p-3 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-200/70 last:border-b-0 dark:border-slate-800"
                           >
-                            <div className="truncate text-sm font-semibold text-foreground">{item.draftPolicy}</div>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                              <span className="text-xs text-muted-foreground">{item.organizationName}</span>
-                              <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
-                                {item.docType}
-                              </span>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-foreground">{item.title}</div>
+                                <div className="mt-1 text-xs text-muted-foreground line-clamp-1">{item.subtitle}</div>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                              {item.snippet}
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                              <div className="flex flex-wrap gap-2">
+                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
+                                  {item.source.replace(/_/g, " ")}
+                                </span>
+                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
+                                  {item.document_type}
+                                </span>
+                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
+                                  {item.access_level}
+                                </span>
+                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
+                                  {formatDate(item.date)}
+                                </span>
+                              </div>
+                              {item.file_url ? (
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                                  onClick={(event) => event.stopPropagation()}
+                                  onMouseDown={(event) => event.stopPropagation()}
+                                >
+                                  <a
+                                    href={resolveFileUrl(item.file_url)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={extractFileName(item.file_url)}
+                                  >
+                                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                                    Download
+                                  </a>
+                                </Button>
+                              ) : null}
                             </div>
                           </button>
                         ))}
