@@ -211,6 +211,12 @@ const navigationGroups: NavGroup[] = [
         permissions: [PERMISSIONS.RESEARCH_VIEW_FUNDING_RECOMMENDATION],
       },
       {
+        label: "Protocol",
+        href: "/research/protocol",
+        icon: FileCheck2,
+        // permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
+      },
+      {
         label: "Monitoring",
         icon: Activity,
         subItems: [
@@ -249,12 +255,7 @@ const navigationGroups: NavGroup[] = [
           },
         ],
       },
-      {
-        label: "Protocol",
-        href: "/research/protocol",
-        icon: FileCheck2,
-        // permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
-      },
+
       {
         label: "Research Repository",
         href: "/research/repository",
