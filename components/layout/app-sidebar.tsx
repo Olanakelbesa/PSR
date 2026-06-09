@@ -57,9 +57,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import apiClient from "@/api/client";
-import { API_ENDPOINTS } from "@/api/endpoints";
 import { useAuth } from "@/hooks/useAuth";
+import { useServerPermissions } from "@/lib/queries/useServerPermissions";
 import { ROLES } from "@/lib/constants";
 import { PERMISSIONS, PERMISSION_GROUPS, hasAnyPermission, type PermissionValue } from "@/lib/permissions";
 import type { UserRole } from "@/lib/types";
@@ -328,43 +327,9 @@ const navigationGroups: NavGroup[] = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, signOut, backendToken } = useAuth();
-  const [serverPermissions, setServerPermissions] = useState<string[]>([]);
-  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
-
-  useEffect(() => {
-    if (!backendToken || !user) {
-      setServerPermissions([]);
-      setPermissionsLoaded(false);
-      return;
-    }
-
-    let isActive = true;
-
-    const loadPermissions = async () => {
-      try {
-        const response = await apiClient.get(API_ENDPOINTS.USERS.ME);
-        const permissions = Array.isArray(response.data?.data?.permissions)
-          ? response.data.data.permissions
-          : [];
-
-        if (!isActive) return;
-
-        setServerPermissions(permissions);
-        setPermissionsLoaded(true);
-      } catch {
-        if (!isActive) return;
-        setServerPermissions([]);
-        setPermissionsLoaded(true);
-      }
-    };
-
-    loadPermissions();
-
-    return () => {
-      isActive = false;
-    };
-  }, [backendToken, user?.email]);
+  const { user, signOut } = useAuth();
+  const { permissions = [], isLoading: permissionsLoading } = useServerPermissions();
+  const permissionsLoaded = !permissionsLoading;
 
   const hasAccess = useCallback(
     (roles?: UserRole[], requiredPermissions?: PermissionValue[]) => {
@@ -375,13 +340,13 @@ export function AppSidebar() {
       }
 
       if (requiredPermissions && requiredPermissions.length > 0) {
-        if (!permissionsLoaded) {
+        if (permissionsLoading) {
           return false;
         }
 
         const userPerms =
-          serverPermissions.length > 0
-            ? serverPermissions
+          permissions.length > 0
+            ? permissions
             : (user as { permissions?: string[] }).permissions ?? [];
 
         if (!hasAnyPermission(userPerms, requiredPermissions)) {
@@ -391,7 +356,7 @@ export function AppSidebar() {
 
       return true;
     },
-    [permissionsLoaded, serverPermissions, user],
+    [permissionsLoading, permissions, user],
   );
 
   const getInitials = (firstName?: string, lastName?: string) => {

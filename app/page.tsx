@@ -345,7 +345,7 @@ export default function LandingPage() {
   const { data: thematicAreasResponse, isLoading: loadingThematicAreas } =
     useThematicAreas();
   const { data: subThematicAreasResponse, isLoading: loadingSubThematicAreas } =
-    useSubThematicAreas({ limit: 1000 });
+    useSubThematicAreas({ limit: 200 }); // Preview only — 200 is more than enough for a landing page
 
   const thematicAreaPreview = useMemo(() => {
     const areas = thematicAreasResponse?.data ?? [];

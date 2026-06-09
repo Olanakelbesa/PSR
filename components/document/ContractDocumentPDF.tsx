@@ -213,7 +213,6 @@ const Footer = () => (
 const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
   return (
     <Document>
-      {/* PAGE 1 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={1} total={8} data={data} />
 
@@ -247,14 +246,20 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
             )}
 
             <Text style={[styles.paragraph, { marginTop: 12 }]}>
-              The principal investigator of the research project entitled{" "}
+              <Text>
+                The principal investigator of the research project entitled{" "}
+              </Text>
               <Text style={styles.bold}>
                 {data.proposal_title || "____________________"}
               </Text>
-              . The project period of which is{" "}
-              <Text>{data.project_duration_years || "___"}</Text> years starting
-              from the effective date of this agreement (Herein after referred
-              to as the <Text style={styles.bold}>Principal Investigator</Text>)
+              <Text>. The project period of which is </Text>
+              <Text>{data.project_duration_years || "___"}</Text>
+              <Text>
+                {" "}years starting from the effective date of this agreement
+                (Herein after referred to as the{" "}
+              </Text>
+              <Text style={styles.bold}>Principal Investigator</Text>
+              <Text>)</Text>
             </Text>
 
             <Text style={[styles.paragraph, { marginTop: 12 }]}>
@@ -294,7 +299,6 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 2 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={2} total={8} data={data} />
 
@@ -386,7 +390,6 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 3 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={3} total={8} data={data} />
 
@@ -486,7 +489,6 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 4 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={4} total={8} data={data} />
 
@@ -599,7 +601,6 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 5 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={5} total={8} data={data} />
 
@@ -690,7 +691,6 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 6 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={6} total={8} data={data} />
 
@@ -779,7 +779,6 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 7 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={7} total={8} data={data} />
         <View style={styles.contentWrapper}>
@@ -858,14 +857,16 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
         <Footer />
       </Page>
 
-      {/* PAGE 8 */}
       <Page size="A4" style={styles.page}>
         <PageHeader page={8} total={8} data={data} />
 
         <View style={styles.contentWrapper}>
           <Text style={{ marginTop: 10 }}>
-            This Agreement is signed today on the <Text>{data.day}</Text> day of{" "}
-            <Text>{data.month}</Text>, in Addis Ababa, Ethiopia
+            <Text>This Agreement is signed today on the </Text>
+            <Text>{data.day}</Text>
+            <Text> day of </Text>
+            <Text>{data.month}</Text>
+            <Text>, in Addis Ababa, Ethiopia</Text>
           </Text>
 
           <View style={{ marginTop: 20 }}>
@@ -917,15 +918,15 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
             </View>
             <View style={{ flexDirection: "row", gap: 10 }}>
               <Text>1.</Text>
-              <Text><Text style={{ flex: 1 }}>_______________________</Text> <Text style={{ flex: 1 }}>_______________________</Text></Text>
+              <Text><Text style={{ flex: 1 }}>_______________________</Text><Text> </Text><Text style={{ flex: 1 }}>_______________________</Text></Text>
             </View>
             <View style={{ flexDirection: "row", gap: 10 }}>
               <Text>2.</Text>
-              <Text><Text style={{ flex: 1 }}>_______________________</Text> <Text style={{ flex: 1 }}>_______________________</Text></Text>
+              <Text><Text style={{ flex: 1 }}>_______________________</Text><Text> </Text><Text style={{ flex: 1 }}>_______________________</Text></Text>
             </View>
             <View style={{ flexDirection: "row", gap: 10 }}>
               <Text>3.</Text>
-              <Text><Text style={{ flex: 1 }}>_______________________</Text> <Text style={{ flex: 1 }}>_______________________</Text></Text>
+              <Text><Text style={{ flex: 1 }}>_______________________</Text><Text> </Text><Text style={{ flex: 1 }}>_______________________</Text></Text>
             </View>
           </View>
         </View>

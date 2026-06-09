@@ -58,7 +58,8 @@ export function ProjectInformationSection() {
   const { data: subThematicAreasData, isLoading: isLoadingSubThematicAreas } =
     useSubThematicAreas({
       thematic_area: thematicAreaId ? Number(thematicAreaId) : undefined,
-      limit: 1000,
+      // Sub-thematic areas are bounded per thematic area — 200 is a safe cap.
+      limit: 200,
     });
 
   // Wrapper hook for sub thematic areas options (filtered by thematic area)

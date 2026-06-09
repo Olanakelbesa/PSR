@@ -31,7 +31,9 @@ export function StrategicObjectivesField() {
     }) as string[]) ?? [];
 
   const { data: strategicObjectivesData = [] } = useStrategicObjectives({
-    limit: 1000,
+    // Strategic objectives are reference data with a naturally small count.
+    // 200 is a safe cap; the SearchableSelect filters client-side from this list.
+    limit: 200,
   });
 
   const strategicOptions: StrategicObjectiveOption[] = strategicObjectivesData.map(

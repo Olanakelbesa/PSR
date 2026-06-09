@@ -35,16 +35,26 @@ export function useGrantCalls(params: GrantCallListParams = {}) {
   });
 }
 
-export function useOpenGrantCallsForSelect() {
+export function useOpenGrantCallsForSelect(params: GrantCallListParams = {}) {
+  const queryParams = {
+    status: "open",
+    limit: params.limit ?? 50,
+    search: params.search,
+    ordering: params.ordering,
+  };
   return useQuery({
-    queryKey: ["grant-calls", "open-select"],
+    queryKey: ["grant-calls", "open-select", queryParams],
+    // Use server-side status filter to avoid fetching all records.
+    // Capped at requested limit or 50 by default.
     queryFn: async () => {
-      const response = await getGrantCalls({ limit: 1000 });
+      const response = await getGrantCalls(queryParams);
+      // Apply client-side date boundary check as a secondary guard
       return {
         data: (response.data ?? []).filter(isGrantCallOpen),
         meta: response.meta,
       };
     },
+    staleTime: 5 * 60 * 1000, // 5 min — open calls don't change frequently
   });
 }
 

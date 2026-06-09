@@ -196,7 +196,7 @@ const AwardLetterPDF: React.FC<{ data: AwardData }> = ({ data }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <PageHeader page={1} total={1} data={data} /> {/* usually 1 page */}
+        <PageHeader page={1} total={1} data={data} />
         <View style={styles.contentWrapper}>
           <View
             style={{
@@ -225,10 +225,12 @@ const AwardLetterPDF: React.FC<{ data: AwardData }> = ({ data }) => {
           </Text>
 
           <Text style={styles.paragraph}>
-            It is to be reminded that in response to the call for proposals by
-            our university, you have submitted a proposal entitled{" "}
-            <Text style={[styles.bold]}>
-              &quot;{data.projectTitle}&quot;
+            <Text>
+              It is to be reminded that in response to the call for proposals by
+              our university, you have submitted a proposal entitled{" "}
+            </Text>
+            <Text style={styles.bold}>
+              {'“'}{data.projectTitle}{'”'}
             </Text>
             <Text>
               {" "}developed by you and other team members. The proposal has been
@@ -238,23 +240,33 @@ const AwardLetterPDF: React.FC<{ data: AwardData }> = ({ data }) => {
           </Text>
 
           <Text style={styles.paragraph}>
-            Thus, I am pleased to inform you that the Office of the Vice
-            President for Research and Technology Transfer has provisionally
-            approved the same for the period of{" "}
-            <Text style={styles.bold}>{data.approvalStart}</Text> to{" "}
-            <Text style={styles.bold}>{data.approvalEnd}</Text>. The total
-            project grant award for the period is{" "}
-            <Text style={styles.bold}>Birr {data.totalAmount} ETB</Text> (the{" "}
-            {data.percentage}% is{" "}
-            <Text style={styles.bold}>Birr {data.percentageAmountWords} ETB</Text>).
+            <Text>
+              Thus, I am pleased to inform you that the Office of the Vice
+              President for Research and Technology Transfer has provisionally
+              approved the same for the period of{" "}
+            </Text>
+            <Text style={styles.bold}>{data.approvalStart}</Text>
+            <Text> to </Text>
+            <Text style={styles.bold}>{data.approvalEnd}</Text>
+            <Text>
+              . The total project grant award for the period is{" "}
+            </Text>
+            <Text style={styles.bold}>Birr {data.totalAmount} ETB</Text>
+            <Text> (the {data.percentage}% is </Text>
+            <Text style={styles.bold}>Birr {data.percentageAmountWords} ETB</Text>
+            <Text>).</Text>
           </Text>
 
           <Text style={styles.paragraph}>
-            This is also to request you to sign the project grant award
-            contractual agreement until{" "}
-            <Text style={styles.bold}>{data.agreementDeadline}</Text>. We wish
-            you success in your project and look forward to receiving outputs of
-            the project.
+            <Text>
+              This is also to request you to sign the project grant award
+              contractual agreement until{" "}
+            </Text>
+            <Text style={styles.bold}>{data.agreementDeadline}</Text>
+            <Text>
+              . We wish you success in your project and look forward to
+              receiving outputs of the project.
+            </Text>
           </Text>
 
           <View style={styles.closing}>
@@ -265,12 +277,12 @@ const AwardLetterPDF: React.FC<{ data: AwardData }> = ({ data }) => {
             <Text style={styles.ccLabel}>Cc:</Text>
             <Text>Office of the President</Text>
             <Text>Office of Vice President for Academic Affairs</Text>
-            {data.second_level_office_name_en && (
+            {data.second_level_office_name_en ? (
               <Text>Office of {data.second_level_office_name_en}</Text>
-            )}
-            {data.submitting_office_name_en && (
+            ) : null}
+            {data.submitting_office_name_en ? (
               <Text>{data.submitting_office_name_en}</Text>
-            )}
+            ) : null}
           </View>
         </View>
       </Page>

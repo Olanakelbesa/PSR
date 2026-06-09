@@ -56,16 +56,18 @@ export function useInternalUsers(params?: {
   });
 }
 
-export function useInternalUserById(id: string | null) {
+export function useInternalUserById(id: string | number | null) {
   return useQuery({
     queryKey: ["internal-user", id],
     queryFn: async () => {
       if (!id) return undefined;
+      // Fetch by ID directly from selector API — avoids admin permission restrictions
       const { data } = await apiClient.get(API_ENDPOINTS.USERS.SELECTOR, {
-        params: { limit: 1000 },
+        params: { id },
       });
-      const list = extractList(data).map(normalizeInternalUser);
-      return list.find((user) => String(user.id) === String(id));
+      const list = extractList(data);
+      if (list.length === 0) return undefined;
+      return normalizeInternalUser(list[0]);
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,

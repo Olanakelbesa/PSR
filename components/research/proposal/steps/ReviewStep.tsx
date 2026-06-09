@@ -144,7 +144,10 @@ export function ProposalReviewStep({
   const selectedThematicArea = thematicAreaData;
 
   // Fetch all users and roles for team members display
-  const { data: allUsersData } = useInternalUsers({ limit: 1000 });
+  // Fetch enough users to resolve the team-member display names already in the form.
+  // If your organisation has >200 internal users, replace this with individual
+  // useInternalUserById() calls per team member to avoid a large list fetch.
+  const { data: allUsersData } = useInternalUsers({ limit: 200 });
   const { data: allRolesData } = useTeamMemberRoles({ limit: 100 });
 
   const users = (allUsersData ?? []) as Array<{

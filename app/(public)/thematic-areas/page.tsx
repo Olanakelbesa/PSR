@@ -22,7 +22,7 @@ export default function ThematicAreasPage() {
   const {
     data: subThematicAreasResponse,
     isLoading: isLoadingSubThematicAreas,
-  } = useSubThematicAreas({ limit: 1000 });
+  } = useSubThematicAreas({ limit: 200 }); // Grouped by thematic area — 200 covers all sub-areas in practice
 
   const thematicAreas = useMemo(() => {
     const areas = thematicAreasResponse?.data ?? [];
