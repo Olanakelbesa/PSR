@@ -41,7 +41,7 @@ export default function DashboardLayout({
   if (!isAuthenticated) return null;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
       <SidebarInset className="flex flex-col overflow-hidden">
         <AppHeader />
