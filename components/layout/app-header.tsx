@@ -187,12 +187,12 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
         {/* User Avatar */}
-        <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-primary/20">
+        {/* <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-primary/20">
           <AvatarImage src="" alt={user?.firstName} />
           <AvatarFallback className="bg-emerald-600 text-white text-sm font-medium">
             {getInitials(user?.firstName, user?.lastName)}
           </AvatarFallback>
-        </Avatar>
+        </Avatar> */}
       </div>
     </header>
   );

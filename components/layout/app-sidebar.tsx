@@ -414,7 +414,10 @@ export function AppSidebar() {
               asChild
               className="hover:bg-sidebar-accent"
             >
-              <Link href="/dashboard" className="flex items-center gap-3">
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
+              >
                 <div className="flex aspect-square size-11 items-center justify-center overflow-hidden rounded-xl bg-background ring-1 ring-border/50 shadow-sm">
                   <Image
                     src="/moh_logo.png"
@@ -489,7 +492,7 @@ export function AppSidebar() {
                             isActive={parentActive}
                             tooltip={item.label}
                             className={`
-                              h-10 px-3 rounded-lg transition-all duration-200 flex items-center gap-3
+                              h-10 px-3 rounded-lg transition-all duration-200 flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0
                               ${
                                 parentActive
                                   ? "bg-primary text-primary-foreground font-medium shadow-md"
@@ -574,7 +577,7 @@ export function AppSidebar() {
                         >
                           <Link
                             href={item.href || "#"}
-                            className="flex items-center gap-3"
+                            className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                           >
                             {Icon && <Icon className="size-5" />}
                             <span className="text-sm group-data-[collapsible=icon]:hidden">
@@ -602,7 +605,7 @@ export function AppSidebar() {
                   className="h-14 px-3 rounded-lg hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent"
                 >
                   <Avatar className="h-9 w-9 rounded-full ring-2 ring-sidebar-accent">
-                    <AvatarFallback className="rounded-full text-white text-sm font-medium">
+                    <AvatarFallback className="rounded-full bg-primary text-white text-sm font-medium">
                       {getInitials(user?.firstName, user?.lastName)}
                     </AvatarFallback>
                   </Avatar>

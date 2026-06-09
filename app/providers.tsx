@@ -45,10 +45,7 @@ export function Providers({ children, session }: ProvidersProps) {
         />
 
         {/* TanStack Query DevTools — only visible in development */}
-        <ReactQueryDevtools
-          initialIsOpen={false}
-          buttonPosition="bottom-left"
-        />
+        <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </SessionProvider>
   );
