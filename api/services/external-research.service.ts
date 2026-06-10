@@ -1,5 +1,6 @@
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import type { ExternalResearchRecord } from "@/types/external-research";
 
 type QueryValue = string | number | boolean | undefined | null;
 
@@ -111,9 +112,9 @@ export const externalResearchService = {
       params: cleanParams(filters),
     });
 
-    const list = normalizeList<any>(data);
+    const list = normalizeList<ExternalResearchRecord>(data);
 
-    const normalized = list.data.map((item: any) => ({
+    const normalized = list.data.map((item) => ({
       id: item.id ?? item.pk,
       uploaded_by_name:
         item.uploadedByName ??
@@ -142,6 +143,11 @@ export const externalResearchService = {
       file: item.file ?? item.document ?? null,
       uploaded_at: item.uploadedAt ?? item.uploaded_at ?? null,
       uploaded_by: item.uploadedBy ?? item.uploaded_by ?? null,
+      reviewed_by_name:
+        item.reviewedByName ?? item.reviewed_by_name ?? undefined,
+      reviewed_at: item.reviewedAt ?? item.reviewed_at ?? null,
+      approval_status: item.approvalStatus ?? item.approval_status ?? "pending",
+      approval_remarks: item.approvalRemarks ?? item.approval_remarks ?? null,
     }));
 
     return { data: normalized, meta: list.meta };
@@ -152,7 +158,7 @@ export const externalResearchService = {
       API_ENDPOINTS.EXTERNAL_RESEARCH.DETAIL(id),
     );
 
-    const payload = normalizeDetail<any>(data);
+    const payload = normalizeDetail<ExternalResearchRecord>(data);
 
     const mapped = {
       id: payload.id ?? payload.pk,
@@ -188,6 +194,13 @@ export const externalResearchService = {
       file: payload.file ?? payload.document ?? null,
       uploaded_at: payload.uploadedAt ?? payload.uploaded_at ?? null,
       uploaded_by: payload.uploadedBy ?? payload.uploaded_by ?? null,
+      reviewed_by_name:
+        payload.reviewedByName ?? payload.reviewed_by_name ?? undefined,
+      reviewed_at: payload.reviewedAt ?? payload.reviewed_at ?? null,
+      approval_status:
+        payload.approvalStatus ?? payload.approval_status ?? "pending",
+      approval_remarks:
+        payload.approvalRemarks ?? payload.approval_remarks ?? null,
     };
 
     return mapped;
@@ -203,7 +216,7 @@ export const externalResearchService = {
       },
     );
 
-    return normalizeDetail<any>(data);
+    return normalizeDetail<ExternalResearchRecord>(data);
   },
 
   async update(id: string | number, values: Record<string, unknown>) {
@@ -217,6 +230,6 @@ export const externalResearchService = {
       },
     );
 
-    return normalizeDetail<any>(data);
+    return normalizeDetail<ExternalResearchRecord>(data);
   },
 };

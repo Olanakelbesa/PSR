@@ -59,7 +59,11 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { PERMISSIONS, PERMISSION_GROUPS, type PermissionValue } from "@/lib/permissions";
+import {
+  PERMISSIONS,
+  PERMISSION_GROUPS,
+  type PermissionValue,
+} from "@/lib/permissions";
 
 interface SubNavItem {
   label: string;
@@ -109,6 +113,7 @@ const navigationGroups: NavGroup[] = [
             href: "/policies/concept-notes/review-concept-note",
             icon: Dot,
             // permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
+            // permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
           },
         ],
       },
@@ -131,6 +136,7 @@ const navigationGroups: NavGroup[] = [
             label: "Review Draft",
             href: "/policies/drafts/review-draft",
             icon: Dot,
+            // permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
             // permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
           },
         ],
@@ -184,6 +190,7 @@ const navigationGroups: NavGroup[] = [
             href: "/research/proposals/technical-reviews",
             icon: Dot,
             // permissions: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
+            // permissions: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
           },
         ],
       },
@@ -220,6 +227,7 @@ const navigationGroups: NavGroup[] = [
             href: "/research/monitoring/progress-report",
             icon: Dot,
             // permissions: [PERMISSIONS.MONITORING_VIEW_PROJECT_TRACKING],
+            // permissions: [PERMISSIONS.MONITORING_VIEW_PROJECT_TRACKING],
           },
           {
             label: "Progress Report Approval",
@@ -237,6 +245,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Final Reports",
             href: "/research/final-report/my-final-reports",
             icon: Dot,
+            // permissions: [
+            //   PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
+            //   PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
+            // ],
             // permissions: [
             //   PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
             //   PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
@@ -265,9 +277,19 @@ const navigationGroups: NavGroup[] = [
       },
       {
         label: "External Research ", // add psr approval menu
-        href: "/research/external-research",
-        icon: Globe,
-        // permissions: [PERMISSIONS.EXTERNAL_RESEARCH_VIEW],
+        subItems: [
+          {
+            label: "External Research",
+            href: "/research/external-research",
+            icon: Dot,
+          },
+          {
+            label: "External Research Approval",
+            href: "/research/external-research/approval",
+            icon: Dot,
+            permissions: [PERMISSIONS.RESEARCH_VIEW_EXTERNAL_RESEARCH_APPROVAL],
+          },
+        ],
       },
     ],
   },
@@ -324,7 +346,11 @@ const navigationGroups: NavGroup[] = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const { user: currentUser, hasAny, isLoading: permissionsLoading } = useCurrentUser();
+  const {
+    user: currentUser,
+    hasAny,
+    isLoading: permissionsLoading,
+  } = useCurrentUser();
   const permissionsLoaded = !permissionsLoading;
 
   const roleLabel =
@@ -415,9 +441,7 @@ export function AppSidebar() {
                   />
                 </div>
                 <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-bold text-base">
-                    RPDMS
-                  </span>
+                  <span className="truncate font-bold text-base">RPDMS</span>
                   <span className="truncate text-xs text-sidebar-foreground/70">
                     Research and Policy Documents Management System
                   </span>

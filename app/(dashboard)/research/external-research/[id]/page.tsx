@@ -56,6 +56,13 @@ export default function ExternalResearchDetailPage() {
   const citationValue =
     item?.citation ||
     `${familyName}, ${primaryAuthor[0] || "U"}. (${publicationYear}). ${publicationTitle}. ${sourceName}.`;
+  const approvalStatus = String(item?.approval_status ?? "pending");
+  const approvalLabel =
+    approvalStatus === "approved"
+      ? "Approved"
+      : approvalStatus === "rejected"
+        ? "Rejected"
+        : "Pending Approval";
 
   if (isLoading) {
     return (
@@ -122,7 +129,7 @@ export default function ExternalResearchDetailPage() {
             variant="outline"
             className="px-3 py-1 font-bold uppercase tracking-wider text-primary border-primary/20"
           >
-            Ingested Evidence
+            {approvalLabel}
           </Badge>
         </div>
 
@@ -131,7 +138,7 @@ export default function ExternalResearchDetailPage() {
           {/* LEFT COLUMN: Narrative Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Header Details Card */}
-            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-[1.5rem]">
+            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-3xl">
               <CardContent className="p-6 md:p-8 space-y-6">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <Tag className="h-3.5 w-3.5" />
@@ -189,7 +196,7 @@ export default function ExternalResearchDetailPage() {
             </Card>
 
             {/* Core Narrative / Abstract */}
-            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-[1.5rem]">
+            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-3xl">
               <CardHeader className="border-b pb-4 p-6 md:p-8">
                 <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
                   <FileText className="h-5 w-5 text-primary" />
@@ -200,7 +207,6 @@ export default function ExternalResearchDetailPage() {
                 <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-line">
                   {abstractText}
                 </p>
-
               </CardContent>
             </Card>
           </div>
@@ -208,7 +214,7 @@ export default function ExternalResearchDetailPage() {
           {/* RIGHT COLUMN: Citation & Files */}
           <div className="space-y-6">
             {/* Spec Card */}
-            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-[1.5rem]">
+            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-3xl">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   Archive Specifications
@@ -239,7 +245,7 @@ export default function ExternalResearchDetailPage() {
             </Card>
 
             {/* Citation Panel */}
-            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-[1.5rem]">
+            <Card className="border border-muted-foreground/10 shadow-sm bg-white overflow-hidden rounded-3xl">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <FileCode2 className="h-4 w-4 text-primary" />
@@ -274,7 +280,7 @@ export default function ExternalResearchDetailPage() {
                   </TabsList>
 
                   <div className="mt-3">
-                    <div className="p-3 bg-slate-50 border rounded-xl font-mono text-[10px] leading-relaxed text-slate-700 select-all max-h-[140px] overflow-y-auto whitespace-pre-wrap">
+                    <div className="p-3 bg-slate-50 border rounded-xl font-mono text-[10px] leading-relaxed text-slate-700 select-all max-h-35 overflow-y-auto whitespace-pre-wrap">
                       {citations[citationFormat as keyof typeof citations]}
                     </div>
                   </div>
@@ -301,7 +307,7 @@ export default function ExternalResearchDetailPage() {
             </Card>
 
             {/* Supporting Document */}
-            <Card className="border border-muted-foreground/10 shadow-md bg-white overflow-hidden rounded-[1.5rem]">
+            <Card className="border border-muted-foreground/10 shadow-md bg-white overflow-hidden rounded-3xl">
               <CardHeader className="border-b pb-4">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                   Document Access

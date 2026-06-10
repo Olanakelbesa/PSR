@@ -38,7 +38,8 @@ export const PERMISSIONS = {
     "policy_proposals.view_concept_note_submitted_queue",
   POLICY_VIEW_CONCEPT_SUBMITTED_QUEUE: "policy_proposals.view_submitted_queue",
   POLICY_REVIEW_CONCEPT_NOTE: "policy_proposals.review_concept_note",
-  POLICY_VIEW_ASSIGNED_CONCEPT_REVIEWS: "policy_proposals.view_assigned_reviews",
+  POLICY_VIEW_ASSIGNED_CONCEPT_REVIEWS:
+    "policy_proposals.view_assigned_reviews",
   POLICY_ASSIGN_CONCEPT_REVIEWER: "policy_proposals.assign_reviewer",
   POLICY_APPROVE_CONCEPT_NOTE: "policy_proposals.approve_concept_note",
 
@@ -46,9 +47,11 @@ export const PERMISSIONS = {
   POLICY_VIEW_POLICYDRAFT: "policy_development.view_policydraft",
   POLICY_VIEW_DRAFT_SUBMITTED_QUEUE:
     "policy_development.view_policy_draft_submitted_queue",
-  POLICY_VIEW_DRAFT_SUBMITTED_QUEUE_ALT: "policy_development.view_submitted_queue",
+  POLICY_VIEW_DRAFT_SUBMITTED_QUEUE_ALT:
+    "policy_development.view_submitted_queue",
   POLICY_REVIEW_DRAFT: "policy_development.review_policy_draft",
-  POLICY_VIEW_ASSIGNED_DRAFT_REVIEWS: "policy_development.view_assigned_reviews",
+  POLICY_VIEW_ASSIGNED_DRAFT_REVIEWS:
+    "policy_development.view_assigned_reviews",
   POLICY_ASSIGN_DRAFT_REVIEWER: "policy_development.assign_reviewer",
   POLICY_PSR_DECISION: "policy_development.psr_decision",
 
@@ -67,7 +70,8 @@ export const PERMISSIONS = {
   RESEARCH_VIEW_INDIVIDUAL_REVIEW: "research_review.view_individualreview",
   RESEARCH_VIEW_READY_FOR_FUNDING: "research_review.view_readyforfunding",
   RESEARCH_VIEW_ETHICAL_CLEARANCE: "research_review.view_ethicalclearance",
-  RESEARCH_VIEW_FUNDING_RECOMMENDATION: "research_review.view_fundingrecommendation",
+  RESEARCH_VIEW_FUNDING_RECOMMENDATION:
+    "research_review.view_fundingrecommendation",
   RESEARCH_VIEW_MINUTES: "research_review.view_minutes",
 
   // ─── Research — Compliance / Protocol ────────────────────────────────────────
@@ -81,17 +85,21 @@ export const PERMISSIONS = {
   // ─── Research — Monitoring ───────────────────────────────────────────────────
   MONITORING_VIEW_PROJECT_TRACKING: "research_monitoring.view_projecttracking",
   MONITORING_VIEW_PROGRESS_REPORT: "research_monitoring.view_progressreport",
-  MONITORING_SUBMIT_PROGRESS_REPORT: "research_monitoring.submit_progress_report",
+  MONITORING_SUBMIT_PROGRESS_REPORT:
+    "research_monitoring.submit_progress_report",
   MONITORING_VIEW_PROGRESS_REPORT_APPROVAL:
     "research_monitoring.view_progressreportapproval",
   MONITORING_VIEW_TERMINAL_REPORT: "research_monitoring.view_terminalreport",
-  MONITORING_SUBMIT_TERMINAL_REPORT: "research_monitoring.submit_terminal_report",
+  MONITORING_SUBMIT_TERMINAL_REPORT:
+    "research_monitoring.submit_terminal_report",
   MONITORING_VIEW_TERMINAL_REPORT_APPROVAL:
     "research_monitoring.view_terminalreportapproval",
 
   // ─── External Research ───────────────────────────────────────────────────────
   EXTERNAL_RESEARCH_VIEW: "external_research.view_externalresearch",
   EXTERNAL_RESEARCH_ADD: "external_research.add_externalresearch",
+  RESEARCH_VIEW_EXTERNAL_RESEARCH_APPROVAL:
+    "external_research.change_externalresearch",
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

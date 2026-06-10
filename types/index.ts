@@ -35,6 +35,11 @@ export type {
 } from "@/types/final-submission";
 
 export type {
+  ExternalResearchRecord,
+  ExternalResearchApprovalStatus,
+} from "@/types/external-research";
+
+export type {
   MinuteRecord,
   MinuteCreateInput,
   MinuteListResponse,

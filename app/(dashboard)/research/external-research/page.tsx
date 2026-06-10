@@ -127,6 +127,37 @@ export default function ExternalResearchPage() {
       ),
     },
     {
+      accessorKey: "approval_status",
+      header: "Approval",
+      cell: ({ row }: any) => {
+        const status = String(row.original.approval_status ?? "pending");
+        const statusLabel =
+          status === "approved"
+            ? "Approved"
+            : status === "rejected"
+              ? "Rejected"
+              : "Pending";
+        const statusClass =
+          status === "approved"
+            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+            : status === "rejected"
+              ? "bg-rose-50 border-rose-200 text-rose-700"
+              : "bg-amber-50 border-amber-200 text-amber-700";
+
+        return (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[9px] font-bold py-0.5 px-2 uppercase tracking-wide",
+              statusClass,
+            )}
+          >
+            {statusLabel}
+          </Badge>
+        );
+      },
+    },
+    {
       id: "actions",
       cell: ({ row }: any) => (
         <DropdownMenu>
@@ -150,6 +181,16 @@ export default function ExternalResearchPage() {
               >
                 <Eye className="h-4 w-4 mr-2" />
                 View Full Entry
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link
+                href="/research/external-research/approval"
+                className="cursor-pointer"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Review Approval Queue
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -179,15 +220,15 @@ export default function ExternalResearchPage() {
       }
     >
       <div className="space-y-8">
-        {/* Table list replacing grid */}
-
         <DataTable
           columns={columns}
           data={data?.data ?? []}
           searchKey="projectTitle"
           searchPlaceholder="Search title, keywords or publishers..."
           emptyMessage="No external research findings found"
-          onRowClick={(research) => router.push(`/research/external-research/${research.id}`)}
+          onRowClick={(research) =>
+            router.push(`/research/external-research/${research.id}`)
+          }
         />
       </div>
     </PageContainer>
