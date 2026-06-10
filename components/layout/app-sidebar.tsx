@@ -491,6 +491,17 @@ export function AppSidebar() {
                           pathname.startsWith(sub.href + "/"),
                       );
 
+                      // Only the most specific (longest) matching sibling is
+                      // active, so e.g. "/research/external-research" doesn't
+                      // light up on "/research/external-research/approval".
+                      const activeSubHref = validSubItems
+                        .filter(
+                          (sub) =>
+                            pathname === sub.href ||
+                            pathname.startsWith(sub.href + "/"),
+                        )
+                        .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
                       return (
                         <SidebarMenuItem key={item.label}>
                           <SidebarMenuButton
@@ -532,11 +543,7 @@ export function AppSidebar() {
                             <SidebarMenuSub className="pt-4 space-y-2">
                               {validSubItems.map((sub) => {
                                 const SubIcon = sub.icon;
-                                const isSubActive =
-                                  sub.href === "/settings"
-                                    ? pathname === "/settings"
-                                    : pathname === sub.href ||
-                                      pathname.startsWith(sub.href + "/");
+                                const isSubActive = sub.href === activeSubHref;
                                 return (
                                   <SidebarMenuSubItem key={sub.href}>
                                     <SidebarMenuSubButton

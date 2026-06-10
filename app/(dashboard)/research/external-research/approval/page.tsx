@@ -151,14 +151,6 @@ export default function ExternalResearchApprovalPage() {
     <PageContainer
       title="External Research Approval"
       description="Review external research submissions and mark them approved or rejected."
-      actions={
-        <Button asChild variant="outline" className="shadow-sm bg-white">
-          <Link href="/research/external-research">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to External Research
-          </Link>
-        </Button>
-      }
     >
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-3">
@@ -202,42 +194,19 @@ export default function ExternalResearchApprovalPage() {
             </CardContent>
           </Card>
         </div>
-
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="text-base font-bold">
-              Pending submissions
-            </CardTitle>
-            <CardDescription>
-              Only submissions waiting for review are shown here.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="max-w-md">
-              <Label htmlFor="external-research-search">Search queue</Label>
-              <Input
-                id="external-research-search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search title, authors, institution..."
-                className="mt-2"
-              />
-            </div>
-
-            <DataTable
-              columns={columns}
-              data={rows}
-              searchKey="title"
-              searchPlaceholder="Search pending submissions..."
-              emptyMessage={
-                isLoading
-                  ? "Loading pending submissions..."
-                  : "No pending external research submissions."
-              }
-            />
-          </CardContent>
-        </Card>
       </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        searchKey="title"
+        searchPlaceholder="Search pending submissions..."
+        emptyMessage={
+          isLoading
+            ? "Loading pending submissions..."
+            : "No pending external research submissions."
+        }
+      />
+
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
