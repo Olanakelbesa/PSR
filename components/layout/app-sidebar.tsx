@@ -150,7 +150,7 @@ const navigationGroups: NavGroup[] = [
         label: "Grant Calls",
         href: "/research/grant-calls",
         icon: Megaphone,
-        permissions: [PERMISSIONS.SETTING_VIEW_GRANTCALL],
+        // permissions: [PERMISSIONS.SETTING_VIEW_GRANTCALL],
       },
       {
         label: "Manage Grants",

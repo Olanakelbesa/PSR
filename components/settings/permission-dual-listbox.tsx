@@ -88,14 +88,10 @@ export function PermissionDualListbox({
         return { next: Array.from(merged), lastIndex: index };
       }
 
-      if (event.metaKey || event.ctrlKey) {
-        const next = current.includes(id)
-          ? current.filter((itemId) => itemId !== id)
-          : [...current, id];
-        return { next, lastIndex: index };
-      }
-
-      return { next: [id], lastIndex: index };
+      const next = current.includes(id)
+        ? current.filter((itemId) => itemId !== id)
+        : [...current, id];
+      return { next, lastIndex: index };
     },
     [],
   );
@@ -148,10 +144,14 @@ export function PermissionDualListbox({
   const chooseAllFiltered = () => moveToChosen(filteredAvailable.map((item) => item.id));
   const removeAllFiltered = () => moveToAvailable(filteredChosen.map((item) => item.id));
 
+  const handleAvailableDoubleClick = (item: PermissionListItem) => moveToChosen([item.id]);
+  const handleChosenDoubleClick = (item: PermissionListItem) => moveToAvailable([item.id]);
+
   const renderList = (
     list: PermissionListItem[],
     selected: number[],
     onItemClick: (item: PermissionListItem, index: number, event: React.MouseEvent) => void,
+    onItemDoubleClick: (item: PermissionListItem) => void,
     onClearSelection: () => void,
     emptyMessage: string,
   ) => (
@@ -175,6 +175,7 @@ export function PermissionDualListbox({
                 type="button"
                 disabled={disabled}
                 onClick={(event) => onItemClick(item, index, event)}
+                onDoubleClick={() => onItemDoubleClick(item)}
                 className={cn(
                   "w-full rounded-sm px-2 py-1.5 text-left text-sm transition-colors",
                   isSelected
@@ -216,6 +217,7 @@ export function PermissionDualListbox({
             filteredAvailable,
             selectedAvailable,
             handleAvailableClick,
+            handleAvailableDoubleClick,
             () => {
               setSelectedAvailable([]);
               setLastAvailableIndex(null);
@@ -275,6 +277,7 @@ export function PermissionDualListbox({
             filteredChosen,
             selectedChosen,
             handleChosenClick,
+            handleChosenDoubleClick,
             () => {
               setSelectedChosen([]);
               setLastChosenIndex(null);
@@ -296,8 +299,8 @@ export function PermissionDualListbox({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Specific permissions for this user. Hold down Control, or Command on a Mac, to select
-        more than one.
+        Specific permissions for this user. Click to select multiple items, hold Shift to select a
+        range, or double-click an item to move it to the other side.
       </p>
     </div>
   );
