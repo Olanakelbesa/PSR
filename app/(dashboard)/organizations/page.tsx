@@ -21,7 +21,13 @@ import {
 import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,11 +65,21 @@ import {
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { Organization } from "@/api/services/organizations.service";
+import type { ApiError } from "@/api/client";
+import { OrganizationForm } from "@/components/organizations/organization-form";
 import {
+  useCreateOrganization,
   useDeleteOrganization,
   useOrganizationsList,
   useOrganizationTypesList,
 } from "@/hooks/useOrganizations";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === "object" && error !== null && "message" in error) {
@@ -74,11 +90,23 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+const emptyOrganizationDefaults = {
+  name: "",
+  orgType: "",
+  description: "",
+  organizationEmail: "",
+  organizationWebsite: "",
+  address: "",
+};
+
 export default function OrganizationsPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [deleteCandidate, setDeleteCandidate] = useState<Organization | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Organization | null>(
+    null,
+  );
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const debouncedSearch = useDebounce(search, 400);
 
   const {
@@ -94,6 +122,7 @@ export default function OrganizationsPage() {
     org_type: typeFilter !== "all" ? Number(typeFilter) : undefined,
   });
   const { data: typesResponse } = useOrganizationTypesList({ limit: 100 });
+  const createMutation = useCreateOrganization();
   const deleteMutation = useDeleteOrganization();
 
   const typeMap = useMemo(() => {
@@ -131,10 +160,48 @@ export default function OrganizationsPage() {
       title="Organizations"
       description="Manage institutional partners used in user profiles, proposals, and policy workflows."
       actions={
-        <Button onClick={() => router.push("/organizations/add")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Organization
-        </Button>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Organization
+          </Button>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Add Organization</DialogTitle>
+              <DialogDescription>
+                Create a new institutional partner record without leaving this
+                page.
+              </DialogDescription>
+            </DialogHeader>
+            <OrganizationForm
+              defaultValues={emptyOrganizationDefaults}
+              organizationTypes={typesResponse?.data ?? []}
+              submitLabel="Create Organization"
+              isPending={createMutation.isPending}
+              onSubmit={async (values) => {
+                try {
+                  const created = await createMutation.mutateAsync({
+                    name: values.name,
+                    orgType: Number(values.orgType),
+                    description: values.description,
+                    organizationEmail: values.organizationEmail || undefined,
+                    organizationWebsite:
+                      values.organizationWebsite || undefined,
+                    address: values.address,
+                  });
+                  toast.success("Organization created successfully.");
+                  setIsCreateOpen(false);
+                  router.push(`/organizations/${created.id}`);
+                } catch (err) {
+                  const apiError = err as ApiError;
+                  toast.error(
+                    apiError?.message ?? "Failed to create organization.",
+                  );
+                }
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       }
     >
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -164,7 +231,9 @@ export default function OrganizationsPage() {
           <Card key={type.id}>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">{type.name}</p>
-              <p className="text-2xl font-semibold">{typeCounts[type.id] ?? 0}</p>
+              <p className="text-2xl font-semibold">
+                {typeCounts[type.id] ?? 0}
+              </p>
             </CardContent>
           </Card>
         ))}
@@ -179,8 +248,14 @@ export default function OrganizationsPage() {
                 Search, filter by type, and manage organization records.
               </CardDescription>
             </div>
-            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-              <RefreshCw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw
+                className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")}
+              />
               Refresh
             </Button>
           </div>
@@ -232,14 +307,20 @@ export default function OrganizationsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={6}
+                      className="py-10 text-center text-muted-foreground"
+                    >
                       <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
                       Loading organizations...
                     </TableCell>
                   </TableRow>
                 ) : organizations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={6}
+                      className="py-10 text-center text-muted-foreground"
+                    >
                       No organizations found.
                     </TableCell>
                   </TableRow>
@@ -297,13 +378,17 @@ export default function OrganizationsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => router.push(`/organizations/${org.id}`)}
+                              onClick={() =>
+                                router.push(`/organizations/${org.id}`)
+                              }
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => router.push(`/organizations/${org.id}/edit`)}
+                              onClick={() =>
+                                router.push(`/organizations/${org.id}/edit`)
+                              }
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
@@ -339,13 +424,16 @@ export default function OrganizationsPage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!deleteCandidate} onOpenChange={() => setDeleteCandidate(null)}>
+      <AlertDialog
+        open={!!deleteCandidate}
+        onOpenChange={() => setDeleteCandidate(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete organization?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove &quot;{deleteCandidate?.name}&quot;. Users and
-              records linked to this organization may be affected.
+              This will permanently remove &quot;{deleteCandidate?.name}&quot;.
+              Users and records linked to this organization may be affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
