@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Lock, Mail, Save } from "lucide-react";
+import { Calendar, Loader2, Lock, Mail, Save, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -55,6 +55,16 @@ const emptyProfileForm: ProfileForm = {
   organizationId: "",
   unitId: "",
 };
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 function userInitials(name: string, email: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -337,6 +347,39 @@ export function ProfileSettingsCard() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Account status
+                </p>
+                <p className="text-sm font-medium">{profile?.status ?? "—"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Last login
+                </p>
+                <p className="text-sm">{formatDate(profile?.lastLogin)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Member since
+                </p>
+                <p className="text-sm">{formatDate(profile?.createdAt)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Shield className="h-3.5 w-3.5" />
+                  Effective permissions
+                </p>
+                <p className="text-sm">
+                  {(profile?.permissions ?? []).length} permission
+                  {(profile?.permissions ?? []).length === 1 ? "" : "s"}
+                </p>
               </div>
             </div>
 
