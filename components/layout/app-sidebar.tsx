@@ -108,7 +108,7 @@ const navigationGroups: NavGroup[] = [
             label: "Review Concept Note",
             href: "/policies/concept-notes/review-concept-note",
             icon: Dot,
-            permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
+            // permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
           },
         ],
       },
@@ -131,7 +131,7 @@ const navigationGroups: NavGroup[] = [
             label: "Review Draft",
             href: "/policies/drafts/review-draft",
             icon: Dot,
-            permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
+            // permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
           },
         ],
       },
@@ -183,7 +183,7 @@ const navigationGroups: NavGroup[] = [
             label: "Technical Reviews",
             href: "/research/proposals/technical-reviews",
             icon: Dot,
-            permissions: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
+            // permissions: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
           },
         ],
       },
@@ -209,7 +209,7 @@ const navigationGroups: NavGroup[] = [
         label: "Protocol",
         href: "/research/protocol",
         icon: FileCheck2,
-        permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
+        // permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
       },
       {
         label: "Monitoring",
@@ -219,7 +219,7 @@ const navigationGroups: NavGroup[] = [
             label: "Progress Report",
             href: "/research/monitoring/progress-report",
             icon: Dot,
-            permissions: [PERMISSIONS.MONITORING_VIEW_PROJECT_TRACKING],
+            // permissions: [PERMISSIONS.MONITORING_VIEW_PROJECT_TRACKING],
           },
           {
             label: "Progress Report Approval",
@@ -237,10 +237,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Final Reports",
             href: "/research/final-report/my-final-reports",
             icon: Dot,
-            permissions: [
-              PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
-              PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
-            ],
+            // permissions: [
+            //   PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
+            //   PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
+            // ],
           },
           {
             label: "Final Report Approval",
@@ -258,16 +258,16 @@ const navigationGroups: NavGroup[] = [
         permissions: [PERMISSIONS.RESEARCH_VIEW_FINAL_SUBMISSION],
       },
       {
-        label: "Minutes",
+        label: "Minutes", //psr commit
         href: "/research/minutes",
         icon: FileUp,
         permissions: [PERMISSIONS.RESEARCH_VIEW_MINUTES],
       },
       {
-        label: "External Research ",
+        label: "External Research ", // add psr approval menu
         href: "/research/external-research",
         icon: Globe,
-        permissions: [PERMISSIONS.EXTERNAL_RESEARCH_VIEW],
+        // permissions: [PERMISSIONS.EXTERNAL_RESEARCH_VIEW],
       },
     ],
   },

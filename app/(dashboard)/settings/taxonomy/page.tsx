@@ -98,7 +98,7 @@ const TABS: TaxonomyTabConfig[] = [
   {
     kind: TaxonomyKind.RESEARCH_TYPES,
     value: "study-types",
-    title: "Study Types",
+    title: "Research Types",
     description: "Research study types such as clinical trials and social science.",
     icon: FileType,
   },
