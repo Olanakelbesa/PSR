@@ -70,6 +70,10 @@ export const PERMISSIONS = {
   RESEARCH_VIEW_FUNDING_RECOMMENDATION: "research_review.view_fundingrecommendation",
   RESEARCH_VIEW_MINUTES: "research_review.view_minutes",
 
+  // ─── Research — Compliance / Protocol ────────────────────────────────────────
+  RESEARCH_VIEW_PROTOCOL: "research_compliance.view_protocol",
+  RESEARCH_ADD_PROTOCOL: "research_compliance.add_protocol",
+
   // ─── Research — Outputs ──────────────────────────────────────────────────────
   RESEARCH_VIEW_FINAL_SUBMISSION: "research_outputs.view_finalsubmission",
   RESEARCH_ADD_FINAL_SUBMISSION: "research_outputs.add_finalsubmission",
