@@ -138,7 +138,9 @@ export type ProposalStatus =
   | "contracted"
   | "in_progress"
   | "completed"
-  | "terminated";
+  | "terminated"
+  | "protocol_stage"
+  | "funding_recommendation";
 
 export type CallStatus =
   | "draft"
@@ -249,7 +251,14 @@ export interface ResearchProject {
   contractNumber: string;
   startDate: string;
   endDate: string;
-  status: "active" | "on_track" | "at_risk" | "delayed" | "completed" | "suspended" | "terminated";
+  status:
+    | "active"
+    | "on_track"
+    | "at_risk"
+    | "delayed"
+    | "completed"
+    | "suspended"
+    | "terminated";
   milestones: Milestone[];
   progressReports: ProgressReport[];
   budgetUtilization: BudgetUtilization;

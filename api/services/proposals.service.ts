@@ -15,12 +15,15 @@ function camelize(value: unknown): unknown {
   }
 
   if (value && typeof value === "object" && value.constructor === Object) {
-    return Object.entries(value).reduce<Record<string, unknown>>((acc, [key, rawValue]) => {
-      const transformedValue = camelize(rawValue);
-      acc[toCamelCase(key)] = transformedValue;
-      acc[key] = rawValue;
-      return acc;
-    }, {});
+    return Object.entries(value).reduce<Record<string, unknown>>(
+      (acc, [key, rawValue]) => {
+        const transformedValue = camelize(rawValue);
+        acc[toCamelCase(key)] = transformedValue;
+        acc[key] = rawValue;
+        return acc;
+      },
+      {},
+    );
   }
 
   return value;
@@ -57,6 +60,8 @@ export const ProposalStatusSchema = z.enum([
   "screening_under_review",
   "screening_approved",
   "screening_rejected",
+  "protocol_stage",
+  "funding_recommendation",
 ]);
 
 export const ScreeningStatusSchema = z.enum([
@@ -66,21 +71,23 @@ export const ScreeningStatusSchema = z.enum([
   "screening_rejected",
 ]);
 
-export const ProposalSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  title: z.string(),
-  status: ProposalStatusSchema.optional(),
-  callId: z.union([z.string(), z.number()]).transform(String).optional(),
-  abstract: z.string().optional(),
-  background: z.string().optional(),
-  objectives: z.string().optional(),
-  expectedOutcomes: z.string().optional(),
-  institution: z.string().optional(),
-  researchArea: z.string().optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  submittedAt: z.string().optional(),
-}).passthrough();
+export const ProposalSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    title: z.string(),
+    status: ProposalStatusSchema.optional(),
+    callId: z.union([z.string(), z.number()]).transform(String).optional(),
+    abstract: z.string().optional(),
+    background: z.string().optional(),
+    objectives: z.string().optional(),
+    expectedOutcomes: z.string().optional(),
+    institution: z.string().optional(),
+    researchArea: z.string().optional(),
+    createdAt: z.string().optional(),
+    updatedAt: z.string().optional(),
+    submittedAt: z.string().optional(),
+  })
+  .passthrough();
 
 const ManagedProposalUserSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
@@ -159,84 +166,89 @@ const ManagedProposalTeamMemberSchema = z.object({
   roleName: z.string().nullable().optional(),
 });
 
-const ManagedProposalDetailSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  screeningId: z.union([z.string(), z.number()]).transform(String).optional(),
-  referenceNumber: z.string().optional().default(""),
-  title: z.string(),
-  abstract: z.string().optional().default(""),
-  keywords: z.array(z.string()).optional().default([]),
-  thematicAreas: z
-    .array(
-      z.object({
+const ManagedProposalDetailSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    screeningId: z.union([z.string(), z.number()]).transform(String).optional(),
+    referenceNumber: z.string().optional().default(""),
+    title: z.string(),
+    abstract: z.string().optional().default(""),
+    keywords: z.array(z.string()).optional().default([]),
+    thematicAreas: z
+      .array(
+        z.object({
+          id: z.union([z.string(), z.number()]).transform(String),
+          name: z.string(),
+        }),
+      )
+      .default([]),
+    receivingOffice: z
+      .object({
         id: z.union([z.string(), z.number()]).transform(String),
         name: z.string(),
-      }),
-    )
-    .default([]),
-  receivingOffice: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  call: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      title: z.string(),
-    })
-    .optional()
-    .nullable(),
-  Organization: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  Unit: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  submittedAt: z.string().optional().nullable(),
-  proposalType: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  subThematicArea: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  createdBy: ManagedProposalUserSchema.optional().nullable(),
-  teamMembers: z.array(ManagedProposalTeamMemberSchema).optional().default([]),
-  reviewHistory: z.unknown().nullable().optional(),
-  startDate: z.string().optional().nullable(),
-  endDate: z.string().optional().nullable(),
-  budgetRequested: z.string().optional().nullable(),
-  proposalFile: z.string().nullable().optional(),
-  updatedProposal: z.string().nullable().optional(),
-  supportingDocs: z.unknown().nullable().optional(),
-  version: z.number().optional().nullable(),
-  resubmissionCount: z.number().optional().nullable(),
-  rejectionReason: z.string().optional().nullable(),
-  needsIrb: z.boolean().optional().nullable(),
-  createdAt: z.string().optional().nullable(),
-  firstSubmittedAt: z.string().optional().nullable(),
-  lastSubmittedAt: z.string().optional().nullable(),
-  signature: z.unknown().nullable().optional(),
-  workflowState: z.string().optional().nullable(),
-  status: ProposalStatusSchema,
-}).passthrough();
+      })
+      .optional()
+      .nullable(),
+    call: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        title: z.string(),
+      })
+      .optional()
+      .nullable(),
+    Organization: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    Unit: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    submittedAt: z.string().optional().nullable(),
+    proposalType: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    subThematicArea: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        name: z.string(),
+      })
+      .optional()
+      .nullable(),
+    createdBy: ManagedProposalUserSchema.optional().nullable(),
+    teamMembers: z
+      .array(ManagedProposalTeamMemberSchema)
+      .optional()
+      .default([]),
+    reviewHistory: z.unknown().nullable().optional(),
+    startDate: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+    budgetRequested: z.string().optional().nullable(),
+    proposalFile: z.string().nullable().optional(),
+    updatedProposal: z.string().nullable().optional(),
+    supportingDocs: z.unknown().nullable().optional(),
+    version: z.number().optional().nullable(),
+    resubmissionCount: z.number().optional().nullable(),
+    rejectionReason: z.string().optional().nullable(),
+    needsIrb: z.boolean().optional().nullable(),
+    createdAt: z.string().optional().nullable(),
+    firstSubmittedAt: z.string().optional().nullable(),
+    lastSubmittedAt: z.string().optional().nullable(),
+    signature: z.unknown().nullable().optional(),
+    workflowState: z.string().optional().nullable(),
+    status: ProposalStatusSchema,
+  })
+  .passthrough();
 
 const ProposalsListSchema = z.object({
   data: z.array(ProposalSchema),
@@ -338,7 +350,9 @@ export async function createProposal(
   data: Partial<Proposal>,
 ): Promise<Proposal> {
   const res = await apiClient.post(API_ENDPOINTS.PROPOSALS.CREATE, data);
-  return ProposalSchema.parse(normalizeProposalPayload(res.data?.data ?? res.data));
+  return ProposalSchema.parse(
+    normalizeProposalPayload(res.data?.data ?? res.data),
+  );
 }
 
 export async function updateProposal(
@@ -346,12 +360,16 @@ export async function updateProposal(
   data: Partial<Proposal>,
 ): Promise<Proposal> {
   const res = await apiClient.patch(API_ENDPOINTS.PROPOSALS.UPDATE(id), data);
-  return ProposalSchema.parse(normalizeProposalPayload(res.data?.data ?? res.data));
+  return ProposalSchema.parse(
+    normalizeProposalPayload(res.data?.data ?? res.data),
+  );
 }
 
 export async function submitProposal(id: string): Promise<Proposal> {
   const res = await apiClient.post(API_ENDPOINTS.PROPOSALS.SUBMIT(id), {});
-  return ProposalSchema.parse(normalizeProposalPayload(res.data?.data ?? res.data));
+  return ProposalSchema.parse(
+    normalizeProposalPayload(res.data?.data ?? res.data),
+  );
 }
 
 export async function assignReviewers(

@@ -60,7 +60,10 @@ const FLOW_STATUS_TO_UI_STATUS: Record<string, ResearchProposal["status"]> = {
 
 function normalizeProposalStatus(proposal: any): ResearchProposal["status"] {
   const backendStatus = String(
-    proposal.workflowState ?? proposal.workflow_state ?? proposal.status ?? "draft",
+    proposal.workflowState ??
+      proposal.workflow_state ??
+      proposal.status ??
+      "draft",
   ).toLowerCase();
 
   if (backendStatus === "resubmitted") {
@@ -89,6 +92,16 @@ const statusConfig: Record<
   in_progress: { label: "In Progress", variant: "outline", icon: Clock },
   completed: { label: "Completed", variant: "default", icon: CheckCircle2 },
   terminated: { label: "Terminated", variant: "destructive", icon: XCircle },
+  protocol_stage: {
+    label: "Protocol Stage",
+    variant: "outline",
+    icon: FileText,
+  },
+  funding_recommendation: {
+    label: "Funding Recommendation",
+    variant: "default",
+    icon: CheckCircle2,
+  },
   revision_requested: {
     label: "Revision Requested",
     variant: "outline",
@@ -114,7 +127,9 @@ const columns: ColumnDef<ProposalRow>[] = [
     header: "Title",
     cell: ({ row }) => (
       <div className="max-w-xs w-[250px]">
-        <p className="font-medium whitespace-normal break-words">{row.original.title}</p>
+        <p className="font-medium whitespace-normal break-words">
+          {row.original.title}
+        </p>
         <p className="text-xs text-muted-foreground truncate ">
           {row.original.principalInvestigator?.firstName}{" "}
           {row.original.principalInvestigator?.lastName}

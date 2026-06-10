@@ -141,6 +141,10 @@ const statusStyles: Record<string, string> = {
     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
   revision_required:
     "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
+  protocol_stage:
+    "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800",
+  funding_recommendation:
+    "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
 };
 
 function normalizeStatusKey(status?: string | null) {
@@ -258,12 +262,14 @@ export default function ProposalDetailPage() {
   const currentStatus =
     proposal?.status ?? (proposal?.submittedAt ? "submitted" : "draft");
   const statusKey = normalizeStatusKey(currentStatus);
-  const statusLabel = proposal?.statusDisplay ?? currentStatus.replace(/_/g, " ");
+  const statusLabel =
+    proposal?.statusDisplay ?? currentStatus.replace(/_/g, " ");
   const isScreeningRejected = statusKey === "screening_rejected";
   const isRevisionRequired = statusKey === "revision_required";
+  const isProtocolStage = statusKey === "protocol_stage";
   const isResubmittable = isScreeningRejected || isRevisionRequired;
   const isDraft = statusKey === "draft" && !proposal?.submittedAt;
-  const isEditable = isDraft;
+  const isEditable = isDraft || isProtocolStage;
   const teamMembers = proposal?.teamMembers ?? [];
   const internalTeam = teamMembers.filter(
     (member) => member.memberType === "internal",
@@ -277,9 +283,7 @@ export default function ProposalDetailPage() {
       : undefined;
   const reviewHistoryEvents = getReviewHistoryEvents(proposal?.reviewHistory);
   const rejectionFeedback =
-    proposal?.rejectionReason ||
-    reviewHistoryObject?.decisionRemarks ||
-    null;
+    proposal?.rejectionReason || reviewHistoryObject?.decisionRemarks || null;
 
   if (isLoading) {
     return (
@@ -337,7 +341,7 @@ export default function ProposalDetailPage() {
                 href={`/research/proposals/my-proposals/${proposal.id}/edit`}
               >
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                {isProtocolStage ? "Edit Proposal Details" : "Edit"}
               </Link>
             </Button>
           )}
@@ -486,7 +490,6 @@ export default function ProposalDetailPage() {
                     {proposal.subThematicArea?.name || "Not set"}
                   </p>
                 </div>
-
               </CardContent>
             </Card>
 
@@ -622,7 +625,9 @@ export default function ProposalDetailPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
                                 <p className="font-semibold text-sm text-foreground">
-                                  {review.recommendation?.replace(/_/g, " ") || review.comments?.split("\n")[0] || "Event"}
+                                  {review.recommendation?.replace(/_/g, " ") ||
+                                    review.comments?.split("\n")[0] ||
+                                    "Event"}
                                 </p>
                                 {review.comments && (
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -681,7 +686,11 @@ export default function ProposalDetailPage() {
               />
               <DetailLine
                 label="Budget Requested"
-                value={proposal.budgetRequested ? `ETB ${proposal.budgetRequested}` : "Not set"}
+                value={
+                  proposal.budgetRequested
+                    ? `ETB ${proposal.budgetRequested}`
+                    : "Not set"
+                }
               />
               <DetailLine
                 label="Created"
@@ -791,7 +800,10 @@ export default function ProposalDetailPage() {
                   />
                 </div>
               ) : null}
-              {!proposal.proposalFile && !proposal.updatedProposal && !proposal.supportingDocs && !proposal.signature ? (
+              {!proposal.proposalFile &&
+              !proposal.updatedProposal &&
+              !proposal.supportingDocs &&
+              !proposal.signature ? (
                 <p className="text-sm text-muted-foreground">
                   No files or signature available.
                 </p>

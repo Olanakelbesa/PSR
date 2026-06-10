@@ -106,6 +106,14 @@ export const PROPOSAL_STATUSES: Record<
   in_progress: { label: "In Progress", color: "bg-cyan-100 text-cyan-800" },
   completed: { label: "Completed", color: "bg-emerald-100 text-emerald-800" },
   terminated: { label: "Terminated", color: "bg-slate-100 text-slate-800" },
+  protocol_stage: {
+    label: "Protocol Stage",
+    color: "bg-violet-100 text-violet-800",
+  },
+  funding_recommendation: {
+    label: "Funding Recommendation",
+    color: "bg-emerald-100 text-emerald-800",
+  },
 };
 
 // Call Status Configuration

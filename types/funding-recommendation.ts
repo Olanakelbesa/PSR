@@ -41,6 +41,8 @@ export interface FundingRecommendationCandidate {
   proposalId: number;
   proposalTitle: string | null;
   referenceNumber: string | null;
+  proposalWorkflowState?: string | null;
+  proposal_workflow_state?: string | null;
   call?: { id: number; title: string } | null;
   proposalType?: { id: number; name: string } | null;
   principalInvestigator?: FundingRecommendationPi | null;
@@ -57,7 +59,12 @@ export interface FundingRecommendationCandidate {
   fundingDecisionId: number | null;
   fundingRemark?: string | null;
   needIrbEthicalClearance?: boolean;
-  fundingDecisionStatus?: "pending" | "approved" | "rejected" | "deferred" | null;
+  fundingDecisionStatus?:
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "deferred"
+    | null;
   ethicalClearanceId?: number | null;
   ethicalClearanceStatus?:
     | "pending"

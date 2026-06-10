@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -17,12 +18,7 @@ import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +43,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getManagedProposals, getProposals, protocolService } from "@/api/services";
+import {
+  getManagedProposals,
+  getProposals,
+  protocolService,
+} from "@/api/services";
 import { useDebounce } from "@/hooks/useDebounce";
 import { protocolUploadSchema } from "@/lib/validations";
 import { cn } from "@/lib/utils";
@@ -107,7 +107,9 @@ function FilePicker({
       <div
         className={cn(
           "rounded-xl border border-dashed p-4 transition-colors",
-          error ? "border-rose-500 bg-rose-50/30" : "border-muted-foreground/25",
+          error
+            ? "border-rose-500 bg-rose-50/30"
+            : "border-muted-foreground/25",
         )}
       >
         {file ? (
@@ -167,9 +169,12 @@ export default function ProtocolPage() {
   const [isLoadingProposals, setIsLoadingProposals] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "update">("create");
   const [searchInput, setSearchInput] = useState("");
   const [proposalFilter, setProposalFilter] = useState(ALL_VALUE);
   const [selectedProposalId, setSelectedProposalId] = useState("");
+  const [selectedProtocol, setSelectedProtocol] =
+    useState<ProtocolRecord | null>(null);
   const [protocolFile, setProtocolFile] = useState<File | null>(null);
   const [otherDocument, setOtherDocument] = useState<File | null>(null);
   const [formErrors, setFormErrors] = useState<{
@@ -222,26 +227,23 @@ export default function ProtocolPage() {
             merged.set(id, {
               id,
               title: String(item.title ?? "Untitled proposal"),
-              referenceNumber: String(item.referenceNumber ?? item.reference_number ?? id),
+              referenceNumber: String(
+                item.referenceNumber ?? item.reference_number ?? id,
+              ),
               status: String(item.status ?? item.statusDisplay ?? "unknown"),
             });
           }
         };
 
-        if (mine.status === "fulfilled") addRows(mine.value.data as Array<Record<string, unknown>>);
+        if (mine.status === "fulfilled")
+          addRows(mine.value.data as Array<Record<string, unknown>>);
         if (managed.status === "fulfilled") {
           addRows(managed.value.data as Array<Record<string, unknown>>);
         }
 
         const eligible = Array.from(merged.values()).filter((item) => {
           const status = item.status.toLowerCase();
-          return (
-            status.includes("approved") ||
-            status.includes("screening") ||
-            status.includes("submitted") ||
-            status.includes("resubmitted") ||
-            status.includes("review")
-          );
+          return status === "protocol_stage";
         });
 
         setProposals(eligible.length ? eligible : Array.from(merged.values()));
@@ -266,12 +268,14 @@ export default function ProtocolPage() {
       },
       {
         label: "With Protocol File",
-        value: rows.filter((row) => row.protocolFile || row.protocol_file).length,
+        value: rows.filter((row) => row.protocolFile || row.protocol_file)
+          .length,
         icon: FileText,
       },
       {
         label: "With Other Document",
-        value: rows.filter((row) => row.otherDocument || row.other_document).length,
+        value: rows.filter((row) => row.otherDocument || row.other_document)
+          .length,
         icon: Upload,
       },
     ],
@@ -279,6 +283,8 @@ export default function ProtocolPage() {
   );
 
   const resetUploadForm = () => {
+    setModalMode("create");
+    setSelectedProtocol(null);
     setSelectedProposalId("");
     setProtocolFile(null);
     setOtherDocument(null);
@@ -287,43 +293,82 @@ export default function ProtocolPage() {
 
   const openUploadModal = () => {
     resetUploadForm();
+    setModalMode("create");
+    setIsUploadModalOpen(true);
+  };
+
+  const openUpdateModal = (protocol: ProtocolRecord) => {
+    setModalMode("update");
+    setSelectedProtocol(protocol);
+    setSelectedProposalId(String(protocol.proposal));
+    setProtocolFile(null);
+    setOtherDocument(null);
+    setFormErrors({});
     setIsUploadModalOpen(true);
   };
 
   const handleSubmit = async () => {
-    const validation = protocolUploadSchema.safeParse({
-      proposalId: selectedProposalId,
-      protocolFile,
-      otherDocument,
-    });
-
-    if (!validation.success) {
-      const fieldErrors = validation.error.flatten().fieldErrors;
-      setFormErrors({
-        proposalId: fieldErrors.proposalId?.[0],
-        protocolFile: fieldErrors.protocolFile?.[0],
-      });
-      toast.error("Please complete the required fields before uploading.");
-      return;
-    }
-
-    setFormErrors({});
     setIsSubmitting(true);
 
     try {
-      await protocolService.create({
-        proposal: Number(validation.data.proposalId),
-        protocol_file: validation.data.protocolFile,
-        other_document: validation.data.otherDocument ?? undefined,
-      });
+      if (modalMode === "update") {
+        if (!selectedProtocol) {
+          toast.error("Select a protocol record to update.");
+          return;
+        }
 
-      toast.success("Protocol uploaded successfully");
+        if (!protocolFile && !otherDocument) {
+          setFormErrors({
+            protocolFile: "Choose at least one file to update.",
+          });
+          toast.error("Choose at least one file to update.");
+          return;
+        }
+
+        await protocolService.update(selectedProtocol.id, {
+          protocol_file: protocolFile ?? undefined,
+          other_document: otherDocument ?? undefined,
+        });
+
+        toast.success("Protocol updated successfully");
+      } else {
+        const validation = protocolUploadSchema.safeParse({
+          proposalId: selectedProposalId,
+          protocolFile,
+          otherDocument,
+        });
+
+        if (!validation.success) {
+          const fieldErrors = validation.error.flatten().fieldErrors;
+          setFormErrors({
+            proposalId: fieldErrors.proposalId?.[0],
+            protocolFile: fieldErrors.protocolFile?.[0],
+          });
+          toast.error("Please complete the required fields before uploading.");
+          return;
+        }
+
+        setFormErrors({});
+
+        await protocolService.create({
+          proposal: Number(validation.data.proposalId),
+          protocol_file: validation.data.protocolFile,
+          other_document: validation.data.otherDocument ?? undefined,
+        });
+
+        toast.success("Protocol uploaded successfully");
+      }
+
       resetUploadForm();
       setIsUploadModalOpen(false);
       await loadProtocols();
     } catch (error) {
-      console.error("Failed to upload protocol:", error);
-      toast.error("Failed to upload protocol");
+      console.error("Failed to save protocol:", error);
+      toast.error(
+        modalMode === "update"
+          ? "Failed to update protocol"
+          : "Failed to upload protocol",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -408,9 +453,7 @@ export default function ProtocolPage() {
       header: "Uploaded By",
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.uploadedByName ||
-            row.original.uploaded_by_name ||
-            "—"}
+          {row.original.uploadedByName || row.original.uploaded_by_name || "—"}
         </span>
       ),
     },
@@ -447,6 +490,16 @@ export default function ProtocolPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/research/proposals/my-proposals/${row.original.proposal}/edit`}
+                >
+                  Edit proposal details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => openUpdateModal(row.original)}>
+                Update protocol document
+              </DropdownMenuItem>
               {protocolUrl ? (
                 <DropdownMenuItem asChild>
                   <a href={protocolUrl} target="_blank" rel="noreferrer">
@@ -551,11 +604,12 @@ export default function ProtocolPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-4 w-4 text-primary" />
-              Upload Protocol
+              {modalMode === "update" ? "Update Protocol" : "Upload Protocol"}
             </DialogTitle>
             <DialogDescription>
-              Choose a proposal, attach the protocol file, and optionally upload
-              another supporting document.
+              {modalMode === "update"
+                ? "Replace one or more files for this existing protocol record to move the proposal forward."
+                : "Choose a protocol-stage proposal, attach the protocol file, and optionally upload another supporting document."}
             </DialogDescription>
           </DialogHeader>
 
@@ -565,44 +619,55 @@ export default function ProtocolPage() {
                 <Label>
                   Proposal <span className="text-rose-500">*</span>
                 </Label>
-                <Select
-                  value={selectedProposalId}
-                  onValueChange={(value) => {
-                    setSelectedProposalId(value);
-                    if (formErrors.proposalId) {
-                      setFormErrors((current) => ({
-                        ...current,
-                        proposalId: undefined,
-                      }));
-                    }
-                  }}
-                  disabled={isLoadingProposals}
-                >
-                  <SelectTrigger
-                    className={cn(formErrors.proposalId && "border-rose-500")}
-                  >
-                    <SelectValue
-                      placeholder={
-                        isLoadingProposals
-                          ? "Loading proposals..."
-                          : "Select a proposal"
+                {modalMode === "update" ? (
+                  <div className="rounded-xl border bg-muted/30 px-3 py-2 text-sm">
+                    {selectedProtocol
+                      ? `${selectedProtocol.referenceNumber || `#${selectedProtocol.proposal}`} · ${selectedProtocol.proposalTitle || "Untitled proposal"}`
+                      : "Selected protocol record"}
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedProposalId}
+                    onValueChange={(value) => {
+                      setSelectedProposalId(value);
+                      if (formErrors.proposalId) {
+                        setFormErrors((current) => ({
+                          ...current,
+                          proposalId: undefined,
+                        }));
                       }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {proposals.map((proposal) => (
-                      <SelectItem key={proposal.id} value={proposal.id}>
-                        {proposal.referenceNumber} · {proposal.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    }}
+                    disabled={isLoadingProposals}
+                  >
+                    <SelectTrigger
+                      className={cn(formErrors.proposalId && "border-rose-500")}
+                    >
+                      <SelectValue
+                        placeholder={
+                          isLoadingProposals
+                            ? "Loading proposals..."
+                            : "Select a protocol-stage proposal"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {proposals.map((proposal) => (
+                        <SelectItem key={proposal.id} value={proposal.id}>
+                          {proposal.referenceNumber} · {proposal.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 {formErrors.proposalId ? (
-                  <p className="text-xs text-rose-600">{formErrors.proposalId}</p>
+                  <p className="text-xs text-rose-600">
+                    {formErrors.proposalId}
+                  </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    One protocol submission is stored per proposal. Re-uploading
-                    replaces the existing files.
+                    {modalMode === "update"
+                      ? "Use this to replace the current protocol files after editing the proposal details."
+                      : "Only proposals in the protocol stage are shown here."}
                   </p>
                 )}
               </div>
@@ -611,8 +676,12 @@ export default function ProtocolPage() {
             <div className="grid gap-6 sm:grid-cols-1">
               <FilePicker
                 id="modal-protocol-file"
-                label="Protocol File"
-                required
+                label={
+                  modalMode === "update"
+                    ? "Replace Protocol File"
+                    : "Protocol File"
+                }
+                required={modalMode === "create"}
                 accept=".pdf,.doc,.docx,.xls,.xlsx"
                 file={protocolFile}
                 onChange={(file) => {
@@ -629,7 +698,11 @@ export default function ProtocolPage() {
 
               <FilePicker
                 id="modal-other-document"
-                label="Other Document"
+                label={
+                  modalMode === "update"
+                    ? "Replace Other Document"
+                    : "Other Document"
+                }
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
                 file={otherDocument}
                 onChange={setOtherDocument}
@@ -649,12 +722,14 @@ export default function ProtocolPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
+                  {modalMode === "update" ? "Updating..." : "Uploading..."}
                 </>
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Upload Protocol
+                  {modalMode === "update"
+                    ? "Update Protocol"
+                    : "Upload Protocol"}
                 </>
               )}
             </Button>

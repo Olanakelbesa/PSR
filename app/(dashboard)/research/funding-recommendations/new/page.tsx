@@ -22,7 +22,13 @@ import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -44,10 +50,11 @@ import type { FundingRecommendationCandidate } from "@/types/funding-recommendat
 
 const formSchema = z.object({
   proposal: z.string().min(1, "Please select an approved proposal"),
-  total_award_amount: z.string().refine(
-    (val) => !isNaN(Number(val)) && Number(val) > 0,
-    { message: "Total award amount must be a positive number" }
-  ),
+  total_award_amount: z
+    .string()
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+      message: "Total award amount must be a positive number",
+    }),
   amount_english_in_words: z.string().min(1, "Amount in words is required"),
   has_ethical_clearance_approval: z.boolean().default(false),
   comments: z.string().min(5, "Comments must be at least 5 characters"),
@@ -61,12 +68,38 @@ function numberToEnglishWords(num: number): string {
   if (num < 0) return "minus " + numberToEnglishWords(Math.abs(num));
 
   const ones = [
-    "", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
-    "seventeen", "eighteen", "nineteen"
+    "",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
   ];
   const tens = [
-    "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"
+    "",
+    "",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
   ];
   const scales = ["", "thousand", "million", "billion", "trillion"];
 
@@ -98,7 +131,11 @@ function numberToEnglishWords(num: number): string {
     const chunk = temp % 1000;
     if (chunk > 0) {
       const chunkStr = convertLessThanOneThousand(chunk);
-      result = chunkStr + (scales[scaleIdx] ? " " + scales[scaleIdx] : "") + " " + result;
+      result =
+        chunkStr +
+        (scales[scaleIdx] ? " " + scales[scaleIdx] : "") +
+        " " +
+        result;
     }
     temp = Math.floor(temp / 1000);
     scaleIdx++;
@@ -128,6 +165,7 @@ export default function NewFundingRecommendationPage() {
     useFundingRecommendationCandidates({
       has_funding_decision: true,
       has_funding_recommendation: false,
+      proposal_workflow_state: "funding_recommendation",
     });
 
   const createMutation = useCreateFundingRecommendation();
@@ -159,7 +197,7 @@ export default function NewFundingRecommendationPage() {
     }
 
     const candidate = candidates.find(
-      (c) => String(c.fundingDecisionId) === selectedProposalId
+      (c) => String(c.fundingDecisionId) === selectedProposalId,
     );
 
     if (candidate) {
@@ -172,7 +210,10 @@ export default function NewFundingRecommendationPage() {
         // Auto pre-populate amount in words
         const numVal = Number(candidate.budgetRequested);
         if (!isNaN(numVal) && numVal > 0) {
-          form.setValue("amount_english_in_words", numberToEnglishWords(numVal));
+          form.setValue(
+            "amount_english_in_words",
+            numberToEnglishWords(numVal),
+          );
         }
       }
 
@@ -241,12 +282,16 @@ export default function NewFundingRecommendationPage() {
           <CardHeader>
             <CardTitle>Recommendation Details</CardTitle>
             <CardDescription>
-              Provide the award amount and justification for this funding decision.
+              Provide the award amount and justification for this funding
+              decision.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
                 {/* Proposal Selector */}
                 <FormField
                   control={form.control}
@@ -254,12 +299,15 @@ export default function NewFundingRecommendationPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-bold text-xs uppercase tracking-wider text-foreground/80">
-                        Select Approved Proposal <span className="text-rose-500">*</span>
+                        Select Approved Proposal{" "}
+                        <span className="text-rose-500">*</span>
                       </FormLabel>
                       <FormControl>
                         {isCandidatesLoading ? (
                           <div className="flex h-12 items-center justify-between rounded-xl border bg-muted/30 px-3">
-                            <span className="text-sm text-muted-foreground">Loading candidates...</span>
+                            <span className="text-sm text-muted-foreground">
+                              Loading candidates...
+                            </span>
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                           </div>
                         ) : (
@@ -269,15 +317,20 @@ export default function NewFundingRecommendationPage() {
                           >
                             <option value="">Choose a proposal...</option>
                             {candidates.map((c) => (
-                              <option key={c.fundingDecisionId} value={String(c.fundingDecisionId)}>
-                                {c.referenceNumber || `SCR-${c.screeningId}`} — {c.proposalTitle}
+                              <option
+                                key={c.fundingDecisionId}
+                                value={String(c.fundingDecisionId)}
+                              >
+                                {c.referenceNumber || `SCR-${c.screeningId}`} —{" "}
+                                {c.proposalTitle}
                               </option>
                             ))}
                           </select>
                         )}
                       </FormControl>
                       <FormDescription className="text-xs text-muted-foreground">
-                        Only candidates without an existing funding recommendation are listed.
+                        Only candidates without an existing funding
+                        recommendation are listed.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -292,7 +345,8 @@ export default function NewFundingRecommendationPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="font-bold text-xs uppercase tracking-wider text-foreground/80">
-                          Total Award Amount (ETB) <span className="text-rose-500">*</span>
+                          Total Award Amount (ETB){" "}
+                          <span className="text-rose-500">*</span>
                         </FormLabel>
                         <FormControl>
                           <div className="relative">
@@ -346,7 +400,8 @@ export default function NewFundingRecommendationPage() {
                     <FormItem>
                       <div className="flex justify-between items-center">
                         <FormLabel className="font-bold text-xs uppercase tracking-wider text-foreground/80">
-                          Amount in Words (English) <span className="text-rose-500">*</span>
+                          Amount in Words (English){" "}
+                          <span className="text-rose-500">*</span>
                         </FormLabel>
                         <Button
                           type="button"
@@ -380,12 +435,13 @@ export default function NewFundingRecommendationPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-bold text-xs uppercase tracking-wider text-foreground/80">
-                        Recommendation Remarks & Comments <span className="text-rose-500">*</span>
+                        Recommendation Remarks & Comments{" "}
+                        <span className="text-rose-500">*</span>
                       </FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Provide detailed recommendation justification, conditions, or governance notes..."
-                          className="min-h-[120px] bg-muted/50 border-muted focus:bg-background transition-all rounded-xl"
+                          className="min-h-30 bg-muted/50 border-muted focus:bg-background transition-all rounded-xl"
                           {...field}
                         />
                       </FormControl>
@@ -419,14 +475,17 @@ export default function NewFundingRecommendationPage() {
         {/* Selected candidate preview panel */}
         <aside className="space-y-6">
           {selectedCandidate ? (
-            <Card className="border border-primary/20 shadow-md bg-gradient-to-b from-white to-slate-50/50">
+            <Card className="border border-primary/20 shadow-md bg-linear-to-b from-white to-slate-50/50">
               <CardHeader className="bg-primary/5 border-b pb-4">
                 <div className="flex justify-between items-start gap-2">
                   <Badge className="bg-primary/10 text-primary border border-primary/20 uppercase text-[9px] font-bold">
                     Selected Proposal
                   </Badge>
                   {selectedCandidate.needIrbEthicalClearance && (
-                    <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800 uppercase text-[9px] font-bold">
+                    <Badge
+                      variant="outline"
+                      className="border-amber-200 bg-amber-50 text-amber-800 uppercase text-[9px] font-bold"
+                    >
                       IRB Required
                     </Badge>
                   )}
@@ -455,7 +514,8 @@ export default function NewFundingRecommendationPage() {
                           "Mecha None"}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {selectedCandidate.principalInvestigator?.email || "admin@gmail.com"}
+                        {selectedCandidate.principalInvestigator?.email ||
+                          "admin@gmail.com"}
                       </p>
                     </div>
                   </div>
@@ -468,10 +528,14 @@ export default function NewFundingRecommendationPage() {
                       Average Score
                     </span>
                     <p className="text-lg font-black text-blue-700">
-                      {Number(selectedCandidate.averageScorePercentage || 0).toFixed(1)}%
+                      {Number(
+                        selectedCandidate.averageScorePercentage || 0,
+                      ).toFixed(1)}
+                      %
                     </p>
                     <span className="text-[10px] text-muted-foreground">
-                      {selectedCandidate.averageScore} / {selectedCandidate.maxPossiblePoints || 100} pts
+                      {selectedCandidate.averageScore} /{" "}
+                      {selectedCandidate.maxPossiblePoints || 100} pts
                     </span>
                   </div>
 
@@ -498,18 +562,22 @@ export default function NewFundingRecommendationPage() {
                           IRB / Ethical Clearance Status
                         </span>
                         <div className="flex items-center gap-1.5 mt-1">
-                          {selectedCandidate.ethicalClearanceStatus === "approved" ? (
+                          {selectedCandidate.ethicalClearanceStatus ===
+                          "approved" ? (
                             <>
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                               <span className="text-xs font-bold text-slate-800">
-                                Approved on {selectedCandidate.ethicalClearanceApprovalDate || "-"}
+                                Approved on{" "}
+                                {selectedCandidate.ethicalClearanceApprovalDate ||
+                                  "-"}
                               </span>
                             </>
                           ) : (
                             <>
                               <Clock className="h-3.5 w-3.5 text-amber-600" />
                               <span className="text-xs font-bold text-slate-800">
-                                {selectedCandidate.ethicalClearanceStatus || "Pending"}
+                                {selectedCandidate.ethicalClearanceStatus ||
+                                  "Pending"}
                               </span>
                             </>
                           )}
@@ -538,10 +606,11 @@ export default function NewFundingRecommendationPage() {
                 <div className="rounded-full bg-slate-100 p-4 text-slate-400">
                   <Banknote className="h-6 w-6" />
                 </div>
-                <div className="space-y-1 max-w-[240px]">
+                <div className="space-y-1 max-w-60">
                   <p className="font-semibold text-sm">No proposal selected</p>
                   <p className="text-xs text-muted-foreground">
-                    Select an approved proposal in the form to view details, requested budget, and ethical reviews.
+                    Select an approved proposal in the form to view details,
+                    requested budget, and ethical reviews.
                   </p>
                 </div>
               </CardContent>

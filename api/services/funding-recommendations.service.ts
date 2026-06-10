@@ -36,6 +36,7 @@ export interface FundingRecommendationCandidateFilters {
   has_funding_recommendation?: boolean;
   need_irb_ethical_clearance?: boolean;
   ethical_clearance_status?: string;
+  proposal_workflow_state?: string;
   ordering?: string;
 }
 
@@ -52,9 +53,11 @@ function cleanParams(params?: object) {
   );
 }
 
-function normalizeList<T>(
-  payload: unknown,
-): { success: boolean; data: T[]; meta?: FundingRecommendationListResponse["meta"] } {
+function normalizeList<T>(payload: unknown): {
+  success: boolean;
+  data: T[];
+  meta?: FundingRecommendationListResponse["meta"];
+} {
   if (Array.isArray(payload)) {
     return { success: true, data: payload as T[] };
   }
@@ -62,7 +65,9 @@ function normalizeList<T>(
   if (payload && typeof payload === "object") {
     const objectPayload = payload as {
       success?: boolean;
-      data?: T[] | { data?: T[]; meta?: FundingRecommendationListResponse["meta"] };
+      data?:
+        | T[]
+        | { data?: T[]; meta?: FundingRecommendationListResponse["meta"] };
       meta?: FundingRecommendationListResponse["meta"];
     };
 
@@ -93,25 +98,29 @@ function normalizeList<T>(
 function normalizeMetadata(meta: any) {
   if (!meta) return undefined;
   const normalized: any = {};
-  
+
   // Copy pagination fields
   if (meta.page !== undefined) normalized.page = meta.page;
   if (meta.limit !== undefined) normalized.limit = meta.limit;
   if (meta.total !== undefined) normalized.total = meta.total;
   if (meta.total_pages !== undefined) normalized.total_pages = meta.total_pages;
-  
+
   // Normalize statistics
   if (meta.statistics) {
     normalized.statistics = {
-      totalAwarded: meta.statistics.total_awarded ?? meta.statistics.totalAwarded,
-      totalRequested: meta.statistics.total_requested ?? meta.statistics.totalRequested,
-      recommendationsCount: meta.statistics.recommendations_count ?? meta.statistics.recommendationsCount,
+      totalAwarded:
+        meta.statistics.total_awarded ?? meta.statistics.totalAwarded,
+      totalRequested:
+        meta.statistics.total_requested ?? meta.statistics.totalRequested,
+      recommendationsCount:
+        meta.statistics.recommendations_count ??
+        meta.statistics.recommendationsCount,
       ethicalClearanceApprovedCount:
         meta.statistics.ethical_clearance_approved_count ??
         meta.statistics.ethicalClearanceApprovedCount,
     };
   }
-  
+
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
@@ -131,9 +140,12 @@ export const fundingRecommendationsService = {
   async list(
     filters: FundingRecommendationFilters = {},
   ): Promise<FundingRecommendationListResponse> {
-    const { data } = await apiClient.get(API_ENDPOINTS.FUNDING_RECOMMENDATIONS.LIST, {
-      params: cleanParams(filters),
-    });
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.FUNDING_RECOMMENDATIONS.LIST,
+      {
+        params: cleanParams(filters),
+      },
+    );
 
     return normalizeList<FundingRecommendation>(data);
   },
@@ -141,9 +153,12 @@ export const fundingRecommendationsService = {
   async listCandidates(
     filters: FundingRecommendationCandidateFilters = {},
   ): Promise<FundingRecommendationCandidateResponse> {
-    const { data } = await apiClient.get(API_ENDPOINTS.SCREENINGS.REVIEWED_WITH_MARKS, {
-      params: cleanParams(filters),
-    });
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.SCREENINGS.REVIEWED_WITH_MARKS,
+      {
+        params: cleanParams(filters),
+      },
+    );
 
     return normalizeList<FundingRecommendationCandidate>(data);
   },
