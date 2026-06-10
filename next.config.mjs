@@ -11,6 +11,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      { source: "/users", destination: "/settings/access-control/users", permanent: false },
+      { source: "/policies", destination: "/policies/repository", permanent: false },
+      { source: "/research", destination: "/research/grant-calls", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       {

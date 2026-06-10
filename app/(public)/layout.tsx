@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/landing/Footer";
 
@@ -7,10 +9,11 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-      {/* pt-20 matches header height to prevent content overlap */}
-      <main className="flex-grow pt-20">{children}</main>
+      <main className="flex-grow pt-20">
+        <Suspense fallback={<div className="min-h-[40vh]" />}>{children}</Suspense>
+      </main>
       <Footer />
     </div>
   );

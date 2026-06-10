@@ -20,7 +20,7 @@
 // automatically populated from cookies — do NOT call auth() internally.
 
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/nextauth";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const API_BASE_URL = process.env.API_BASE_URL;
@@ -189,13 +189,13 @@ const handler = auth(async (req, context) => {
   }
 });
 
-// ─── Explicit Method Exports ──────────────────────────────────────────────────
-// Wrapped individually so the Next.js compilation engine recognizes them as 
-// proper App Router dynamic endpoints.
-export async function GET(request: NextRequest, context: RouteContext) { return handler(request, context); }
-export async function POST(request: NextRequest, context: RouteContext) { return handler(request, context); }
-export async function PUT(request: NextRequest, context: RouteContext) { return handler(request, context); }
-export async function PATCH(request: NextRequest, context: RouteContext) { return handler(request, context); }
-export async function DELETE(request: NextRequest, context: RouteContext) { return handler(request, context); }
-export async function OPTIONS(request: NextRequest, context: RouteContext) { return handler(request, context); }
-export async function HEAD(request: NextRequest, context: RouteContext) { return handler(request, context); }
+// Single handler export — avoids multiplying serverless functions per HTTP verb.
+export {
+  handler as GET,
+  handler as POST,
+  handler as PUT,
+  handler as PATCH,
+  handler as DELETE,
+  handler as OPTIONS,
+  handler as HEAD,
+};
