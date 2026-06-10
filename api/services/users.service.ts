@@ -64,6 +64,10 @@ export const UserSchema = z.object({
     .optional()
     .default([]),
   permissions: z.array(z.string()).optional().default([]),
+  userPermissions: z
+    .array(z.union([z.string(), z.number()]).transform(Number))
+    .optional()
+    .default([]),
 });
 
 const PaginatedUsersSchema = z.object({
@@ -163,6 +167,7 @@ export interface AdminCreateUserPayload {
   organization?: number | null;
   unit?: number | null;
   roles?: number[];
+  permissions?: number[];
   password: string;
 }
 
@@ -179,6 +184,7 @@ export interface AdminUpdateUserPayload {
   status?: string;
   enabled?: boolean;
   roles?: number[];
+  permissions?: number[];
 }
 
 export interface ReviewerSelectorFilters {

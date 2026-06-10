@@ -7,7 +7,6 @@ export default function AccessControlLayout({
 }) {
   return (
     <div>
-      <AccessControlNav />
       {children}
     </div>
   );

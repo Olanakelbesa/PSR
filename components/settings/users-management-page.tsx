@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Loader2,
   ShieldX,
   Trash2,
   UserPlus,
@@ -72,7 +73,7 @@ import {
   useUpdateUser,
   useUsers,
 } from "@/hooks/useUsers";
-import { useRoles } from "@/hooks/useRoles";
+import { usePermissionCatalog, useRoles } from "@/hooks/useRoles";
 import {
   useOrganizationTypes,
   useOrganizations,
@@ -80,10 +81,15 @@ import {
   useUnitsWithParams,
 } from "@/hooks/useReference";
 import {
+  getUserById,
   type AdminCreateUserPayload,
   type AdminUpdateUserPayload,
   type User,
 } from "@/api/services/users.service";
+import {
+  flattenPermissionCatalog,
+  PermissionDualListbox,
+} from "@/components/settings/permission-dual-listbox";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -99,6 +105,7 @@ type FormState = {
   organizationId: string;
   unitId: string;
   selectedRoleIds: number[];
+  selectedPermissionIds: number[];
   password: string;
   status: string;
   enabled: boolean;
@@ -116,6 +123,7 @@ const emptyForm: FormState = {
   organizationId: "",
   unitId: "",
   selectedRoleIds: [],
+  selectedPermissionIds: [],
   password: "",
   status: "Active",
   enabled: true,
@@ -160,6 +168,7 @@ function toCreatePayload(form: FormState): AdminCreateUserPayload {
     organization: form.organizationId ? Number(form.organizationId) : null,
     unit: form.unitId ? Number(form.unitId) : null,
     roles: form.selectedRoleIds,
+    permissions: form.selectedPermissionIds,
     password: form.password,
   };
 }
@@ -178,6 +187,7 @@ function toUpdatePayload(form: FormState): AdminUpdateUserPayload {
     status: form.status,
     enabled: form.enabled,
     roles: form.selectedRoleIds,
+    permissions: form.selectedPermissionIds,
   };
 }
 
@@ -197,6 +207,7 @@ export default function UsersManagementPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<User | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [loadingUserDetail, setLoadingUserDetail] = useState(false);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -212,6 +223,12 @@ export default function UsersManagementPage() {
 
   const { data, isLoading, isFetching, refetch } = useUsers(filters);
   const { data: rolesData } = useRoles({ limit: 200 });
+  const {
+    data: permissionCatalog,
+    isLoading: catalogLoading,
+    isError: catalogError,
+    refetch: refetchCatalog,
+  } = usePermissionCatalog();
   const { data: titles = [] } = useTitles();
   const { data: organizationTypes = [] } = useOrganizationTypes();
   const { data: organizationsResponse } = useOrganizations({
@@ -233,6 +250,10 @@ export default function UsersManagementPage() {
   const meta = data?.meta;
   const totalUsers = meta?.total ?? users.length;
   const activeUsers = users.filter((user) => user.enabled).length;
+  const permissionItems = useMemo(
+    () => flattenPermissionCatalog(permissionCatalog),
+    [permissionCatalog],
+  );
 
   useEffect(() => {
     setPage(1);
@@ -244,27 +265,39 @@ export default function UsersManagementPage() {
     setIsSheetOpen(true);
   };
 
-  const openEdit = (user: User) => {
+  const openEdit = async (user: User) => {
     setEditingUser(user);
-    setForm({
-      firstName: user.firstName ?? "",
-      middleName: user.middleName ?? "",
-      lastName: user.lastName ?? "",
-      email: user.email,
-      phone: user.phone ?? "",
-      sex: user.sex ?? "",
-      titleId: user.title?.id ? String(user.title.id) : "",
-      organizationTypeId: user.organizationType?.id
-        ? String(user.organizationType.id)
-        : "",
-      organizationId: user.organization?.id ? String(user.organization.id) : "",
-      unitId: user.unit?.id ? String(user.unit.id) : "",
-      selectedRoleIds: (user.roles ?? []).map((role) => role.id),
-      password: "",
-      status: user.status ?? "Active",
-      enabled: user.enabled,
-    });
     setIsSheetOpen(true);
+    setLoadingUserDetail(true);
+
+    try {
+      const detail = await getUserById(user.id);
+      setForm({
+        firstName: detail.firstName ?? "",
+        middleName: detail.middleName ?? "",
+        lastName: detail.lastName ?? "",
+        email: detail.email,
+        phone: detail.phone ?? "",
+        sex: detail.sex ?? "",
+        titleId: detail.title?.id ? String(detail.title.id) : "",
+        organizationTypeId: detail.organizationType?.id
+          ? String(detail.organizationType.id)
+          : "",
+        organizationId: detail.organization?.id ? String(detail.organization.id) : "",
+        unitId: detail.unit?.id ? String(detail.unit.id) : "",
+        selectedRoleIds: (detail.roles ?? []).map((role) => role.id),
+        selectedPermissionIds: detail.userPermissions ?? [],
+        password: "",
+        status: detail.status ?? "Active",
+        enabled: detail.enabled,
+      });
+    } catch (error) {
+      toast.error((error as { message?: string })?.message ?? "Failed to load user details.");
+      setIsSheetOpen(false);
+      setEditingUser(null);
+    } finally {
+      setLoadingUserDetail(false);
+    }
   };
 
   const toggleRole = (roleId: number, checked: boolean) => {
@@ -570,7 +603,7 @@ export default function UsersManagementPage() {
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent
           side={isMobile ? "bottom" : "right"}
-          className="w-full overflow-y-auto sm:max-w-xl"
+          className="w-full overflow-y-auto sm:max-w-5xl"
         >
           <SheetHeader>
             <SheetTitle>{editingUser ? "Edit User" : "Create User"}</SheetTitle>
@@ -737,7 +770,7 @@ export default function UsersManagementPage() {
 
                 <div className="space-y-3">
                   <Label>Roles</Label>
-                  <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
+                  <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
                     {roles.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No roles available.</p>
                     ) : (
@@ -751,6 +784,7 @@ export default function UsersManagementPage() {
                             onCheckedChange={(checked) =>
                               toggleRole(role.id, checked === true)
                             }
+                            disabled={loadingUserDetail}
                           />
                           <div>
                             <p className="text-sm font-medium">{role.name}</p>
@@ -762,6 +796,47 @@ export default function UsersManagementPage() {
                       ))
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>User Permissions</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {form.selectedPermissionIds.length} assigned
+                    </p>
+                  </div>
+
+                  {loadingUserDetail ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-border p-6 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading user permissions...
+                    </div>
+                  ) : catalogError ? (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                      <p className="font-medium text-destructive">
+                        Failed to load permission catalog.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => refetchCatalog()}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ) : (
+                    <PermissionDualListbox
+                      items={permissionItems}
+                      value={form.selectedPermissionIds}
+                      onChange={(selectedPermissionIds) =>
+                        setForm((prev) => ({ ...prev, selectedPermissionIds }))
+                      }
+                      isLoading={catalogLoading}
+                      disabled={loadingUserDetail}
+                    />
+                  )}
                 </div>
 
                 {!editingUser && (
@@ -828,7 +903,11 @@ export default function UsersManagementPage() {
             </Button>
             <Button
               onClick={saveUser}
-              disabled={createUserMutation.isPending || updateUserMutation.isPending}
+              disabled={
+                createUserMutation.isPending ||
+                updateUserMutation.isPending ||
+                loadingUserDetail
+              }
             >
               {editingUser ? "Save Changes" : "Create User"}
             </Button>
