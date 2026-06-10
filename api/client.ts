@@ -36,6 +36,7 @@ export interface ApiError {
 type BackendErrorEnvelope = {
   success?: boolean;
   message?: string;
+  data?: Record<string, unknown>;
   errors?: Record<string, string[]>;
   error?: {
     code?: string;
