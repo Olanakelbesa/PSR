@@ -46,9 +46,8 @@ import {
 import {
   PERMISSIONS,
   PERMISSION_GROUPS,
-  hasAnyPermission,
 } from "@/lib/permissions";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type ProfileForm = {
   firstName: string;
@@ -84,7 +83,7 @@ function userInitials(name: string, email: string) {
 }
 
 export default function SettingsHubPage() {
-  const { permissions, hasPermission } = useServerPermissions();
+  const { hasAny, hasPermission } = useCurrentUser();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const updateProfile = useUpdateProfile();
 
@@ -105,18 +104,10 @@ export default function SettingsHubPage() {
   const organizations = organizationsResponse?.data ?? [];
   const units = unitsResponse?.data ?? [];
 
-  const canManageUsers = hasAnyPermission(permissions, [
-    ...PERMISSION_GROUPS.USER_MANAGEMENT,
-  ]);
-  const canManageRoles = hasAnyPermission(permissions, [
-    ...PERMISSION_GROUPS.ROLE_MANAGEMENT,
-  ]);
-  const canViewAuditLogs = hasAnyPermission(permissions, [
-    ...PERMISSION_GROUPS.AUDIT_LOGS,
-  ]);
-  const canViewTaxonomy = hasAnyPermission(permissions, [
-    ...PERMISSION_GROUPS.SETTINGS_ACCESS,
-  ]);
+  const canManageUsers = hasAny([...PERMISSION_GROUPS.USER_MANAGEMENT]);
+  const canManageRoles = hasAny([...PERMISSION_GROUPS.ROLE_MANAGEMENT]);
+  const canViewAuditLogs = hasAny([...PERMISSION_GROUPS.AUDIT_LOGS]);
+  const canViewTaxonomy = hasAny([...PERMISSION_GROUPS.SETTINGS_ACCESS]);
 
   const showAccessControl = canManageUsers || canManageRoles;
   const showAdminLinks = showAccessControl || canViewAuditLogs || canViewTaxonomy;

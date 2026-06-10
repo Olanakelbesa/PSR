@@ -63,6 +63,7 @@ export const UserSchema = z.object({
     )
     .optional()
     .default([]),
+  permissions: z.array(z.string()).optional().default([]),
 });
 
 const PaginatedUsersSchema = z.object({

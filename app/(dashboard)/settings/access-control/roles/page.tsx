@@ -72,8 +72,8 @@ import {
 import { getRoleById } from "@/api/services/roles.service";
 import type { PermissionCatalogItem } from "@/api/services/roles.service";
 import type { Role } from "@/api/services/roles.service";
-import { PERMISSIONS, hasAnyPermission } from "@/lib/permissions";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { PERMISSIONS } from "@/lib/permissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type RoleFormState = {
   name: string;
@@ -111,8 +111,8 @@ function permissionMatchesQuery(
 }
 
 export default function RolesManagementPage() {
-  const { permissions, hasPermission } = useServerPermissions();
-  const canViewRoles = hasAnyPermission(permissions, [PERMISSIONS.ROLE_VIEW]);
+  const { hasPermission } = useCurrentUser();
+  const canViewRoles = hasPermission(PERMISSIONS.ROLE_VIEW);
   const canEditRoles = hasPermission(PERMISSIONS.ROLE_CHANGE);
   const canCreateRoles = hasPermission(PERMISSIONS.ROLE_ADD);
   const canDeleteRoles = hasPermission(PERMISSIONS.ROLE_DELETE);

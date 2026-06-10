@@ -58,16 +58,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
-import { ROLES } from "@/lib/constants";
-import { PERMISSIONS, PERMISSION_GROUPS, hasAnyPermission, type PermissionValue } from "@/lib/permissions";
-import type { UserRole } from "@/lib/types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { PERMISSIONS, PERMISSION_GROUPS, type PermissionValue } from "@/lib/permissions";
 
 interface SubNavItem {
   label: string;
   href: string;
   icon?: React.ComponentType<{ className?: string }>;
-  roles?: UserRole[];
   permissions?: PermissionValue[];
 }
 
@@ -75,7 +72,6 @@ interface NavItem {
   label: string;
   href?: string;
   icon?: React.ComponentType<{ className?: string }>;
-  roles?: UserRole[];
   permissions?: PermissionValue[];
   subItems?: SubNavItem[];
 }
@@ -328,35 +324,26 @@ const navigationGroups: NavGroup[] = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const { permissions = [], isLoading: permissionsLoading } = useServerPermissions();
+  const { user: currentUser, hasAny, isLoading: permissionsLoading } = useCurrentUser();
   const permissionsLoaded = !permissionsLoading;
 
+  const roleLabel =
+    currentUser?.roles && currentUser.roles.length > 0
+      ? currentUser.roles.map((role) => role.name).join(", ")
+      : "User";
+
   const hasAccess = useCallback(
-    (roles?: UserRole[], requiredPermissions?: PermissionValue[]) => {
+    (requiredPermissions?: PermissionValue[]) => {
       if (!user) return false;
 
-      if (roles && roles.length > 0 && !roles.includes(user.role)) {
-        return false;
-      }
-
       if (requiredPermissions && requiredPermissions.length > 0) {
-        if (permissionsLoading) {
-          return false;
-        }
-
-        const userPerms =
-          permissions.length > 0
-            ? permissions
-            : (user as { permissions?: string[] }).permissions ?? [];
-
-        if (!hasAnyPermission(userPerms, requiredPermissions)) {
-          return false;
-        }
+        if (permissionsLoading) return false;
+        return hasAny(requiredPermissions);
       }
 
       return true;
     },
-    [permissionsLoading, permissions, user],
+    [hasAny, permissionsLoading, user],
   );
 
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -387,7 +374,7 @@ export function AppSidebar() {
         if (!item.subItems) return;
 
         const visibleSubItems = item.subItems.filter((sub) =>
-          hasAccess(sub.roles, sub.permissions),
+          hasAccess(sub.permissions),
         );
 
         if (visibleSubItems.length === 0) return;
@@ -444,7 +431,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2">
         {navigationGroups.map((group, groupIndex) => {
           const filteredItems = group.items.filter((item) =>
-            hasAccess(item.roles, item.permissions),
+            hasAccess(item.permissions),
           );
           if (filteredItems.length === 0) return null;
 
@@ -461,7 +448,7 @@ export function AppSidebar() {
                     const Icon = item.icon;
                     const validSubItems = item.subItems
                       ? item.subItems.filter((sub) =>
-                          hasAccess(sub.roles, sub.permissions),
+                          hasAccess(sub.permissions),
                         )
                       : undefined;
 
@@ -614,7 +601,7 @@ export function AppSidebar() {
                       {user?.firstName} {user?.lastName}
                     </span>
                     <span className="truncate text-xs text-sidebar-foreground/60">
-                      {user?.role ? ROLES[user.role]?.label : "User"}
+                      {roleLabel}
                     </span>
                   </div>
                 </SidebarMenuButton>

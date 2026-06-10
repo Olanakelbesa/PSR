@@ -84,8 +84,8 @@ import {
   type AdminUpdateUserPayload,
   type User,
 } from "@/api/services/users.service";
-import { PERMISSIONS, hasAnyPermission } from "@/lib/permissions";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { PERMISSIONS } from "@/lib/permissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type FormState = {
   firstName: string;
@@ -183,10 +183,8 @@ function toUpdatePayload(form: FormState): AdminUpdateUserPayload {
 
 export default function UsersManagementPage() {
   const isMobile = useIsMobile();
-  const { permissions, hasPermission } = useServerPermissions();
-  const canManageUsers = hasAnyPermission(permissions, [
-    PERMISSIONS.USER_VIEW,
-  ]);
+  const { hasPermission } = useCurrentUser();
+  const canManageUsers = hasPermission(PERMISSIONS.USER_VIEW);
   const canEditUsers = hasPermission(PERMISSIONS.USER_CHANGE);
   const canCreateUsers = hasPermission(PERMISSIONS.USER_ADD);
   const canDeleteUsers = hasPermission(PERMISSIONS.USER_DELETE);

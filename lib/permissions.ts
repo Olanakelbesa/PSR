@@ -145,19 +145,33 @@ export const PERMISSION_GROUPS = {
 } as const satisfies Record<string, readonly PermissionValue[]>;
 
 export function hasAnyPermission(
-  userPermissions: readonly string[] | undefined,
+  userPermissions: readonly string[] | Set<string> | undefined,
   required: readonly PermissionValue[],
 ): boolean {
   if (!required.length) return true;
-  if (!userPermissions?.length) return false;
+  if (!userPermissions) return false;
+
+  if (userPermissions instanceof Set) {
+    if (userPermissions.size === 0) return false;
+    return required.some((perm) => userPermissions.has(perm));
+  }
+
+  if (!userPermissions.length) return false;
   return required.some((perm) => userPermissions.includes(perm));
 }
 
 export function hasAllPermissions(
-  userPermissions: readonly string[] | undefined,
+  userPermissions: readonly string[] | Set<string> | undefined,
   required: readonly PermissionValue[],
 ): boolean {
   if (!required.length) return true;
-  if (!userPermissions?.length) return false;
+  if (!userPermissions) return false;
+
+  if (userPermissions instanceof Set) {
+    if (userPermissions.size === 0) return false;
+    return required.every((perm) => userPermissions.has(perm));
+  }
+
+  if (!userPermissions.length) return false;
   return required.every((perm) => userPermissions.includes(perm));
 }

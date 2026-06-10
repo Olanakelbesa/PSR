@@ -6,7 +6,9 @@
 // Single hook for all auth needs in client components.
 //
 // Usage:
-//   const { user, role, isLoading, signOut } = useAuth();
+//   const { user, isLoading, signOut } = useAuth();
+//
+// For permission checks, use useCurrentUser() or usePermission() instead.
 
 import { useSession, signOut as nextSignOut } from "next-auth/react";
 import { useCallback, useEffect } from "react";

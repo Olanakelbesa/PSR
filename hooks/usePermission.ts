@@ -3,32 +3,24 @@
 // ============================================================================
 // RPDMS — usePermission Hook
 // ============================================================================
-// Provides RBAC capabilities to any client component.
+// Permission checks backed by GET /v1/users/me/ (data.permissions).
 // Usage:
-//   const { can, canAny, role } = usePermission();
-//   if (can("APPROVE_PROPOSAL")) { ... }
+//   const { hasPermission, hasAny, permissionSet } = usePermission();
+//   if (hasPermission(PERMISSIONS.USER_VIEW)) { ... }
 
-import { useSession } from "next-auth/react";
-import {
-  can as checkCan,
-  canAny as checkCanAny,
-  canAll as checkCanAll,
-  hasMinRole as checkMinRole,
-  type Permission,
-} from "@/lib/rbac";
-import type { UserRole } from "@/lib/types";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export function usePermission() {
-  const { data: session } = useSession();
-  const user = session?.user ?? null;
-  const role = (user?.role as UserRole) ?? null;
+  const currentUser = useCurrentUser();
 
   return {
-    role,
-    can: (action: Permission) => checkCan(role, action),
-    canAny: (actions: Permission[]) => checkCanAny(role, actions),
-    canAll: (actions: Permission[]) => checkCanAll(role, actions),
-    hasMinRole: (minRole: UserRole) => checkMinRole(role, minRole),
-    isAuthenticated: !!user,
+    ...currentUser,
+    /** @deprecated Use hasAny instead */
+    canAny: currentUser.hasAny,
+    /** @deprecated Use hasAll instead */
+    canAll: currentUser.hasAll,
+    /** @deprecated Use hasPermission instead */
+    can: currentUser.hasPermission,
+    isAuthenticated: !!currentUser.user,
   };
 }

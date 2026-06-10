@@ -4,14 +4,15 @@ import {
   updateCurrentUser,
   type UpdateProfilePayload,
 } from "@/api/services/profile.service";
+import { currentUserKeys } from "@/hooks/useCurrentUser";
 
 export const profileKeys = {
-  me: ["profile", "me"] as const,
+  me: currentUserKeys.all,
 };
 
 export function useProfile() {
   return useQuery({
-    queryKey: profileKeys.me,
+    queryKey: currentUserKeys.all,
     queryFn: getCurrentUser,
     staleTime: 1_000 * 60 * 5,
   });
@@ -22,8 +23,7 @@ export function useUpdateProfile() {
   return useMutation({
     mutationFn: (payload: UpdateProfilePayload) => updateCurrentUser(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: profileKeys.me });
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      queryClient.invalidateQueries({ queryKey: currentUserKeys.all });
     },
   });
 }
