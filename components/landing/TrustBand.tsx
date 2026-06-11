@@ -27,7 +27,7 @@ export default function TrustBand({ trust }: { trust?: Trust }) {
       <div className="container mx-auto px-4">
         <div className="bg-background/40 border border-border rounded-2xl p-4 flex items-center justify-around gap-6">
           {item(institutions >= 1000 ? `${Math.round(institutions / 1000)}k+` : institutions, "Institutions")}
-          {item(centers >= 1000 ? `${Math.round(centers / 1000)}k+` : centers, "Research centers")}
+          {item(centers >= 1000 ? `${Math.round(centers / 1000)}k+` : centers, "Strategic Objectives")}
           {item(grants >= 1000 ? `${Math.round(grants / 1000)}k+` : grants, "Grant calls")}
           {item(approved >= 1000 ? `${Math.round(approved / 1000)}k+` : approved, "Approved policies")}
         </div>

@@ -184,16 +184,6 @@ export default function ExternalResearchPage() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link
-                href="/research/external-research/approval"
-                className="cursor-pointer"
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Review Approval Queue
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer">
               <Download className="h-4 w-4 mr-2 text-muted-foreground" />
               Download Document
@@ -212,7 +202,7 @@ export default function ExternalResearchPage() {
       actions={
         <Button
           className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-          onClick={() => router.push("/research/external-research/add")}
+          onClick={() => router.push("/research/external-research/my-external-research/add")}
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Research Entry
