@@ -3,7 +3,15 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, XCircle, Clock3, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  XCircle,
+  Clock3,
+  Search,
+  Eye,
+  MoreHorizontal,
+} from "lucide-react";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +33,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/shared/data-table";
 import { useExternalResearchList, useUpdateExternalResearch } from "@/hooks";
 import { toast } from "sonner";
@@ -124,24 +139,68 @@ export default function ExternalResearchApprovalPage() {
     {
       id: "actions",
       cell: ({ row }: any) => (
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="h-8"
-            onClick={() => openReviewDialog(row.original.id, "approved")}
-          >
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            Approve
-          </Button>
+        <div className="flex items-center justify-end gap-2">
           <Button
             size="sm"
             variant="outline"
             className="h-8"
-            onClick={() => openReviewDialog(row.original.id, "rejected")}
+            asChild
+            onClick={(event: React.MouseEvent) => event.stopPropagation()}
           >
-            <XCircle className="mr-2 h-4 w-4" />
-            Reject
+            <Link
+              href={`/research/external-research/external-research-approval/${row.original.id}`}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Review
+            </Link>
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-primary/5"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-48 shadow-xl border-primary/10"
+            >
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/research/external-research/external-research-approval/${row.original.id}`}
+                  className="cursor-pointer font-bold text-primary"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Review Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openReviewDialog(row.original.id, "approved");
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" />
+                Quick Approve
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openReviewDialog(row.original.id, "rejected");
+                }}
+              >
+                <XCircle className="h-4 w-4 mr-2 text-rose-600" />
+                Quick Reject
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -204,6 +263,11 @@ export default function ExternalResearchApprovalPage() {
           isLoading
             ? "Loading pending submissions..."
             : "No pending external research submissions."
+        }
+        onRowClick={(item: any) =>
+          router.push(
+            `/research/external-research/external-research-approval/${item.id}`,
+          )
         }
       />
 

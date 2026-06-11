@@ -280,12 +280,12 @@ const navigationGroups: NavGroup[] = [
         subItems: [
           {
             label: "External Research",
-            href: "/research/external-research",
+            href: "/research/external-research/my-external-research",
             icon: Dot,
           },
           {
             label: "External Research Approval",
-            href: "/research/external-research/approval",
+            href: "/research/external-research/external-research-approval",
             icon: Dot,
             permissions: [PERMISSIONS.RESEARCH_VIEW_EXTERNAL_RESEARCH_APPROVAL],
           },

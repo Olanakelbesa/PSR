@@ -62,6 +62,7 @@ const formSchema = z.object({
   department: z.string().optional(),
   type: z.string().min(1, "Type is required"),
   keywords: z.string().optional(),
+  abstract: z.string().optional(),
 });
 
 export default function AddExternalResearchPage() {
@@ -79,6 +80,7 @@ export default function AddExternalResearchPage() {
       department: "",
       type: "report",
       keywords: "",
+      abstract: "",
     },
   });
   const createExternalResearch = useCreateExternalResearch();
@@ -100,6 +102,7 @@ export default function AddExternalResearchPage() {
         department: values.department ?? "",
         research_type: values.type,
         keywords: values.keywords ?? "",
+        abstract: values.abstract ?? "",
         file,
       } as Record<string, unknown>;
 
@@ -119,7 +122,7 @@ export default function AddExternalResearchPage() {
       actions={
         <Button
           variant="outline"
-          onClick={() => router.push("/research/external-research")}
+          onClick={() => router.push("/research/external-research/my-external-research")}
           className="shadow-sm bg-white"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -127,7 +130,7 @@ export default function AddExternalResearchPage() {
         </Button>
       }
     >
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="w-full mx-auto space-y-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid gap-6 md:grid-cols-[1fr_350px]">
@@ -156,7 +159,7 @@ export default function AddExternalResearchPage() {
                           <FormControl>
                             <Input
                               placeholder="e.g., Global Trends in Antimicrobial Resistance..."
-                              className="h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                              className="h-11  bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
                               {...field}
                             />
                           </FormControl>
@@ -180,7 +183,7 @@ export default function AddExternalResearchPage() {
                                 <User className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
                                 <Input
                                   placeholder="Separated by commas..."
-                                  className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                  className="pl-10 h-11  bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
                                   {...field}
                                 />
                               </div>
@@ -202,7 +205,7 @@ export default function AddExternalResearchPage() {
                                 <Building2 className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
                                 <Input
                                   placeholder="e.g., World Health Organization"
-                                  className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                  className="pl-10 h-11  bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
                                   {...field}
                                 />
                               </div>
@@ -228,7 +231,7 @@ export default function AddExternalResearchPage() {
                                 <Calendar className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
                                 <Input
                                   placeholder="2024"
-                                  className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                  className="pl-10 h-11  bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
                                   {...field}
                                 />
                               </div>
@@ -250,11 +253,11 @@ export default function AddExternalResearchPage() {
                               defaultValue={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm">
+                                <SelectTrigger className="h-11  bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm">
                                   <SelectValue placeholder="Select Type" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="rounded-xl border-primary/10 shadow-lg">
+                              <SelectContent className="w-full border-primary/10 shadow-lg">
                                 <SelectItem value="report">Report</SelectItem>
                                 <SelectItem value="manuscript">
                                   Manuscript
@@ -278,18 +281,44 @@ export default function AddExternalResearchPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs font-bold text-slate-700">
-                            Keywords / Tags
+                            Keywords 
                           </FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Tag className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground/60" />
                               <Input
                                 placeholder="e.g., AMR, Policy, Global Health (separated by commas)..."
-                                className="pl-10 h-11 rounded-xl bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
+                                className="pl-10 h-11  bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm"
                                 {...field}
                               />
                             </div>
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Abstract / Summary */}
+                    <FormField
+                      control={form.control}
+                      name="abstract"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold text-slate-700">
+                            Abstract / Summary
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Provide a brief abstract or summary of the research findings..."
+                              rows={5}
+                              className="bg-slate-50 border-muted-foreground/15 focus-visible:ring-primary/20 text-sm resize-y"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription className="text-[10px]">
+                            Optional. Shown on the research detail page and used
+                            for search indexing.
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -350,7 +379,7 @@ export default function AddExternalResearchPage() {
 
                     {/* PDF Visual Card Indicator */}
                     {file && (
-                      <div className="flex items-center justify-between p-3.5 border border-emerald-100 bg-emerald-50/20 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between p-3.5 border border-emerald-100 bg-emerald-50/20  animate-in slide-in-from-top-2 duration-200">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
                           <div className="min-w-0">
@@ -378,7 +407,7 @@ export default function AddExternalResearchPage() {
                       <Button
                         type="submit"
                         disabled={isSubmitting || !file}
-                        className="w-full h-11 text-xs font-bold uppercase tracking-wider text-white bg-primary hover:bg-primary/95 shadow-md shadow-primary/25 hover:shadow-lg rounded-xl transition-all"
+                        className="w-full h-11 text-xs font-bold uppercase tracking-wider text-white bg-primary hover:bg-primary/95 shadow-md shadow-primary/25 hover:shadow-lg  transition-all"
                       >
                         {isSubmitting
                           ? "Ingesting..."

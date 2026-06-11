@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
@@ -24,7 +25,13 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
    const { theme, setTheme, resolvedTheme } = useTheme();
+  const { isAuthenticated, isLoading, signOut } = useAuth();
   const [mounted, setMounted] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsOpen(false);
+    await signOut();
+  };
 
 
     useEffect(() => {
@@ -117,21 +124,52 @@ export function Navbar() {
             <Moon className="h-5 w-5" />
           )}
         </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="font-bold hover:bg-primary/5 rounded-full px-4 text-sm h-9"
-            >
-              <Link href="/login">Sign In</Link>
-            </Button>
-            <Button
-              size="sm"
-              asChild
-              className="h-9 px-6 font-bold shadow-md shadow-primary/10 hover:scale-105 active:scale-95 transition-all text-sm rounded-full"
-            >
-              <Link href="/signup">Get Started</Link>
-            </Button>
+            {isLoading ? (
+              <div
+                className="h-9 w-48 rounded-full bg-muted/30 animate-pulse"
+                aria-hidden
+              />
+            ) : isAuthenticated ? (
+              <>
+                <Button
+                  size="sm"
+                  asChild
+                  className="h-9 px-6 font-bold shadow-md shadow-primary/10 hover:scale-105 active:scale-95 transition-all text-sm rounded-full"
+                >
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="font-bold hover:bg-destructive/10 hover:text-destructive rounded-full px-4 text-sm h-9"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="font-bold hover:bg-primary/5 rounded-full px-4 text-sm h-9"
+                >
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  asChild
+                  className="h-9 px-6 font-bold shadow-md shadow-primary/10 hover:scale-105 active:scale-95 transition-all text-sm rounded-full"
+                >
+                  <Link href="/signup">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -179,21 +217,46 @@ export function Navbar() {
           })}
 
           <div className="flex flex-col gap-4 mt-8">
-            <Button
-              variant="outline"
-              asChild
-              onClick={() => setIsOpen(false)}
-              className="w-full h-12 font-bold rounded-2xl"
-            >
-              <Link href="/login">Sign In</Link>
-            </Button>
-            <Button
-              asChild
-              onClick={() => setIsOpen(false)}
-              className="w-full h-12 font-bold rounded-2xl shadow-lg shadow-primary/20"
-            >
-              <Link href="/signup">Get Started</Link>
-            </Button>
+            {isLoading ? null : isAuthenticated ? (
+              <>
+                <Button
+                  asChild
+                  onClick={() => setIsOpen(false)}
+                  className="w-full h-12 font-bold rounded-2xl shadow-lg shadow-primary/20"
+                >
+                  <Link href="/dashboard">
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleSignOut}
+                  className="w-full h-12 font-bold rounded-2xl hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  asChild
+                  onClick={() => setIsOpen(false)}
+                  className="w-full h-12 font-bold rounded-2xl"
+                >
+                  <Link href="/login">Sign In</Link>
+                </Button>
+                <Button
+                  asChild
+                  onClick={() => setIsOpen(false)}
+                  className="w-full h-12 font-bold rounded-2xl shadow-lg shadow-primary/20"
+                >
+                  <Link href="/signup">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
         </nav>
       </div>
