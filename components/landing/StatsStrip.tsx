@@ -18,28 +18,26 @@ export default function StatsStrip({ overview }: { overview?: Overview }) {
   const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k+` : n.toString());
 
   return (
-    <section className="py-10">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="bg-card p-6 rounded-2xl text-center">
-            <p className="text-3xl font-bold">{fmt(published)}</p>
-            <p className="text-xs uppercase text-muted-foreground mt-2">Policies published</p>
-          </div>
+    <section className="py-6 md:py-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-card p-4 sm:p-6 rounded-2xl text-center">
+          <p className="text-2xl sm:text-3xl font-bold">{fmt(published)}</p>
+          <p className="text-xs uppercase text-muted-foreground mt-2">Policies published</p>
+        </div>
 
-          <div className="bg-card p-6 rounded-2xl text-center">
-            <p className="text-3xl font-bold">{fmt(openCalls)}</p>
-            <p className="text-xs uppercase text-muted-foreground mt-2">Open grant calls</p>
-          </div>
+        <div className="bg-card p-4 sm:p-6 rounded-2xl text-center">
+          <p className="text-2xl sm:text-3xl font-bold">{fmt(openCalls)}</p>
+          <p className="text-xs uppercase text-muted-foreground mt-2">Open grant calls</p>
+        </div>
 
-          <div className="bg-card p-6 rounded-2xl text-center">
-            <p className="text-3xl font-bold">{fmt(proposals)}</p>
-            <p className="text-xs uppercase text-muted-foreground mt-2">Proposals submitted</p>
-          </div>
+        <div className="bg-card p-4 sm:p-6 rounded-2xl text-center">
+          <p className="text-2xl sm:text-3xl font-bold">{fmt(proposals)}</p>
+          <p className="text-xs uppercase text-muted-foreground mt-2">Proposals submitted</p>
+        </div>
 
-          <div className="bg-card p-6 rounded-2xl text-center">
-            <p className="text-3xl font-bold">{fmt(institutions)}</p>
-            <p className="text-xs uppercase text-muted-foreground mt-2">Total repository files</p>
-          </div>
+        <div className="bg-card p-4 sm:p-6 rounded-2xl text-center">
+          <p className="text-2xl sm:text-3xl font-bold">{fmt(institutions)}</p>
+          <p className="text-xs uppercase text-muted-foreground mt-2">Total repository files</p>
         </div>
       </div>
     </section>

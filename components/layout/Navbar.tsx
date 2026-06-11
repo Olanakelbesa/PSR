@@ -173,7 +173,22 @@ export function Navbar() {
           </div>
 
           {/* Mobile Menu Toggle */}
-          <div className="flex lg:hidden items-center gap-4">
+          <div className="flex lg:hidden items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10"
+              onClick={() =>
+                setTheme((theme ?? resolvedTheme) === "dark" ? "light" : "dark")
+              }
+              aria-label="Toggle dark mode"
+            >
+              {mounted && (theme === "dark" || resolvedTheme === "dark") ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -190,7 +205,7 @@ export function Navbar() {
       {/* Mobile Drawer */}
       <div
         className={cn(
-          "fixed inset-0 z-40 lg:hidden bg-background/95 backdrop-blur-2xl transition-all duration-300 pt-24",
+          "fixed inset-0 z-40 lg:hidden bg-background/95 backdrop-blur-2xl transition-all duration-300 pt-24 overflow-y-auto",
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
       >

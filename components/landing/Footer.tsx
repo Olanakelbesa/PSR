@@ -8,9 +8,9 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-background border-t border-white/5 p-20">
-      <div className="flex justify-between items-center">
-        <div className="lg:col-span-4 space-y-8">
+    <footer className="bg-background border-t border-white/5 px-6 py-12 md:p-20">
+      <div className="container mx-auto flex flex-col gap-8 md:flex-row md:justify-between md:items-center">
+        <div className="space-y-4 md:space-y-8">
           <div className="flex items-center gap-2">
             <div className="h-10 w-10 overflow-hidden rounded-lg bg-background shadow-lg shadow-primary/10 ring-1 ring-border/50">
               <Image

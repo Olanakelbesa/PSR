@@ -385,7 +385,7 @@ export default function LandingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative min-h-[85vh] flex items-center pt-20 overflow-visible">
+        <section className="relative min-h-[85vh] flex items-center pt-20 overflow-x-clip">
           <div className="absolute inset-0 -z-10">
             <div
               className="absolute top-0 left-0 w-[40%] h-[40%] bg-primary/10 blur-[100px] rounded-full animate-pulse"
@@ -402,9 +402,9 @@ export default function LandingPage() {
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
           </div>
 
-          <div className="container mx-auto px-4 pt-20 relative">
-            <div className="max-w-4xl mx-auto text-center space-y-8">
-              <h1 className="text-4xl md:text-7xl font-black tracking-tight leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <div className="container mx-auto px-4 pt-10 md:pt-20 relative">
+            <div className="max-w-4xl mx-auto text-center space-y-6 md:space-y-8">
+              <h1 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tight leading-[1.1] md:leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-1000">
                 Research and Policy {" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-purple-700 bg-300%  animate-gradient">
                   Documents
@@ -559,7 +559,7 @@ export default function LandingPage() {
         </section>
 
         {/* Impact / Analytics Section (moved earlier) */}
-        <section id="impact" className="p-12 border-y border-white/5 relative bg-background">
+        <section id="impact" className="py-8 md:py-12 border-y border-white/5 relative bg-background">
           <div className="container mx-auto px-4">
             <RevealOnScroll>
               <StatsStrip overview={derivedOverview} />
@@ -588,7 +588,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features / Modules Section */}
-        <section id="modules" className="p-24 bg-background relative">
+        <section id="modules" className="py-12 md:py-24 bg-background relative">
           <div className="container mx-auto px-4">
             {/* <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
               <Badge
@@ -608,7 +608,7 @@ export default function LandingPage() {
               </p>
             </RevealOnScroll> */}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
               {openGrantCalls.length ? (
                 openGrantCalls.slice(0, 4).map((call: any, index: number) => {
                   const theme = grantCallCardThemes[index % grantCallCardThemes.length];
@@ -699,10 +699,10 @@ export default function LandingPage() {
         </section>
 
         {/* Feature Spotlight */}
-        <section className="p-24 bg-muted/20 overflow-hidden">
+        <section className="py-12 md:py-24 bg-muted/20 overflow-hidden">
           <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-              <RevealOnScroll className="space-y-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              <RevealOnScroll className="space-y-8 md:space-y-10">
                 <div className="space-y-4">
                   <h2 className="text-3xl md:text-5xl font-bold tracking-tight leading-tight">
                     Document Intelligence <br />
@@ -760,11 +760,11 @@ export default function LandingPage() {
               </RevealOnScroll>
 
               <RevealOnScroll
-                className="relative rotate-6 hover:rotate-3 transition-all duration-700"
+                className="relative lg:rotate-6 lg:hover:rotate-3 transition-all duration-700"
                 delay={200}
               >
                 <div className="absolute inset-0 bg-primary/10 blur-[80px] rounded-full -z-10" />
-                <div className="rounded-[2.5rem] overflow-hidden border-4 border-background shadow-2xl rotate-2 hover:rotate-0 transition-all duration-700 group">
+                <div className="rounded-3xl lg:rounded-[2.5rem] overflow-hidden border-4 border-background shadow-2xl lg:rotate-2 lg:hover:rotate-0 transition-all duration-700 group">
                   <Image
                     src="/psr_spotlight.png"
                     alt="Feature Spotlight"
@@ -779,7 +779,7 @@ export default function LandingPage() {
         </section>
 
         {/* Public Analytics Section */}
-        <section id="insights" className="p-20 bg-muted/20 border-y border-border/50">
+        <section id="insights" className="py-12 md:py-20 bg-muted/20 border-y border-border/50">
           <div className="container mx-auto px-4 space-y-6">
             {/* <RevealOnScroll>
               <StatsStrip overview={derivedOverview} />
@@ -802,7 +802,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <RevealOnScroll className="lg:col-span-1">
                 <div className="bg-card rounded-2xl p-6 h-full border border-border">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h3 className="text-lg font-bold">Thematic areas</h3>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -871,7 +871,7 @@ export default function LandingPage() {
 
               <RevealOnScroll className="lg:col-span-2">
                 <div className="bg-card rounded-2xl p-6 h-full border border-border">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <h3 className="text-lg font-bold">Active grant calls</h3>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -914,11 +914,11 @@ export default function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="p-24 container mx-auto ">
-          <RevealOnScroll className="rounded-[3rem] bg-primary px-8 py-20 text-center text-background relative overflow-hidden shadow-2xl">
+        <section className="py-12 md:py-24 px-4 container mx-auto">
+          <RevealOnScroll className="rounded-3xl md:rounded-[3rem] bg-primary px-6 py-14 md:px-8 md:py-20 text-center text-background relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 h-[400px] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
-            <div className="max-w-3xl mx-auto space-y-10 relative z-10">
-              <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-none">
+            <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 relative z-10">
+              <h2 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight leading-none">
                 Join the New Standard.
               </h2>
               <p className="text-base md:text-lg opacity-80 leading-relaxed font-medium max-w-xl mx-auto">
@@ -928,7 +928,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   variant="secondary"
-                  className="h-14 px-10 text-base font-bold rounded-2xl shadow-xl hover:scale-105 transition-all"
+                  className="w-full sm:w-auto h-14 px-10 text-base font-bold rounded-2xl shadow-xl hover:scale-105 transition-all"
                   asChild
                 >
                   <Link href="/signup">Get Started</Link>
@@ -936,7 +936,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="h-14 px-10 text-base font-bold rounded-2xl bg-transparent text-background border-background/20 hover:bg-background hover:text-foreground transition-all"
+                  className="w-full sm:w-auto h-14 px-10 text-base font-bold rounded-2xl bg-transparent text-background border-background/20 hover:bg-background hover:text-foreground transition-all"
                   asChild
                 >
                   <Link href="/contact">Learn More</Link>
