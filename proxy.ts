@@ -12,7 +12,7 @@ export const proxy = auth((req) => {
   if (
     req.auth?.error === "RefreshTokenError" &&
     !isPublicPath(pathname) &&
-    !pathname.startsWith("/api/auth")
+    !pathname.startsWith("/auth-api")
   ) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);

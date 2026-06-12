@@ -24,7 +24,7 @@ interface ProvidersProps {
 
 export function Providers({ children, session }: ProvidersProps) {
   return (
-    <SessionProvider session={session}>
+    <SessionProvider session={session} basePath="/auth-api">
       <QueryClientProvider client={queryClient}>
         <ErrorBoundary>{children}</ErrorBoundary>
 

@@ -77,9 +77,9 @@ function formatDate(value?: string | null) {
 function fileLink(value?: string | null) {
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith("/api/proxy")) return value;
-  if (value.startsWith("/")) return `/api/proxy${value}`;
-  return `/api/proxy/${value}`;
+  if (value.startsWith("/bff")) return value;
+  if (value.startsWith("/")) return `/bff${value}`;
+  return `/bff/${value}`;
 }
 
 function FilePicker({

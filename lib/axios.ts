@@ -11,7 +11,7 @@
 //   ✔ Request deduplication via a pending-refresh queue
 //   ✔ Server-side safe (no window/localStorage access during SSR)
 //
-// Rule ref: NEXTJS_FRONTEND_API_RULES.md §2.2 — baseURL is /api/proxy,
+// Rule ref: NEXTJS_FRONTEND_API_RULES.md §2.2 — baseURL is /bff,
 // never a NEXT_PUBLIC_ env var.
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
@@ -58,7 +58,7 @@ export const tokenStorage = {
 // baseURL points to the Next.js BFF proxy — NEVER the real backend URL.
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.1
 const api = axios.create({
-  baseURL: "/api/proxy",
+  baseURL: "/bff",
   headers: { "Content-Type": "application/json" },
   timeout: 30_000,
 });
@@ -167,7 +167,7 @@ api.interceptors.response.use(
       try {
         // Exchange refresh token for a new access token via the proxy layer
         const { data } = await axios.post(
-          `/api/proxy${API_ENDPOINTS.AUTH.REFRESH}`,
+          `/bff${API_ENDPOINTS.AUTH.REFRESH}`,
           { refresh: refreshToken },
         );
 

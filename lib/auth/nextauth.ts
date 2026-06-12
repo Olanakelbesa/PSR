@@ -119,6 +119,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // Required when self-hosting behind a reverse proxy (nginx/gateway):
   // trust the Host / X-Forwarded-* headers to build correct callback URLs.
   trustHost: true,
+  // The MOH gateway routes /api/* away from this app, so auth endpoints
+  // live under /auth-api instead of the default /api/auth.
+  basePath: "/auth-api",
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -274,7 +277,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token?.error === "RefreshTokenError") {
-        session.user = undefined as unknown as Session["user"];
+        session.user = undefined as unknown as typeof session.user;
         session.backendToken = "";
         session.backendRefreshToken = undefined;
         session.error = "RefreshTokenError";
@@ -282,7 +285,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       if (token) {
-        session.user = token.user as Session["user"];
+        session.user = token.user as typeof session.user;
         session.backendToken = token.backendToken as string;
         session.backendRefreshToken = token.backendRefreshToken as
           | string

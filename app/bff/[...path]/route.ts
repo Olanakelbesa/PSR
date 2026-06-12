@@ -1,7 +1,10 @@
 // ============================================================================
-// RPDMS — Next.js BFF Proxy: /api/proxy/[...path]
+// RPDMS — Next.js BFF Proxy: /bff/[...path]
 // ============================================================================
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §2
+//
+// Served at /bff/* (not /api/proxy/*) because the MOH gateway routes /api/*
+// directly to Django, bypassing this app.
 //
 // Security guarantees:
 //   ✔ SSRF-safe: only forwards to fixed API_BASE_URL (never dynamic targets)
@@ -51,7 +54,7 @@ function log(
   if (!isDev) return;
   const icon = status >= 500 ? "🔴" : status >= 400 ? "🟠" : "🟢";
   console.log(
-    `${icon} [Proxy] ${method} /api/proxy${proxyPath} → ${status} (${durationMs}ms)`,
+    `${icon} [Proxy] ${method} /bff${proxyPath} → ${status} (${durationMs}ms)`,
   );
 }
 

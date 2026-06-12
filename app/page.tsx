@@ -115,9 +115,9 @@ function formatDate(dateValue?: string | null) {
 function resolveFileUrl(filePath?: string | null) {
   if (!filePath) return "#";
   if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/api/proxy")) return filePath;
-  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
-  return `/api/proxy/${filePath}`;
+  if (filePath.startsWith("/bff")) return filePath;
+  if (filePath.startsWith("/")) return `/bff${filePath}`;
+  return `/bff/${filePath}`;
 }
 
 function extractFileName(filePath?: string | null) {
@@ -181,7 +181,7 @@ export default function LandingPage() {
           }
 
           const response = await fetch(
-            `/api/proxy${API_ENDPOINTS.SEARCH.LIST}?${params.toString()}`,
+            `/bff${API_ENDPOINTS.SEARCH.LIST}?${params.toString()}`,
             {
               headers,
               signal: controller.signal,

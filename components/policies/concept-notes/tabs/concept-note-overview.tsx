@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 function resolveFileUrl(filePath?: string | null) {
   if (!filePath || filePath === "#") return null;
   if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/api/proxy")) return filePath;
-  if (filePath.startsWith("/")) return `/api/proxy${filePath}`;
-  return `/api/proxy/${filePath}`;
+  if (filePath.startsWith("/bff")) return filePath;
+  if (filePath.startsWith("/")) return `/bff${filePath}`;
+  return `/bff/${filePath}`;
 }
 
 function extractFileName(filePath?: string | null) {

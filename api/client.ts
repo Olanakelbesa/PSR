@@ -4,11 +4,11 @@
 // Rule ref: NEXTJS_FRONTEND_API_RULES.md §3.1
 //
 // Single centralized HTTP client used everywhere in the frontend.
-// Base URL: /api/proxy (relative) — routes through the BFF proxy.
+// Base URL: /bff (relative) — routes through the BFF proxy.
 // The real backend URL is NEVER visible to the browser.
 //
 // Features:
-//   ✔ Points to /api/proxy (Next.js BFF proxy layer)
+//   ✔ Points to /bff (Next.js BFF proxy layer)
 //   ✔ JWT Bearer injection on every request
 //   ✔ Silent refresh-token rotation on 401
 //   ✔ Normalized ApiError shape for UI consumption
@@ -97,10 +97,10 @@ export const tokenStorage = {
 };
 
 // ─── Axios Instance ───────────────────────────────────────────────────────────
-// Base URL is hardcoded to /api/proxy — the Next.js BFF proxy layer.
+// Base URL is hardcoded to /bff — the Next.js BFF proxy layer.
 // NO NEXT_PUBLIC_ env var is used here (that would expose it client-side).
 const apiClient = axios.create({
-  baseURL: "/api/proxy",
+  baseURL: "/bff",
   headers: { "Content-Type": "application/json" },
   timeout: 30_000,
 });
@@ -212,7 +212,7 @@ apiClient.interceptors.response.use(
 
       try {
         const { data } = await axios.post(
-          `/api/proxy${API_ENDPOINTS.AUTH.REFRESH}`,
+          `/bff${API_ENDPOINTS.AUTH.REFRESH}`,
           { refresh: refreshToken },
         );
 
