@@ -47,7 +47,11 @@ const nextConfig = {
   // large NextAuth JWT session cookies exceeding the default 8KB Node.js limit.
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000"],
+      allowedOrigins: [
+        "localhost:3000",
+        "pgms.mohdigitalhealth.gov.et",
+        "196.190.220.91:8089",
+      ],
     },
   },
 }

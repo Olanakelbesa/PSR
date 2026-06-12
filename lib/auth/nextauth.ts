@@ -116,6 +116,9 @@ function buildDisplayName(user: any): string {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
+  // Required when self-hosting behind a reverse proxy (nginx/gateway):
+  // trust the Host / X-Forwarded-* headers to build correct callback URLs.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
