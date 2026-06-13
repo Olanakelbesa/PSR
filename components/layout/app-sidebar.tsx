@@ -508,7 +508,7 @@ export function AppSidebar() {
                             onClick={() =>
                               setOpenMap((m) => ({
                                 ...m,
-                                [item.label]: !m[item.label],
+                                [item.label]: !(m[item.label] ?? false),
                               }))
                             }
                             isActive={parentActive}
@@ -527,7 +527,7 @@ export function AppSidebar() {
                               {item.label}
                             </span>
                             <svg
-                              className={`ml-auto transition-transform group-data-[collapsible=icon]:hidden ${openMap[item.label] || parentActive ? "rotate-180" : ""}`}
+                              className={`ml-auto transition-transform group-data-[collapsible=icon]:hidden ${openMap[item.label] ? "rotate-180" : ""}`}
                               width="16"
                               height="16"
                               viewBox="0 0 24 24"
@@ -539,7 +539,7 @@ export function AppSidebar() {
                             </svg>
                           </SidebarMenuButton>
 
-                          {(openMap[item.label] || parentActive) && (
+                          {openMap[item.label] && (
                             <SidebarMenuSub className="pt-4 space-y-2">
                               {validSubItems.map((sub) => {
                                 const SubIcon = sub.icon;
