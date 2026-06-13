@@ -166,6 +166,26 @@ const handler = auth(async (req, context) => {
       return NextResponse.json(data, { status: upstreamRes.status });
     }
 
+    const isBinary =
+      upstreamContentType.includes("application/pdf") ||
+      upstreamContentType.includes("application/octet-stream") ||
+      upstreamContentType.startsWith("image/");
+
+    if (isBinary) {
+      const buffer = await upstreamRes.arrayBuffer();
+      const responseHeaders = new Headers({
+        "content-type": upstreamContentType,
+      });
+      const disposition = upstreamRes.headers.get("content-disposition");
+      if (disposition) {
+        responseHeaders.set("content-disposition", disposition);
+      }
+      return new NextResponse(buffer, {
+        status: upstreamRes.status,
+        headers: responseHeaders,
+      });
+    }
+
     const textBody = await upstreamRes.text();
     return new NextResponse(textBody, {
       status: upstreamRes.status,

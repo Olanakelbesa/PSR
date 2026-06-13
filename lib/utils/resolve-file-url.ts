@@ -1,4 +1,4 @@
-/** Normalize API file paths to same-origin browser URLs. */
+/** Normalize API file paths to browser-usable URLs via the BFF media stream. */
 export function resolveFileUrl(filePath?: string | null): string | null {
   if (!filePath || filePath === "#") return null;
 
@@ -11,20 +11,17 @@ export function resolveFileUrl(filePath?: string | null): string | null {
     }
   }
 
-  if (filePath.startsWith("/bff/media/stream/")) {
-    return `/media/${filePath.slice("/bff/media/stream/".length)}`;
-  }
-
-  if (filePath.startsWith("/bff/media/")) {
-    return filePath.slice("/bff".length);
-  }
-
   if (filePath.startsWith("/bff/")) {
-    return filePath.slice("/bff".length);
+    return filePath;
   }
 
   if (!filePath.startsWith("/")) {
     filePath = `/${filePath}`;
+  }
+
+  // Serve through BFF → backend /api/media/stream/ (works in dev + prod without nginx /media/)
+  if (filePath.startsWith("/media/")) {
+    return `/bff/media/stream/${filePath.slice("/media/".length)}`;
   }
 
   return filePath;
@@ -36,6 +33,7 @@ export const getPublicFileUrl = resolveFileUrl;
 export function extractFileName(filePath?: string | null): string {
   if (!filePath) return "Document";
   const normalized = resolveFileUrl(filePath) ?? filePath;
-  const segment = normalized.split("/").pop();
+  const withoutQuery = normalized.split("?")[0] ?? normalized;
+  const segment = withoutQuery.split("/").pop();
   return segment || "Document";
 }
