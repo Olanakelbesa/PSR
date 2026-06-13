@@ -28,6 +28,7 @@ import { DataTable } from "@/components/shared";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyReviews } from "@/lib/queries/concept-notes";
 import type { ConceptNoteItem } from "@/lib/queries/concept-notes";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import {
   Card,
   CardContent,
@@ -234,7 +235,7 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
           <Avatar className="h-8 w-8 border-2 border-background shadow-sm ring-1 ring-border/50">
             {author.photoUrl && (
               <AvatarImage
-                src={author.photoUrl}
+                src={resolveFileUrl(author.photoUrl) ?? undefined}
                 alt={author.fullName}
               />
             )}

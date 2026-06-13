@@ -45,6 +45,7 @@ import {
 } from "@/api/services";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const PAGE_LIMIT = 5;
 const SEARCH_DEBOUNCE_MS = 500;
@@ -119,7 +120,7 @@ function ReviewerCard({ reviewer, isSelected, onToggle }: ReviewerCardProps) {
               isSelected ? "border-primary/50" : "border-border",
             )}
           >
-            <AvatarImage src={reviewer.photoUrl} alt={reviewer.fullName} />
+            <AvatarImage src={resolveFileUrl(reviewer.photoUrl) ?? undefined} alt={reviewer.fullName} />
             <AvatarFallback
               className={cn(
                 "text-xs font-bold",
@@ -217,7 +218,7 @@ function SelectedReviewerCard({
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-2.5 shadow-xs">
       <Avatar className="h-8 w-8 border border-border">
-        <AvatarImage src={reviewer.photoUrl} alt={reviewer.fullName} />
+        <AvatarImage src={resolveFileUrl(reviewer.photoUrl) ?? undefined} alt={reviewer.fullName} />
         <AvatarFallback className="text-[10px] font-bold bg-muted text-muted-foreground">
           {initials}
         </AvatarFallback>

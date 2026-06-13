@@ -30,6 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks";
 import { useConceptNoteDetail, useSubmitConceptNote } from "@/lib/queries/concept-notes";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useState } from "react";
 
 export default function ConceptNoteDetailPage() {
@@ -116,7 +117,7 @@ export default function ConceptNoteDetailPage() {
   const lastUpdated = note.submittedBy?.lastUpdated ?? submittedAt;
   const executiveSummary = note.overview?.executiveSummary ?? "";
   const submittedByName = note.submittedBy?.fullName ?? "Unknown";
-  const submittedByImage = note.submittedBy?.photoUrl ?? "";
+  const submittedByImage = resolveFileUrl(note.submittedBy?.photoUrl) ?? "";
   const submittedByOrganization = note.organization?.name ?? "Unknown Organization";
   const isDraft = String(currentStatus).toLowerCase() === "draft";
   const isRevisionRequired = statusKey === "revision_required";

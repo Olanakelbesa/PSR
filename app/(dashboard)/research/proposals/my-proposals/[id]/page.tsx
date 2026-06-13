@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
@@ -760,7 +761,7 @@ export default function ProposalDetailPage() {
             <CardContent className="pt-4 space-y-3">
               {proposal.proposalFile ? (
                 <a
-                  href={proposal.proposalFile}
+                  href={resolveFileUrl(proposal.proposalFile) ?? "#"}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm font-medium text-primary hover:underline"
@@ -770,7 +771,7 @@ export default function ProposalDetailPage() {
               ) : null}
               {proposal.updatedProposal ? (
                 <a
-                  href={proposal.updatedProposal}
+                  href={resolveFileUrl(proposal.updatedProposal) ?? "#"}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm font-medium text-primary hover:underline"
@@ -780,7 +781,7 @@ export default function ProposalDetailPage() {
               ) : null}
               {proposal.supportingDocs ? (
                 <a
-                  href={proposal.supportingDocs}
+                  href={resolveFileUrl(proposal.supportingDocs) ?? "#"}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm font-medium text-primary hover:underline"
@@ -794,7 +795,7 @@ export default function ProposalDetailPage() {
                     Digital Signature
                   </p>
                   <img
-                    src={proposal.signature}
+                    src={resolveFileUrl(proposal.signature) ?? undefined}
                     alt="Proposal signature"
                     className="mt-2 h-32 w-full max-w-full object-contain rounded-lg border"
                   />

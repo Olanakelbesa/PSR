@@ -35,6 +35,7 @@ import {
 } from "@/api/services/screenings.service";
 import { fundingDecisionSchema } from "@/lib/validations";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 export default function ReadyForFundingDetailPage() {
   const params = useParams();
@@ -265,7 +266,7 @@ export default function ReadyForFundingDetailPage() {
                       screening.attachments.map((attachment) => (
                         <a
                           key={attachment.id}
-                          href={attachment.url}
+                          href={resolveFileUrl(attachment.url) ?? "#"}
                           target="_blank"
                           rel="noreferrer"
                           className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50"

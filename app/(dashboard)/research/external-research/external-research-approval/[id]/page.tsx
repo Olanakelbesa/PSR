@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useExternalResearch, useUpdateExternalResearch } from "@/hooks";
 import { toast } from "sonner";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 type ReviewDecision = "approved" | "rejected";
 
@@ -247,7 +248,7 @@ export default function ExternalResearchApprovalDetailPage() {
                     className="w-full h-11 text-xs font-bold uppercase tracking-wider"
                   >
                     <a
-                      href={String(item.file)}
+                      href={resolveFileUrl(String(item.file)) ?? "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

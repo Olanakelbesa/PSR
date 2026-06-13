@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useGrantCall } from "@/lib/queries/grant-calls";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import type { GrantCall } from "@/types/grant-call";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
@@ -141,7 +142,7 @@ export default function CallDetailPage() {
         </div>
         <div className="relative w-full h-56 rounded-lg overflow-hidden my-4 bg-muted">
           <Image
-            src={call.bannerImage || call.thumbnailImage || "/grant-banner.png"}
+            src={resolveFileUrl(call.bannerImage || call.thumbnailImage) ?? "/grant-banner.png"}
             alt={call.title}
             fill
             className="object-fill"

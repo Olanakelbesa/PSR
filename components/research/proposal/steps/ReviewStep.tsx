@@ -75,10 +75,12 @@ function isSavedSignatureValue(value: unknown): value is SavedSignatureValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+
 function getSignatureUrl(value: unknown): string | undefined {
   if (value instanceof File) return undefined;
-  if (typeof value === "string") return value;
-  if (isSavedSignatureValue(value)) return value.file;
+  if (typeof value === "string") return resolveFileUrl(value) ?? undefined;
+  if (isSavedSignatureValue(value)) return resolveFileUrl(value.file) ?? undefined;
   return undefined;
 }
 

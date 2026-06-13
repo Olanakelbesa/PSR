@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,7 +182,7 @@ export default function EditConceptNotePage() {
       strategicObjectives: loadedStrategicObjectives,
       file: undefined,
     });
-    setExistingFileUrl(existingUrl);
+    setExistingFileUrl(resolveFileUrl(existingUrl));
 
     if (loadedStrategicObjectives.length > 0) {
       form.setValue("strategicObjectives", loadedStrategicObjectives, {
@@ -940,16 +941,4 @@ function calculateWordCount(text: string) {
     .trim()
     .split(/\s+/)
     .filter((word) => word.length > 0).length;
-}
-
-function extractFileName(url?: string | null) {
-  if (!url) return "Current document";
-  try {
-    const parsed = new URL(url);
-    const fileName = parsed.pathname.split("/").filter(Boolean).pop();
-    return fileName ? decodeURIComponent(fileName) : "Current document";
-  } catch {
-    const fileName = url.split("/").filter(Boolean).pop();
-    return fileName || "Current document";
-  }
 }

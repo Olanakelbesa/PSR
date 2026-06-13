@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFinalSubmission } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -37,14 +38,6 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   });
-}
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return null;
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
 }
 
 function fileNameFromPath(filePath?: string | null) {

@@ -4,6 +4,7 @@ import { GitBranch, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 interface ConceptNoteVersionsProps {
   note: any;
@@ -66,7 +67,7 @@ export function ConceptNoteVersions({ note }: ConceptNoteVersionsProps) {
             </div>
             {version.file ? (
               <Button variant="outline" size="sm" asChild>
-                <a href={version.file} download target="_blank" rel="noopener noreferrer">
+                <a href={resolveFileUrl(version.file) ?? "#"} download target="_blank" rel="noopener noreferrer">
                   <Download className="h-3 w-3 mr-1" /> Download
                 </a>
               </Button>

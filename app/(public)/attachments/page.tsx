@@ -21,21 +21,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { tokenStorage } from "@/api";
 import type { MinuteRecord } from "@/types/minutes";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const ITEMS_PER_PAGE = 6;
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return "#";
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
-function extractFileName(filePath?: string | null) {
-  if (!filePath) return "No file";
-  return filePath.split("/").pop() || filePath;
-}
 
 function getFileType(filePath?: string | null) {
   const extension = extractFileName(filePath).split(".").pop()?.toLowerCase();
@@ -390,7 +378,7 @@ export default function AttachmentsPage() {
                                     className="rounded-xl border border-white/5 hover:bg-primary hover:text-primary-foreground font-bold h-9 px-4 text-xs tracking-wider uppercase transition-all flex items-center gap-2 ml-auto"
                                   >
                                     <a
-                                      href={resolveFileUrl(doc.file)}
+                                      href={resolveFileUrl(doc.file) ?? "#"}
                                       target="_blank"
                                       rel="noreferrer"
                                       download={extractFileName(doc.file)}

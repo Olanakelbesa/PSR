@@ -33,6 +33,7 @@ import {
   useCreateProgressReportApproval,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 
 type ApprovalDecision = "pending" | "approved" | "rejected";
@@ -387,7 +388,7 @@ export default function ProgressReportDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <a
-                    href={report.attachment}
+                    href={resolveFileUrl(report.attachment) ?? "#"}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/40 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-muted"

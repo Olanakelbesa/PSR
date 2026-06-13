@@ -52,6 +52,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import type { EthicalClearance } from "@/types/ethical-clearance";
 import { useEthicalClearances } from "@/lib/queries/ethical-clearance";
 import { useReviewedWithMarksScreenings } from "@/lib/queries/screenings";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const ALL_VALUE = "all";
 
@@ -121,14 +122,6 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   });
-}
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return null;
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
 }
 
 function firstDefined<T>(...values: Array<T | null | undefined>): T | undefined {

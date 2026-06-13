@@ -23,7 +23,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
-import { extractFileName } from "@/lib/utils/resolve-file-url";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
 import {
@@ -115,7 +115,7 @@ export default function RepositoryDetailPage() {
   const accessCfg =
     ACCESS_CONFIG[policy.accessLevel] ?? ACCESS_CONFIG.public;
   const AccessIcon = accessCfg.icon;
-  const downloadUrl = policy.draftFile || policy.documentUrl;
+  const downloadUrl = resolveFileUrl(policy.draftFile || policy.documentUrl);
 
   return (
     <PageContainer

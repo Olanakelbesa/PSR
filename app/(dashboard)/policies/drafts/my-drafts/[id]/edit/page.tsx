@@ -36,6 +36,7 @@ import { usePolicyDraft } from "@/lib/queries/policy-drafts";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useOrganizationTypes } from "@/lib/queries/organization-types";
 import { toast } from "sonner";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 type DraftFormState = {
   title: string;
@@ -302,10 +303,10 @@ export default function EditPolicyDraftPage() {
     // Support multiple possible file keys and shapes returned by backend
     const resolveUrl = (val: any): string | null => {
       if (!val) return null;
-      if (typeof val === "string") return val;
+      if (typeof val === "string") return resolveFileUrl(val);
       if (typeof val === "object") {
-        if (val.url) return val.url;
-        if (val.path) return val.path;
+        if (val.url) return resolveFileUrl(val.url);
+        if (val.path) return resolveFileUrl(val.path);
         if (val.submitted_file) return resolveUrl(val.submitted_file);
         if (val.file) return resolveUrl(val.file);
       }

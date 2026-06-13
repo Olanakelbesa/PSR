@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 interface DraftVersionsProps {
   versionHistory: any[];
@@ -88,7 +89,7 @@ export function DraftVersions({ versionHistory }: DraftVersionsProps) {
                     className="h-10 px-4 font-semibold text-xs gap-2 border-primary/20 hover:bg-primary/5"
                   >
                     {v.file ? (
-                      <a href={v.file} target="_blank" rel="noopener noreferrer">
+                      <a href={resolveFileUrl(v.file) ?? "#"} target="_blank" rel="noopener noreferrer">
                         <Eye className="h-4 w-4" />
                         View
                       </a>
@@ -106,7 +107,7 @@ export function DraftVersions({ versionHistory }: DraftVersionsProps) {
                     className="h-10 px-4 font-semibold text-xs gap-2"
                   >
                     {v.file ? (
-                      <a href={v.file} download target="_blank" rel="noopener noreferrer">
+                      <a href={resolveFileUrl(v.file) ?? "#"} download target="_blank" rel="noopener noreferrer">
                         <Download className="h-4 w-4" />
                         Download
                       </a>

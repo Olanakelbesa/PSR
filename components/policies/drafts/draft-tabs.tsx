@@ -15,6 +15,7 @@ import { DraftDocument } from "./tabs/draft-document";
 import { DraftFeedback } from "./tabs/draft-feedback";
 import { DraftVersions } from "./tabs/draft-versions";
 import { DraftTimeline } from "./tabs/draft-timeline";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 interface DraftTabsProps {
   draft: any;
@@ -62,13 +63,17 @@ export function DraftTabs({ draft, mode = "draft", isFeedbackVisible = true }: D
       <TabsContent value="document" className="mt-6">
         <DraftDocument
           url={
-            isRepository
-              ? typeof draft.draftFile === "string"
-                ? draft.draftFile
-                : draft.documentUrl ?? ""
-              : draft.documentUrl ??
-                (typeof draft.draftFile === "string" ? draft.draftFile : draft.url) ??
-                ""
+            resolveFileUrl(
+              isRepository
+                ? typeof draft.draftFile === "string"
+                  ? draft.draftFile
+                  : draft.documentUrl ?? ""
+                : draft.documentUrl ??
+                    (typeof draft.draftFile === "string"
+                      ? draft.draftFile
+                      : draft.url) ??
+                    "",
+            ) ?? ""
           }
           fileName={
             draft.documentFileName ??

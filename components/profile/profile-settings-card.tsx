@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, Loader2, Lock, Mail, Save, Shield } from "lucide-react";
-import { toast } from "sonner";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 import {
   Card,
@@ -153,7 +153,7 @@ export function ProfileSettingsCard() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <Avatar className="h-16 w-16">
             {profile?.photoUrl ? (
-              <AvatarImage src={profile.photoUrl} alt={displayName} />
+              <AvatarImage src={resolveFileUrl(profile.photoUrl) ?? undefined} alt={displayName} />
             ) : null}
             <AvatarFallback>
               {userInitials(displayName, profile?.email ?? "U")}

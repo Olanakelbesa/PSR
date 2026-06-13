@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 export interface PolicyRepositoryItem {
   id: number;
@@ -60,7 +61,14 @@ export function usePolicyRepository(filters: PolicyRepositoryFilters = {}) {
       const url = `${API_ENDPOINTS.POLICY_REPOSITORY.LIST}${queryString ? `?${queryString}` : ""}`;
       
       const { data } = await api.get(url);
-      return data as PolicyRepositoryResponse;
+      const response = data as PolicyRepositoryResponse;
+      if (response?.data) {
+        response.data = response.data.map((item) => ({
+          ...item,
+          draftFile: resolveFileUrl(item.draftFile) ?? item.draftFile,
+        }));
+      }
+      return response;
     },
   });
 }
@@ -155,8 +163,7 @@ export function mapPolicyRepositoryDetail(
   const { overview, registryMetadata, publicationStatus, thematicAreas } =
     detail;
 
-  const draftFile = overview?.draftFile?.trim() ?? "";
-  // Use the backend URL as-is for document viewing (no /api/proxy rewrite).
+  const draftFile = resolveFileUrl(overview?.draftFile?.trim()) ?? "";
   const documentUrl = draftFile || null;
   const approvalDate = registryMetadata?.approvalDate ?? "";
   const effectiveDate = registryMetadata?.effectiveDate ?? "";

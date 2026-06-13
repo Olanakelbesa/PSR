@@ -11,14 +11,7 @@ import { ConceptNoteDocument } from "./tabs/concept-note-document";
 import { ConceptNoteFeedback } from "./tabs/concept-note-feedback";
 import { ConceptNoteTimeline } from "./tabs/concept-note-timeline";
 import { ConceptNoteVersions } from "./tabs/concept-note-versions";
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath || filePath === "#") return null;
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 interface ConceptNoteTabsProps {
   note: any;

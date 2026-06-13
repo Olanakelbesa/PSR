@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useManageConceptNoteDetail } from "@/lib/queries/concept-notes";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -142,7 +143,7 @@ export default function ManageConceptNoteDetailPage() {
   const currentStatusKey = note.currentStatus?.status ?? "";
   const submittedAt = note.submittedBy?.submittedAt;
   const lastUpdated = note.submittedBy?.lastUpdated;
-  const fileUrl = note.overview?.file;
+  const fileUrl = resolveFileUrl(note.overview?.file);
   const latestVersion = note.versions?.[note.versions.length - 1];
 
   const isReviewDetailCompleted = (detail: any) => {
@@ -525,7 +526,7 @@ export default function ManageConceptNoteDetailPage() {
                           <div className="flex gap-2 shrink-0">
                             <Button size="sm" variant="outline" asChild>
                               <a
-                                href={v.file}
+                                href={resolveFileUrl(v.file) ?? "#"}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
@@ -534,7 +535,7 @@ export default function ManageConceptNoteDetailPage() {
                               </a>
                             </Button>
                             <Button size="sm" variant="ghost" asChild>
-                              <a href={v.file} download>
+                              <a href={resolveFileUrl(v.file) ?? "#"} download>
                                 <Download className="h-3.5 w-3.5" />
                               </a>
                             </Button>
@@ -674,7 +675,7 @@ export default function ManageConceptNoteDetailPage() {
                 <div className="flex items-center gap-3 pt-1">
                   <Avatar className="h-9 w-9 border shadow-sm">
                     <AvatarImage
-                      src={note.submittedBy?.photoUrl ?? undefined}
+                      src={resolveFileUrl(note.submittedBy?.photoUrl) ?? undefined}
                     />
                     <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
                       {note.submittedBy?.fullName
@@ -820,7 +821,7 @@ export default function ManageConceptNoteDetailPage() {
                     asChild
                   >
                     <a
-                      href={latestVersion.file}
+                      href={resolveFileUrl(latestVersion.file) ?? "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

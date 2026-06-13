@@ -61,19 +61,11 @@ import {
 } from "@/api/services/grant-calls.service";
 import { useProposalTypes } from "@/lib/queries/proposal-type";
 import { useGrantCall } from "@/lib/queries/grant-calls";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 function resolveImageUrl(value: unknown): string | null {
   if (!value) return null;
-  if (typeof value === "string") {
-    if (
-      value.startsWith("http://") ||
-      value.startsWith("https://") ||
-      value.startsWith("/")
-    ) {
-      return value;
-    }
-    return `/${value.replace(/^\/+/, "")}`;
-  }
+  if (typeof value === "string") return resolveFileUrl(value);
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
     return (

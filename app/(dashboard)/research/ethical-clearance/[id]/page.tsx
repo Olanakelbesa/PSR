@@ -35,6 +35,7 @@ import type { EthicalClearance } from "@/types/ethical-clearance";
 import { useUpdateEthicalClearance, useEthicalClearance } from "@/lib/queries/ethical-clearance";
 import { useProposal } from "@/lib/queries/proposals";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const clearanceTypeLabel: Record<string, string> = {
   full_board: "Full Board Review",
@@ -85,17 +86,8 @@ function formatDate(value?: string | null) {
   });
 }
 
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return null;
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
 function getFileName(filePath?: string | null) {
-  if (!filePath) return "";
-  return filePath.split("/").pop() || filePath;
+  return extractFileName(filePath);
 }
 
 function firstDefined<T>(...values: Array<T | null | undefined>): T | undefined {

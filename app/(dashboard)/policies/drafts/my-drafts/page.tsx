@@ -42,6 +42,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePolicyDrafts, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useAuth } from "@/hooks/useAuth";
 
 const columns: ColumnDef<PolicyDraftItem>[] = [
@@ -134,7 +135,7 @@ const columns: ColumnDef<PolicyDraftItem>[] = [
         <div className="flex items-center gap-2 ml-4">
           <Avatar className="h-8 w-8 border shadow-sm">
             {author.photoUrl && (
-              <AvatarImage src={author.photoUrl} alt={author.fullName} />
+              <AvatarImage src={resolveFileUrl(author.photoUrl) ?? undefined} alt={author.fullName} />
             )}
             <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
               {author.fullName.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()}

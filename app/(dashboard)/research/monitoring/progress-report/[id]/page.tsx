@@ -51,6 +51,7 @@ import {
   useProgressReports,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 
 type ReportStatus = "pending" | "approved" | "rejected";
@@ -635,7 +636,7 @@ export default function ProjectTrackingDetailPage() {
                                 asChild
                               >
                                 <a
-                                  href={report.attachment}
+                                  href={resolveFileUrl(report.attachment) ?? "#"}
                                   target="_blank"
                                   rel="noreferrer"
                                 >

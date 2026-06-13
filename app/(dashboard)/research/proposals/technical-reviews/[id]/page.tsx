@@ -32,6 +32,7 @@ import {
 } from "@/api/services";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { THEMATIC_AREAS } from "@/lib/constants";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
@@ -498,7 +499,7 @@ export default function TechnicalReviewDetailPage() {
             <CardContent className="pt-5 p-0">
               {review.attachment ? (
                 <a
-                  href={review.attachment}
+                  href={resolveFileUrl(review.attachment) ?? "#"}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-0 group"

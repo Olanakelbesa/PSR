@@ -23,21 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { usePolicyRepository, type PolicyRepositoryItem } from "@/lib/queries/policy-repository";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const PAGE_SIZE = 100;
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return "#";
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
-function extractFileName(filePath?: string | null) {
-  if (!filePath) return "No file";
-  return filePath.split("/").pop() || filePath;
-}
 
 function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
@@ -396,7 +384,7 @@ export default function PublicPublicationsPage() {
                                       className="rounded-xl font-bold text-xs tracking-wider uppercase h-10 px-6 gap-2"
                                     >
                                       <a
-                                        href={resolveFileUrl(pub.draftFile)}
+                                        href={resolveFileUrl(pub.draftFile) ?? "#"}
                                         target="_blank"
                                         rel="noreferrer"
                                         download={extractFileName(pub.draftFile)}

@@ -28,6 +28,7 @@ import { ConceptNoteTabs } from "@/components/policies/concept-notes/concept-not
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyReviewDetail } from "@/lib/queries/concept-notes";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 function formatLabel(value: any, fallback = "N/A") {
   if (!value) return fallback;
@@ -235,7 +236,7 @@ export default function ConceptNoteDetailPage() {
                 className="w-full justify-start h-9 text-sm"
                 onClick={() => {
                   if (note.overview?.file) {
-                    window.open(note.overview.file, "_blank");
+                    window.open(resolveFileUrl(note.overview.file) ?? "#", "_blank");
                   } else {
                     toast.error("No attachment file is available.");
                   }

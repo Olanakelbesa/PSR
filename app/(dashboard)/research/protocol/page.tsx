@@ -51,6 +51,7 @@ import {
 import { useDebounce } from "@/hooks/useDebounce";
 import { protocolUploadSchema } from "@/lib/validations";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import type { ProtocolRecord } from "@/types/protocol";
 import { toast } from "sonner";
 
@@ -72,14 +73,6 @@ function formatDate(value?: string | null) {
     month: "short",
     year: "numeric",
   });
-}
-
-function fileLink(value?: string | null) {
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith("/bff")) return value;
-  if (value.startsWith("/")) return `/bff${value}`;
-  return `/bff/${value}`;
 }
 
 function FilePicker({
@@ -406,7 +399,7 @@ export default function ProtocolPage() {
       accessorKey: "protocol_file",
       header: "Protocol File",
       cell: ({ row }) => {
-        const url = fileLink(
+        const url = resolveFileUrl(
           row.original.protocolFile || row.original.protocol_file,
         );
         return url ? (
@@ -429,7 +422,7 @@ export default function ProtocolPage() {
       accessorKey: "other_document",
       header: "Other Document",
       cell: ({ row }) => {
-        const url = fileLink(
+        const url = resolveFileUrl(
           row.original.otherDocument || row.original.other_document,
         );
         return url ? (
@@ -470,10 +463,10 @@ export default function ProtocolPage() {
     {
       id: "actions",
       cell: ({ row }) => {
-        const protocolUrl = fileLink(
+        const protocolUrl = resolveFileUrl(
           row.original.protocolFile || row.original.protocol_file,
         );
-        const otherUrl = fileLink(
+        const otherUrl = resolveFileUrl(
           row.original.otherDocument || row.original.other_document,
         );
 

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FileText, Upload, CheckCircle2, X, DollarSign } from "lucide-react";
 import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { cn } from "@/lib/utils";
 
 export function ProposalBudgetStep() {
@@ -253,7 +254,7 @@ export function ProposalBudgetStep() {
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                window.open(existingFile.file, '_blank');
+                                window.open(resolveFileUrl(existingFile.file) ?? "#", '_blank');
                               }}
                               className="text-primary hover:text-primary hover:bg-primary/10"
                             >

@@ -51,6 +51,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { parseBackendApiMessageFromError } from "@/lib/api/parse-backend-error";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -304,7 +305,7 @@ export default function MyFinalReportDetailPage() {
                     <span className="truncate">Progress Report Attachment</span>
                   </div>
                   <Button variant="outline" size="sm" asChild>
-                    <a href={report.attachment} target="_blank" rel="noreferrer">
+                    <a href={resolveFileUrl(report.attachment) ?? "#"} target="_blank" rel="noreferrer">
                       <Paperclip className="mr-1.5 h-3.5 w-3.5" />
                       View Document
                     </a>

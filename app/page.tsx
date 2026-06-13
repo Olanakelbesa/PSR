@@ -33,6 +33,7 @@ import TrendsCard from "@/components/landing/TrendsCard";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
 import type { SearchResultItem } from "@/lib/queries/search";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const grantCallCardThemes = [
   {
@@ -110,19 +111,6 @@ function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
   const parsed = new Date(dateValue);
   return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString();
-}
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return "#";
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
-function extractFileName(filePath?: string | null) {
-  if (!filePath) return "No file";
-  return filePath.split("/").pop() || filePath;
 }
 
 export default function LandingPage() {
@@ -516,7 +504,7 @@ export default function LandingPage() {
                                   onMouseDown={(event) => event.stopPropagation()}
                                 >
                                   <a
-                                    href={resolveFileUrl(item.file_url)}
+                                    href={resolveFileUrl(item.file_url) ?? "#"}
                                     target="_blank"
                                     rel="noreferrer"
                                     download={extractFileName(item.file_url)}

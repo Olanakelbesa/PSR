@@ -19,10 +19,18 @@ const nextConfig = {
     ];
   },
   async rewrites() {
+    const backendUrl = (
+      process.env.API_BASE_URL ?? "http://127.0.0.1:8000"
+    ).replace(/\/+$/, "");
+
     return [
       {
         source: "/policies/concept-notes/my-concept-note/:id/edit",
         destination: "/policies/concept-notes/my-concept-note/edit/:id",
+      },
+      {
+        source: "/media/:path*",
+        destination: `${backendUrl}/media/:path*`,
       },
     ];
   },

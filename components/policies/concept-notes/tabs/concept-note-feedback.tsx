@@ -18,6 +18,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 interface ConceptNoteFeedbackProps {
   feedback?: any[];
@@ -186,7 +187,7 @@ export function ConceptNoteFeedback({
                                 <Avatar className="h-10 w-10 border-2 border-background">
                                   {reviewerPhoto && (
                                     <AvatarImage
-                                      src={reviewerPhoto}
+                                      src={resolveFileUrl(reviewerPhoto) ?? undefined}
                                       alt={reviewerName}
                                     />
                                   )}
@@ -269,7 +270,10 @@ export function ConceptNoteFeedback({
                                   <div
                                     className="flex items-center gap-2 p-2 border rounded-md bg-muted/20 w-fit group cursor-pointer hover:border-primary/30 transition-colors"
                                     onClick={() =>
-                                      window.open(review.reviewFile, "_blank")
+                                      window.open(
+                                        resolveFileUrl(review.reviewFile) ?? "#",
+                                        "_blank",
+                                      )
                                     }
                                   >
                                     <FileText className="h-4 w-4 text-primary" />

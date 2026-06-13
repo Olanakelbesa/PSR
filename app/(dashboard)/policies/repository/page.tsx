@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 import {
   usePolicyRepository,
@@ -240,7 +241,7 @@ export default function RepositoryDashboardPage() {
                 asChild
               >
                 <a
-                  href={policy.draftFile}
+                  href={resolveFileUrl(policy.draftFile) ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Download document"

@@ -35,23 +35,11 @@ import { toast } from "sonner";
 
 import { useCreateMinute, useMinutes } from "@/hooks";
 import type { MinuteRecord } from "@/types/minutes";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 type MinuteRow = MinuteRecord & {
   searchText: string;
 };
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return "#";
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
-function extractFileName(filePath?: string | null) {
-  if (!filePath) return "No file";
-  return filePath.split("/").pop() || filePath;
-}
 
 const minuteColumns: ColumnDef<MinuteRow>[] = [
   {
@@ -108,7 +96,7 @@ const minuteColumns: ColumnDef<MinuteRow>[] = [
           className="h-10 rounded-xl bg-slate-50 px-4 text-xs font-bold uppercase tracking-widest hover:bg-primary/5 hover:text-primary"
         >
           <Link
-            href={resolveFileUrl(row.original.file)}
+            href={resolveFileUrl(row.original.file) ?? "#"}
             target="_blank"
             rel="noreferrer"
           >

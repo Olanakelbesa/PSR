@@ -33,6 +33,7 @@ import {
   useMyReviewDetail,
   useReviewConceptNote,
 } from "@/lib/queries/concept-notes";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 export default function ConceptNoteReviewPage() {
   const params = useParams();
@@ -95,7 +96,7 @@ export default function ConceptNoteReviewPage() {
         found.review_file ||
         found.reviewUrl ||
         null;
-      if (reviewFile) setExistingFileUrl(reviewFile);
+      if (reviewFile) setExistingFileUrl(resolveFileUrl(reviewFile));
 
       break;
     }
@@ -363,7 +364,12 @@ export default function ConceptNoteReviewPage() {
                   <p className="text-xs font-semibold mb-2">Original File</p>
                   <div
                     className="flex items-center gap-2 p-2 border rounded hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => window.open(note.overview.file!, "_blank")}
+                    onClick={() =>
+                      window.open(
+                        resolveFileUrl(note.overview.file!) ?? "#",
+                        "_blank",
+                      )
+                    }
                   >
                     <FileText className="h-4 w-4 text-primary shrink-0" />
                     <span className="text-xs truncate">{note.overview.file.split("/").pop()}</span>

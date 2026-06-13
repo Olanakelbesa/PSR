@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProgressReports } from "@/hooks";
 import { useRouter } from "next/navigation";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const statusLabels = {
   pending: "Pending",
@@ -142,7 +143,7 @@ export default function ProgressReportApprovalListPage() {
       header: "Attachment",
       cell: ({ row }: any) => (
         <a
-          href={row.original.attachment || "#"}
+          href={resolveFileUrl(row.original.attachment) ?? "#"}
           target="_blank"
           rel="noreferrer"
           className="text-sm text-primary underline underline-offset-2"

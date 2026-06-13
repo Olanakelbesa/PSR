@@ -51,6 +51,7 @@ import {
   useManageConceptNotes,
   type ConceptNoteItem,
 } from "@/lib/queries/concept-notes";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useAuth } from "@/hooks/useAuth";
 
 // ── Status display helpers ─────────────────────────────────────────────────────
@@ -220,7 +221,7 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8 border-2 border-background shadow-sm ring-1 ring-border/50">
             <AvatarImage
-              src={author.photoUrl ?? undefined}
+              src={resolveFileUrl(author.photoUrl) ?? undefined}
               alt={author.fullName}
             />
             <AvatarFallback className="text-[11px] font-bold bg-muted text-muted-foreground">

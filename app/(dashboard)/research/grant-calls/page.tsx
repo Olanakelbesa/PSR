@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
 import { useGrantCalls } from "@/lib/queries/grant-calls";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import type { GrantCall } from "@/types/grant-call";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
@@ -92,7 +93,7 @@ function CallCard({ call }: { call: GrantCall }) {
     <Card className="hover:shadow-md transition-shadow border-border/60 h-full flex flex-col overflow-hidden">
       <div className="relative h-60 w-full bg-muted">
         <Image
-          src={call.thumbnailImage || "/grant-call.png"}
+          src={resolveFileUrl(call.thumbnailImage) ?? "/grant-call.png"}
           alt={call.title}
           fill
           className="object-cover"

@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTerminalReports } from "@/hooks/useProgressReports";
 import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const ALL_STATUS_VALUE = "all";
 
@@ -256,7 +257,7 @@ export default function TerminalReportApprovalListPage() {
       cell: ({ row }: any) =>
         row.original.attachment ? (
           <a
-            href={row.original.attachment}
+            href={resolveFileUrl(row.original.attachment) ?? "#"}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 text-xs text-primary underline underline-offset-2"

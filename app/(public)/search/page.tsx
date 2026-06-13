@@ -26,19 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useUnifiedSearch, type SearchResultItem } from "@/lib/queries/search";
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath) return "#";
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
-function extractFileName(filePath?: string | null) {
-  if (!filePath) return "No file";
-  return filePath.split("/").pop() || filePath;
-}
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
@@ -487,7 +475,7 @@ export default function PremiumSearchPage() {
                               className="rounded-xl font-bold text-xs uppercase px-4 h-9 gap-1.5 shadow"
                             >
                               <a
-                                href={resolveFileUrl(item.file_url)}
+                                href={resolveFileUrl(item.file_url) ?? "#"}
                                 target="_blank"
                                 rel="noreferrer"
                                 download={extractFileName(item.file_url)}
@@ -636,7 +624,7 @@ export default function PremiumSearchPage() {
                   className="rounded-2xl flex-grow font-bold text-xs uppercase h-12 gap-1.5 shadow"
                 >
                   <a
-                    href={resolveFileUrl(selectedDoc.file_url)}
+                    href={resolveFileUrl(selectedDoc.file_url) ?? "#"}
                     target="_blank"
                     rel="noreferrer"
                     download={extractFileName(selectedDoc.file_url)}

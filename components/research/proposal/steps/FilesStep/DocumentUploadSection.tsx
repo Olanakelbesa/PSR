@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Upload, CheckCircle2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 export function DocumentUploadSection() {
   const form = useFormContext<ProposalFormInput>();
@@ -184,7 +185,7 @@ export function DocumentUploadSection() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  window.open(existingFile.file, "_blank");
+                                  window.open(resolveFileUrl(existingFile.file) ?? "#", "_blank");
                                 }}
                                 className="text-primary hover:text-primary hover:bg-primary/10"
                               >

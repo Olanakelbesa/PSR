@@ -4,19 +4,7 @@ import { FileText, Tag, Eye, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
-function resolveFileUrl(filePath?: string | null) {
-  if (!filePath || filePath === "#") return null;
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-  if (filePath.startsWith("/bff")) return filePath;
-  if (filePath.startsWith("/")) return `/bff${filePath}`;
-  return `/bff/${filePath}`;
-}
-
-function extractFileName(filePath?: string | null) {
-  if (!filePath) return null;
-  return filePath.split("/").pop() || filePath;
-}
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 interface ConceptNoteOverviewProps {
   note: any;

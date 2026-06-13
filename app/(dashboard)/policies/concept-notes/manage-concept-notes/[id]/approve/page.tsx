@@ -31,6 +31,7 @@ import { PageContainer } from "@/components/layout";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const PdfViewerDialog = dynamic(
   () =>
@@ -623,7 +624,7 @@ export default function ApproveConceptNotePage() {
                                 className="h-8 px-3 text-[11px] font-bold text-blue-700 hover:text-blue-800 hover:bg-blue-100/50 shrink-0 ml-2"
                                 onClick={() =>
                                   setViewerDocument({
-                                    url: review.reviewFile,
+                                    url: resolveFileUrl(review.reviewFile) ?? "",
                                     title:
                                       review.reviewFile.split("/").pop() ||
                                       "Review Document",
