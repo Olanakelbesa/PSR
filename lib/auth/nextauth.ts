@@ -47,10 +47,15 @@ declare module "next-auth" {
   }
 }
 
-const BACKEND_URL =
-  process.env.BACKEND_URL ??
-  process.env.API_BASE_URL ??
-  "http://localhost:8000";
+// Read at request time — module-level process.env is inlined at `next build`
+// and ignores .env changes until you rebuild.
+function getBackendUrl(): string {
+  const raw =
+    process.env["BACKEND_URL"] ??
+    process.env["API_BASE_URL"] ??
+    "http://127.0.0.1:8001";
+  return raw.replace(/\/+$/, "");
+}
 
 type MinimalSessionUser = {
   id: string;
@@ -142,7 +147,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!email || !password) return null;
 
         try {
-          const res = await fetch(`${BACKEND_URL}/api/login/`, {
+          const res = await fetch(`${getBackendUrl()}/api/login/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
@@ -249,7 +254,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       try {
-        const res = await fetch(`${BACKEND_URL}/api/token/refresh/`, {
+        const res = await fetch(`${getBackendUrl()}/api/token/refresh/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh: token.backendRefreshToken }),
