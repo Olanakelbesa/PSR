@@ -205,12 +205,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             throw err;
           }
 
-          if (process.env.NODE_ENV === "development") {
-            console.error(
-              "[NextAuth] Network or parsing error during login:",
-              err,
-            );
-          }
+          console.error(
+            `[NextAuth] login fetch failed → backend=${getBackendUrl()} ::`,
+            err instanceof Error ? err.message : err,
+          );
 
           throw new BackendLoginError(
             "Unable to reach the server. Please try again.",
