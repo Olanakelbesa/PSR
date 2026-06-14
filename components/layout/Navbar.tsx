@@ -56,7 +56,7 @@ export function Navbar() {
             : "bg-transparent",
         )}
       >
-        <div className="container mx-auto px-4 h-full flex items-center justify-between gap-4">
+        <div className="container mx-auto px-4 md:px-20 h-full flex items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group cursor-pointer shrink-0">
             <div className="rounded-lg overflow-hidden bg-background flex items-center justify-center shadow-lg shadow-primary/10 ring-1 ring-border/40 transition-all duration-300 h-10 w-10">

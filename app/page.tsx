@@ -371,7 +371,7 @@ export default function LandingPage() {
       {/* Navigation */}
       <Navbar />
 
-      <main className="flex-1">
+      <main className="flex-1 ">
         {/* Hero Section */}
         <section className="relative min-h-[85vh] flex items-center pt-20 overflow-x-clip">
           <div className="absolute inset-0 -z-10">
@@ -547,7 +547,7 @@ export default function LandingPage() {
         </section>
 
         {/* Impact / Analytics Section (moved earlier) */}
-        <section id="impact" className="py-8 md:py-12 border-y border-white/5 relative bg-background">
+        <section id="impact" className="py-8 md:py-12 md:px-20 border-y border-white/5 relative bg-background">
           <div className="container mx-auto px-4">
             <RevealOnScroll>
               <StatsStrip overview={derivedOverview} />
@@ -576,7 +576,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features / Modules Section */}
-        <section id="modules" className="py-12 md:py-24 bg-background relative">
+        <section id="modules" className="py-12 md:py-24 md:px-20 bg-background relative">
           <div className="container mx-auto px-4">
             {/* <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
               <Badge
@@ -687,7 +687,7 @@ export default function LandingPage() {
         </section>
 
         {/* Feature Spotlight */}
-        <section className="py-12 md:py-24 bg-muted/20 overflow-hidden">
+        <section className="py-12 md:py-24 md:px-20 bg-muted/20 overflow-hidden">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
               <RevealOnScroll className="space-y-8 md:space-y-10">
@@ -767,7 +767,7 @@ export default function LandingPage() {
         </section>
 
         {/* Public Analytics Section */}
-        <section id="insights" className="py-12 md:py-20 bg-muted/20 border-y border-border/50">
+        <section id="insights" className="py-12 md:py-20 md:px-20 bg-muted/20 border-y border-border/50">
           <div className="container mx-auto px-4 space-y-6">
             {/* <RevealOnScroll>
               <StatsStrip overview={derivedOverview} />
@@ -902,7 +902,7 @@ export default function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="py-12 md:py-24 px-4 container mx-auto">
+        <section className="py-12 md:py-24 px-4 md:px-20 container mx-auto">
           <RevealOnScroll className="rounded-3xl md:rounded-[3rem] bg-primary px-6 py-14 md:px-8 md:py-20 text-center text-background relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 h-[400px] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
             <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 relative z-10">
