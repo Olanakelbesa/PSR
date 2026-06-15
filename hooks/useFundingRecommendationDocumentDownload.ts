@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { fundingRecommendationsService } from "@/api/services/funding-recommendations.service";
 import {
+  downloadAgreementFromData,
+  downloadAwardLetterFromData,
   downloadFundingRecommendationAgreementPdf,
   downloadFundingRecommendationAwardPdf,
 } from "@/lib/documents/funding-recommendation-pdf";
@@ -30,16 +32,44 @@ export function useFundingRecommendationDocumentDownload() {
     setActive(type);
 
     try {
+      const recommendationId =
+        options.recommendationId ??
+        (options.recommendation ? String(options.recommendation.id) : undefined);
+
+      if (!recommendationId) {
+        throw new Error("Recommendation id is required.");
+      }
+
+      // Primary path: fetch fully-resolved document data from the backend
+      // (keyed on the funding recommendation id).
+      try {
+        if (type === "award") {
+          const data =
+            await fundingRecommendationsService.getAwardLetterData(recommendationId);
+          await downloadAwardLetterFromData(data, data.refNo);
+          toast.success("Award letter downloaded");
+        } else {
+          const data =
+            await fundingRecommendationsService.getAgreementData(recommendationId);
+          await downloadAgreementFromData(data);
+          toast.success("Agreement downloaded");
+        }
+        return;
+      } catch (backendError) {
+        console.warn(
+          "Backend document data unavailable, falling back to client mapping:",
+          backendError,
+        );
+      }
+
+      // Fallback: build the document client-side from the recommendation +
+      // screening candidate context (legacy behaviour).
       let recommendation = options.recommendation;
       let context = options.context ?? null;
 
       if (!recommendation) {
-        if (!options.recommendationId) {
-          throw new Error("Recommendation id is required.");
-        }
-
         recommendation = await fundingRecommendationsService.retrieve(
-          options.recommendationId,
+          recommendationId,
         );
       }
 

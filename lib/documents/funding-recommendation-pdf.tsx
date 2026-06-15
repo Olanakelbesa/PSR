@@ -211,6 +211,44 @@ export function mapFundingRecommendationToContractData(
   };
 }
 
+export async function downloadAwardLetterFromData(
+  data: AwardData,
+  referenceForFilename?: string,
+) {
+  const { pdf } = await import("@react-pdf/renderer");
+  const { default: AwardLetterPDF } = await import(
+    "@/components/document/AwardLetterPDF"
+  );
+  const finalData: AwardData = {
+    ...data,
+    logoPath: data.logoPath || resolvePublicAsset("/placeholder-logo.svg"),
+  };
+  const blob = await pdf(createElement(AwardLetterPDF, { data: finalData }) as any).toBlob();
+  const ref = sanitizeFilename(referenceForFilename || finalData.refNo || "award");
+
+  savePdfBlob(blob, `Award-Letter-${ref}.pdf`);
+}
+
+export async function downloadAgreementFromData(
+  data: ContractData,
+  referenceForFilename?: string,
+) {
+  const { pdf } = await import("@react-pdf/renderer");
+  const { default: ContractDocumentPDF } = await import(
+    "@/components/document/ContractDocumentPDF"
+  );
+  const finalData: ContractData = {
+    ...data,
+    logoPath: data.logoPath || resolvePublicAsset("/placeholder-logo.svg"),
+  };
+  const blob = await pdf(createElement(ContractDocumentPDF, { data: finalData }) as any).toBlob();
+  const ref = sanitizeFilename(
+    referenceForFilename || finalData.document_no || "agreement",
+  );
+
+  savePdfBlob(blob, `Agreement-${ref}.pdf`);
+}
+
 export async function downloadFundingRecommendationAwardPdf(
   recommendation: FundingRecommendation,
   context?: Record<string, unknown> | null,

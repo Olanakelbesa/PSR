@@ -307,6 +307,10 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/funding-recommendations/${id}/`,
     READY_FOR_FINAL_SUBMISSION:
       "/v1/funding-recommendations/ready-for-final-submission/",
+    AWARD_LETTER_DATA: (id: string | number) =>
+      `/v1/funding-recommendations/${id}/award-letter-data/`,
+    AGREEMENT_DATA: (id: string | number) =>
+      `/v1/funding-recommendations/${id}/agreement-data/`,
   },
 
   FINAL_SUBMISSIONS: {
