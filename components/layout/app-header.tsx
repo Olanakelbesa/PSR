@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, Search, Menu, Moon, Sun } from "lucide-react";
+import { Bell, Search, Menu, Moon, Sun, PanelLeft } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
@@ -46,6 +46,7 @@ function getRelativeTime(createdAt: string) {
 
 export function AppHeader() {
   const { user } = useAuth();
+  const { toggleSidebar, isMobile } = useSidebar();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const {
@@ -74,9 +75,20 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-card px-6 w-full max-w-full">
-      <SidebarTrigger className="-ml-2">
-        <Menu className="h-5 w-5" />
-      </SidebarTrigger>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="-ml-2 size-7"
+        onClick={toggleSidebar}
+        aria-label="Toggle sidebar"
+      >
+        {isMobile ? (
+          <Menu className="h-5 w-5" />
+        ) : (
+          <PanelLeft className="h-5 w-5" />
+        )}
+        <span className="sr-only">Toggle Sidebar</span>
+      </Button>
 
       {/* Search */}
       <div className="relative flex-1 max-w-md">
@@ -186,13 +198,6 @@ export function AppHeader() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* User Avatar */}
-        {/* <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-primary/20">
-          <AvatarImage src="" alt={user?.firstName} />
-          <AvatarFallback className="bg-emerald-600 text-white text-sm font-medium">
-            {getInitials(user?.firstName, user?.lastName)}
-          </AvatarFallback>
-        </Avatar> */}
       </div>
     </header>
   );

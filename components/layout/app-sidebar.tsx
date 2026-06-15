@@ -48,11 +48,13 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -345,7 +347,15 @@ const navigationGroups: NavGroup[] = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile, state } = useSidebar();
+  const isCollapsed = state === "collapsed" && !isMobile;
   const { user, signOut } = useAuth();
+
+  const handleNavigate = useCallback(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [isMobile, setOpenMobile]);
   const {
     user: currentUser,
     hasAny,
@@ -420,7 +430,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="group-data-[collapsible=icon]:p-2">
-        <SidebarMenu>
+        <SidebarMenu className="group-data-[collapsible=icon]:px-2">
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
@@ -429,6 +439,7 @@ export function AppSidebar() {
             >
               <Link
                 href="/dashboard"
+                onClick={handleNavigate}
                 className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
               >
                 <div className="flex aspect-square size-11 items-center justify-center overflow-hidden rounded-xl bg-background ring-1 ring-border/50 shadow-sm">
@@ -502,6 +513,74 @@ export function AppSidebar() {
                         )
                         .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
+                      const parentButtonClassName = `
+                              h-10 px-3 rounded-lg transition-all duration-200 flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0
+                              ${
+                                parentActive
+                                  ? "bg-primary text-primary-foreground font-medium shadow-md"
+                                  : "hover:bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground"
+                              }
+                            `;
+
+                      if (isCollapsed) {
+                        return (
+                          <SidebarMenuItem key={item.label}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <SidebarMenuButton
+                                  isActive={parentActive}
+                                  tooltip={item.label}
+                                  className={parentButtonClassName}
+                                >
+                                  {Icon && <Icon className="size-5" />}
+                                  <span className="text-sm group-data-[collapsible=icon]:hidden">
+                                    {item.label}
+                                  </span>
+                                </SidebarMenuButton>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                side="right"
+                                align="start"
+                                sideOffset={8}
+                                className="min-w-52"
+                              >
+                                <DropdownMenuLabel>
+                                  {item.label}
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {validSubItems.map((sub) => {
+                                  const SubIcon = sub.icon;
+                                  const isSubActive =
+                                    sub.href === activeSubHref;
+                                  return (
+                                    <DropdownMenuItem
+                                      key={sub.href}
+                                      asChild
+                                      className={
+                                        isSubActive
+                                          ? "bg-primary/10 text-primary focus:bg-primary/15 focus:text-primary"
+                                          : ""
+                                      }
+                                    >
+                                      <Link
+                                        href={sub.href}
+                                        onClick={handleNavigate}
+                                        className="flex w-full cursor-pointer items-center gap-2"
+                                      >
+                                        {SubIcon && (
+                                          <SubIcon className="size-4 shrink-0" />
+                                        )}
+                                        <span>{sub.label}</span>
+                                      </Link>
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </SidebarMenuItem>
+                        );
+                      }
+
                       return (
                         <SidebarMenuItem key={item.label}>
                           <SidebarMenuButton
@@ -513,14 +592,7 @@ export function AppSidebar() {
                             }
                             isActive={parentActive}
                             tooltip={item.label}
-                            className={`
-                              h-10 px-3 rounded-lg transition-all duration-200 flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0
-                              ${
-                                parentActive
-                                  ? "bg-primary text-primary-foreground font-medium shadow-md"
-                                  : "hover:bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground"
-                              }
-                            `}
+                            className={parentButtonClassName}
                           >
                             {Icon && <Icon className="size-5" />}
                             <span className="text-sm group-data-[collapsible=icon]:hidden">
@@ -553,6 +625,7 @@ export function AppSidebar() {
                                     >
                                       <Link
                                         href={sub.href}
+                                        onClick={handleNavigate}
                                         className="flex w-full min-w-0 items-start gap-2 text-left [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
                                       >
                                         {SubIcon && (
@@ -595,6 +668,7 @@ export function AppSidebar() {
                         >
                           <Link
                             href={item.href || "#"}
+                            onClick={handleNavigate}
                             className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
                           >
                             {Icon && <Icon className="size-5" />}
@@ -662,6 +736,7 @@ export function AppSidebar() {
                 <DropdownMenuItem asChild>
                   <Link
                     href="/profile"
+                    onClick={handleNavigate}
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <User className="h-4 w-4" />
