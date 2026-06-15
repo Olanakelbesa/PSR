@@ -392,7 +392,7 @@ export default function LandingPage() {
 
           <div className="container mx-auto px-4 pt-10 md:pt-20 relative">
             <div className="max-w-4xl mx-auto text-center space-y-6 md:space-y-8">
-              <h1 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tight leading-[1.1] md:leading-[1.05] animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              <h1 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tight leading-[1.1] md:leading-[1.05]">
                 Research and Policy {" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-purple-700 bg-300%  animate-gradient">
                   Documents
@@ -400,7 +400,7 @@ export default function LandingPage() {
                 Management System
               </h1>
 
-              <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-1000 opacity-90">
+              <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto opacity-90">
                 The unified operating system for policy repositories and
                 research lifecycle management. Built for institutions that
                 prioritize transparency and efficiency.
@@ -411,7 +411,7 @@ export default function LandingPage() {
                   e.preventDefault();
                   openSearchPage(searchQuery);
                 }}
-                className="relative w-full max-w-2xl mx-auto pt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000"
+                className="relative w-full max-w-2xl mx-auto pt-4"
               >
                 <div className="relative flex items-center bg-background/60 backdrop-blur-xl border border-primary/20 hover:border-primary/40 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-2 pr-2.5 shadow-xl transition-all duration-300">
                   <div className="flex items-center pl-3 pr-2 text-muted-foreground pointer-events-none">
@@ -535,9 +535,6 @@ export default function LandingPage() {
             {/* Dashboard Showcase */}
             <motion.div
               className="mt-20 max-w-5xl mx-auto"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: "easeOut" }}
             >
               
 
