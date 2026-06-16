@@ -344,6 +344,12 @@ export interface Notification {
   link?: string;
   read: boolean;
   createdAt: string;
+  /** Semantic event identifier (e.g. "CONCEPT_NOTE_APPROVED"). */
+  eventType?: string;
+  /** Stable resource identifier used to resolve a navigation route. */
+  resourceType?: string;
+  /** Primary key of the related resource on the backend. */
+  resourceId?: number | null;
 }
 
 // Taxonomy Types

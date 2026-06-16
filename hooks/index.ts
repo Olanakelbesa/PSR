@@ -10,6 +10,7 @@ export * from "./useUsers";
 export * from "./useRoles";
 export * from "./useProfile";
 export * from "./useNotificationSettings";
+export * from "./useNotificationNavigation";
 export * from "./useTaxonomy";
 export * from "./useReference";
 export * from "./useProposals";

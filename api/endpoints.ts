@@ -275,6 +275,7 @@ export const API_ENDPOINTS = {
   NOTIFICATIONS: {
     LIST: "/v1/notifications/",
     MARK_READ: (id: string | number) => `/v1/notifications/${id}/mark-read/`,
+    CLEAR: "/v1/notifications/clear/",
   },
 
   NOTIFICATION_SETTINGS: {

@@ -735,7 +735,7 @@ export function AppSidebar() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link
-                    href="/profile"
+                    href="/settings"
                     onClick={handleNavigate}
                     className="flex items-center gap-2 cursor-pointer"
                   >

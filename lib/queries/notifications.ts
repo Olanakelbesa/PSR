@@ -3,29 +3,78 @@ import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import type { Notification } from "@/lib/types";
 
-type NotificationApiResponse = {
+type NotificationApiRecord = {
   id: number;
-  user: number;
+  user?: number;
   title: string;
   message: string;
-  is_read: boolean;
-  created_at: string;
+  is_read?: boolean;
+  isRead?: boolean;
+  created_at?: string;
+  createdAt?: string;
   type: string;
   priority?: string;
   action_required?: boolean;
+  actionRequired?: boolean;
   category?: string;
   object_id?: number;
+  objectId?: number;
+  event_type?: string;
+  eventType?: string;
+  resource_type?: string;
+  resourceType?: string;
+  resource_id?: number | null;
+  resourceId?: number | null;
 };
 
-function normalizeNotification(notification: NotificationApiResponse): Notification {
+function unwrapNotificationList(payload: unknown): NotificationApiRecord[] {
+  const root = (payload ?? {}) as Record<string, unknown>;
+
+  if (Array.isArray(root)) {
+    return root as NotificationApiRecord[];
+  }
+
+  const data = root.data;
+  if (Array.isArray(data)) {
+    return data as NotificationApiRecord[];
+  }
+
+  if (data && typeof data === "object") {
+    const nested = data as Record<string, unknown>;
+    if (Array.isArray(nested.results)) {
+      return nested.results as NotificationApiRecord[];
+    }
+    if (Array.isArray(nested.data)) {
+      return nested.data as NotificationApiRecord[];
+    }
+  }
+
+  if (Array.isArray(root.results)) {
+    return root.results as NotificationApiRecord[];
+  }
+
+  return [];
+}
+
+export function normalizeNotification(
+  notification: NotificationApiRecord,
+): Notification {
   return {
     id: String(notification.id),
-    userId: String(notification.user),
+    userId: String(notification.user ?? ""),
     title: notification.title,
     message: notification.message,
     type: notification.type,
-    read: notification.is_read,
-    createdAt: notification.created_at,
+    read: Boolean(notification.is_read ?? notification.isRead),
+    createdAt:
+      notification.created_at ??
+      notification.createdAt ??
+      new Date().toISOString(),
+    eventType: notification.event_type ?? notification.eventType ?? undefined,
+    resourceType:
+      notification.resource_type ?? notification.resourceType ?? undefined,
+    resourceId:
+      notification.resource_id ?? notification.resourceId ?? null,
   };
 }
 
@@ -34,15 +83,7 @@ export function useNotifications(userId?: string) {
     queryKey: ["notifications", userId],
     queryFn: async () => {
       const { data } = await api.get(API_ENDPOINTS.NOTIFICATIONS.LIST);
-      const list =
-        Array.isArray(data?.data?.results) && data?.data?.results.length
-          ? data.data.results
-          : Array.isArray(data?.results)
-          ? data.results
-          : Array.isArray(data?.data)
-          ? data.data
-          : [];
-      return (list as NotificationApiResponse[]).map(normalizeNotification);
+      return unwrapNotificationList(data).map(normalizeNotification);
     },
     enabled: !!userId,
     staleTime: 1000 * 60,
@@ -55,7 +96,8 @@ export function useMarkNotificationRead() {
   return useMutation<Notification, Error, string>({
     mutationFn: async (id: string) => {
       const { data } = await api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id));
-      return (data.data ?? data) as Notification;
+      const record = (data?.data ?? data) as NotificationApiRecord;
+      return normalizeNotification(record);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -71,6 +113,19 @@ export function useMarkAllNotificationsRead() {
       await Promise.all(
         ids.map((id) => api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id))),
       );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useClearAllNotifications() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.CLEAR);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });

@@ -19,7 +19,8 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
-import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "@/lib/queries/notifications";
+import { useMarkAllNotificationsRead, useClearAllNotifications, useNotifications } from "@/lib/queries/notifications";
+import { useNotificationNavigation } from "@/hooks/useNotificationNavigation";
 
 function getRelativeTime(createdAt: string) {
   const diffInMs = Date.now() - new Date(createdAt).getTime();
@@ -53,9 +54,11 @@ export function AppHeader() {
     data: notifications = [],
     isLoading: notificationsLoading,
   } = useNotifications(user?.id ?? undefined);
-  const markNotificationRead = useMarkNotificationRead();
   const markAllNotificationsRead = useMarkAllNotificationsRead();
+  const clearAllNotifications = useClearAllNotifications();
+  const { handleNotificationClick } = useNotificationNavigation();
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const hasNotifications = notifications.length > 0;
 
   useEffect(() => {
     setMounted(true);
@@ -63,14 +66,6 @@ export function AppHeader() {
 
   const getInitials = (firstName?: string, lastName?: string) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
-  };
-
-  const handleMarkAsRead = (notificationId: string, alreadyRead: boolean) => {
-    if (alreadyRead) {
-      return;
-    }
-
-    markNotificationRead.mutate(notificationId);
   };
 
   return (
@@ -131,24 +126,43 @@ export function AppHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[22rem] w-96 max-w-[26rem]">
-            <DropdownMenuLabel className="flex items-center justify-between">
+            <DropdownMenuLabel className="flex items-center justify-between gap-2">
               <span>Notifications</span>
-              {unreadCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-auto p-0 text-xs text-primary"
-                  onClick={() =>
-                    markAllNotificationsRead.mutate(
-                      notifications
-                        .filter((notification) => !notification.read)
-                        .map((notification) => notification.id),
-                    )
-                  }
-                  disabled={markAllNotificationsRead.status === "pending"}
-                >
-                  Mark all as read
-                </Button>
+              {hasNotifications && (
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-primary"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        markAllNotificationsRead.mutate(
+                          notifications
+                            .filter((notification) => !notification.read)
+                            .map((notification) => notification.id),
+                        );
+                      }}
+                      disabled={markAllNotificationsRead.isPending}
+                    >
+                      Mark all as read
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      clearAllNotifications.mutate();
+                    }}
+                    disabled={clearAllNotifications.isPending}
+                  >
+                    Clear
+                  </Button>
+                </div>
               )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -162,9 +176,7 @@ export function AppHeader() {
                   <DropdownMenuItem
                     key={notification.id}
                     className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                    onClick={() =>
-                      handleMarkAsRead(notification.id, notification.read)
-                    }
+                    onClick={() => void handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-2 w-full">
                       {!notification.read && (
