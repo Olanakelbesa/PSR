@@ -3,16 +3,14 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  getNotificationRoute,
-  NOTIFICATIONS_ROUTE,
-} from "@/lib/notification-route";
+import { getNotificationRoute } from "@/lib/notification-route";
 import { useMarkNotificationRead } from "@/lib/queries/notifications";
 import type { Notification } from "@/lib/types";
 
 /**
  * Shared click handler for notification list items and dropdown entries.
- * Marks unread notifications as read, then navigates via structured metadata.
+ * Navigates to the resource page when metadata is present; marks as read in
+ * the background without blocking navigation.
  */
 export function useNotificationNavigation() {
   const router = useRouter();
@@ -20,16 +18,18 @@ export function useNotificationNavigation() {
 
   const handleNotificationClick = useCallback(
     async (notification: Notification) => {
-      try {
-        if (!notification.read) {
-          await markNotificationRead.mutateAsync(notification.id);
-        }
+      const route = getNotificationRoute(notification);
 
-        const route = getNotificationRoute(notification);
+      if (route) {
         router.push(route);
-      } catch (error) {
-        console.error("Failed to handle notification click", error);
-        router.push(NOTIFICATIONS_ROUTE);
+      }
+
+      if (!notification.read) {
+        try {
+          await markNotificationRead.mutateAsync(notification.id);
+        } catch (error) {
+          console.error("Failed to mark notification as read", error);
+        }
       }
     },
     [markNotificationRead, router],

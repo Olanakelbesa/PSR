@@ -350,6 +350,8 @@ export interface Notification {
   resourceType?: string;
   /** Primary key of the related resource on the backend. */
   resourceId?: number | null;
+  /** Legacy generic FK object id (used when resourceId is absent). */
+  objectId?: number | null;
 }
 
 // Taxonomy Types

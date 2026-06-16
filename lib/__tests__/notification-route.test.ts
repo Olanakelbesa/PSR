@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-import {
-  getNotificationRoute,
-  NOTIFICATIONS_ROUTE,
-} from "@/lib/notification-route";
+import { getNotificationRoute } from "@/lib/notification-route";
 import type { Notification } from "@/lib/types";
 
 function makeNotification(
@@ -89,24 +86,24 @@ describe("getNotificationRoute", () => {
     expect(route).toBe("/research/ready-for-funding/9");
   });
 
-  it("warns and falls back for unsupported resource types", () => {
+  it("warns and returns null for unsupported resource types", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const route = getNotificationRoute(
       makeNotification({ resourceType: "spaceship", resourceId: 5 }),
     );
-    expect(route).toBe(NOTIFICATIONS_ROUTE);
+    expect(route).toBeNull();
     expect(warn).toHaveBeenCalledWith(
       "Unsupported notification resource type: spaceship",
     );
     warn.mockRestore();
   });
 
-  it("falls back to the notifications center when metadata is missing", () => {
-    expect(getNotificationRoute(makeNotification())).toBe(NOTIFICATIONS_ROUTE);
+  it("returns null when metadata is missing", () => {
+    expect(getNotificationRoute(makeNotification())).toBeNull();
     expect(
       getNotificationRoute(
         makeNotification({ resourceType: "concept_note", resourceId: null }),
       ),
-    ).toBe(NOTIFICATIONS_ROUTE);
+    ).toBeNull();
   });
 });

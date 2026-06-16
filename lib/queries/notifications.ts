@@ -72,9 +72,20 @@ export function normalizeNotification(
       new Date().toISOString(),
     eventType: notification.event_type ?? notification.eventType ?? undefined,
     resourceType:
-      notification.resource_type ?? notification.resourceType ?? undefined,
-    resourceId:
-      notification.resource_id ?? notification.resourceId ?? null,
+      (notification.resource_type ?? notification.resourceType)?.trim() ||
+      undefined,
+    resourceId: (() => {
+      const raw = notification.resource_id ?? notification.resourceId ?? null;
+      if (raw === null || raw === undefined || raw === "") return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    })(),
+    objectId: (() => {
+      const raw = notification.object_id ?? notification.objectId ?? null;
+      if (raw === null || raw === undefined || raw === "") return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    })(),
   };
 }
 

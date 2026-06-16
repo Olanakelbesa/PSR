@@ -50,6 +50,7 @@ export function AppHeader() {
   const { toggleSidebar, isMobile } = useSidebar();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const {
     data: notifications = [],
     isLoading: notificationsLoading,
@@ -113,7 +114,7 @@ export function AppHeader() {
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
+        <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative h-10 w-10">
               <Bell className="h-5 w-5 text-muted-foreground" />
@@ -125,8 +126,11 @@ export function AppHeader() {
               <span className="sr-only">Notifications</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[22rem] w-96 max-w-[26rem]">
-            <DropdownMenuLabel className="flex items-center justify-between gap-2">
+          <DropdownMenuContent
+            align="end"
+            className="flex max-h-[50vh] min-w-[22rem] w-96 max-w-[26rem] flex-col overflow-hidden p-0"
+          >
+            <DropdownMenuLabel className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
               <span>Notifications</span>
               {hasNotifications && (
                 <div className="flex items-center gap-2">
@@ -165,46 +169,52 @@ export function AppHeader() {
                 </div>
               )}
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="shrink-0" />
             {notificationsLoading ? (
-              <div className="p-4 text-center text-muted-foreground text-sm">
+              <div className="shrink-0 p-4 text-center text-muted-foreground text-sm">
                 Loading notifications...
               </div>
             ) : notifications.length > 0 ? (
               <>
-                {notifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                    onClick={() => void handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start gap-2 w-full">
-                      {!notification.read && (
-                        <div className="h-2 w-2 mt-1.5 rounded-full bg-primary shrink-0" />
-                      )}
-                      <div className={!notification.read ? "" : "ml-4"}>
-                        <p className="font-medium text-sm">
-                          {notification.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {getRelativeTime(notification.createdAt)}
-                        </p>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  {notifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className="flex cursor-pointer flex-col items-start gap-1 rounded-none p-3"
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        void handleNotificationClick(notification);
+                        setNotificationsOpen(false);
+                      }}
+                    >
+                      <div className="flex w-full items-start gap-2">
+                        {!notification.read && (
+                          <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        )}
+                        <div className={!notification.read ? "" : "ml-4"}>
+                          <p className="text-sm font-medium">
+                            {notification.title}
+                          </p>
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                            {notification.message}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {getRelativeTime(notification.createdAt)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="justify-center">
-                  <Link href="/notifications" className="text-primary text-sm">
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+                <DropdownMenuSeparator className="shrink-0" />
+                <DropdownMenuItem asChild className="shrink-0 justify-center rounded-none">
+                  <Link href="/notifications" className="text-sm text-primary">
                     View all notifications
                   </Link>
                 </DropdownMenuItem>
               </>
             ) : (
-              <div className="p-4 text-center text-muted-foreground text-sm">
+              <div className="shrink-0 p-4 text-center text-muted-foreground text-sm">
                 No notifications
               </div>
             )}
