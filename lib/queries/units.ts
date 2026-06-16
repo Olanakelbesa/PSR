@@ -30,9 +30,14 @@ export function useUnits(organizationIds?: Array<number | string> | null) {
     ],
     queryFn: async () => {
       try {
+        const unwrap = (data: any): Unit[] =>
+          (Array.isArray(data)
+            ? data
+            : (data?.data ?? data?.results ?? [])) as Unit[];
+
         if (normalizedOrganizationIds.length === 0) {
           const { data } = await api.get(API_ENDPOINTS.REFERENCE.UNITS);
-          return data.data as Unit[];
+          return unwrap(data);
         }
 
         const responses = await Promise.all(
@@ -40,7 +45,7 @@ export function useUnits(organizationIds?: Array<number | string> | null) {
             const { data } = await api.get(API_ENDPOINTS.REFERENCE.UNITS, {
               params: { organization: organizationId },
             });
-            return (data.data as Unit[]) ?? [];
+            return unwrap(data);
           }),
         );
 

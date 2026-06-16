@@ -21,6 +21,10 @@ export const loginSchema = z.object({
 
 export type LoginFormData = z.infer<typeof loginSchema>;
 
+// Sentinel value used by selects when the user picks "Other (not listed)" and
+// fills in a free-text value instead of choosing an existing record.
+export const OTHER_OPTION = "__other__";
+
 export const registerSchema = z
   .object({
     title: z.string().min(1, "Title is required"),
@@ -33,15 +37,47 @@ export const registerSchema = z
       .min(10, "Phone number must be at least 10 digits")
       .regex(/^\+?[0-9]+$/, "Please enter a valid phone number"),
     sex: z.enum(["Male", "Female"]),
-    organizationType: z.string().min(1, "Organization type is required"), 
+    organizationType: z.string().min(1, "Organization type is required"),
+    organizationTypeOther: z.string().optional(),
     organization: z.string().min(1, "Organization is required"),
+    organizationOther: z.string().optional(),
     unit: z.string().min(1, "Unit/Department is required"),
+    unitOther: z.string().optional(),
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      });
+    }
+    if (
+      data.organizationType === OTHER_OPTION &&
+      !data.organizationTypeOther?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter your organization type",
+        path: ["organizationTypeOther"],
+      });
+    }
+    if (data.organization === OTHER_OPTION && !data.organizationOther?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter your organization name",
+        path: ["organizationOther"],
+      });
+    }
+    if (data.unit === OTHER_OPTION && !data.unitOther?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter your unit / department",
+        path: ["unitOther"],
+      });
+    }
   });
 
 export type RegisterFormData = z.infer<typeof registerSchema>;

@@ -48,7 +48,11 @@ import { useTitles } from "@/lib/queries/titles";
 import { useUnits } from "@/lib/queries/units";
 import { useOrganizationTypes } from "@/lib/queries/organization-types";
 import { useOrganizations } from "@/lib/queries/organizations";
-import { registerSchema, type RegisterFormData } from "@/lib/validations";
+import {
+  registerSchema,
+  type RegisterFormData,
+  OTHER_OPTION,
+} from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import api from "@/lib/axios";
@@ -71,9 +75,18 @@ const SECURITY_FIELDS: (keyof RegisterFormData)[] = [
   "confirmPassword",
 ];
 
+const AFFILIATION_FIELDS: (keyof RegisterFormData)[] = [
+  "organizationType",
+  "organizationTypeOther",
+  "organization",
+  "organizationOther",
+  "unit",
+  "unitOther",
+];
+
 const STEP_FIELDS: Record<1 | 2 | 3, (keyof RegisterFormData)[]> = {
   1: ["title", "firstName", "lastName", "sex", "phone"],
-  2: ["organizationType", "organization", "unit"],
+  2: AFFILIATION_FIELDS,
   3: SECURITY_FIELDS,
 };
 
@@ -192,8 +205,11 @@ export default function SignupPage() {
       phone: "",
       sex: "Male" as any,
       organizationType: "",
+      organizationTypeOther: "",
       organization: "",
+      organizationOther: "",
       unit: "",
+      unitOther: "",
       password: "",
       confirmPassword: "",
     },
@@ -236,27 +252,56 @@ export default function SignupPage() {
 
   const selectedOrgType = form.watch("organizationType");
   const selectedOrg = form.watch("organization");
+  const selectedUnit = form.watch("unit");
   const isLoadedRef = useRef(false);
+
+  const isOtherOrgType = selectedOrgType === OTHER_OPTION;
+  const isOtherOrg = selectedOrg === OTHER_OPTION;
+  const isOtherUnit = selectedUnit === OTHER_OPTION;
 
   useEffect(() => {
     if (!isLoadedRef.current) return;
-    form.setValue("organization", "");
+    // Clear the custom org-type text unless "Other" is the active choice.
+    if (selectedOrgType !== OTHER_OPTION) {
+      form.setValue("organizationTypeOther", "");
+    }
+    // A custom org type has no organizations to pick from, so force the
+    // organization to be custom too; otherwise reset it for re-selection.
+    form.setValue(
+      "organization",
+      selectedOrgType === OTHER_OPTION ? OTHER_OPTION : "",
+    );
     if (stepValidated[2]) revalidateCurrentStep(2);
   }, [selectedOrgType, form, stepValidated]);
 
   useEffect(() => {
     if (!isLoadedRef.current) return;
-    form.setValue("unit", "");
+    if (selectedOrg !== OTHER_OPTION) {
+      form.setValue("organizationOther", "");
+    }
+    // A custom organization has no units to pick from, so force a custom unit.
+    form.setValue("unit", selectedOrg === OTHER_OPTION ? OTHER_OPTION : "");
     if (stepValidated[2]) revalidateCurrentStep(2);
   }, [selectedOrg, form, stepValidated]);
 
-  const filteredOrganizations = selectedOrgType
-    ? organizations.filter((org) => org.orgType.toString() === selectedOrgType)
-    : [];
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    if (selectedUnit !== OTHER_OPTION) {
+      form.setValue("unitOther", "");
+    }
+  }, [selectedUnit, form]);
 
-  const filteredUnits = selectedOrg
-    ? units.filter((u) => u.organization.toString() === selectedOrg)
-    : [];
+  const filteredOrganizations =
+    selectedOrgType && !isOtherOrgType
+      ? organizations.filter(
+          (org) => org.orgType.toString() === selectedOrgType,
+        )
+      : [];
+
+  const filteredUnits =
+    selectedOrg && !isOtherOrg
+      ? units.filter((u) => u.organization.toString() === selectedOrg)
+      : [];
 
   const values = form.watch();
 
@@ -296,7 +341,7 @@ export default function SignupPage() {
     if (step === 1) {
       fieldsToValidate = ["title", "firstName", "lastName", "sex", "phone"];
     } else if (step === 2) {
-      fieldsToValidate = ["organizationType", "organization", "unit"];
+      fieldsToValidate = AFFILIATION_FIELDS;
     }
 
     const isValid = await form.trigger(fieldsToValidate);
@@ -335,7 +380,7 @@ export default function SignupPage() {
       setError(null);
 
       // Map camelCase keys to backend snake_case parameters, parsing string selections back to integers
-      const payload = {
+      const payload: Record<string, unknown> = {
         email: data.email,
         first_name: data.firstName,
         middle_name: data.middleName || "",
@@ -343,12 +388,29 @@ export default function SignupPage() {
         phone: data.phone,
         sex: data.sex,
         title: parseInt(data.title, 10),
-        organization_type: parseInt(data.organizationType, 10),
-        organization: parseInt(data.organization, 10),
-        unit: parseInt(data.unit, 10),
         password: data.password,
         password2: data.confirmPassword,
       };
+
+      // For each affiliation field send either the selected record id or, when
+      // the user chose "Other", the free-text value for the backend to create.
+      if (data.organizationType === OTHER_OPTION) {
+        payload.organization_type_other = data.organizationTypeOther?.trim();
+      } else {
+        payload.organization_type = parseInt(data.organizationType, 10);
+      }
+
+      if (data.organization === OTHER_OPTION) {
+        payload.organization_other = data.organizationOther?.trim();
+      } else {
+        payload.organization = parseInt(data.organization, 10);
+      }
+
+      if (data.unit === OTHER_OPTION) {
+        payload.unit_other = data.unitOther?.trim();
+      } else {
+        payload.unit = parseInt(data.unit, 10);
+      }
 
       console.log("Submitting registration to backend:", payload);
 
@@ -727,6 +789,9 @@ export default function SignupPage() {
                                 {o.name}
                               </SelectItem>
                             ))}
+                            <SelectItem value={OTHER_OPTION}>
+                              Other (not listed)
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         {stepValidated[2] && <FormMessage />}
@@ -734,87 +799,194 @@ export default function SignupPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="organization"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Organization Name
-                        </FormLabel>
-                        <Select
-                          onValueChange={(value) =>
-                            handleStepFieldChange(2, field.onChange, value)
-                          }
-                          value={field.value}
-                          disabled={!selectedOrgType || isLoadingOrgs}
-                        >
+                  {isOtherOrgType && (
+                    <FormField
+                      control={form.control}
+                      name="organizationTypeOther"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel>Specify Organization Type</FormLabel>
                           <FormControl>
-                            <SelectTrigger className="h-11 w-full bg-muted/30 border-muted">
-                              <SelectValue
-                                placeholder={
-                                  isLoadingOrgs
-                                    ? "Loading..."
-                                    : !selectedOrgType
-                                      ? "Select Organization Type First"
-                                      : "Select Organization"
-                                }
-                              />
-                            </SelectTrigger>
+                            <Input
+                              placeholder="e.g. Research Institute"
+                              className={fieldInputClassName(!!fieldState.error)}
+                              aria-invalid={fieldState.invalid}
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              value={field.value ?? ""}
+                              onChange={(e) =>
+                                handleStepFieldChange(
+                                  2,
+                                  field.onChange,
+                                  e.target.value,
+                                )
+                              }
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {filteredOrganizations.map((o) => (
-                              <SelectItem key={o.id} value={o.id.toString()}>
-                                {o.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {stepValidated[2] && <FormMessage />}
-                      </FormItem>
-                    )}
-                  />
+                          {stepValidated[2] && <FormMessage />}
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
-                  <FormField
-                    control={form.control}
-                    name="unit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Unit / Department
-                        </FormLabel>
-                        <Select
-                          onValueChange={(value) =>
-                            handleStepFieldChange(2, field.onChange, value)
-                          }
-                          value={field.value}
-                          disabled={!selectedOrg || isLoadingUnits}
-                        >
+                  {!isOtherOrgType && (
+                    <FormField
+                      control={form.control}
+                      name="organization"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Organization Name
+                          </FormLabel>
+                          <Select
+                            onValueChange={(value) =>
+                              handleStepFieldChange(2, field.onChange, value)
+                            }
+                            value={field.value}
+                            disabled={!selectedOrgType || isLoadingOrgs}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-11 w-full bg-muted/30 border-muted">
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingOrgs
+                                      ? "Loading..."
+                                      : !selectedOrgType
+                                        ? "Select Organization Type First"
+                                        : "Select Organization"
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredOrganizations.map((o) => (
+                                <SelectItem key={o.id} value={o.id.toString()}>
+                                  {o.name}
+                                </SelectItem>
+                              ))}
+                              {selectedOrgType && (
+                                <SelectItem value={OTHER_OPTION}>
+                                  Other (not listed)
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {stepValidated[2] && <FormMessage />}
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {isOtherOrg && (
+                    <FormField
+                      control={form.control}
+                      name="organizationOther"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel>Specify Organization Name</FormLabel>
                           <FormControl>
-                            <SelectTrigger className="h-11 bg-muted/30 border-muted w-full">
-                              <SelectValue
-                                placeholder={
-                                  isLoadingUnits
-                                    ? "Loading..."
-                                    : !selectedOrg
-                                      ? "Select Organization First"
-                                      : "Select Unit / Department"
-                                }
-                              />
-                            </SelectTrigger>
+                            <Input
+                              placeholder="Enter your organization name"
+                              className={fieldInputClassName(!!fieldState.error)}
+                              aria-invalid={fieldState.invalid}
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              value={field.value ?? ""}
+                              onChange={(e) =>
+                                handleStepFieldChange(
+                                  2,
+                                  field.onChange,
+                                  e.target.value,
+                                )
+                              }
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {filteredUnits.map((u) => (
-                              <SelectItem key={u.id} value={u.id.toString()}>
-                                {u.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {stepValidated[2] && <FormMessage />}
-                      </FormItem>
-                    )}
-                  />
+                          {stepValidated[2] && <FormMessage />}
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {!isOtherOrg && (
+                    <FormField
+                      control={form.control}
+                      name="unit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Unit / Department
+                          </FormLabel>
+                          <Select
+                            onValueChange={(value) =>
+                              handleStepFieldChange(2, field.onChange, value)
+                            }
+                            value={field.value}
+                            disabled={!selectedOrg || isLoadingUnits}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-11 bg-muted/30 border-muted w-full">
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingUnits
+                                      ? "Loading..."
+                                      : !selectedOrg
+                                        ? "Select Organization First"
+                                        : "Select Unit / Department"
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredUnits.map((u) => (
+                                <SelectItem key={u.id} value={u.id.toString()}>
+                                  {u.name}
+                                </SelectItem>
+                              ))}
+                              {selectedOrg && (
+                                <SelectItem value={OTHER_OPTION}>
+                                  Other (not listed)
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {stepValidated[2] && <FormMessage />}
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {isOtherUnit && (
+                    <FormField
+                      control={form.control}
+                      name="unitOther"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <FormLabel>Specify Unit / Department</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter your unit / department"
+                              className={fieldInputClassName(!!fieldState.error)}
+                              aria-invalid={fieldState.invalid}
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              value={field.value ?? ""}
+                              onChange={(e) =>
+                                handleStepFieldChange(
+                                  2,
+                                  field.onChange,
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </FormControl>
+                          {stepValidated[2] && <FormMessage />}
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               )}
 

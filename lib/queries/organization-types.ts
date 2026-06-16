@@ -15,7 +15,9 @@ export function useOrganizationTypes() {
     queryFn: async () => {
       try {
         const { data } = await api.get(API_ENDPOINTS.REFERENCE.ORGANIZATION_TYPES);
-        return data.data as OrganizationType[];
+        return (Array.isArray(data)
+          ? data
+          : (data?.data ?? data?.results ?? [])) as OrganizationType[];
       } catch (err) {
         console.warn("[API] Failed to fetch organization types dynamically.", err);
         return [] as OrganizationType[];
