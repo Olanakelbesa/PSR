@@ -8,6 +8,7 @@ import {
   ChevronRight,
   History,
   Tags,
+  Bell,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -19,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProfileSettingsCard } from "@/components/profile/profile-settings-card";
+import { ProfileSettingsCard, NotificationSettingsCard } from "@/components/profile";
 import {
   PERMISSIONS,
   PERMISSION_GROUPS,
@@ -38,7 +39,10 @@ export default function SettingsHubPage() {
   const showAdminLinks = showAccessControl || canViewAuditLogs || canViewTaxonomy;
 
   const tabsList = useMemo(() => {
-    const tabs = [{ id: "profile", label: "My Profile", icon: User }];
+    const tabs = [
+      { id: "profile", label: "My Profile", icon: User },
+      { id: "notifications", label: "Notifications", icon: Bell },
+    ];
     if (showAdminLinks) {
       tabs.push({ id: "admin", label: "Administration", icon: ShieldCheck });
     }
@@ -63,6 +67,11 @@ export default function SettingsHubPage() {
         {/* Profile */}
         <TabsContent value="profile" className="mt-0 space-y-6">
           <ProfileSettingsCard />
+        </TabsContent>
+
+        {/* Notifications */}
+        <TabsContent value="notifications" className="mt-0 space-y-6">
+          <NotificationSettingsCard />
         </TabsContent>
 
         {/* Administration */}

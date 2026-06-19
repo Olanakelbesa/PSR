@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, Loader2, Lock, Mail, Save, Shield } from "lucide-react";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { toast } from "sonner";
 
 import {
   Card,
