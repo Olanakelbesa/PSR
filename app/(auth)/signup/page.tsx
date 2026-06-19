@@ -203,7 +203,7 @@ export default function SignupPage() {
       lastName: "",
       email: "",
       phone: "",
-      sex: "Male" as any,
+      sex: "",
       organizationType: "",
       organizationTypeOther: "",
       organization: "",
@@ -735,7 +735,7 @@ export default function SignupPage() {
                           onValueChange={(value) =>
                             handleStepFieldChange(1, field.onChange, value)
                           }
-                          value={field.value}
+                          value={field.value || undefined}
                         >
                           <FormControl>
                             <SelectTrigger className="h-11 bg-muted/30 border-muted w-full">
@@ -743,6 +743,7 @@ export default function SignupPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+
                             <SelectItem value="Male">Male</SelectItem>
                             <SelectItem value="Female">Female</SelectItem>
                           </SelectContent>
