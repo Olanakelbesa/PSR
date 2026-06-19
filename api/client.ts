@@ -98,12 +98,20 @@ export const tokenStorage = {
 
 // ─── Axios Instance ───────────────────────────────────────────────────────────
 // Base URL is hardcoded to /bff — the Next.js BFF proxy layer.
-// NO NEXT_PUBLIC_ env var is used here (that would expose it client-side).
+// Multipart uploads on production use /api instead (gateway routes /api/* to Django).
 const apiClient = axios.create({
   baseURL: "/bff",
   headers: { "Content-Type": "application/json" },
   timeout: 30_000,
 });
+
+const UPLOAD_TIMEOUT_MS = 300_000;
+
+function shouldUseDirectApiUpload(): boolean {
+  if (!isBrowser) return false;
+  const host = window.location.hostname;
+  return host !== "localhost" && host !== "127.0.0.1";
+}
 
 // ─── Refresh Token Queue ──────────────────────────────────────────────────────
 let isRefreshing = false;
@@ -134,6 +142,11 @@ apiClient.interceptors.request.use(
         delete headers["Content-Type"];
         delete headers["content-type"];
       }
+      // Production gateway serves Django at /api/* — skip Next.js BFF for large bodies.
+      if (shouldUseDirectApiUpload()) {
+        config.baseURL = "/api";
+      }
+      config.timeout = UPLOAD_TIMEOUT_MS;
     }
 
     const hasExplicitAuthHeader = Boolean(

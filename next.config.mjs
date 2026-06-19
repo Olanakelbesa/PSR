@@ -46,7 +46,10 @@ const nextConfig = {
   // Increase the HTTP server's max header size to fix 431 errors caused by
   // large NextAuth JWT session cookies exceeding the default 8KB Node.js limit.
   experimental: {
+    // Large file uploads via /bff (multipart proxied through Next.js)
+    proxyClientMaxBodySize: "100mb",
     serverActions: {
+      bodySizeLimit: "100mb",
       allowedOrigins: [
         "localhost:3000",
         "pgms.mohdigitalhealth.gov.et",
