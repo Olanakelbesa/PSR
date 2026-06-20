@@ -23,18 +23,42 @@ const permissionIdSchema = z.union([
   z.object({ id: z.union([z.string(), z.number()]).transform(Number) }).transform((o) => o.id),
 ]);
 
-export const RoleSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(Number),
+export const RoleSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(Number),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string().nullable().optional(),
+    isActive: z.boolean().optional(),
+    is_active: z.boolean().optional(),
+    hasAllPermissions: z.boolean().optional(),
+    has_all_permissions: z.boolean().optional(),
+    permissions: z.array(permissionIdSchema).optional().default([]),
+    groups: z
+      .array(z.union([z.string(), z.number()]).transform(Number))
+      .optional()
+      .default([]),
+    groupsDetail: z
+      .array(
+        z.object({
+          id: z.number(),
+          name: z.string(),
+          permissions: z.array(permissionIdSchema).optional().default([]),
+        })
+      )
+      .optional()
+      .default([]),
+  })
+  .transform((val) => ({
+    ...val,
+    isActive: val.isActive ?? val.is_active ?? true,
+    hasAllPermissions: val.hasAllPermissions ?? val.has_all_permissions ?? false,
+  }));
+
+export const GroupSchema = z.object({
+  id: z.number(),
   name: z.string(),
-  slug: z.string(),
-  description: z.string().nullable().optional(),
-  isActive: z.boolean().optional().default(true),
-  hasAllPermissions: z.boolean().optional().default(false),
   permissions: z.array(permissionIdSchema).optional().default([]),
-  groups: z
-    .array(z.union([z.string(), z.number()]).transform(Number))
-    .optional()
-    .default([]),
 });
 
 export const PermissionCatalogItemSchema = z.object({
@@ -64,9 +88,29 @@ const PaginatedRolesSchema = z.object({
 });
 
 export type Role = z.infer<typeof RoleSchema>;
+export type Group = z.infer<typeof GroupSchema>;
 export type PermissionCatalogItem = z.infer<typeof PermissionCatalogItemSchema>;
 export type PermissionCategory = z.infer<typeof PermissionCategorySchema>;
 export type PermissionCatalog = z.infer<typeof PermissionCatalogSchema>;
+
+export interface GroupFilters {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+const PaginatedGroupsSchema = z.object({
+  data: z.array(GroupSchema),
+  meta: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number().optional(),
+      total_pages: z.number().optional(),
+    })
+    .optional(),
+});
 
 export interface RoleFilters {
   search?: string;
@@ -82,6 +126,7 @@ export interface CreateRolePayload {
   is_active?: boolean;
   has_all_permissions?: boolean;
   permissions?: number[];
+  groups?: number[];
 }
 
 export interface UpdateRolePayload {
@@ -91,24 +136,42 @@ export interface UpdateRolePayload {
   is_active?: boolean;
   has_all_permissions?: boolean;
   permissions?: number[];
+  groups?: number[];
+}
+
+export interface CreateGroupPayload {
+  name: string;
+  permissions?: number[];
+}
+
+export interface UpdateGroupPayload {
+  name?: string;
+  permissions?: number[];
 }
 
 function normalizeRolesResponse(payload: unknown) {
   const root = (payload ?? {}) as Record<string, unknown>;
-  const data = Array.isArray(root.data) ? root.data : [];
-  const rawMeta = (root.meta as Record<string, unknown> | undefined) ?? {};
+  const list = Array.isArray(root.data)
+    ? root.data
+    : Array.isArray(root.results)
+      ? root.results
+      : [];
+  
+  const rawMeta = (root.meta as Record<string, unknown> | undefined) ?? root ?? {};
+  
+  const limit = Number(rawMeta.limit ?? 25);
+  const total = Number(rawMeta.total ?? rawMeta.count ?? list.length);
+  
   const totalPages =
     Number(rawMeta.totalPages ?? rawMeta.total_pages) ||
-    (Number(rawMeta.total) && Number(rawMeta.limit)
-      ? Math.ceil(Number(rawMeta.total) / Number(rawMeta.limit))
-      : 1);
+    (limit > 0 ? Math.ceil(total / limit) : 1);
 
   return {
-    data,
+    data: list,
     meta: {
       page: Number(rawMeta.page ?? 1),
-      limit: Number(rawMeta.limit ?? (data.length || 25)),
-      total: Number(rawMeta.total ?? data.length),
+      limit,
+      total,
       totalPages,
     },
   };
@@ -155,3 +218,33 @@ export async function getPermissionCatalog(): Promise<PermissionCatalog> {
     permissionsByCategory,
   });
 }
+
+export async function getGroups(filters: GroupFilters = {}): Promise<{ data: Group[]; meta: any }> {
+  const res = await apiClient.get(API_ENDPOINTS.GROUPS.LIST, { params: filters });
+  // Since GroupViewSet is a DRF ModelViewSet, it's paginated
+  const normalized = normalizeRolesResponse(res.data);
+  return PaginatedGroupsSchema.parse(normalized);
+}
+
+export async function getGroupById(id: string | number): Promise<Group> {
+  const res = await apiClient.get(API_ENDPOINTS.GROUPS.DETAIL(id));
+  return GroupSchema.parse(res.data?.data ?? res.data);
+}
+
+export async function createGroup(payload: CreateGroupPayload): Promise<Group> {
+  const res = await apiClient.post(API_ENDPOINTS.GROUPS.CREATE, payload);
+  return GroupSchema.parse(res.data?.data ?? res.data);
+}
+
+export async function updateGroup(
+  id: string | number,
+  payload: UpdateGroupPayload,
+): Promise<Group> {
+  const res = await apiClient.patch(API_ENDPOINTS.GROUPS.UPDATE(id), payload);
+  return GroupSchema.parse(res.data?.data ?? res.data);
+}
+
+export async function deleteGroup(id: string | number): Promise<void> {
+  await apiClient.delete(API_ENDPOINTS.GROUPS.DELETE(id));
+}
+

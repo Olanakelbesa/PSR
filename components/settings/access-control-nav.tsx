@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, Users } from "lucide-react";
+import { Shield, Users, Layers } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -19,6 +19,12 @@ const NAV_ITEMS = [
     href: "/settings/access-control/roles",
     label: "Roles & Permissions",
     icon: Shield,
+    permission: PERMISSIONS.ROLE_VIEW,
+  },
+  {
+    href: "/settings/access-control/groups",
+    label: "Permission Groups",
+    icon: Layers,
     permission: PERMISSIONS.ROLE_VIEW,
   },
 ] as const;

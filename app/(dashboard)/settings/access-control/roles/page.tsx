@@ -68,10 +68,11 @@ import {
   usePermissionCatalog,
   useRoles,
   useUpdateRole,
+  useGroups,
 } from "@/hooks/useRoles";
 import { getRoleById } from "@/api/services/roles.service";
 import type { PermissionCatalogItem } from "@/api/services/roles.service";
-import type { Role } from "@/api/services/roles.service";
+import type { Role, Group } from "@/api/services/roles.service";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -82,6 +83,7 @@ type RoleFormState = {
   isActive: boolean;
   hasAllPermissions: boolean;
   permissionIds: number[];
+  groupIds: number[];
 };
 
 const emptyForm: RoleFormState = {
@@ -91,6 +93,7 @@ const emptyForm: RoleFormState = {
   isActive: true,
   hasAllPermissions: false,
   permissionIds: [],
+  groupIds: [],
 };
 
 function slugify(value: string) {
@@ -138,11 +141,20 @@ export default function RolesManagementPage() {
     isError: catalogError,
     refetch: refetchCatalog,
   } = usePermissionCatalog();
+  const { data: groupsData, isLoading: groupsLoading } = useGroups();
+  const rawGroups = groupsData?.data ?? [];
+  const groups = Array.isArray(rawGroups) ? rawGroups : [];
+  
+  if (!Array.isArray(rawGroups)) {
+    console.error("groupsData.data is NOT an array!", rawGroups, groupsData);
+  }
+
   const createRoleMutation = useCreateRole();
   const updateRoleMutation = useUpdateRole();
   const deleteRoleMutation = useDeleteRole();
 
-  const roles = data?.data ?? [];
+  const rawRoles = data?.data ?? [];
+  const roles = Array.isArray(rawRoles) ? rawRoles : [];
   const sortedCategories = useMemo(
     () => [...(catalog?.categories ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [catalog?.categories],
@@ -192,6 +204,7 @@ export default function RolesManagementPage() {
         isActive: detail.isActive ?? true,
         hasAllPermissions: detail.hasAllPermissions ?? false,
         permissionIds: detail.permissions ?? [],
+        groupIds: detail.groups ?? [],
       });
     } catch (error) {
       toast.error((error as { message?: string })?.message ?? "Failed to load role details.");
@@ -210,6 +223,27 @@ export default function RolesManagementPage() {
         : prev.permissionIds.filter((id) => id !== permissionId),
     }));
   };
+
+  const toggleGroup = (groupId: number, checked: boolean) => {
+    setForm((prev) => ({
+      ...prev,
+      groupIds: checked
+        ? [...prev.groupIds, groupId]
+        : prev.groupIds.filter((id) => id !== groupId),
+    }));
+  };
+
+  const inheritedPermissionIds = useMemo(() => {
+    const ids = new Set<number>();
+    groups
+      .filter((g) => form.groupIds.includes(g.id))
+      .forEach((g) => {
+        g.permissions?.forEach((p) => {
+          ids.add(typeof p === "object" ? p.id : Number(p));
+        });
+      });
+    return ids;
+  }, [groups, form.groupIds]);
 
   const saveRole = async () => {
     if (!form.name.trim()) {
@@ -230,6 +264,7 @@ export default function RolesManagementPage() {
       is_active: form.isActive,
       has_all_permissions: form.hasAllPermissions,
       permissions: form.hasAllPermissions ? [] : form.permissionIds,
+      groups: form.groupIds,
     };
 
     try {
@@ -324,7 +359,8 @@ export default function RolesManagementPage() {
                   <TableRow>
                     <TableHead>Role</TableHead>
                     <TableHead>Slug</TableHead>
-                    <TableHead>Permissions</TableHead>
+                    <TableHead>Groups</TableHead>
+                    <TableHead>Direct Permissions</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -332,13 +368,13 @@ export default function RolesManagementPage() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                         Loading roles...
                       </TableCell>
                     </TableRow>
                   ) : roles.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                         No roles found.
                       </TableCell>
                     </TableRow>
@@ -355,6 +391,19 @@ export default function RolesManagementPage() {
                         </TableCell>
                         <TableCell>
                           <code className="rounded bg-muted px-2 py-1 text-xs">{role.slug}</code>
+                        </TableCell>
+                        <TableCell>
+                          {role.groupsDetail && role.groupsDetail.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {role.groupsDetail.map((g) => (
+                                <Badge key={g.id} variant="outline" className="text-[10px]">
+                                  {g.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">None</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {role.hasAllPermissions ? (
@@ -483,6 +532,33 @@ export default function RolesManagementPage() {
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <Label>Permission Groups</Label>
+                {groupsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading groups...</p>
+                ) : groups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No groups available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {groups.map((group) => (
+                      <label
+                        key={group.id}
+                        className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-muted/50"
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={form.groupIds.includes(group.id)}
+                          onCheckedChange={(checked) => toggleGroup(group.id, checked === true)}
+                        />
+                        <div>
+                          <p className="text-sm font-medium leading-none">{group.name}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {!form.hasAllPermissions && (
                 <div className="space-y-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -548,13 +624,21 @@ export default function RolesManagementPage() {
                         >
                           <Checkbox
                             className="mt-0.5"
-                            checked={form.permissionIds.includes(permission.id)}
+                            checked={form.permissionIds.includes(permission.id) || inheritedPermissionIds.has(permission.id)}
+                            disabled={inheritedPermissionIds.has(permission.id)}
                             onCheckedChange={(checked) =>
                               togglePermission(permission.id, checked === true)
                             }
                           />
-                          <div>
-                            <p className="text-sm font-medium">{permission.name}</p>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{permission.name}</p>
+                              {inheritedPermissionIds.has(permission.id) && (
+                                <Badge variant="secondary" className="text-[10px] uppercase">
+                                  Inherited
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               {permission.codename}
                             </p>
@@ -593,13 +677,24 @@ export default function RolesManagementPage() {
                                   >
                                     <Checkbox
                                       className="mt-0.5"
-                                      checked={form.permissionIds.includes(permission.id)}
+                                      checked={
+                                        form.permissionIds.includes(permission.id) ||
+                                        inheritedPermissionIds.has(permission.id)
+                                      }
+                                      disabled={inheritedPermissionIds.has(permission.id)}
                                       onCheckedChange={(checked) =>
                                         togglePermission(permission.id, checked === true)
                                       }
                                     />
-                                    <div>
-                                      <p className="text-sm font-medium">{permission.name}</p>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-sm font-medium">{permission.name}</p>
+                                        {inheritedPermissionIds.has(permission.id) && (
+                                          <Badge variant="secondary" className="text-[10px] uppercase">
+                                            Inherited
+                                          </Badge>
+                                        )}
+                                      </div>
                                       <p className="text-xs text-muted-foreground">
                                         {permission.codename}
                                       </p>

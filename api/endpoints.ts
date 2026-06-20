@@ -359,6 +359,14 @@ export const API_ENDPOINTS = {
   PERMISSIONS: {
     CATALOG: "/v1/permissions/catalog/",
   },
+
+  GROUPS: {
+    LIST: "/v1/groups/",
+    DETAIL: (id: string | number) => `/v1/groups/${id}/`,
+    CREATE: "/v1/groups/",
+    UPDATE: (id: string | number) => `/v1/groups/${id}/`,
+    DELETE: (id: string | number) => `/v1/groups/${id}/`,
+  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

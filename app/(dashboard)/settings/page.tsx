@@ -9,6 +9,7 @@ import {
   History,
   Tags,
   Bell,
+  Layers,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -99,6 +100,14 @@ export default function SettingsHubPage() {
                     title="Roles & permissions"
                     description="Define roles and assign permissions."
                     icon={ShieldCheck}
+                  />
+                )}
+                {canManageRoles && (
+                  <AdminLink
+                    href="/settings/access-control/groups"
+                    title="Permission groups"
+                    description="Bundle multiple permissions into reusable groups."
+                    icon={Layers}
                   />
                 )}
                 {canViewAuditLogs && (
