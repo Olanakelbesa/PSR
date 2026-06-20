@@ -18,6 +18,7 @@ export interface UpdateProfilePayload {
   organizationType?: number | null;
   organization?: number | null;
   unit?: number | null;
+  photo?: File | null;
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
@@ -28,6 +29,24 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 export async function updateCurrentUser(
   payload: UpdateProfilePayload,
 ): Promise<CurrentUser> {
-  const res = await apiClient.patch(API_ENDPOINTS.USERS.ME, payload);
+  let isMultipart = false;
+  
+  if (payload.photo instanceof File) {
+    isMultipart = true;
+  }
+
+  let dataToSend: any = payload;
+
+  if (isMultipart) {
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(payload)) {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value instanceof File ? value : String(value));
+      }
+    }
+    dataToSend = formData;
+  }
+
+  const res = await apiClient.patch(API_ENDPOINTS.USERS.ME, dataToSend);
   return UserSchema.parse(res.data?.data ?? res.data);
 }

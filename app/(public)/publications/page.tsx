@@ -151,7 +151,7 @@ export default function PublicPublicationsPage() {
       <main className="grow w-full">
         {/* Hero Banner */}
         <section className="relative w-full h-[380px] md:h-[480px] overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 z-10 opacity-90" />
+          <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-transparent opacity-50" />
           
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <motion.div
@@ -303,9 +303,9 @@ export default function PublicPublicationsPage() {
                           <button
                             type="button"
                             onClick={() => setExpandedId(isExpanded ? null : String(pub.id))}
-                            className="w-full text-left p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-white/[0.01] transition"
+                            className="w-full text-left p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-white/1 transition"
                           >
-                            <div className="space-y-2 flex-grow">
+                            <div className="space-y-2 grow">
                               <div className="flex flex-wrap items-center gap-3">
                                 <Badge className="bg-primary/5 text-primary border-primary/20 text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md">
                                   {pub.docType}

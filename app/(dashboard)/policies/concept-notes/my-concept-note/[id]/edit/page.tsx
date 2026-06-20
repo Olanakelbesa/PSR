@@ -19,6 +19,7 @@ import {
 
 import { cn } from "@/lib/utils";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { MAX_FILE_SIZE_MB } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -796,7 +797,7 @@ export default function EditConceptNotePage() {
                                   Choose a document to upload
                                 </span>
                                 <span className="block text-xs text-muted-foreground">
-                                  PDF up to 10MB
+                                  PDF up to {MAX_FILE_SIZE_MB}MB
                                 </span>
                               </span>
                             </div>

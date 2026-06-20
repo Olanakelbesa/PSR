@@ -394,7 +394,7 @@ export default function LandingPage() {
             <div className="max-w-4xl mx-auto text-center space-y-6 md:space-y-8">
               <h1 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tight leading-[1.1] md:leading-[1.05]">
                 Research and Policy {" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-purple-700 bg-300%  animate-gradient">
+                <span className="bg-linear-to-r from-primary to-blue-600 bg-clip-text text-transparent drop-shadow-sm">
                   Documents
                 </span>{" "}
                 Management System
@@ -452,7 +452,7 @@ export default function LandingPage() {
                       zIndex: 9999,
                       maxHeight: portalStyle.maxHeight,
                     }}
-                    className="overflow-hidden rounded-3xl border border-white/10 bg-white/90 dark:bg-slate-900/90 shadow-2xl shadow-slate-950/24 backdrop-blur-xl"
+                    className="max-h-112 overflow-hidden rounded-xl border bg-muted/30 p-2 shadow-2xl relative group backdrop-blur-xl"
                   >
                     {suggestionsLoading ? (
                       <div className="p-3 text-sm text-muted-foreground">Searching...</div>
@@ -608,7 +608,7 @@ export default function LandingPage() {
                             fill
                             className="object-cover transition-transform duration-700 group-hover:scale-110"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent opacity-60" />
+                          <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-transparent z-10 pointer-events-none" />
                           <div
                             className={cn(
                               "absolute bottom-4 left-4 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10",

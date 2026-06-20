@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { MAX_FILE_SIZE_MB } from "@/lib/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
@@ -796,9 +798,9 @@ export default function NewConceptNotePage() {
                                 <span className="block text-sm font-medium">
                                   Choose a document to upload
                                 </span>
-                                <span className="block text-xs text-muted-foreground">
-                                  PDF, DOC, DOCX, or TXT up to 10MB
-                                </span>
+                                <p className="block text-xs text-muted-foreground m-0">
+                                  PDF, DOC, DOCX, or TXT up to {MAX_FILE_SIZE_MB}MB
+                                </p>
                               </span>
                             </div>
                           )}

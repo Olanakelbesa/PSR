@@ -38,6 +38,7 @@ import {
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useOrganizationTypes } from "@/lib/queries/organization-types";
 import { toast } from "sonner";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
 
 type DraftFormState = {
   title: string;
@@ -53,7 +54,7 @@ const DEFAULT_FORM: DraftFormState = {
   organization: "",
 };
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
 const ALLOWED_FILE_TYPES = [
   "application/pdf",
   "application/msword",
@@ -422,7 +423,7 @@ export default function NewPolicyDraftPage() {
 
   const validateAndSetFile = (file: File) => {
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("File size must be less than 20MB.");
+      toast.error(`File size must be less than ${MAX_FILE_SIZE_MB}MB.`);
       return;
     }
 
@@ -695,77 +696,7 @@ export default function NewPolicyDraftPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-5">
-              <div className=" grid grid-cols-1 lg:grid-cols-2 w-full">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-foreground">
-                    Doc Type
-                  </label>
-                  <Select
-                    value={formState.docType}
-                    onValueChange={(value) =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        docType: value,
-                      }))
-                    }
-                    disabled={isLocked}
-                  >
-                    <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
-                      <SelectValue placeholder="Choose a policy document type..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {policyDocumentTypes.length > 0 ? (
-                        policyDocumentTypes.map((type) => (
-                          <SelectItem key={type.id} value={String(type.id)}>
-                            <div className="flex flex-col py-1 text-left">
-                              <span className="font-bold">{type.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center text-xs text-muted-foreground">
-                          No policy document types found.
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-foreground">
-                    Organization
-                  </label>
-                  <Select
-                    value={formState.organization}
-                    onValueChange={(value) =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        organization: value,
-                      }))
-                    }
-                    disabled={isLocked}
-                  >
-                    <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
-                      <SelectValue placeholder="Choose an organization type..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {organizationTypes.length > 0 ? (
-                        organizationTypes.map((type) => (
-                          <SelectItem key={type.id} value={String(type.id)}>
-                            <div className="flex flex-col py-1 text-left">
-                              <span className="font-bold">{type.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center text-xs text-muted-foreground">
-                          No organization types found.
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
               <div className="space-y-4">
                 <label className="text-sm font-semibold text-foreground mb-5">
@@ -810,7 +741,7 @@ export default function NewPolicyDraftPage() {
                         : "Click or drag to upload a draft document"}
                     </h3>
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      PDF, DOC, or DOCX up to 20MB
+                      PDF, DOC, or DOCX up to {MAX_FILE_SIZE_MB}MB
                     </p>
                   </div>
                 ) : (

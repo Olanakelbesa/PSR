@@ -36,6 +36,7 @@ import { useUpdateEthicalClearance, useEthicalClearance } from "@/lib/queries/et
 import { useProposal } from "@/lib/queries/proposals";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
 
 const clearanceTypeLabel: Record<string, string> = {
   full_board: "Full Board Review",
@@ -70,8 +71,8 @@ const statusConfig: Record<
   },
 };
 
-const MAX_UPLOAD_SIZE_MB = 10;
-const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const MAX_UPLOAD_SIZE_MB = MAX_FILE_SIZE_MB;
+const MAX_UPLOAD_SIZE_BYTES = MAX_FILE_SIZE;
 
 function formatDate(value?: string | null) {
   if (!value) return "—";

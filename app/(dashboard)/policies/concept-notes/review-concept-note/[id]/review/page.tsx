@@ -26,6 +26,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
@@ -204,8 +205,8 @@ export default function ConceptNoteReviewPage() {
                     const file = e.target.files?.[0];
                     if (!file) return;
 
-                    if (file.size > 10 * 1024 * 1024) {
-                      toast.error("File size must be under 10MB");
+                    if (file.size > MAX_FILE_SIZE) {
+                      toast.error(`File size must be under ${MAX_FILE_SIZE_MB}MB`);
                       return;
                     }
 
@@ -221,7 +222,7 @@ export default function ConceptNoteReviewPage() {
                   >
                     <Upload className="h-8 w-8 text-muted-foreground mb-3" />
                     <p className="text-sm font-medium text-foreground">Click to upload annotated files</p>
-                    <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to 10MB</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to {MAX_FILE_SIZE_MB}MB</p>
                   </div>
                 ) : selectedFile ? (
                   <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 border-emerald-100">
@@ -302,7 +303,7 @@ export default function ConceptNoteReviewPage() {
                   <RadioGroupItem value="approve" id="approve" className="peer sr-only" />
                   <Label
                     htmlFor="approve"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-green-500 peer-data-[state=checked]:bg-green-50 [&:has([data-state=checked])]:border-green-500 cursor-pointer transition-all"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-green-500 has-[[data-state=checked]]:bg-green-50 cursor-pointer transition-all"
                   >
                     <CheckCircle2 className="mb-3 h-6 w-6 text-green-500" />
                     <span className="font-semibold text-green-700">Accepted</span>
@@ -312,7 +313,7 @@ export default function ConceptNoteReviewPage() {
                   <RadioGroupItem value="revise" id="revise" className="peer sr-only" />
                   <Label
                     htmlFor="revise"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-orange-500 peer-data-[state=checked]:bg-orange-50 [&:has([data-state=checked])]:border-orange-500 cursor-pointer transition-all"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-orange-500 has-[[data-state=checked]]:bg-orange-50 cursor-pointer transition-all"
                   >
                     <AlertCircle className="mb-3 h-6 w-6 text-orange-500" />
                     <span className="font-semibold text-orange-700">Partial Accepted</span>
@@ -322,7 +323,7 @@ export default function ConceptNoteReviewPage() {
                   <RadioGroupItem value="reject" id="reject" className="peer sr-only" />
                   <Label
                     htmlFor="reject"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-transparent p-4 hover:bg-muted hover:text-accent-foreground peer-data-[state=checked]:border-red-500 peer-data-[state=checked]:bg-red-50 [&:has([data-state=checked])]:border-red-500 cursor-pointer transition-all"
+                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-red-500 has-[[data-state=checked]]:bg-red-50 cursor-pointer transition-all"
                   >
                     <XCircle className="mb-3 h-6 w-6 text-red-500" />
                     <span className="font-semibold text-red-700">Not Accepted</span>

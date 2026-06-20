@@ -73,29 +73,50 @@ const overviewIcons: Record<string, IconType> = {
   psr_decisions: CheckCircle2,
 };
 
-const overviewAccents: Record<
+const cardStyles: Record<
   string,
-  { iconBg: string; iconColor: string }
+  {
+    bgGradient: string;
+    borderHover: string;
+    iconBg: string;
+    iconColor: string;
+    glowColor: string;
+  }
 > = {
   registered_policies: {
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
+    bgGradient: "from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10",
+    borderHover: "hover:border-blue-500/30",
+    iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
+    iconColor: "text-blue-500 dark:text-blue-400",
+    glowColor: "shadow-blue-500/5 hover:shadow-blue-500/10",
   },
   active_concept_notes: {
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-600",
+    bgGradient: "from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10",
+    borderHover: "hover:border-emerald-500/30",
+    iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+    iconColor: "text-emerald-500 dark:text-emerald-400",
+    glowColor: "shadow-emerald-500/5 hover:shadow-emerald-500/10",
   },
   drafts_in_review: {
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
+    bgGradient: "from-amber-500/5 to-orange-500/5 dark:from-amber-500/10 dark:to-orange-500/10",
+    borderHover: "hover:border-amber-500/30",
+    iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
+    iconColor: "text-amber-500 dark:text-amber-400",
+    glowColor: "shadow-amber-500/5 hover:shadow-amber-500/10",
   },
   approved_research: {
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
+    bgGradient: "from-violet-500/5 to-fuchsia-500/5 dark:from-violet-500/10 dark:to-fuchsia-500/10",
+    borderHover: "hover:border-violet-500/30",
+    iconBg: "bg-violet-500/10 dark:bg-violet-500/20",
+    iconColor: "text-violet-500 dark:text-violet-400",
+    glowColor: "shadow-violet-500/5 hover:shadow-violet-500/10",
   },
   psr_decisions: {
-    iconBg: "bg-slate-100",
-    iconColor: "text-slate-700",
+    bgGradient: "from-rose-500/5 to-pink-500/5 dark:from-rose-500/10 dark:to-pink-500/10",
+    borderHover: "hover:border-rose-500/30",
+    iconBg: "bg-rose-500/10 dark:bg-rose-500/20",
+    iconColor: "text-rose-500 dark:text-rose-400",
+    glowColor: "shadow-rose-500/5 hover:shadow-rose-500/10",
   },
 };
 
@@ -156,42 +177,58 @@ function EmptyState({ label }: { label: string }) {
 
 function StatCard({ stat }: { stat: DashboardOverviewCard }) {
   const Icon = overviewIcons[stat.key] || FileText;
-  const accent = overviewAccents[stat.key] || {
-    iconBg: "bg-slate-100",
-    iconColor: "text-slate-700",
+  const style = cardStyles[stat.key] || {
+    bgGradient: "from-slate-500/5 to-gray-500/5",
+    borderHover: "hover:border-slate-500/50",
+    iconBg: "bg-slate-500/10",
+    iconColor: "text-slate-500",
+    glowColor: "shadow-slate-500/5",
   };
   const isDown = stat.changeDirection === "down";
   const TrendIcon = isDown ? TrendingDown : TrendingUp;
 
   return (
-    <Card className="h-full border-primary/10 bg-card shadow-sm transition-shadow hover:shadow-md">
+    <Card className={cn(
+      "group relative overflow-hidden h-full border border-primary/10 bg-gradient-to-br bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+      style.bgGradient,
+      style.borderHover,
+      style.glowColor
+    )}>
+      {/* Corner color glow overlay */}
+      <div className={cn(
+        "absolute -right-4 -top-4 h-16 w-16 rounded-full blur-2xl opacity-40 dark:opacity-20 transition-opacity group-hover:opacity-60",
+        stat.key === "registered_policies" && "bg-blue-500",
+        stat.key === "active_concept_notes" && "bg-emerald-500",
+        stat.key === "drafts_in_review" && "bg-amber-500",
+        stat.key === "approved_research" && "bg-violet-500",
+        stat.key === "psr_decisions" && "bg-rose-500"
+      )} />
+
       <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div className={cn("rounded-xl p-2.5", accent.iconBg)}>
-            <Icon className={cn("h-5 w-5", accent.iconColor)} />
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {stat.label}
+          </p>
+          <div className={cn("rounded-xl p-2.5 transition-transform duration-300 group-hover:scale-110", style.iconBg)}>
+            <Icon className={cn("h-5 w-5", style.iconColor)} />
           </div>
         </div>
         <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {stat.label}
-          </p>
-          <p className="mt-1 text-3xl font-black tracking-tight">
+          <p className="text-3xl font-black tracking-tight text-foreground">
             {stat.value.toLocaleString()}
           </p>
-          <div className="mt-2 flex items-center gap-1">
-            <TrendIcon
-              className={cn("h-3.5 w-3.5", getChangeClass(stat.changeDirection))}
-            />
-            <span
-              className={cn(
-                "text-xs font-bold",
-                getChangeClass(stat.changeDirection),
-              )}
-            >
-              {isDown ? "-" : "+"}
-              {Math.abs(stat.changePercent)}%
-            </span>
-            <span className="text-[10px] font-medium uppercase text-muted-foreground">
+          <div className="mt-3 flex items-center gap-1.5">
+            <div className={cn(
+              "flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+              isDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            )}>
+              <TrendIcon className="h-3 w-3" />
+              <span>
+                {isDown ? "-" : "+"}
+                {Math.abs(stat.changePercent)}%
+              </span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
               {stat.changeLabel}
             </span>
           </div>

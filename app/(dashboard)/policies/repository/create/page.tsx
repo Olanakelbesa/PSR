@@ -37,9 +37,9 @@ import {
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { PolicyDocument } from "@/lib/types";
 import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
 import { useRegisterPolicy } from "@/lib/queries/policy-repository";
+import { MAX_FILE_SIZE_MB } from "@/lib/constants";
 
 const READINESS = [
   { key: "title", label: "Policy title selected" },
@@ -338,7 +338,7 @@ export default function CreateRepositoryEntryPage() {
                             Click to upload final document
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            PDF, DOC, or DOCX up to 20MB
+                            PDF, DOC, or DOCX up to {MAX_FILE_SIZE_MB}MB
                           </p>
                         </div>
                       </div>

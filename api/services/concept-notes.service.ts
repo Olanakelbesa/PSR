@@ -63,23 +63,28 @@ const StrategicObjectiveSchema = z.object({
 
 export const ConceptNoteSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  title: z.string(),
-  executiveSummary: z.string().optional().default(""),
+  title: z.string().nullable().optional().transform(v => v || "Untitled"),
+  executiveSummary: z.string().nullable().optional().transform(v => v || ""),
   docType: IdOnlyOrObjectSchema.nullable().optional(),
   versionNumber: z.string().nullable().optional(),
   thematicAreas: z
     .array(z.object({ id: z.number(), name: z.string() }))
+    .nullable()
     .optional()
-    .default([]),
-  submittedBy: UserOrIdSchema.optional(),
+    .transform(v => v || []),
+  submittedBy: UserOrIdSchema.nullable().optional(),
   organization: IdOnlyOrObjectSchema.nullable().optional(),
   unit: IdOnlyOrObjectSchema.nullable().optional(),
-  strategicObjectives: z.array(StrategicObjectiveSchema).default([]),
-  submissionDate: z.string().optional(),
+  strategicObjectives: z.array(StrategicObjectiveSchema).nullable().optional().transform(v => v || []),
+  submissionDate: z.string().nullable().optional().transform(v => v || ""),
   status: IdOnlyOrObjectSchema.nullable().optional(),
-  updatedAt: z.string().optional(),
-  documentCategory: z.enum(["new", "revision"]).optional(),
-  currentStatus: ConceptNoteStatusSchema.optional(),
+  updatedAt: z.string().nullable().optional().transform(v => v || ""),
+  documentCategory: z.string().nullable().optional(),
+  currentStatus: z.any().transform(v => {
+    if (typeof v === 'string') return v;
+    if (v && typeof v === 'object' && typeof v.status === 'string') return v.status;
+    return "draft";
+  }),
   psrFinalDecision: z
     .enum(["accepted", "partially_accepted", "not_accepted"])
     .nullable()
@@ -89,93 +94,98 @@ export const ConceptNoteSchema = z.object({
 
 const ConceptNoteDetailFileSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  versionNumber: z.string(),
-  file: z.string(),
-  fileSha256: z.string().optional(),
-  isLatest: z.boolean(),
-  isResubmission: z.boolean(),
+  versionNumber: z.string().nullable().optional().transform(v => v || ""),
+  file: z.string().nullable().optional().transform(v => v || ""),
+  fileSha256: z.string().nullable().optional(),
+  isLatest: z.boolean().nullable().optional().transform(v => v ?? false),
+  isResubmission: z.boolean().nullable().optional().transform(v => v ?? false),
   parentVersionNumber: z.string().nullable().optional(),
-  createdByName: z.string(),
-  createdByEmail: z.string(),
-  createdAt: z.string(),
+  createdByName: z.string().nullable().optional().transform(v => v || ""),
+  createdByEmail: z.string().nullable().optional().transform(v => v || ""),
+  createdAt: z.string().nullable().optional().transform(v => v || ""),
 });
 
 const ConceptNoteDetailTimelineSchema = z.object({
-  eventType: z.string(),
-  title: z.string(),
-  actor: z.string(),
-  actorPhoto: z.string().nullable(),
-  timestamp: z.string(),
-  version: z.string().nullable(),
+  eventType: z.string().nullable().optional().transform(v => v || ""),
+  title: z.string().nullable().optional().transform(v => v || ""),
+  actor: z.string().nullable().optional().transform(v => v || ""),
+  actorPhoto: z.string().nullable().optional(),
+  timestamp: z.string().nullable().optional().transform(v => v || ""),
+  version: z.string().nullable().optional(),
   metadataSummary: z
     .object({
-      title: z.string().optional(),
-      decision: z.string().optional(),
-      recommendation: z.string().optional(),
+      title: z.string().nullable().optional(),
+      decision: z.string().nullable().optional(),
+      recommendation: z.string().nullable().optional(),
     })
     .partial()
+    .nullable()
     .optional(),
 });
 
 const ConceptNoteDetailFeedbackSchema = z.object({
-  versionNumber: z.string(),
-  isLatest: z.boolean(),
-  isResubmission: z.boolean(),
-  feedbackDetail: z.array(z.unknown()).default([]),
+  versionNumber: z.string().nullable().optional().transform(v => v || ""),
+  isLatest: z.boolean().nullable().optional().transform(v => v ?? false),
+  isResubmission: z.boolean().nullable().optional().transform(v => v ?? false),
+  feedbackDetail: z.array(z.unknown()).nullable().optional().transform(v => v || []),
 });
 
 export const ConceptNoteDetailSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  title: z.string(),
+  title: z.string().nullable().optional().transform(v => v || "Untitled"),
   docType: IdOnlyOrObjectSchema.nullable().optional(),
-  strategicObjectives: z.array(StrategicObjectiveSchema).default([]),
+  strategicObjectives: z.array(StrategicObjectiveSchema).nullable().optional().transform(v => v || []),
   overview: z.object({
-    executiveSummary: z.string().default(""),
+    executiveSummary: z.string().nullable().optional().transform(v => v || ""),
     thematicAreas: z
       .array(z.object({ id: z.number(), name: z.string() }))
-      .default([]),
+      .nullable()
+      .optional()
+      .transform(v => v || []),
     file: z.string().nullable().optional(),
-  }),
-  documentCategory: z.enum(["new", "revision"]).optional(),
+  }).nullable().optional().transform(v => v || { executiveSummary: "", thematicAreas: [] }),
+  documentCategory: z.string().nullable().optional(),
   psrFinalDecision: z
     .enum(["accepted", "partially_accepted", "not_accepted"])
     .nullable()
     .optional(),
   organization: IdOnlyOrObjectSchema.nullable().optional(),
   unit: IdOnlyOrObjectSchema.nullable().optional(),
-  expertFeedback: z.array(ConceptNoteDetailFeedbackSchema).default([]),
-  timeline: z.array(ConceptNoteDetailTimelineSchema).default([]),
-  versions: z.array(ConceptNoteDetailFileSchema).default([]),
+  expertFeedback: z.array(ConceptNoteDetailFeedbackSchema).nullable().optional().transform(v => v || []),
+  timeline: z.array(ConceptNoteDetailTimelineSchema).nullable().optional().transform(v => v || []),
+  versions: z.array(ConceptNoteDetailFileSchema).nullable().optional().transform(v => v || []),
   currentStatus: z.object({
-    status: z.string(),
-    conceptId: z.string(),
-    version: z.string(),
-  }),
+    status: z.string().nullable().optional().transform(v => v || "draft"),
+    conceptId: z.string().nullable().optional().transform(v => v || ""),
+    version: z.string().nullable().optional().transform(v => v || "v1.0.0"),
+  }).nullable().optional(),
   submittedBy: z.object({
     id: z.union([z.string(), z.number()]).transform(String),
-    fullName: z.string(),
-    email: z.string(),
+    fullName: z.string().nullable().optional().transform(v => v || "Unknown"),
+    email: z.string().nullable().optional().transform(v => v || ""),
     photoUrl: z.string().nullable().optional(),
-    submittedAt: z.string(),
-    lastUpdated: z.string(),
-  }),
+    submittedAt: z.string().nullable().optional().transform(v => v || new Date().toISOString()),
+    lastUpdated: z.string().nullable().optional().transform(v => v || new Date().toISOString()),
+  }).nullable().optional(),
 });
 
 const ConceptNoteDetailResponseSchema = z.object({
-  success: z.boolean(),
+  success: z.boolean().nullable().optional().transform(v => v ?? true),
   data: ConceptNoteDetailSchema,
 });
 
 const ConceptNotesListSchema = z.object({
-  data: z.array(ConceptNoteSchema),
+  data: z.array(ConceptNoteSchema).nullable().optional().transform(v => v || []),
   meta: z
     .object({
-      page: z.number(),
-      limit: z.number(),
-      total: z.number(),
-      totalPages: z.number(),
+      page: z.number().nullable().optional().transform(v => v ?? 1),
+      limit: z.number().nullable().optional().transform(v => v ?? 10),
+      total: z.number().nullable().optional().transform(v => v ?? 0),
+      totalPages: z.number().nullable().optional().transform(v => v ?? 0),
     })
-    .optional(),
+    .nullable()
+    .optional()
+    .transform(v => v || { page: 1, limit: 10, total: 0, totalPages: 0 }),
 });
 
 function normalizeConceptNoteItem(raw: any) {
@@ -202,12 +212,14 @@ function normalizeConceptNotesListResponse(response: any) {
 
 function normalizeConceptNoteEnvelope(response: any) {
   if (!response || typeof response !== "object") return response;
+  
+  // If the response is already wrapped with 'data', use it; otherwise, wrap the response itself
+  const hasDataWrapper = "data" in response;
+  const rawData = hasDataWrapper ? response.data : response;
+
   return {
-    ...response,
-    data:
-      response.data && typeof response.data === "object" && !Array.isArray(response.data)
-        ? normalizeConceptNoteItem(response.data)
-        : response.data,
+    success: response.success ?? true,
+    data: normalizeConceptNoteItem(rawData),
   };
 }
 

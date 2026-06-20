@@ -62,9 +62,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -86,10 +87,6 @@ import {
   type AdminUpdateUserPayload,
   type User,
 } from "@/api/services/users.service";
-import {
-  flattenPermissionCatalog,
-  PermissionDualListbox,
-} from "@/components/settings/permission-dual-listbox";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -105,7 +102,6 @@ type FormState = {
   organizationId: string;
   unitId: string;
   selectedRoleIds: number[];
-  selectedPermissionIds: number[];
   password: string;
   status: string;
   enabled: boolean;
@@ -123,7 +119,6 @@ const emptyForm: FormState = {
   organizationId: "",
   unitId: "",
   selectedRoleIds: [],
-  selectedPermissionIds: [],
   password: "",
   status: "Active",
   enabled: true,
@@ -168,7 +163,6 @@ function toCreatePayload(form: FormState): AdminCreateUserPayload {
     organization: form.organizationId ? Number(form.organizationId) : null,
     unit: form.unitId ? Number(form.unitId) : null,
     roles: form.selectedRoleIds,
-    permissions: form.selectedPermissionIds,
     password: form.password,
   };
 }
@@ -187,7 +181,6 @@ function toUpdatePayload(form: FormState): AdminUpdateUserPayload {
     status: form.status,
     enabled: form.enabled,
     roles: form.selectedRoleIds,
-    permissions: form.selectedPermissionIds,
   };
 }
 
@@ -223,12 +216,6 @@ export default function UsersManagementPage() {
 
   const { data, isLoading, isFetching, refetch } = useUsers(filters);
   const { data: rolesData } = useRoles({ limit: 200 });
-  const {
-    data: permissionCatalog,
-    isLoading: catalogLoading,
-    isError: catalogError,
-    refetch: refetchCatalog,
-  } = usePermissionCatalog();
   const { data: titles = [] } = useTitles();
   const { data: organizationTypes = [] } = useOrganizationTypes();
   const { data: organizationsResponse } = useOrganizations({
@@ -250,10 +237,6 @@ export default function UsersManagementPage() {
   const meta = data?.meta;
   const totalUsers = meta?.total ?? users.length;
   const activeUsers = users.filter((user) => user.enabled).length;
-  const permissionItems = useMemo(
-    () => flattenPermissionCatalog(permissionCatalog),
-    [permissionCatalog],
-  );
 
   useEffect(() => {
     setPage(1);
@@ -286,7 +269,6 @@ export default function UsersManagementPage() {
         organizationId: detail.organization?.id ? String(detail.organization.id) : "",
         unitId: detail.unit?.id ? String(detail.unit.id) : "",
         selectedRoleIds: (detail.roles ?? []).map((role) => role.id),
-        selectedPermissionIds: detail.userPermissions ?? [],
         password: "",
         status: detail.status ?? "Active",
         enabled: detail.enabled,
@@ -483,6 +465,7 @@ export default function UsersManagementPage() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9">
+                              <AvatarImage src={resolveFileUrl(user.photoUrl) || undefined} alt={userLabel(user)} />
                               <AvatarFallback>{userInitials(user)}</AvatarFallback>
                             </Avatar>
                             <div>
@@ -798,46 +781,6 @@ export default function UsersManagementPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>User Permissions</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {form.selectedPermissionIds.length} assigned
-                    </p>
-                  </div>
-
-                  {loadingUserDetail ? (
-                    <div className="flex items-center gap-2 rounded-lg border border-border p-6 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading user permissions...
-                    </div>
-                  ) : catalogError ? (
-                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                      <p className="font-medium text-destructive">
-                        Failed to load permission catalog.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-3"
-                        onClick={() => refetchCatalog()}
-                      >
-                        Retry
-                      </Button>
-                    </div>
-                  ) : (
-                    <PermissionDualListbox
-                      items={permissionItems}
-                      value={form.selectedPermissionIds}
-                      onChange={(selectedPermissionIds) =>
-                        setForm((prev) => ({ ...prev, selectedPermissionIds }))
-                      }
-                      isLoading={catalogLoading}
-                      disabled={loadingUserDetail}
-                    />
-                  )}
-                </div>
 
                 {!editingUser && (
                   <div className="space-y-2">

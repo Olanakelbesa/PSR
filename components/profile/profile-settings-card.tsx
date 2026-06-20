@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, Loader2, Lock, Mail, Save, Shield } from "lucide-react";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
+import { useRef } from "react";
 
 import {
   Card,
@@ -43,6 +44,8 @@ type ProfileForm = {
   organizationTypeId: string;
   organizationId: string;
   unitId: string;
+  photo: File | null;
+  photoPreview: string | null;
 };
 
 const emptyProfileForm: ProfileForm = {
@@ -55,6 +58,8 @@ const emptyProfileForm: ProfileForm = {
   organizationTypeId: "",
   organizationId: "",
   unitId: "",
+  photo: null,
+  photoPreview: null,
 };
 
 function formatDate(value?: string | null) {
@@ -84,6 +89,7 @@ export function ProfileSettingsCard() {
   const { data: organizationTypes = [] } = useOrganizationTypes();
 
   const [profileForm, setProfileForm] = useState<ProfileForm>(emptyProfileForm);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: organizationsResponse } = useOrganizations({
     limit: 200,
@@ -111,6 +117,8 @@ export function ProfileSettingsCard() {
         : "",
       organizationId: profile.organization?.id ? String(profile.organization.id) : "",
       unitId: profile.unit?.id ? String(profile.unit.id) : "",
+      photo: null,
+      photoPreview: null,
     });
   }, [profile]);
 
@@ -141,6 +149,7 @@ export function ProfileSettingsCard() {
           ? Number(profileForm.organizationId)
           : null,
         unit: profileForm.unitId ? Number(profileForm.unitId) : null,
+        photo: profileForm.photo,
       });
       toast.success("Profile updated successfully.");
     } catch (error) {
@@ -152,14 +161,37 @@ export function ProfileSettingsCard() {
     <Card>
       <CardHeader className="border-b">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Avatar className="h-16 w-16">
-            {profile?.photoUrl ? (
-              <AvatarImage src={resolveFileUrl(profile.photoUrl) ?? undefined} alt={displayName} />
-            ) : null}
-            <AvatarFallback>
-              {userInitials(displayName, profile?.email ?? "U")}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <Avatar className="h-16 w-16">
+              {profileForm.photoPreview ? (
+                <AvatarImage src={profileForm.photoPreview} alt={displayName} />
+              ) : profile?.photoUrl ? (
+                <AvatarImage src={resolveFileUrl(profile.photoUrl) ?? undefined} alt={displayName} />
+              ) : null}
+              <AvatarFallback>
+                {userInitials(displayName, profile?.email ?? "U")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-[10px] text-white font-medium">Change</span>
+            </div>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setProfileForm((prev) => ({
+                    ...prev,
+                    photo: file,
+                    photoPreview: URL.createObjectURL(file),
+                  }));
+                }
+              }} 
+            />
+          </div>
           <div className="space-y-1">
             <CardTitle>{displayName}</CardTitle>
             <CardDescription className="flex flex-wrap items-center gap-2">

@@ -290,7 +290,8 @@ export const ALLOWED_FILE_TYPES = {
   ],
 };
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_FILE_SIZE_MB = 200;
+export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024; // 200MB
 
 // Pagination Defaults
 export const DEFAULT_PAGE_SIZE = 10;

@@ -58,7 +58,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -697,6 +698,7 @@ export function AppSidebar() {
                   className="h-14 px-3 rounded-lg hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent"
                 >
                   <Avatar className="h-9 w-9 rounded-full ring-2 ring-sidebar-accent">
+                    <AvatarImage src={resolveFileUrl(user?.avatar) || undefined} alt={user?.firstName || "User"} />
                     <AvatarFallback className="rounded-full bg-primary text-white text-sm font-medium">
                       {getInitials(user?.firstName, user?.lastName)}
                     </AvatarFallback>
@@ -719,6 +721,7 @@ export function AppSidebar() {
               >
                 <div className="flex items-center gap-3 p-3">
                   <Avatar className="h-10 w-10 rounded-full">
+                    <AvatarImage src={resolveFileUrl(user?.avatar) || undefined} alt={user?.firstName || "User"} />
                     <AvatarFallback className="rounded-full bg-emerald-600 text-white font-medium">
                       {getInitials(user?.firstName, user?.lastName)}
                     </AvatarFallback>

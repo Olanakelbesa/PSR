@@ -170,7 +170,7 @@ export default function PremiumSearchPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            PSR <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-emerald-500 to-cyan-500 bg-300% animate-gradient">Unified Intelligence</span> Search
+            PSR <span className="bg-gradient-to-r from-primary via-emerald-500 to-cyan-500 bg-clip-text text-transparent bg-300% animate-gradient">Unified Intelligence</span> Search
           </motion.h1>
           <motion.p
             className="text-sm sm:text-base text-muted-foreground leading-relaxed"
@@ -187,7 +187,7 @@ export default function PremiumSearchPage() {
           <Card className="border border-border/70 bg-card/90 backdrop-blur-2xl rounded-3xl overflow-hidden shadow-[0_20px_60px_-28px_rgba(0,0,0,0.35)]">
             <CardContent className="p-4">
               <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
-                <div className="relative flex-grow flex items-center bg-background/70 border border-border focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-1.5 transition-all duration-300">
+                <div className="relative grow flex items-center bg-background/70 border border-border focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-1.5 transition-all duration-300">
                   <Search className="w-5 h-5 text-muted-foreground pl-3 shrink-0" />
                   <Input
                     type="text"

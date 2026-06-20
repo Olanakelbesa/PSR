@@ -25,6 +25,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/nextauth";
 
+export const dynamic = "force-dynamic";
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 const API_BASE_URL = process.env.API_BASE_URL;
 const isDev = process.env.NODE_ENV === "development";
@@ -149,6 +151,7 @@ const handler = auth(async (req, context) => {
       method: req.method,
       headers,
       ...(hasBody ? { body } : {}),
+      cache: "no-store",
     });
 
     const duration = Date.now() - start;
