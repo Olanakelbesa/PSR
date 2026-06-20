@@ -36,7 +36,7 @@ export const registerSchema = z
       .string()
       .min(10, "Phone number must be at least 10 digits")
       .regex(/^\+?[0-9]+$/, "Please enter a valid phone number"),
-    sex: z.enum(["Male", "Female"]),
+    sex: z.union([z.literal("Male"), z.literal("Female"), z.literal("")]),
     organizationType: z.string().min(1, "Organization type is required"),
     organizationTypeOther: z.string().optional(),
     organization: z.string().min(1, "Organization is required"),
@@ -47,6 +47,13 @@ export const registerSchema = z
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })
   .superRefine((data, ctx) => {
+    if (data.sex !== "Male" && data.sex !== "Female") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please select sex",
+        path: ["sex"],
+      });
+    }
     if (data.password !== data.confirmPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

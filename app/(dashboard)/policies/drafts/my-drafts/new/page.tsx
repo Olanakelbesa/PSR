@@ -117,10 +117,10 @@ function draftSignature(formState: DraftFormState, selectedFile: File | null) {
     organization: formState.organization,
     file: selectedFile
       ? {
-          name: selectedFile.name,
-          size: selectedFile.size,
-          type: selectedFile.type,
-        }
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type,
+      }
       : null,
   });
 }
@@ -654,33 +654,35 @@ export default function NewPolicyDraftPage() {
               </div>
 
               {selectedConceptId && (
-                <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-4 p-4 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                      <p className="text-[10px] font-medium uppercase text-muted-foreground">
                         Selected Concept
                       </p>
-                      <p className="text-sm font-black text-foreground">
+                      <p className="text-sm font-bold text-foreground">
                         {selectedConceptSummary?.title ||
                           selectedConceptDetail?.title ||
                           "Concept Note"}
                       </p>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                        Document Type
-                      </p>
-                      <p className="text-sm font-medium">
-                        {selectedDocTypeName}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                        Organization
-                      </p>
-                      <p className="text-sm font-medium">
-                        {selectedOrganizationName}
-                      </p>
+                    <div className="grid gap-4 sm:grid-cols-2 pt-5">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-medium uppercase text-muted-foreground">
+                          Document Type
+                        </p>
+                        <p className="text-sm font-medium">
+                          {selectedDocTypeName}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-medium uppercase text-muted-foreground">
+                          Organization
+                        </p>
+                        <p className="text-sm font-medium">
+                          {selectedOrganizationName}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -692,16 +694,13 @@ export default function NewPolicyDraftPage() {
             <CardHeader className="bg-muted/30 border-b">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                Draft Details
+                Draft Document
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-5">
 
 
               <div className="space-y-4">
-                <label className="text-sm font-semibold text-foreground mb-5">
-                  Draft Document
-                </label>
                 {!selectedFile ? (
                   <div
                     className={cn(
