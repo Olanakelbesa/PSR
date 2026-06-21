@@ -254,6 +254,13 @@ export default function SignupPage() {
   const selectedOrg = form.watch("organization");
   const selectedUnit = form.watch("unit");
   const isLoadedRef = useRef(false);
+  // Mirror stepValidated into a ref so the cascade effects can read it
+  // WITHOUT including it in their dependency arrays (which would wrongly
+  // re-trigger them – and clear organization/unit – on every navigation).
+  const stepValidatedRef = useRef(stepValidated);
+  useEffect(() => {
+    stepValidatedRef.current = stepValidated;
+  }, [stepValidated]);
 
   const isOtherOrgType = selectedOrgType === OTHER_OPTION;
   const isOtherOrg = selectedOrg === OTHER_OPTION;
@@ -271,8 +278,11 @@ export default function SignupPage() {
       "organization",
       selectedOrgType === OTHER_OPTION ? OTHER_OPTION : "",
     );
-    if (stepValidated[2]) revalidateCurrentStep(2);
-  }, [selectedOrgType, form, stepValidated]);
+    // Use the ref so this effect only re-runs when selectedOrgType changes,
+    // NOT when stepValidated changes (which would wipe the selection on nav).
+    if (stepValidatedRef.current[2]) revalidateCurrentStep(2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrgType]);
 
   useEffect(() => {
     if (!isLoadedRef.current) return;
@@ -281,8 +291,11 @@ export default function SignupPage() {
     }
     // A custom organization has no units to pick from, so force a custom unit.
     form.setValue("unit", selectedOrg === OTHER_OPTION ? OTHER_OPTION : "");
-    if (stepValidated[2]) revalidateCurrentStep(2);
-  }, [selectedOrg, form, stepValidated]);
+    // Use the ref so this effect only re-runs when selectedOrg changes,
+    // NOT when stepValidated changes (which would wipe the selection on nav).
+    if (stepValidatedRef.current[2]) revalidateCurrentStep(2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrg]);
 
   useEffect(() => {
     if (!isLoadedRef.current) return;
