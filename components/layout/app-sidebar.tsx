@@ -437,7 +437,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <SidebarHeader className="group-data-[collapsible=icon]:p-2">
+      <SidebarHeader className="sticky top-0 z-10 shrink-0 bg-card group-data-[collapsible=icon]:p-2">
         <SidebarMenu className="group-data-[collapsible=icon]:px-2">
           <SidebarMenuItem>
             <SidebarMenuButton

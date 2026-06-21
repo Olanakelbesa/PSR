@@ -17,13 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PageContainer } from "@/components/layout";
@@ -33,26 +26,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConceptNoteDetail, useConceptNotes } from "@/lib/queries/concept-notes";
 import { usePolicyDraft } from "@/lib/queries/policy-drafts";
-import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
-import { useOrganizationTypes } from "@/lib/queries/organization-types";
 import { toast } from "sonner";
+import { ConceptNoteSearchableSelect } from "@/components/policies/concept-notes/concept-note-searchable-select";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
-
-type DraftFormState = {
-  title: string;
-  conceptNote: string;
-  docType: string;
-  organization: string;
-};
-
-const DEFAULT_FORM: DraftFormState = {
-  title: "",
-  conceptNote: "",
-  docType: "",
-  organization: "",
-};
-
 
 const ALLOWED_FILE_TYPES = [
   "application/pdf",
@@ -129,15 +106,11 @@ function formatApiError(error: any, fallback: string) {
 }
 
 function makeDraftFormData(
-  formState: DraftFormState,
   conceptNoteId: string,
   selectedFile: File | FilePreview | null,
 ) {
   const formData = new FormData();
-  formData.append("title", formState.title.trim());
   formData.append("concept_note", conceptNoteId);
-  formData.append("doc_type", formState.docType);
-  formData.append("organization", formState.organization);
 
   if (selectedFile instanceof File) {
     formData.append("draft_file", selectedFile);
@@ -154,7 +127,6 @@ export default function EditPolicyDraftPage() {
   const queryClient = useQueryClient();
 
   const [selectedConceptId, setSelectedConceptId] = useState("");
-  const [formState, setFormState] = useState<DraftFormState>(DEFAULT_FORM);
   const [selectedFile, setSelectedFile] = useState<File | FilePreview | null>(
     null,
   );
@@ -169,8 +141,6 @@ export default function EditPolicyDraftPage() {
   const { data: approvedConceptsRes, isLoading: isLoadingConcepts } =
     useConceptNotes({ current_status: "policy_draft_ready" }, backendToken);
   const approvedConcepts = approvedConceptsRes?.data || [];
-  const { data: policyDocumentTypes = [] } = usePolicyDocumentTypes();
-  const { data: organizationTypes = [] } = useOrganizationTypes();
 
   const normalizedDraft = useMemo(
     () => normalizeDraftPayload(rawDraft),
@@ -255,22 +225,20 @@ export default function EditPolicyDraftPage() {
   );
 
   const selectedDocTypeName = useMemo(() => {
-    const docTypeId = Number(formState.docType);
-    if (!docTypeId) return "Unknown";
     return (
-      policyDocumentTypes.find((item) => item.id === docTypeId)?.name ||
+      selectedConceptSummary?.docType?.name ||
+      currentConceptDetail?.docType?.name ||
       "Unknown"
     );
-  }, [formState.docType, policyDocumentTypes]);
+  }, [selectedConceptSummary, currentConceptDetail]);
 
   const selectedOrganizationName = useMemo(() => {
-    const organizationId = Number(formState.organization);
-    if (!organizationId) return "Unknown";
     return (
-      organizationTypes.find((item) => item.id === organizationId)?.name ||
+      selectedConceptSummary?.organization?.name ||
+      currentConceptDetail?.organization?.name ||
       "Unknown"
     );
-  }, [formState.organization, organizationTypes]);
+  }, [selectedConceptSummary, currentConceptDetail]);
 
   useEffect(() => {
     if (!rawDraft) return;
@@ -281,25 +249,7 @@ export default function EditPolicyDraftPage() {
         : rawDraft.conceptNote ?? rawDraft.concept_note) ?? "",
     );
 
-    const docTypeId = String(
-      (typeof rawDraft.docType === "object" && rawDraft.docType !== null
-        ? rawDraft.docType.id
-        : rawDraft.docType ?? rawDraft.doc_type) ?? "",
-    );
-
-    const organizationId = String(
-      (typeof rawDraft.organization === "object" && rawDraft.organization !== null
-        ? rawDraft.organization.id
-        : rawDraft.organization ?? rawDraft.organization_id ?? rawDraft.organizationId) ?? "",
-    );
-
     setSelectedConceptId(conceptId || normalizedDraft.conceptNoteId);
-    setFormState({
-      title: rawDraft.title || "",
-      conceptNote: normalizedDraft.conceptNoteId || conceptId,
-      docType: docTypeId,
-      organization: organizationId,
-    });
 
     // Support multiple possible file keys and shapes returned by backend
     const resolveUrl = (val: any): string | null => {
@@ -351,27 +301,6 @@ export default function EditPolicyDraftPage() {
   }, [rawDraft, normalizedDraft.conceptNoteId]);
 
   useEffect(() => {
-    if (!currentConceptDetail || !draftConceptId) {
-      return;
-    }
-
-    setFormState((prev) => ({
-      ...prev,
-      conceptNote: prev.conceptNote || draftConceptId,
-      docType:
-        prev.docType ||
-        (currentConceptDetail.docType?.id
-          ? String(currentConceptDetail.docType.id)
-          : ""),
-      organization:
-        prev.organization ||
-        (currentConceptDetail.organization?.id
-          ? String(currentConceptDetail.organization.id)
-          : ""),
-    }));
-  }, [currentConceptDetail, draftConceptId]);
-
-  useEffect(() => {
     if (!(selectedFile instanceof File)) {
       return;
     }
@@ -380,12 +309,7 @@ export default function EditPolicyDraftPage() {
       return;
     }
 
-    if (
-      !selectedConceptId ||
-      !formState.title.trim() ||
-      !formState.docType ||
-      !formState.organization
-    ) {
+    if (!selectedConceptId) {
       return;
     }
 
@@ -399,7 +323,7 @@ export default function EditPolicyDraftPage() {
       try {
         await apiClient.patch(
           API_ENDPOINTS.POLICY_DRAFTS.UPDATE(id),
-          makeDraftFormData(formState, selectedConceptId, selectedFile),
+          makeDraftFormData(selectedConceptId, selectedFile),
           { headers: { "Content-Type": "multipart/form-data" } },
         );
         lastAutosavedFileSignatureRef.current = currentFileSignature;
@@ -412,24 +336,12 @@ export default function EditPolicyDraftPage() {
     }, 500);
 
     return () => window.clearTimeout(autosaveTimeout);
-  }, [formState, id, selectedConceptId, selectedFile, canEditDraft]);
+  }, [id, selectedConceptId, selectedFile, canEditDraft]);
 
   const handleConceptSelect = (conceptId: string) => {
     setSelectedConceptId(conceptId);
-    const concept = conceptNoteOptions.find(
-      (item) => String(item.id) === conceptId,
-    );
-
-    if (concept) {
-      setFormState((prev) => ({
-        ...prev,
-        title: concept.title || "",
-        conceptNote: conceptId,
-        docType: String(concept.docType?.id || ""),
-        organization: String(concept.organization?.id || ""),
-      }));
-      setSelectedFile(null);
-    }
+    setSelectedFile(null);
+    lastAutosavedFileSignatureRef.current = "";
   };
 
   const validateAndSetFile = (file: File) => {
@@ -486,23 +398,9 @@ export default function EditPolicyDraftPage() {
       return;
     }
 
-    if (
-      !formState.title.trim() ||
-      !formState.conceptNote ||
-      !formState.docType ||
-      !formState.organization
-    ) {
-      toast.error("Please complete the draft fields before submitting.");
-      return;
-    }
-
     setIsSaving(true);
     try {
-      const formData = makeDraftFormData(
-        formState,
-        selectedConceptId,
-        selectedFile,
-      );
+      const formData = makeDraftFormData(selectedConceptId, selectedFile);
       await apiClient.patch(API_ENDPOINTS.POLICY_DRAFTS.UPDATE(id), formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -533,16 +431,6 @@ export default function EditPolicyDraftPage() {
 
     if (!selectedConceptId) {
       toast.error("Please select an approved concept note.");
-      return;
-    }
-
-    if (
-      !formState.title.trim() ||
-      !formState.conceptNote ||
-      !formState.docType ||
-      !formState.organization
-    ) {
-      toast.error("Please complete the draft fields before submitting.");
       return;
     }
 
@@ -624,75 +512,29 @@ export default function EditPolicyDraftPage() {
                   Select Approved Concept Note{" "}
                   <span className="text-destructive">*</span>
                 </label>
-                <Select
+                <ConceptNoteSearchableSelect
                   value={selectedConceptId}
                   onValueChange={handleConceptSelect}
+                  options={conceptNoteOptions}
                   disabled={!canEditDraft}
-                >
-                  <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
-                    {selectedConceptSummary ? (
-                      <div className="flex items-center gap-2 min-w-0 text-left">
-                        <span className="truncate font-medium">
-                          {selectedConceptSummary.title}
-                        </span>
-                        <span className="shrink-0 text-[10px] text-muted-foreground uppercase">
-                          ID: {selectedConceptSummary.id}
-                        </span>
-                      </div>
-                    ) : (
-                      <SelectValue
-                        placeholder={
-                          isLoadingConcepts
-                            ? "Loading approved concept notes..."
-                            : "Choose an approved concept note..."
-                        }
-                      />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {conceptNoteOptions.length > 0 ? (
-                      conceptNoteOptions.map((concept) => (
-                        <SelectItem key={concept.id} value={String(concept.id)}>
-                          <div className="flex flex-col py-1 text-left">
-                            <span className="font-bold">{concept.title}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase">
-                              ID: {concept.id} ·{" "}
-                              {concept.docType?.name || "Concept Note"}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-muted-foreground">
-                        No approved concept notes found.
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                  isLoading={isLoadingConcepts}
+                />
                 <p className="text-xs text-muted-foreground">
-                  The selected concept note will seed the draft fields and can
-                  be edited after auto-fill.
+                  Title, document type, and organization come from the selected
+                  concept note on the server.
                 </p>
               </div>
 
               {selectedConceptId && (
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1">
+                    <div className="space-y-1 sm:col-span-2">
                       <p className="text-[10px] font-bold uppercase text-muted-foreground">
                         Selected Concept
                       </p>
                       <p className="text-sm font-black text-foreground">
                         {selectedConceptSummary?.title || "Concept Note"}
                       </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                        Concept Note ID
-                      </p>
-                      <Badge variant="outline" className="bg-background">
-                        {selectedConceptId}
-                      </Badge>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase text-muted-foreground">
@@ -720,31 +562,10 @@ export default function EditPolicyDraftPage() {
             <CardHeader className="bg-muted/30 border-b">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                Draft Details
+                Draft Document
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm font-semibold text-foreground">
-                    Title
-                  </label>
-                  <Input
-                    value={formState.title}
-                    onChange={(event) =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        title: event.target.value,
-                      }))
-                    }
-                    placeholder="Policy draft title"
-                      disabled={!canEditDraft}
-                  />
-                </div>
-              </div>
-
-
-
               <div className="space-y-4">
                 <div className="text-sm font-semibold text-foreground">
                   Document Upload
@@ -949,35 +770,18 @@ export default function EditPolicyDraftPage() {
                     <div
                       className={cn(
                         "h-4 w-4 rounded-full flex items-center justify-center",
-                        formState.title.trim()
+                        selectedConceptId
                           ? "bg-green-100 text-green-600"
                           : "bg-muted text-muted-foreground",
                       )}
                     >
-                      {formState.title.trim() ? (
+                      {selectedConceptId ? (
                         <CheckCircle2 className="h-3 w-3" />
                       ) : (
                         <div className="h-1 w-1 bg-current rounded-full" />
                       )}
                     </div>
-                    Title
-                  </li>
-                  <li className="flex items-center gap-2 text-xs text-slate-600">
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full flex items-center justify-center",
-                        formState.conceptNote
-                          ? "bg-green-100 text-green-600"
-                          : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {formState.conceptNote ? (
-                        <CheckCircle2 className="h-3 w-3" />
-                      ) : (
-                        <div className="h-1 w-1 bg-current rounded-full" />
-                      )}
-                    </div>
-                    Concept note, doc type, and organization IDs
+                    Approved concept note selected
                   </li>
                   <li className="flex items-center gap-2 text-xs text-slate-600">
                     <div
@@ -994,7 +798,7 @@ export default function EditPolicyDraftPage() {
                         <div className="h-1 w-1 bg-current rounded-full" />
                       )}
                     </div>
-                    Draft file is optional
+                    Draft document uploaded
                   </li>
                 </ul>
               </div>
@@ -1004,9 +808,8 @@ export default function EditPolicyDraftPage() {
           <Card className="bg-muted/30 border-dashed">
             <CardContent className="pt-6">
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                This page mirrors the concept-note-driven draft flow. Selecting
-                a concept note updates the form fields, and both update and
-                submit actions keep working against the same draft ID.
+                Select an approved concept note and upload the policy draft file.
+                Only the concept note ID and document are sent to the server.
               </p>
             </CardContent>
           </Card>

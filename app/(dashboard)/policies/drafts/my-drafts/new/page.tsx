@@ -18,13 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PageContainer } from "@/components/layout";
@@ -38,6 +31,7 @@ import {
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 import { useOrganizationTypes } from "@/lib/queries/organization-types";
 import { toast } from "sonner";
+import { ConceptNoteSearchableSelect } from "@/components/policies/concept-notes/concept-note-searchable-select";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
 
 type DraftFormState = {
@@ -613,40 +607,13 @@ export default function NewPolicyDraftPage() {
                   Select Approved Concept Note{" "}
                   <span className="text-destructive">*</span>
                 </label>
-                <Select
+                <ConceptNoteSearchableSelect
                   value={selectedConceptId}
                   onValueChange={handleConceptSelect}
+                  options={approvedConcepts}
                   disabled={isLocked}
-                >
-                  <SelectTrigger className="h-11 shadow-sm focus:ring-primary/20">
-                    <SelectValue
-                      placeholder={
-                        isLoadingConcepts
-                          ? "Loading approved concept notes..."
-                          : "Choose an approved concept note..."
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {approvedConcepts.length > 0 ? (
-                      approvedConcepts.map((concept) => (
-                        <SelectItem key={concept.id} value={String(concept.id)}>
-                          <div className="flex flex-col py-1 text-left">
-                            <span className="font-bold">{concept.title}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase">
-                              ID: {concept.id} ·{" "}
-                              {concept.docType?.name || "Concept Note"}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-muted-foreground">
-                        No approved concept notes found.
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                  isLoading={isLoadingConcepts}
+                />
                 <p className="text-xs text-muted-foreground">
                   The selected concept note prefills title, document type, and
                   organization. You can adjust these values before submitting.
