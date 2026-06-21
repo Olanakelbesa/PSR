@@ -239,7 +239,7 @@ export default function RolesManagementPage() {
       .filter((g) => form.groupIds.includes(g.id))
       .forEach((g) => {
         g.permissions?.forEach((p) => {
-          ids.add(typeof p === "object" ? p.id : Number(p));
+          ids.add(Number(p));
         });
       });
     return ids;

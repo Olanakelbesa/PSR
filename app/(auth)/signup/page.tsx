@@ -368,7 +368,9 @@ export default function SignupPage() {
 
   const handleCreateAccount = async () => {
     markStepValidated(3);
-    const isValid = await form.trigger(SECURITY_FIELDS);
+    // Validate the entire form (all steps) to catch any fields that may have
+    // been modified after per-step validation (e.g. going back to step 2).
+    const isValid = await form.trigger();
     if (!isValid) return;
 
     await onSubmit(form.getValues());
@@ -397,19 +399,22 @@ export default function SignupPage() {
       if (data.organizationType === OTHER_OPTION) {
         payload.organization_type_other = data.organizationTypeOther?.trim();
       } else {
-        payload.organization_type = parseInt(data.organizationType, 10);
+        const orgTypeId = parseInt(data.organizationType, 10);
+        if (!isNaN(orgTypeId)) payload.organization_type = orgTypeId;
       }
 
       if (data.organization === OTHER_OPTION) {
         payload.organization_other = data.organizationOther?.trim();
       } else {
-        payload.organization = parseInt(data.organization, 10);
+        const orgId = parseInt(data.organization, 10);
+        if (!isNaN(orgId)) payload.organization = orgId;
       }
 
       if (data.unit === OTHER_OPTION) {
         payload.unit_other = data.unitOther?.trim();
       } else {
-        payload.unit = parseInt(data.unit, 10);
+        const unitId = parseInt(data.unit, 10);
+        if (!isNaN(unitId)) payload.unit = unitId;
       }
 
       console.log("Submitting registration to backend:", payload);
@@ -735,7 +740,7 @@ export default function SignupPage() {
                           onValueChange={(value) =>
                             handleStepFieldChange(1, field.onChange, value)
                           }
-                          value={field.value || undefined}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="h-11 bg-muted/30 border-muted w-full">

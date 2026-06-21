@@ -219,7 +219,7 @@ export async function getPermissionCatalog(): Promise<PermissionCatalog> {
   });
 }
 
-export async function getGroups(filters: GroupFilters = {}): Promise<{ data: Group[]; meta: any }> {
+export async function getGroups(filters: GroupFilters = {}): Promise<{ data: Group[]; meta?: { page: number; limit: number; total: number; totalPages?: number; total_pages?: number } }> {
   const res = await apiClient.get(API_ENDPOINTS.GROUPS.LIST, { params: filters });
   // Since GroupViewSet is a DRF ModelViewSet, it's paginated
   const normalized = normalizeRolesResponse(res.data);
