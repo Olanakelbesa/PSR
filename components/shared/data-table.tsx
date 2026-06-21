@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -65,6 +65,31 @@ export type FilterOptionConfig = {
   allLabel?: string;
 };
 
+const ROW_NUMBER_COLUMN_ID = "rowNumber";
+
+function createRowNumberColumn<TData>(
+  label = "No.",
+): ColumnDef<TData, unknown> {
+  return {
+    id: ROW_NUMBER_COLUMN_ID,
+    header: () => (
+      <span className="text-muted-foreground">{label}</span>
+    ),
+    enableSorting: false,
+    enableHiding: false,
+    size: 56,
+    cell: ({ row, table }) => {
+      const { pageIndex, pageSize } = table.getState().pagination;
+
+      return (
+        <span className="text-sm font-medium tabular-nums text-muted-foreground">
+          {pageIndex * pageSize + row.index + 1}
+        </span>
+      );
+    },
+  };
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -79,6 +104,8 @@ interface DataTableProps<TData, TValue> {
   emptyDescription?: string;
   toolbar?: React.ReactNode;
   initialColumnVisibility?: VisibilityState;
+  showRowNumber?: boolean;
+  rowNumberLabel?: string;
 }
 
 export function DataTable<TData, TValue>({
@@ -95,15 +122,35 @@ export function DataTable<TData, TValue>({
   emptyDescription,
   toolbar,
   initialColumnVisibility = {},
+  showRowNumber = true,
+  rowNumberLabel = "No.",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
   const [rowSelection, setRowSelection] = useState({});
 
+  const tableColumns = useMemo(() => {
+    if (!showRowNumber) {
+      return columns;
+    }
+
+    const hasRowNumberColumn = columns.some(
+      (column) =>
+        column.id === ROW_NUMBER_COLUMN_ID ||
+        ("accessorKey" in column && column.accessorKey === ROW_NUMBER_COLUMN_ID),
+    );
+
+    if (hasRowNumberColumn) {
+      return columns;
+    }
+
+    return [createRowNumberColumn<TData>(rowNumberLabel), ...columns];
+  }, [columns, showRowNumber, rowNumberLabel]);
+
   const table = useReactTable({
     data,
-    columns,
+    columns: tableColumns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -298,10 +345,16 @@ export function DataTable<TData, TValue>({
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id} className="hover:bg-transparent">
                   {headerGroup.headers.map((header) => {
+                    const isRowNumber =
+                      header.column.id === ROW_NUMBER_COLUMN_ID;
+
                     return (
                       <TableHead
                         key={header.id}
-                        className="h-11 font-semibold text-foreground whitespace-nowrap"
+                        className={cn(
+                          "h-11 font-semibold text-foreground whitespace-nowrap",
+                          isRowNumber && "w-14 px-3 text-center",
+                        )}
                       >
                         {header.isPlaceholder
                           ? null
@@ -328,23 +381,31 @@ export function DataTable<TData, TValue>({
                       onRowClick && "cursor-pointer",
                     )}
                   >
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getVisibleCells().map((cell) => {
+                      const isRowNumber =
+                        cell.column.id === ROW_NUMBER_COLUMN_ID;
+
+                      return (
                       <TableCell
                         key={cell.id}
-                        className="py-3 px-4 align-middle"
+                        className={cn(
+                          "py-3 px-4 align-middle",
+                          isRowNumber && "w-14 px-3 text-center",
+                        )}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
                         )}
                       </TableCell>
-                    ))}
+                    );
+                    })}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length}
+                    colSpan={table.getAllColumns().length}
                     className="h-32 text-center"
                   >
                     <div className="flex flex-col items-center justify-center space-y-1">
