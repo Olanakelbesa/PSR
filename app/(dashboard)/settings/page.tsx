@@ -10,6 +10,7 @@ import {
   Tags,
   Bell,
   Layers,
+  Lock,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -21,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProfileSettingsCard, NotificationSettingsCard } from "@/components/profile";
+import { ProfileSettingsCard, NotificationSettingsCard, SecuritySettingsCard } from "@/components/profile";
 import {
   PERMISSIONS,
   PERMISSION_GROUPS,
@@ -42,6 +43,7 @@ export default function SettingsHubPage() {
   const tabsList = useMemo(() => {
     const tabs = [
       { id: "profile", label: "My Profile", icon: User },
+      { id: "security", label: "Security", icon: Lock },
       { id: "notifications", label: "Notifications", icon: Bell },
     ];
     if (showAdminLinks) {
@@ -68,6 +70,11 @@ export default function SettingsHubPage() {
         {/* Profile */}
         <TabsContent value="profile" className="mt-0 space-y-6">
           <ProfileSettingsCard />
+        </TabsContent>
+
+        {/* Security */}
+        <TabsContent value="security" className="mt-0 space-y-6">
+          <SecuritySettingsCard />
         </TabsContent>
 
         {/* Notifications */}

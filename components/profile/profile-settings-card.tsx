@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Calendar, Loader2, Lock, Mail, Save, Shield } from "lucide-react";
+import { Calendar, Loader2, Mail, Save, Shield } from "lucide-react";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -416,14 +415,7 @@ export function ProfileSettingsCard() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <Link
-                href="/forgot-password"
-                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-              >
-                <Lock className="h-4 w-4" />
-                Reset password via email verification
-              </Link>
+            <div className="flex justify-end border-t pt-4">
               <Button onClick={saveProfile} disabled={updateProfile.isPending}>
                 {updateProfile.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

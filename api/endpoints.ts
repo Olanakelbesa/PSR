@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
     LIST: "/users",
     SELECTOR: "/v1/users/selector/",
     ME: "/v1/users/me/",
+    CHANGE_PASSWORD: "/v1/users/me/change-password/",
     ADMIN: {
       LIST: "/v1/admin/users/",
       DETAIL: (id: string | number) => `/v1/admin/users/${id}/`,

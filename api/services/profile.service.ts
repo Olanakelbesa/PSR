@@ -21,6 +21,12 @@ export interface UpdateProfilePayload {
   photo?: File | null;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export async function getCurrentUser(): Promise<CurrentUser> {
   const res = await apiClient.get(API_ENDPOINTS.USERS.ME);
   return UserSchema.parse(res.data?.data ?? res.data);
@@ -49,4 +55,10 @@ export async function updateCurrentUser(
 
   const res = await apiClient.patch(API_ENDPOINTS.USERS.ME, dataToSend);
   return UserSchema.parse(res.data?.data ?? res.data);
+}
+
+export async function changePassword(
+  payload: ChangePasswordPayload,
+): Promise<void> {
+  await apiClient.post(API_ENDPOINTS.USERS.CHANGE_PASSWORD, payload);
 }
