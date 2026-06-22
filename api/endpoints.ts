@@ -337,6 +337,14 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/minutes/${id}/`,
   },
 
+  ATTACHMENTS: {
+    LIST: "/v1/attachments/",
+    CREATE: "/v1/attachments/",
+    DETAIL: (id: string | number) => `/v1/attachments/${id}/`,
+    UPDATE: (id: string | number) => `/v1/attachments/${id}/`,
+    DELETE: (id: string | number) => `/v1/attachments/${id}/`,
+  },
+
   ETHICAL_CLEARANCES: {
     LIST: "/v1/ethical-clearances/",
     DETAIL: (id: number) => `/v1/ethical-clearances/${id}/`,

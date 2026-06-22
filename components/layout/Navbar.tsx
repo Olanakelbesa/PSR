@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { label: "Thematic Areas", href: "/thematic-areas" },
   { label: "Attachments", href: "/attachments" },
   // { label: "Research Calls", href: "/calls" },
-  { label: "Publications", href: "/publications" },
+  { label: "Repository", href: "/publications" },
   // { label: "Manuals", href: "/manuals" },
 ];
 

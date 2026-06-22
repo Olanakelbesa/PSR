@@ -151,7 +151,7 @@ export default function PublicPublicationsPage() {
       <main className="grow w-full">
         {/* Hero Banner */}
         <section className="relative w-full h-[380px] md:h-[480px] overflow-hidden">
-          <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-transparent opacity-50" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 z-10 opacity-90" />
           
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <motion.div
@@ -182,7 +182,7 @@ export default function PublicPublicationsPage() {
               className="space-y-4"
             >
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
-                Publications & <span className="text-primary">Policy Repository</span>
+                Policy & <span className="text-primary">Research Repository</span>
               </h1>
               <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
                 A centralized repository for accessing research publications, policy documents, reports, guidelines, and institutional resources.

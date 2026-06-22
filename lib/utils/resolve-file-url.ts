@@ -37,3 +37,37 @@ export function extractFileName(filePath?: string | null): string {
   const segment = withoutQuery.split("/").pop();
   return segment || "Document";
 }
+
+/** Fetch a proxied file and trigger a browser download (works with BFF media URLs). */
+export async function downloadRemoteFile(
+  filePath?: string | null,
+  filename?: string,
+  options?: { token?: string | null },
+): Promise<void> {
+  const url = resolveFileUrl(filePath);
+  if (!url) {
+    throw new Error("File URL is unavailable.");
+  }
+
+  const headers: HeadersInit = {};
+  const token = options?.token;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error("Failed to download file.");
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename || extractFileName(filePath);
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}

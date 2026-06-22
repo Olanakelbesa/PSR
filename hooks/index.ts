@@ -19,6 +19,7 @@ export * from "./useProgressReports";
 export * from "./useFinalSubmissions";
 export * from "./useExternalResearch";
 export * from "./useMinutes";
+export * from "./useAttachments";
 export * from "./useFundingRecommendations";
 export * from "./use-toast";
 export * from "./use-mobile";

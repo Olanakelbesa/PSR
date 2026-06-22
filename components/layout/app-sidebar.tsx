@@ -280,6 +280,12 @@ const navigationGroups: NavGroup[] = [
         permissions: [PERMISSIONS.RESEARCH_VIEW_MINUTES],
       },
       {
+        label: "Attachments",
+        href: "/research/attachments",
+        icon: FileText,
+        permissions: [PERMISSIONS.RESEARCH_VIEW_ATTACHMENTS],
+      },
+      {
         label: "External Research ", // add psr approval menu
         subItems: [
           {

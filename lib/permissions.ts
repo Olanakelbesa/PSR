@@ -28,6 +28,10 @@ export const PERMISSIONS = {
   SETTING_CHANGE_GRANTCALL: "setting.change_grantcall",
   SETTING_VIEW_GRANTSETTING: "setting.view_grantsetting",
   SETTING_CHANGE_GRANTSETTING: "setting.change_grantsetting",
+  SETTING_VIEW_ATTACHMENT: "setting.view_attachment",
+  SETTING_ADD_ATTACHMENT: "setting.add_attachment",
+  SETTING_CHANGE_ATTACHMENT: "setting.change_attachment",
+  SETTING_DELETE_ATTACHMENT: "setting.delete_attachment",
   SETTING_VIEW_RESEARCHSETTING: "setting.view_researchsetting",
   SETTING_CHANGE_RESEARCHSETTING: "setting.change_researchsetting",
 
@@ -73,6 +77,7 @@ export const PERMISSIONS = {
   RESEARCH_VIEW_FUNDING_RECOMMENDATION:
     "research_review.view_fundingrecommendation",
   RESEARCH_VIEW_MINUTES: "research_review.view_minutes",
+  RESEARCH_VIEW_ATTACHMENTS: "setting.view_attachment",
 
   // ─── Research — Compliance / Protocol ────────────────────────────────────────
   RESEARCH_VIEW_PROTOCOL: "research_compliance.view_protocol",
