@@ -86,6 +86,7 @@ export const PERMISSIONS = {
   // ─── Research — Outputs ──────────────────────────────────────────────────────
   RESEARCH_VIEW_FINAL_SUBMISSION: "research_outputs.view_finalsubmission",
   RESEARCH_ADD_FINAL_SUBMISSION: "research_outputs.add_finalsubmission",
+  RESEARCH_CHANGE_FINAL_SUBMISSION: "research_outputs.change_finalsubmission",
 
   // ─── Research — Monitoring ───────────────────────────────────────────────────
   MONITORING_VIEW_PROJECT_TRACKING: "research_monitoring.view_projecttracking",

@@ -12,6 +12,7 @@ import {
   Download,
   Hash,
   Loader2,
+  Pencil,
   Tag,
   UserRound,
 } from "lucide-react";
@@ -33,8 +34,9 @@ import {
 import type {
   FinalSubmission,
   FinalSubmissionDownloadFileType,
+  FinalSubmissionStatus,
 } from "@/types/final-submission";
-import type { FinalSubmissionStatus } from "@/types/final-submission";
+import { canEditFinalSubmission } from "@/types/final-submission";
 import type { FundingRecommendation } from "@/types/funding-recommendation";
 import {
   downloadRemoteFile,
@@ -361,30 +363,44 @@ export default function ResearchRepositoryPage() {
         cell: ({ row }) => {
           const item = row.original;
           const hasFile = Boolean(getPrimaryDownloadFile(item));
-          if (!hasFile) return null;
-
           const isDownloading = downloadingId === item.id;
+          const canEdit = canEditFinalSubmission(item.status);
 
           return (
             <div
-              className="flex justify-end"
+              className="flex justify-end gap-1"
               onClick={(event) => event.stopPropagation()}
             >
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 px-2.5 text-primary hover:bg-muted"
-                disabled={isDownloading}
-                title="Download document"
-                onClick={(event) => void handleDownload(item, event)}
-              >
-                {isDownloading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Download
-              </Button>
+              {canEdit ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                  title="Edit submission"
+                  asChild
+                >
+                  <Link href={`/research/repository/${item.id}/edit`}>
+                    <Pencil className="h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : null}
+              {hasFile ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 px-2.5 text-primary hover:bg-muted"
+                  disabled={isDownloading}
+                  title="Download document"
+                  onClick={(event) => void handleDownload(item, event)}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download
+                </Button>
+              ) : null}
             </div>
           );
         },

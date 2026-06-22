@@ -322,6 +322,7 @@ export const API_ENDPOINTS = {
     LIST: "/v1/final-submissions/",
     CREATE: "/v1/final-submissions/",
     DETAIL: (id: string | number) => `/v1/final-submissions/${id}/`,
+    UPDATE: (id: string | number) => `/v1/final-submissions/${id}/`,
     DOWNLOAD: (id: string | number) => `/v1/final-submissions/${id}/download/`,
   },
 

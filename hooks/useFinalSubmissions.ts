@@ -4,7 +4,11 @@ import {
   finalSubmissionsService,
   type FinalSubmissionFilters,
 } from "@/api/services/final-submissions.service";
-import type { FinalSubmissionCreateInput, FinalSubmissionDownloadFileType } from "@/types/final-submission";
+import type {
+  FinalSubmissionCreateInput,
+  FinalSubmissionDownloadFileType,
+  FinalSubmissionUpdateInput,
+} from "@/types/final-submission";
 
 export const finalSubmissionKeys = {
   all: ["final-submissions"] as const,
@@ -43,6 +47,29 @@ export function useCreateFinalSubmission() {
       finalSubmissionsService.create(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: finalSubmissionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: ["final-submissions", "ready-for-final-submission"],
+      });
+    },
+  });
+}
+
+export function useUpdateFinalSubmission() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string | number;
+      values: FinalSubmissionUpdateInput;
+    }) => finalSubmissionsService.update(id, values),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: finalSubmissionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: finalSubmissionKeys.detail(variables.id),
+      });
       queryClient.invalidateQueries({
         queryKey: ["final-submissions", "ready-for-final-submission"],
       });

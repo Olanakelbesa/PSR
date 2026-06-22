@@ -335,22 +335,7 @@ export default function NewRepositorySubmissionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 p-6 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="title">
-                  Title <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="title"
-                  value={form.title}
-                  onChange={(event) =>
-                    setFormField("title", event.target.value)
-                  }
-                  placeholder="Enter the final submission title"
-                  className="h-11 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="fundedproposal">
                   Funded Proposal <span className="text-destructive">*</span>
                 </Label>
@@ -394,6 +379,22 @@ export default function NewRepositorySubmissionPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="title">
+                  Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="title"
+                  value={form.title}
+                  onChange={(event) =>
+                    setFormField("title", event.target.value)
+                  }
+                  placeholder="Enter the final submission title"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+
+              
 
               <div className="space-y-2">
                 <Label htmlFor="output_type">

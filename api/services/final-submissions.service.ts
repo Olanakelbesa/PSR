@@ -7,6 +7,7 @@ import type {
   FinalSubmissionDownloadFileType,
   FinalSubmissionDownloadResult,
   FinalSubmissionLookupOption,
+  FinalSubmissionUpdateInput,
 } from "@/types/final-submission";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
@@ -269,6 +270,23 @@ export const finalSubmissionsService = {
     );
 
     return normalizeDetail<FinalSubmission>(data);
+  },
+
+  async update(
+    id: string | number,
+    values: FinalSubmissionUpdateInput,
+  ): Promise<FinalSubmission> {
+    const formData = buildFormData(values);
+    const { data } = await apiClient.patch(
+      API_ENDPOINTS.FINAL_SUBMISSIONS.UPDATE(id),
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+
+    const payload = normalizeDetail<any>(data);
+    return mapFinalSubmissionItem(payload);
   },
 
   async listReadyForFinalSubmission(

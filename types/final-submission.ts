@@ -95,5 +95,22 @@ export interface FinalSubmissionCreateInput {
   data_center?: number | null;
 }
 
+export type FinalSubmissionUpdateInput = Partial<
+  Omit<FinalSubmissionCreateInput, "fundedproposal">
+> & {
+  fundedproposal?: number;
+};
+
+const EDITABLE_FINAL_SUBMISSION_STATUSES: FinalSubmissionStatus[] = [
+  "draft",
+  "revision_requested",
+  "submitted",
+  "under_review",
+];
+
+export function canEditFinalSubmission(status: FinalSubmissionStatus) {
+  return EDITABLE_FINAL_SUBMISSION_STATUSES.includes(status);
+}
+
 export type ReadyForFinalSubmissionFundingRecommendation =
   FundingRecommendation;

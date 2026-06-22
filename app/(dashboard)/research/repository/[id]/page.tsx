@@ -15,6 +15,7 @@ import {
   FileText,
   Globe,
   Loader2,
+  Pencil,
   Tag,
   TrendingUp,
   User,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/utils/resolve-file-url";
 import { tokenStorage } from "@/api/client";
 import type { FinalSubmissionDownloadFileType } from "@/types/final-submission";
+import { canEditFinalSubmission } from "@/types/final-submission";
 function formatDate(value?: string | null) {
   if (!value) return "-";
 
@@ -236,18 +238,29 @@ export default function ResearchRepositoryDetailPage() {
       : item.status === "rejected"
         ? "border-rose-200 bg-rose-50 text-rose-700"
         : "border-amber-200 bg-amber-50 text-amber-700";
+  const canEdit = canEditFinalSubmission(item.status);
 
   return (
     <PageContainer
       title={item.title}
       description={`Final submission reference: ${item.ndmc_submission_reference || `FS-${item.id}`}`}
       actions={
-        <Button asChild variant="outline" className="bg-white shadow-sm">
-          <Link href="/research/repository">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Archive
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {canEdit ? (
+            <Button asChild size="sm" className="bg-primary text-white shadow-sm">
+              <Link href={`/research/repository/${id}/edit`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+          ) : null}
+          <Button asChild variant="outline" className="bg-white shadow-sm">
+            <Link href="/research/repository">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Archive
+            </Link>
+          </Button>
+        </div>
       }
     >
       <div className="space-y-6">
