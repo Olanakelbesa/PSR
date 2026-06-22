@@ -229,6 +229,33 @@ export function useAssignPSRDecision() {
   });
 }
 
+export function useSendToRepository() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      draftId,
+      comments,
+    }: {
+      draftId: string | number;
+      comments?: string;
+    }) => {
+      const { data } = await api.post(
+        API_ENDPOINTS.POLICY_DRAFTS.SEND_TO_REPOSITORY(draftId),
+        { comments: comments ?? "" }
+      );
+      return data;
+    },
+    onSuccess: (_data, { draftId }) => {
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", String(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", Number(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
+    },
+  });
+}
+
 export function usePolicyDraftsMyReviews() {
   return useQuery<PolicyDraftResponse>({
     queryKey: ["policy-drafts-my-reviews"],

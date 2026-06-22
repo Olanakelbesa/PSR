@@ -113,6 +113,8 @@ export const API_ENDPOINTS = {
       `/v1/policy-drafts/${id}/assigned-reviewers/`,
     PSR_DECISION: (id: string | number) =>
       `/v1/policy-drafts/${id}/psr-decision/`,
+    SEND_TO_REPOSITORY: (id: string | number) =>
+      `/v1/policy-drafts/${id}/send-to-repository/`,
     MY_REVIEWS: "/v1/policy-drafts/my-reviews/",
     MY_REVIEW_DETAIL: (id: string | number) =>
       `/v1/policy-drafts/${id}/my-reviews/`,

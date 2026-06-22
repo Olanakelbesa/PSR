@@ -16,6 +16,7 @@ import {
   Loader2,
   ThumbsUp,
   RotateCcw,
+  Send,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ import {
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
 import { ExpertReviewersSection } from "@/components/policies/drafts/expert-reviewers-section";
-import { usePolicyDraftManage, useAssignPSRDecision } from "@/lib/queries/policy-drafts";
+import { usePolicyDraftManage, useAssignPSRDecision, useSendToRepository } from "@/lib/queries/policy-drafts";
 import { toast } from "sonner";
 import { useServerPermissions } from "@/lib/queries/useServerPermissions";
 
@@ -54,10 +55,14 @@ export default function DraftDetailPage() {
 
   const { data: rawDraft, isLoading } = usePolicyDraftManage(draftId);
   const decisionMutation = useAssignPSRDecision();
+  const sendToRepoMutation = useSendToRepository();
 
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [decision, setDecision] = useState<"psr_approved" | "resubmission_required">("psr_approved");
   const [comments, setComments] = useState("");
+
+  const [isSendToRepoModalOpen, setIsSendToRepoModalOpen] = useState(false);
+  const [repoComments, setRepoComments] = useState("");
 
   const draft = useMemo(() => {
     if (!rawDraft) return null;
@@ -293,6 +298,50 @@ export default function DraftDetailPage() {
       : "bg-muted text-muted-foreground border-muted/20";
   };
 
+  const BYPASS_ALLOWED_STATUSES = ["submitted", "under_review", "resubmitted", "review_completed"];
+
+  const canSendToRepository = useMemo(() => {
+    if (!draft) return false;
+    // Only allow bypass if the draft is NOT already approved
+    return BYPASS_ALLOWED_STATUSES.includes(draft.status) ||
+      BYPASS_ALLOWED_STATUSES.some(s =>
+        typeof rawDraft?.currentStatus === "string"
+          ? rawDraft.currentStatus === s
+          : rawDraft?.currentStatus?.status === s
+      );
+  }, [draft, rawDraft]);
+
+  const handleSendToRepository = async () => {
+    try {
+      await sendToRepoMutation.mutateAsync({
+        draftId: draftId,
+        comments: repoComments,
+      });
+      toast.success("Policy draft sent to repository successfully!");
+      setIsSendToRepoModalOpen(false);
+      setRepoComments("");
+    } catch (error: any) {
+      const errors = error.errors;
+      let errorMessage = "Failed to send to repository. Please try again.";
+      if (errors) {
+        if (errors.non_field_errors) {
+          errorMessage = Array.isArray(errors.non_field_errors)
+            ? errors.non_field_errors[0]
+            : errors.non_field_errors;
+        } else if (typeof errors === "object") {
+          const firstKey = Object.keys(errors)[0];
+          if (firstKey) {
+            const fieldError = errors[firstKey];
+            errorMessage = Array.isArray(fieldError) ? fieldError[0] : fieldError;
+          }
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
+    }
+  };
+
   const handleSaveDecision = async () => {
     try {
       await decisionMutation.mutateAsync({
@@ -371,6 +420,17 @@ export default function DraftDetailPage() {
             <Button size="sm" className="shadow-sm font-semibold" onClick={handleOpenDecisionModal}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Record / Edit Decision
+            </Button>
+          )}
+          {hasPermission("policy_development.psr_decision") && canSendToRepository && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="shadow-sm font-semibold border-emerald-500/40 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-500"
+              onClick={() => setIsSendToRepoModalOpen(true)}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Send to Repository
             </Button>
           )}
         </div>
@@ -566,6 +626,71 @@ export default function DraftDetailPage() {
                 </>
               ) : (
                 "Record Decision"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Send to Repository Dialog */}
+      <Dialog open={isSendToRepoModalOpen} onOpenChange={setIsSendToRepoModalOpen}>
+        <DialogContent className="sm:max-w-[480px] border-emerald-500/20">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Send className="h-5 w-5 text-emerald-600" />
+              Send to Repository
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              This will <span className="font-semibold text-foreground">bypass reviewer assignment</span> and directly approve this draft for the policy repository. No reviewer checklist completion is required.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Warning Banner */}
+          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              Use this option only when expert review is not required or when authorized to bypass the standard review process. This action will be logged in the audit trail.
+            </p>
+          </div>
+
+          {/* Optional Comments */}
+          <div className="space-y-2">
+            <label htmlFor="repo-comments" className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+              Justification / Comments <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <Textarea
+              id="repo-comments"
+              value={repoComments}
+              onChange={(e) => setRepoComments(e.target.value)}
+              placeholder="Provide a reason for bypassing the reviewer process..."
+              className="min-h-[100px] focus-visible:ring-emerald-500 border-emerald-500/20"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setIsSendToRepoModalOpen(false);
+                setRepoComments("");
+              }}
+              className="border border-primary/10 hover:bg-primary/5"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendToRepository}
+              disabled={sendToRepoMutation.isPending}
+              className="font-semibold text-white bg-emerald-600 hover:bg-emerald-700"
+            >
+              {sendToRepoMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" /> Confirm & Send
+                </>
               )}
             </Button>
           </DialogFooter>
