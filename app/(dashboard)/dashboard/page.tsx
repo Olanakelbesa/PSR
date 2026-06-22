@@ -40,6 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { dashboardService } from "@/api/services/dashboard.service";
+import type { ApiError } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import type {
@@ -65,12 +66,25 @@ const CHART_COLORS = [
   "#334155",
 ];
 
+const POLICY_CARD_KEYS = new Set([
+  "total_policy_documents",
+  "submitted_concept_notes",
+  "total_draft_notes",
+]);
+
+const RESEARCH_CARD_KEYS = new Set([
+  "registered_research",
+  "submitted_proposals",
+  "funded_proposals",
+]);
+
 const overviewIcons: Record<string, IconType> = {
-  registered_policies: BookOpen,
-  active_concept_notes: FilePlus,
-  drafts_in_review: Clock,
-  approved_research: FlaskConical,
-  psr_decisions: CheckCircle2,
+  total_policy_documents: BookOpen,
+  submitted_concept_notes: FilePlus,
+  total_draft_notes: FileText,
+  registered_research: FlaskConical,
+  submitted_proposals: FileText,
+  funded_proposals: CheckCircle2,
 };
 
 const cardStyles: Record<
@@ -83,40 +97,47 @@ const cardStyles: Record<
     glowColor: string;
   }
 > = {
-  registered_policies: {
+  total_policy_documents: {
     bgGradient: "from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10",
     borderHover: "hover:border-blue-500/30",
     iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
     iconColor: "text-blue-500 dark:text-blue-400",
     glowColor: "shadow-blue-500/5 hover:shadow-blue-500/10",
   },
-  active_concept_notes: {
+  submitted_concept_notes: {
     bgGradient: "from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10",
     borderHover: "hover:border-emerald-500/30",
     iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
     iconColor: "text-emerald-500 dark:text-emerald-400",
     glowColor: "shadow-emerald-500/5 hover:shadow-emerald-500/10",
   },
-  drafts_in_review: {
+  total_draft_notes: {
     bgGradient: "from-amber-500/5 to-orange-500/5 dark:from-amber-500/10 dark:to-orange-500/10",
     borderHover: "hover:border-amber-500/30",
     iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
     iconColor: "text-amber-500 dark:text-amber-400",
     glowColor: "shadow-amber-500/5 hover:shadow-amber-500/10",
   },
-  approved_research: {
+  registered_research: {
     bgGradient: "from-violet-500/5 to-fuchsia-500/5 dark:from-violet-500/10 dark:to-fuchsia-500/10",
     borderHover: "hover:border-violet-500/30",
     iconBg: "bg-violet-500/10 dark:bg-violet-500/20",
     iconColor: "text-violet-500 dark:text-violet-400",
     glowColor: "shadow-violet-500/5 hover:shadow-violet-500/10",
   },
-  psr_decisions: {
-    bgGradient: "from-rose-500/5 to-pink-500/5 dark:from-rose-500/10 dark:to-pink-500/10",
-    borderHover: "hover:border-rose-500/30",
-    iconBg: "bg-rose-500/10 dark:bg-rose-500/20",
-    iconColor: "text-rose-500 dark:text-rose-400",
-    glowColor: "shadow-rose-500/5 hover:shadow-rose-500/10",
+  submitted_proposals: {
+    bgGradient: "from-sky-500/5 to-cyan-500/5 dark:from-sky-500/10 dark:to-cyan-500/10",
+    borderHover: "hover:border-sky-500/30",
+    iconBg: "bg-sky-500/10 dark:bg-sky-500/20",
+    iconColor: "text-sky-500 dark:text-sky-400",
+    glowColor: "shadow-sky-500/5 hover:shadow-sky-500/10",
+  },
+  funded_proposals: {
+    bgGradient: "from-teal-500/5 to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10",
+    borderHover: "hover:border-teal-500/30",
+    iconBg: "bg-teal-500/10 dark:bg-teal-500/20",
+    iconColor: "text-teal-500 dark:text-teal-400",
+    glowColor: "shadow-teal-500/5 hover:shadow-teal-500/10",
   },
 };
 
@@ -175,6 +196,48 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
+function AnalyticsCardRow({
+  title,
+  description,
+  icon: Icon,
+  cards,
+}: {
+  title: string;
+  description: string;
+  icon: IconType;
+  cards: DashboardOverviewCard[];
+}) {
+  const gridClass =
+    cards.length <= 1
+      ? "grid-cols-1 sm:max-w-sm"
+      : cards.length === 2
+        ? "grid-cols-1 sm:grid-cols-2"
+        : cards.length === 3
+          ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="rounded-xl bg-primary/10 p-2.5">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-base font-bold uppercase tracking-wider text-foreground">
+            {title}
+          </h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <div className={cn("grid auto-rows-fr gap-4", gridClass)}>
+        {cards.map((stat) => (
+          <StatCard key={stat.key} stat={stat} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StatCard({ stat }: { stat: DashboardOverviewCard }) {
   const Icon = overviewIcons[stat.key] || FileText;
   const style = cardStyles[stat.key] || {
@@ -197,11 +260,12 @@ function StatCard({ stat }: { stat: DashboardOverviewCard }) {
       {/* Corner color glow overlay */}
       <div className={cn(
         "absolute -right-4 -top-4 h-16 w-16 rounded-full blur-2xl opacity-40 dark:opacity-20 transition-opacity group-hover:opacity-60",
-        stat.key === "registered_policies" && "bg-blue-500",
-        stat.key === "active_concept_notes" && "bg-emerald-500",
-        stat.key === "drafts_in_review" && "bg-amber-500",
-        stat.key === "approved_research" && "bg-violet-500",
-        stat.key === "psr_decisions" && "bg-rose-500"
+        stat.key === "total_policy_documents" && "bg-blue-500",
+        stat.key === "submitted_concept_notes" && "bg-emerald-500",
+        stat.key === "total_draft_notes" && "bg-amber-500",
+        stat.key === "registered_research" && "bg-violet-500",
+        stat.key === "submitted_proposals" && "bg-sky-500",
+        stat.key === "funded_proposals" && "bg-teal-500"
       )} />
 
       <CardContent className="p-5">
@@ -649,14 +713,39 @@ function ResearchTrendChart({
   );
 }
 
-function DashboardSkeleton() {
+function AnalyticsRowSkeleton({ count }: { count: number }) {
+  const gridClass =
+    count <= 1
+      ? "grid-cols-1 sm:max-w-sm"
+      : count === 2
+        ? "grid-cols-1 sm:grid-cols-2"
+        : count === 3
+          ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
+
   return (
-    <div className="space-y-6">
-      <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-64" />
+        </div>
+      </div>
+      <div className={cn("grid auto-rows-fr gap-4", gridClass)}>
+        {Array.from({ length: count }).map((_, index) => (
           <Skeleton key={index} className="h-36 rounded-xl" />
         ))}
       </div>
+    </section>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <AnalyticsRowSkeleton count={3} />
+      <AnalyticsRowSkeleton count={3} />
       <div className="grid auto-rows-fr grid-cols-1 gap-6 lg:grid-cols-12">
         <Skeleton className="h-96 rounded-xl lg:col-span-5" />
         <Skeleton className="h-96 rounded-xl lg:col-span-3" />
@@ -687,9 +776,15 @@ export default function DashboardPage() {
       const data = await dashboardService.getAnalytics();
       setAnalytics(data);
     } catch (err) {
-      console.error("Failed to load dashboard analytics:", err);
+      const apiError = err as ApiError;
+      const message =
+        apiError?.status === 502
+          ? "Unable to reach the backend. Ensure Docker is running (backend-web on port 8000), then refresh."
+          : apiError?.message || "Unable to load dashboard analytics.";
+
+      console.error("Failed to load dashboard analytics:", apiError);
       setAnalytics(null);
-      setError("Unable to load dashboard analytics.");
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -710,7 +805,15 @@ export default function DashboardPage() {
     void loadAnalytics();
   }, [loadAnalytics]);
 
-  const overviewCards = analytics?.generalOverview.cards ?? [];
+  const { policyCards, researchCards } = useMemo(() => {
+    const cards = analytics?.generalOverview.cards ?? [];
+
+    return {
+      policyCards: cards.filter((card) => POLICY_CARD_KEYS.has(card.key)),
+      researchCards: cards.filter((card) => RESEARCH_CARD_KEYS.has(card.key)),
+    };
+  }, [analytics]);
+
   const lastUpdated = useMemo(
     () =>
       formatDateTime(
@@ -766,10 +869,19 @@ export default function DashboardPage() {
         </Card>
       ) : (
         <>
-          <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {overviewCards.map((stat) => (
-              <StatCard key={stat.key} stat={stat} />
-            ))}
+          <div className="space-y-8">
+            <AnalyticsCardRow
+              title="Policy Analytics"
+              description="Registered policy documents, submitted concept notes, and policy drafts."
+              icon={BookOpen}
+              cards={policyCards}
+            />
+            <AnalyticsCardRow
+              title="Research Analytics"
+              description="Registered research outputs, submitted proposals, and funded projects."
+              icon={FlaskConical}
+              cards={researchCards}
+            />
           </div>
 
           <div className="grid auto-rows-fr grid-cols-1 items-stretch gap-6 lg:grid-cols-12">

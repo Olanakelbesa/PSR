@@ -95,7 +95,7 @@ const navigationGroups: NavGroup[] = [
     items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
   },
   {
-    label: "POLICY MANAGEMENT",
+    label: "POLICY DOCS MANAGEMENT",
     items: [
       {
         label: "Concept Notes",
