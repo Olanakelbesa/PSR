@@ -212,7 +212,7 @@ function AttachmentFormModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl p-0 shadow-2xl">
+      <DialogContent className="max-w-2xl overflow-hidden p-0 shadow-2xl">
         <DialogHeader className="border-b px-6 py-5 text-left">
           <DialogTitle className="flex items-center gap-2">
             <FolderUp className="h-5 w-5 text-primary" />
@@ -284,13 +284,13 @@ function AttachmentFormModal({
                   </div>
                 </label>
               ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/10 bg-white text-primary shadow-sm">
                       <FileText className="h-5 w-5" />
                     </div>
-                    <div className="min-w-0 space-y-1">
-                      <p className="truncate text-sm font-semibold text-slate-900">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="break-all text-sm font-semibold leading-snug text-slate-900">
                         {displayFileName}
                       </p>
                       {hasNewFile ? (
@@ -316,7 +316,7 @@ function AttachmentFormModal({
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex flex-wrap items-center justify-end gap-1">
                     {hasNewFile ? (
                       <Button
                         type="button"
