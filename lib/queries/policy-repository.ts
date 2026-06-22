@@ -15,6 +15,16 @@ export interface PolicyRepositoryItem {
   versionCode: string;
   draftFile: string;
   organizationName: string;
+  downloadCount: number;
+}
+
+export interface PolicyRepositoryDownloadResponse {
+  success: boolean;
+  data: {
+    id: number;
+    downloadCount: number;
+    draftFile: string;
+  };
 }
 
 export interface PolicyRepositoryResponse {
@@ -65,6 +75,7 @@ export function usePolicyRepository(filters: PolicyRepositoryFilters = {}) {
       if (response?.data) {
         response.data = response.data.map((item) => ({
           ...item,
+          downloadCount: item.downloadCount ?? 0,
           draftFile: resolveFileUrl(item.draftFile) ?? item.draftFile,
         }));
       }
@@ -102,6 +113,7 @@ export interface PolicyRepositoryDetail {
     accessLevel: string;
     nextReview: string;
     period: string;
+    downloadCount?: number;
   };
 }
 
@@ -132,6 +144,7 @@ export interface PolicyRepositoryViewModel {
   documentFileName: string;
   sourceDraft: string;
   thematicAreas: string[];
+  downloadCount: number;
   versionHistory: Array<{
     version: string;
     date: string;
@@ -220,6 +233,7 @@ export function mapPolicyRepositoryDetail(
     documentFileName: extractName(draftFile) || overview?.title || "Document",
     sourceDraft: registryMetadata?.sourceDraft ?? "",
     thematicAreas: thematicAreaNames,
+    downloadCount: publicationStatus?.downloadCount ?? 0,
     versionHistory: versionCode
       ? [
           {
@@ -247,6 +261,29 @@ export function usePolicyRepositoryDetail(id: string | number) {
       return data;
     },
     enabled: !!id,
+  });
+}
+
+export function useRecordPolicyDownload() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data } = await api.post<PolicyRepositoryDownloadResponse>(
+        API_ENDPOINTS.POLICY_REPOSITORY.DOWNLOAD(id),
+      );
+      const payload = data.data;
+      return {
+        ...payload,
+        draftFile: resolveFileUrl(payload.draftFile) ?? payload.draftFile,
+      };
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["policy-repository"] });
+      queryClient.invalidateQueries({
+        queryKey: ["policy-repository-detail", String(id)],
+      });
+    },
   });
 }
 

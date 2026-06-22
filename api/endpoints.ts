@@ -143,6 +143,7 @@ export const API_ENDPOINTS = {
     LIST: "/v1/policy-repository",
     DETAIL: (id: string | number) => `/v1/policy-repository/${id}/`,
     REGISTER: "/v1/policy-repository/register/",
+    DOWNLOAD: (id: string | number) => `/v1/policy-repository/${id}/download/`,
   },
 
   // ── Calls for Proposals ───────────────────────────────────────────────────
@@ -321,6 +322,7 @@ export const API_ENDPOINTS = {
     LIST: "/v1/final-submissions/",
     CREATE: "/v1/final-submissions/",
     DETAIL: (id: string | number) => `/v1/final-submissions/${id}/`,
+    DOWNLOAD: (id: string | number) => `/v1/final-submissions/${id}/download/`,
   },
 
   OUTPUT_TYPES: {

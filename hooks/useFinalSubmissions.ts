@@ -4,7 +4,7 @@ import {
   finalSubmissionsService,
   type FinalSubmissionFilters,
 } from "@/api/services/final-submissions.service";
-import type { FinalSubmissionCreateInput } from "@/types/final-submission";
+import type { FinalSubmissionCreateInput, FinalSubmissionDownloadFileType } from "@/types/final-submission";
 
 export const finalSubmissionKeys = {
   all: ["final-submissions"] as const,
@@ -70,5 +70,25 @@ export function useDataCenters(filters: Record<string, unknown> = {}) {
   return useQuery({
     queryKey: finalSubmissionKeys.dataCenters(filters),
     queryFn: () => finalSubmissionsService.listDataCenters(filters),
+  });
+}
+
+export function useRecordFinalSubmissionDownload() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      fileType,
+    }: {
+      id: number;
+      fileType?: FinalSubmissionDownloadFileType;
+    }) => finalSubmissionsService.recordDownload(id, fileType),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: finalSubmissionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: finalSubmissionKeys.detail(variables.id),
+      });
+    },
   });
 }

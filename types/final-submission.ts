@@ -63,6 +63,19 @@ export interface FinalSubmission {
   data_center_detail?: FinalSubmissionDataCenterDetail | null;
   submitted_by?: number;
   submitted_by_detail?: FinalSubmissionSubmitterDetail | null;
+  download_count?: number;
+}
+
+export type FinalSubmissionDownloadFileType =
+  | "full_report"
+  | "policy_brief"
+  | "supplementary_document";
+
+export interface FinalSubmissionDownloadResult {
+  id: number;
+  downloadCount: number;
+  fileType: FinalSubmissionDownloadFileType;
+  fileUrl: string;
 }
 
 export interface FinalSubmissionCreateInput {

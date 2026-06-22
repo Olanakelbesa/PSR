@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
@@ -15,7 +15,9 @@ import {
   Building2,
   Plus,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +37,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
-import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import {
+  downloadRemoteFile,
+  extractFileName,
+} from "@/lib/utils/resolve-file-url";
+import { tokenStorage } from "@/lib/axios";
 
 import {
   usePolicyRepository,
+  useRecordPolicyDownload,
   type PolicyRepositoryItem,
 } from "@/lib/queries/policy-repository";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
@@ -82,8 +89,10 @@ export default function RepositoryDashboardPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [accessFilter, setAccessFilter] = useState("all");
   const [publishFilter, setPublishFilter] = useState("all");
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const { data: docTypes = [] } = usePolicyDocumentTypes();
+  const recordDownload = useRecordPolicyDownload();
 
   const mappedPublishStatus = useMemo(() => {
     if (publishFilter === "published") return true;
@@ -121,6 +130,40 @@ export default function RepositoryDashboardPage() {
       types: uniqueTypes.size,
     };
   }, [policiesList, totalItems]);
+
+  const handleDownload = useCallback(
+    async (policy: PolicyRepositoryItem, event?: React.MouseEvent) => {
+      event?.stopPropagation();
+
+      if (!policy.draftFile) {
+        toast.error("No document file is available for this policy.");
+        return;
+      }
+
+      setDownloadingId(policy.id);
+      try {
+        let fileUrl = policy.draftFile;
+
+        try {
+          const result = await recordDownload.mutateAsync(policy.id);
+          fileUrl = result.draftFile ?? fileUrl;
+        } catch {
+          // Still download if the count endpoint is unavailable.
+        }
+
+        await downloadRemoteFile(
+          fileUrl,
+          extractFileName(policy.draftFile),
+          { token: tokenStorage.get() },
+        );
+      } catch {
+        toast.error("Failed to download document.");
+      } finally {
+        setDownloadingId(null);
+      }
+    },
+    [recordDownload],
+  );
 
   const columns: ColumnDef<PolicyRepositoryItem>[] = useMemo(
     () => [
@@ -224,38 +267,56 @@ export default function RepositoryDashboardPage() {
         },
       },
       {
+        accessorKey: "downloadCount",
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="h-8 px-0 font-semibold hover:bg-transparent"
+          >
+            Downloads
+            <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <span className="tabular-nums text-sm font-medium text-muted-foreground">
+            {row.original.downloadCount ?? 0}
+          </span>
+        ),
+      },
+      {
         id: "actions",
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => {
           const policy = row.original;
           if (!policy.draftFile) return null;
+          const isDownloading = downloadingId === policy.id;
           return (
             <div
               className="flex justify-end"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
               <Button
                 size="sm"
-                variant="ghost"
-                className="h-8 w-8 text-primary hover:bg-muted"
-                asChild
+                variant="outline"
+                className="h-8 gap-1.5 px-2.5 text-primary hover:bg-muted"
+                disabled={isDownloading}
+                title="Download document"
+                onClick={(event) => void handleDownload(policy, event)}
               >
-                <a
-                  href={resolveFileUrl(policy.draftFile) ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Download document"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
                   <Download className="h-4 w-4" />
-                </a>
+                )}
+                Download
               </Button>
             </div>
           );
         },
       },
     ],
-    [],
+    [downloadingId, handleDownload],
   );
 
   const toolbar = (

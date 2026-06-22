@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,7 +10,9 @@ import {
   Shield,
   Download,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,12 +25,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { PageContainer } from "@/components/layout";
 import { cn } from "@/lib/utils";
-import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { downloadRemoteFile, extractFileName } from "@/lib/utils/resolve-file-url";
+import { tokenStorage } from "@/lib/axios";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
 import {
   mapPolicyRepositoryDetail,
   usePolicyRepositoryDetail,
+  useRecordPolicyDownload,
 } from "@/lib/queries/policy-repository";
 
 const ACCESS_CONFIG: Record<
@@ -67,6 +71,7 @@ function formatDisplayDate(value?: string) {
 export default function RepositoryDetailPage() {
   const params = useParams();
   const policyId = (params as { id?: string })?.id;
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const {
     data: detailResponse,
@@ -74,11 +79,41 @@ export default function RepositoryDetailPage() {
     isError,
     error,
   } = usePolicyRepositoryDetail(policyId ?? "");
+  const recordDownload = useRecordPolicyDownload();
 
   const policy = useMemo(() => {
     if (!detailResponse?.data) return null;
     return mapPolicyRepositoryDetail(detailResponse.data, extractFileName);
   }, [detailResponse]);
+
+  const handleDownload = useCallback(async () => {
+    if (!policy?.draftFile || !policyId) {
+      toast.error("No document file is available for this policy.");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      let fileUrl = policy.draftFile;
+
+      try {
+        const result = await recordDownload.mutateAsync(Number(policyId));
+        fileUrl = result.draftFile ?? fileUrl;
+      } catch {
+        // Still download if the count endpoint is unavailable.
+      }
+
+      await downloadRemoteFile(
+        fileUrl,
+        policy.documentFileName,
+        { token: tokenStorage.get() },
+      );
+    } catch {
+      toast.error("Failed to download document.");
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [policy, policyId, recordDownload]);
 
   if (isLoading) {
     return (
@@ -115,7 +150,7 @@ export default function RepositoryDetailPage() {
   const accessCfg =
     ACCESS_CONFIG[policy.accessLevel] ?? ACCESS_CONFIG.public;
   const AccessIcon = accessCfg.icon;
-  const downloadUrl = resolveFileUrl(policy.draftFile || policy.documentUrl);
+  const hasDocument = Boolean(policy.draftFile || policy.documentUrl);
 
   return (
     <PageContainer
@@ -134,16 +169,19 @@ export default function RepositoryDetailPage() {
               Repository
             </Link>
           </Button>
-          {downloadUrl && (
+          {hasDocument && (
             <Button
               size="sm"
               className="bg-primary text-white shadow-sm hover:bg-primary/90"
-              asChild
+              disabled={isDownloading}
+              onClick={() => void handleDownload()}
             >
-              <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+              {isDownloading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
                 <Download className="mr-2 h-4 w-4" />
-                Download
-              </a>
+              )}
+              Download
             </Button>
           )}
         </div>
@@ -212,6 +250,12 @@ export default function RepositoryDetailPage() {
                     {policy.operationalPeriod || "—"}
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Downloads</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {policy.downloadCount ?? 0}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -223,21 +267,20 @@ export default function RepositoryDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-3">
-              {downloadUrl ? (
+              {hasDocument ? (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-9 w-full justify-start text-sm"
-                  asChild
+                  disabled={isDownloading}
+                  onClick={() => void handleDownload()}
                 >
-                  <a
-                    href={downloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  {isDownloading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
                     <Download className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Download document
-                  </a>
+                  )}
+                  Download document
                 </Button>
               ) : (
                 <p className="px-2 py-1 text-xs text-muted-foreground">

@@ -4,8 +4,11 @@ import type { FundingRecommendation } from "@/types/funding-recommendation";
 import type {
   FinalSubmission,
   FinalSubmissionCreateInput,
+  FinalSubmissionDownloadFileType,
+  FinalSubmissionDownloadResult,
   FinalSubmissionLookupOption,
 } from "@/types/final-submission";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 type QueryValue = string | number | boolean | undefined | null;
 
@@ -231,6 +234,7 @@ export const finalSubmissionsService = {
       submitted_by_detail: normalizeSubmitterDetail(
         item.submittedBy ?? item.submitted_by_detail,
       ),
+      download_count: item.downloadCount ?? item.download_count ?? 0,
     }));
 
     return { data: normalized as FinalSubmission[], meta: list.meta };
@@ -293,6 +297,7 @@ export const finalSubmissionsService = {
       submitted_by_detail: normalizeSubmitterDetail(
         payload.submittedBy ?? payload.submitted_by_detail,
       ),
+      download_count: payload.downloadCount ?? payload.download_count ?? 0,
     } as FinalSubmission;
 
     return mapped;
@@ -378,5 +383,24 @@ export const finalSubmissionsService = {
     });
 
     return normalizeList<FinalSubmissionLookupOption>(data);
+  },
+
+  async recordDownload(
+    id: string | number,
+    fileType?: FinalSubmissionDownloadFileType,
+  ): Promise<FinalSubmissionDownloadResult> {
+    const { data } = await apiClient.post(
+      API_ENDPOINTS.FINAL_SUBMISSIONS.DOWNLOAD(id),
+      fileType ? { file_type: fileType } : {},
+    );
+
+    const payload = normalizeDetail<any>(data);
+
+    return {
+      id: payload.id,
+      downloadCount: payload.downloadCount ?? payload.download_count ?? 0,
+      fileType: payload.fileType ?? payload.file_type,
+      fileUrl: resolveFileUrl(payload.fileUrl ?? payload.file_url) ?? "",
+    };
   },
 };
