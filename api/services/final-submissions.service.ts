@@ -176,6 +176,64 @@ function normalizeSubmitterDetail(item: any) {
   };
 }
 
+function normalizeFileField(value: unknown) {
+  if (!value || typeof value !== "string") return null;
+  return resolveFileUrl(value) ?? value;
+}
+
+function mapFinalSubmissionItem(item: any): FinalSubmission {
+  return {
+    id: item.id ?? item.pk,
+    submitted_by_name:
+      item.submittedByName ??
+      item.submitted_by_name ??
+      item.submittedBy?.fullName ??
+      undefined,
+    title: item.title,
+    abstract: item.abstract ?? null,
+    executive_summary:
+      item.executiveSummary ?? item.executive_summary ?? null,
+    full_report: normalizeFileField(item.fullReport ?? item.full_report),
+    policy_brief: normalizeFileField(item.policyBrief ?? item.policy_brief),
+    supplementary_document: normalizeFileField(
+      item.supplementaryDocument ?? item.supplementary_document,
+    ),
+    external_link: item.externalLink ?? item.external_link ?? null,
+    doi: item.doi ?? null,
+    ndmc_submission_reference:
+      item.ndmcSubmissionReference ?? item.ndmc_submission_reference ?? null,
+    data_sharing_checklist_completed:
+      item.dataSharingChecklistCompleted ??
+      item.data_sharing_checklist_completed ??
+      false,
+    submission_date: item.submissionDate ?? item.submission_date ?? null,
+    status: item.status ?? "draft",
+    version: item.version ?? null,
+    fundedproposal:
+      item.fundedproposal?.fundingRecommendationId ??
+      item.fundedproposal?.funding_recommendation_id ??
+      item.fundedproposal?.proposalId ??
+      item.fundedproposal ??
+      null,
+    fundedproposal_detail: normalizeFundingProposalDetail(
+      item.fundedproposal ?? item.fundedProposal,
+    ),
+    output_type: item.outputType?.id ?? item.output_type ?? null,
+    output_type_detail: normalizeOutputTypeDetail(
+      item.outputType ?? item.output_type_detail,
+    ),
+    data_center: item.dataCenter?.id ?? item.data_center ?? null,
+    data_center_detail: normalizeDataCenterDetail(
+      item.dataCenter ?? item.data_center_detail,
+    ),
+    submitted_by: item.submittedBy?.id ?? item.submitted_by ?? null,
+    submitted_by_detail: normalizeSubmitterDetail(
+      item.submittedBy ?? item.submitted_by_detail,
+    ),
+    download_count: item.downloadCount ?? item.download_count ?? 0,
+  };
+}
+
 export const finalSubmissionsService = {
   async list(
     filters: FinalSubmissionFilters = {},
@@ -186,56 +244,7 @@ export const finalSubmissionsService = {
 
     const list = normalizeList<any>(data);
 
-    const normalized = list.data.map((item: any) => ({
-      id: item.id ?? item.pk,
-      submitted_by_name:
-        item.submittedByName ??
-        item.submitted_by_name ??
-        item.submittedBy?.fullName ??
-        undefined,
-      title: item.title,
-      abstract: item.abstract ?? null,
-      executive_summary:
-        item.executiveSummary ?? item.executive_summary ?? null,
-      full_report: item.fullReport ?? item.full_report ?? null,
-      policy_brief: item.policyBrief ?? item.policy_brief ?? null,
-      supplementary_document:
-        item.supplementaryDocument ?? item.supplementary_document ?? null,
-      external_link: item.externalLink ?? item.external_link ?? null,
-      doi: item.doi ?? null,
-      ndmc_submission_reference:
-        item.ndmcSubmissionReference ?? item.ndmc_submission_reference ?? null,
-      data_sharing_checklist_completed:
-        item.dataSharingChecklistCompleted ??
-        item.data_sharing_checklist_completed ??
-        false,
-      submission_date: item.submissionDate ?? item.submission_date ?? null,
-      status: item.status ?? item.status ?? "draft",
-      version: item.version ?? null,
-      // fundedproposal: prefer fundingRecommendationId if provided, otherwise proposalId or raw id
-      fundedproposal:
-        item.fundedproposal?.fundingRecommendationId ??
-        item.fundedproposal?.funding_recommendation_id ??
-        item.fundedproposal?.proposalId ??
-        item.fundedproposal ??
-        null,
-      fundedproposal_detail: normalizeFundingProposalDetail(
-        item.fundedproposal ?? item.fundedProposal,
-      ),
-      output_type: item.outputType?.id ?? item.output_type ?? null,
-      output_type_detail: normalizeOutputTypeDetail(
-        item.outputType ?? item.output_type_detail,
-      ),
-      data_center: item.dataCenter?.id ?? item.data_center ?? null,
-      data_center_detail: normalizeDataCenterDetail(
-        item.dataCenter ?? item.data_center_detail,
-      ),
-      submitted_by: item.submittedBy?.id ?? item.submitted_by ?? null,
-      submitted_by_detail: normalizeSubmitterDetail(
-        item.submittedBy ?? item.submitted_by_detail,
-      ),
-      download_count: item.downloadCount ?? item.download_count ?? 0,
-    }));
+    const normalized = list.data.map((item: any) => mapFinalSubmissionItem(item));
 
     return { data: normalized as FinalSubmission[], meta: list.meta };
   },
@@ -246,61 +255,7 @@ export const finalSubmissionsService = {
     );
 
     const payload = normalizeDetail<any>(data);
-
-    const mapped = {
-      id: payload.id ?? payload.pk,
-      submitted_by_name:
-        payload.submittedByName ??
-        payload.submitted_by_name ??
-        payload.submittedBy?.fullName ??
-        undefined,
-      title: payload.title,
-      abstract: payload.abstract ?? null,
-      executive_summary:
-        payload.executiveSummary ?? payload.executive_summary ?? null,
-      full_report: payload.fullReport ?? payload.full_report ?? null,
-      policy_brief: payload.policyBrief ?? payload.policy_brief ?? null,
-      supplementary_document:
-        payload.supplementaryDocument ?? payload.supplementary_document ?? null,
-      external_link: payload.externalLink ?? payload.external_link ?? null,
-      doi: payload.doi ?? null,
-      ndmc_submission_reference:
-        payload.ndmcSubmissionReference ??
-        payload.ndmc_submission_reference ??
-        null,
-      data_sharing_checklist_completed:
-        payload.dataSharingChecklistCompleted ??
-        payload.data_sharing_checklist_completed ??
-        false,
-      submission_date:
-        payload.submissionDate ?? payload.submission_date ?? null,
-      status: payload.status ?? payload.status ?? "draft",
-      version: payload.version ?? null,
-      fundedproposal:
-        payload.fundedproposal?.fundingRecommendationId ??
-        payload.fundedproposal?.funding_recommendation_id ??
-        payload.fundedproposal?.proposalId ??
-        payload.fundedproposal ??
-        null,
-      fundedproposal_detail: normalizeFundingProposalDetail(
-        payload.fundedproposal ?? payload.fundedProposal,
-      ),
-      output_type: payload.outputType?.id ?? payload.output_type ?? null,
-      output_type_detail: normalizeOutputTypeDetail(
-        payload.outputType ?? payload.output_type_detail,
-      ),
-      data_center: payload.dataCenter?.id ?? payload.data_center ?? null,
-      data_center_detail: normalizeDataCenterDetail(
-        payload.dataCenter ?? payload.data_center_detail,
-      ),
-      submitted_by: payload.submittedBy?.id ?? payload.submitted_by ?? null,
-      submitted_by_detail: normalizeSubmitterDetail(
-        payload.submittedBy ?? payload.submitted_by_detail,
-      ),
-      download_count: payload.downloadCount ?? payload.download_count ?? 0,
-    } as FinalSubmission;
-
-    return mapped;
+    return mapFinalSubmissionItem(payload);
   },
 
   async create(values: FinalSubmissionCreateInput): Promise<FinalSubmission> {

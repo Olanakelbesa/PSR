@@ -41,7 +41,7 @@ import {
   extractFileName,
   resolveFileUrl,
 } from "@/lib/utils/resolve-file-url";
-import { tokenStorage } from "@/lib/axios";
+import { tokenStorage } from "@/api/client";
 
 const statusLabels: Record<FinalSubmissionStatus, string> = {
   draft: "Draft",

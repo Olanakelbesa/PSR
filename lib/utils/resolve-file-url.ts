@@ -24,6 +24,16 @@ export function resolveFileUrl(filePath?: string | null): string | null {
     return `/bff/media/stream/${filePath.slice("/media/".length)}`;
   }
 
+  // Bare media-relative paths (e.g. final_outputs/reports/file.pdf)
+  if (
+    filePath.startsWith("/final_outputs/") ||
+    filePath.startsWith("/registered_policies/") ||
+    filePath.startsWith("/drafts/") ||
+    filePath.startsWith("/attachments/")
+  ) {
+    return `/bff/media/stream/${filePath.slice(1)}`;
+  }
+
   return filePath;
 }
 
@@ -70,4 +80,36 @@ export async function downloadRemoteFile(
   link.click();
   link.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+/** Fetch a proxied file and open it in a new tab (works with BFF media URLs). */
+export async function openRemoteFile(
+  filePath?: string | null,
+  options?: { token?: string | null },
+): Promise<void> {
+  const url = resolveFileUrl(filePath);
+  if (!url) {
+    throw new Error("File URL is unavailable.");
+  }
+
+  const headers: HeadersInit = {};
+  const token = options?.token;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new Error("Failed to open file.");
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const opened = window.open(objectUrl, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    URL.revokeObjectURL(objectUrl);
+    throw new Error("Pop-up blocked. Allow pop-ups to open this file.");
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }

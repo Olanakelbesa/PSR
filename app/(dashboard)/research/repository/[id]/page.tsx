@@ -1,32 +1,40 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
-  BadgeCheck,
   BookOpen,
   Building2,
   Calendar,
   Check,
   Download,
+  ExternalLink,
   FileCode2,
   FileText,
   Globe,
+  Loader2,
   Tag,
   TrendingUp,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useFinalSubmission } from "@/hooks";
+import { useFinalSubmission, useRecordFinalSubmissionDownload } from "@/hooks";
 import { cn } from "@/lib/utils";
-import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
-
+import {
+  downloadRemoteFile,
+  extractFileName,
+  openRemoteFile,
+} from "@/lib/utils/resolve-file-url";
+import { tokenStorage } from "@/api/client";
+import type { FinalSubmissionDownloadFileType } from "@/types/final-submission";
 function formatDate(value?: string | null) {
   if (!value) return "-";
 
@@ -146,7 +154,69 @@ export default function ResearchRepositoryDetailPage() {
   const rawId = params?.id;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const { data: item, isLoading } = useFinalSubmission(id);
+  const recordDownload = useRecordFinalSubmissionDownload();
+  const [openingKey, setOpeningKey] = useState<string | null>(null);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
 
+  const handleOpenFile = useCallback(
+    async (
+      fileType: FinalSubmissionDownloadFileType,
+      filePath?: string | null,
+    ) => {
+      if (!filePath) {
+        toast.error("No file is attached for this document.");
+        return;
+      }
+
+      setOpeningKey(fileType);
+      try {
+        await openRemoteFile(filePath, { token: tokenStorage.get() });
+      } catch {
+        toast.error("Failed to open file.");
+      } finally {
+        setOpeningKey(null);
+      }
+    },
+    [],
+  );
+
+  const handleDownloadFile = useCallback(
+    async (
+      fileType: FinalSubmissionDownloadFileType,
+      filePath?: string | null,
+    ) => {
+      if (!filePath) {
+        toast.error("No file is attached for this document.");
+        return;
+      }
+
+      setDownloadingKey(fileType);
+      try {
+        let fileUrl = filePath;
+
+        if (id) {
+          try {
+            const result = await recordDownload.mutateAsync({
+              id: Number(id),
+              fileType,
+            });
+            fileUrl = result.fileUrl || fileUrl;
+          } catch {
+            // Still download if the count endpoint is unavailable.
+          }
+        }
+
+        await downloadRemoteFile(fileUrl, extractFileName(filePath), {
+          token: tokenStorage.get(),
+        });
+      } catch {
+        toast.error("Failed to download file.");
+      } finally {
+        setDownloadingKey(null);
+      }
+    },
+    [id, recordDownload],
+  );
   if (isLoading) {
     return <LoadingState />;
   }
@@ -155,9 +225,6 @@ export default function ResearchRepositoryDetailPage() {
     return <NotFoundState />;
   }
 
-  const reportUrl = resolveFileUrl(item.full_report);
-  const policyBriefUrl = resolveFileUrl(item.policy_brief);
-  const supplementaryDocumentUrl = resolveFileUrl(item.supplementary_document);
   const submitterName = getSubmitterName(item);
   const submitterEmail = getSubmitterEmail(item);
   const fundingProposalLabel = getFundingProposalLabel(item);
@@ -408,6 +475,15 @@ export default function ResearchRepositoryDetailPage() {
 
                 <div className="flex items-center justify-between py-1 border-t border-slate-50">
                   <span className="text-xs font-medium text-muted-foreground">
+                    Downloads
+                  </span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {item.download_count ?? 0}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-1 border-t border-slate-50">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Checklist
                   </span>
                   <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
@@ -481,20 +557,21 @@ export default function ResearchRepositoryDetailPage() {
                   {
                     label: "Full Report",
                     file: item.full_report,
-                    url: reportUrl,
+                    fileType: "full_report" as const,
                   },
                   {
                     label: "Policy Brief",
                     file: item.policy_brief,
-                    url: policyBriefUrl,
+                    fileType: "policy_brief" as const,
                   },
                   {
                     label: "Supplementary Document",
                     file: item.supplementary_document,
-                    url: supplementaryDocumentUrl,
+                    fileType: "supplementary_document" as const,
                   },
                 ].map((entry) => {
-                  const fileUrl = entry.url;
+                  const isOpening = openingKey === entry.fileType;
+                  const isDownloading = downloadingKey === entry.fileType;
 
                   return (
                     <div
@@ -512,17 +589,42 @@ export default function ResearchRepositoryDetailPage() {
                           {fileNameFromPath(entry.file)}
                         </p>
                       </div>
-                      {fileUrl ? (
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl"
-                        >
-                          <a href={fileUrl} target="_blank" rel="noreferrer">
-                            Open
-                          </a>
-                        </Button>
+                      {entry.file ? (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            disabled={isOpening || isDownloading}
+                            onClick={() =>
+                              void handleOpenFile(entry.fileType, entry.file)
+                            }
+                          >
+                            {isOpening ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Open"
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-xl"
+                            disabled={isOpening || isDownloading}
+                            title={`Download ${entry.label}`}
+                            onClick={() =>
+                              void handleDownloadFile(entry.fileType, entry.file)
+                            }
+                          >
+                            {isDownloading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       ) : (
                         <Badge
                           variant="secondary"
@@ -536,23 +638,27 @@ export default function ResearchRepositoryDetailPage() {
                 })}
 
                 <Button
-                  asChild
+                  type="button"
                   className="h-11 w-full bg-primary text-xs font-bold uppercase tracking-wider text-white hover:bg-primary/95"
+                  disabled={
+                    !item.full_report ||
+                    openingKey !== null ||
+                    downloadingKey !== null
+                  }
+                  onClick={() =>
+                    void handleDownloadFile("full_report", item.full_report)
+                  }
                 >
-                  {reportUrl ? (
-                    <a href={reportUrl} target="_blank" rel="noreferrer">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Full Report
-                    </a>
+                  {downloadingKey === "full_report" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <span className="inline-flex items-center">
-                      <Download className="mr-2 h-4 w-4" />
-                      Full Report Missing
-                    </span>
+                    <Download className="mr-2 h-4 w-4" />
                   )}
+                  {item.full_report
+                    ? "Download Full Report"
+                    : "Full Report Missing"}
                 </Button>
-              </CardContent>
-            </Card>
+              </CardContent>            </Card>
           </div>
         </div>
       </div>
