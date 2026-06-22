@@ -285,6 +285,9 @@ export default function NewPolicyDraftPage() {
           setCreatedDraftId(draftId);
           lastSavedSignatureRef.current = currentSignature;
           setLastSavedAt(new Date().toISOString());
+          queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+          queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
+          queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
           toast.success(
             "Existing policy draft updated for the selected concept note.",
           );
@@ -310,6 +313,9 @@ export default function NewPolicyDraftPage() {
         setCreatedDraftId(draftId);
         lastSavedSignatureRef.current = currentSignature;
         setLastSavedAt(new Date().toISOString());
+        queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+        queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
+        queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
         toast.success("Policy draft created from the selected concept note.");
       } catch (error: any) {
         if (!cancelled) {
@@ -370,6 +376,9 @@ export default function NewPolicyDraftPage() {
           makeDraftFormData(formState, selectedConceptId, selectedFile),
           { headers: { "Content-Type": "multipart/form-data" } },
         );
+        queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+        queryClient.invalidateQueries({ queryKey: ["policy-draft", String(createdDraftId)] });
+        queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(createdDraftId)] });
         lastSavedSignatureRef.current = currentSignature;
         setLastSavedAt(new Date().toISOString());
       } catch (error: any) {
@@ -486,6 +495,7 @@ export default function NewPolicyDraftPage() {
     }
 
     setCreatedDraftId(draftId);
+    queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
     return draftId;
   };
 
@@ -501,6 +511,9 @@ export default function NewPolicyDraftPage() {
       { headers: { "Content-Type": "multipart/form-data" } },
     );
 
+    queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+    queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
+    queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
     lastSavedSignatureRef.current = currentSignature;
     setLastSavedAt(new Date().toISOString());
     return draftId;
@@ -535,29 +548,11 @@ export default function NewPolicyDraftPage() {
 
       await apiClient.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(draftId));
 
-      const selectedConceptKey = String(selectedConceptId);
-      queryClient.setQueriesData(
-        { queryKey: ["concept-notes"] },
-        (current: any) => {
-          if (!current) return current;
-
-          const filterOutSelectedConcept = (items: any[]) =>
-            items.filter((item) => String(item?.id) !== selectedConceptKey);
-
-          if (Array.isArray(current)) {
-            return filterOutSelectedConcept(current);
-          }
-
-          if (Array.isArray(current.data)) {
-            return {
-              ...current,
-              data: filterOutSelectedConcept(current.data),
-            };
-          }
-
-          return current;
-        },
-      );
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
 
       setIsLocked(true);
       toast.success("Policy draft submitted for review.");

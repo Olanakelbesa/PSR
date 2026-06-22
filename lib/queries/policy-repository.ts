@@ -288,8 +288,12 @@ export function useRegisterPolicy() {
       );
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["policy-repository"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(variables.source_draft_id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(variables.source_draft_id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
     },
   });
 }

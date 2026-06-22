@@ -295,6 +295,71 @@ export function usePolicyDraftVersionChecklist(id: string | number, versionId: s
   });
 }
 
+export function useCreatePolicyDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (formData: FormData) => {
+      const { data } = await api.post(API_ENDPOINTS.POLICY_DRAFTS.CREATE, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+    },
+  });
+}
+
+export function useUpdatePolicyDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, formData }: { id: string | number; formData: FormData }) => {
+      const { data } = await api.patch(API_ENDPOINTS.POLICY_DRAFTS.UPDATE(id), formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return data;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+    },
+  });
+}
+
+export function useSubmitPolicyDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string | number) => {
+      const { data } = await api.post(API_ENDPOINTS.POLICY_DRAFTS.SUBMIT(id));
+      return data;
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    },
+  });
+}
+
+export function useResubmitPolicyDraft() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string | number) => {
+      const { data } = await api.post(API_ENDPOINTS.POLICY_DRAFTS.RESUBMIT(id));
+      return data;
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+    },
+  });
+}
+
 export function useSubmitPolicyDraftChecklistReview() {
   const queryClient = useQueryClient();
   return useMutation<any, any, { id: string | number; versionId: string | number; reviewerId: number; responses: any[] }>({

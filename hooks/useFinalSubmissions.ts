@@ -43,6 +43,9 @@ export function useCreateFinalSubmission() {
       finalSubmissionsService.create(values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: finalSubmissionKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: ["final-submissions", "ready-for-final-submission"],
+      });
     },
   });
 }

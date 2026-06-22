@@ -326,6 +326,9 @@ export default function EditPolicyDraftPage() {
           makeDraftFormData(selectedConceptId, selectedFile),
           { headers: { "Content-Type": "multipart/form-data" } },
         );
+        queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+        queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
+        queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
         lastAutosavedFileSignatureRef.current = currentFileSignature;
         toast.success("Draft autosaved after file upload.");
       } catch (error: any) {
@@ -405,6 +408,9 @@ export default function EditPolicyDraftPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
+      queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       toast.success("Policy draft updated successfully");
       router.push(`/policies/drafts/my-drafts/${id}`);
     } catch (error: any) {
@@ -446,6 +452,9 @@ export default function EditPolicyDraftPage() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", id] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      if (canSubmitDraft) {
+        queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+      }
 
       toast.success(
         canSubmitDraft
