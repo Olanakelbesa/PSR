@@ -195,8 +195,11 @@ const ApprovedPendingFundingPrincipalInvestigatorSchema = z.object({
 const ApprovedPendingFundingAttachmentSchema = z.object({
   id: z.string(),
   name: z.string(),
-  url: z.string(),
-  size: z.number().optional().default(0),
+  url: z.string().nullable().optional().default(""),
+  size: z.preprocess(
+    (value) => (value == null || value === "" ? 0 : value),
+    z.number(),
+  ),
 });
 
 const ApprovedPendingFundingSchema = z
