@@ -56,7 +56,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <SidebarInset className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <AppHeader />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pb-10">
           {children}
         </div>
       </SidebarInset>

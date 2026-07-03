@@ -26,6 +26,19 @@ describe("getNotificationRoute", () => {
     expect(route).toBe("/policies/concept-notes/my-concept-note/46");
   });
 
+  it("routes new concept note submissions to the manage queue detail page", () => {
+    const route = getNotificationRoute(
+      makeNotification({
+        resourceType: "concept_note",
+        resourceId: 46,
+        eventType: "CONCEPT_NOTE_SUBMITTED",
+      }),
+    );
+    expect(route).toBe(
+      "/policies/concept-notes/manage-concept-notes/46",
+    );
+  });
+
   it("routes concept note reviewer assignments to the review workflow", () => {
     const route = getNotificationRoute(
       makeNotification({

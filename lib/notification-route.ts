@@ -24,7 +24,9 @@ export const SUPPORTED_RESOURCE_TYPES = [
 
 export type SupportedResourceType = (typeof SUPPORTED_RESOURCE_TYPES)[number];
 
-const REVIEWER_EVENT_ROUTES: Record<string, (resourceId: number) => string> = {
+const EVENT_ROUTES: Record<string, (resourceId: number) => string> = {
+  CONCEPT_NOTE_SUBMITTED: (id) =>
+    `/policies/concept-notes/manage-concept-notes/${id}`,
   CONCEPT_NOTE_REVIEW_ASSIGNED: (id) =>
     `/policies/concept-notes/review-concept-note/${id}/review`,
   POLICY_REVIEW_ASSIGNED: (id) =>
@@ -85,8 +87,8 @@ export function getNotificationRoute(notification: Notification): string | null 
     return null;
   }
 
-  if (eventType && REVIEWER_EVENT_ROUTES[eventType]) {
-    return REVIEWER_EVENT_ROUTES[eventType](resourceId);
+  if (eventType && EVENT_ROUTES[eventType]) {
+    return EVENT_ROUTES[eventType](resourceId);
   }
 
   switch (resourceType) {

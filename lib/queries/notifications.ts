@@ -1,7 +1,24 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import type { Notification } from "@/lib/types";
+
+const NOTIFICATIONS_QUERY_KEY = ["notifications"] as const;
+
+function patchNotificationsCache(
+  queryClient: QueryClient,
+  updater: (notifications: Notification[]) => Notification[],
+) {
+  queryClient.setQueriesData<Notification[]>(
+    { queryKey: NOTIFICATIONS_QUERY_KEY },
+    (current) => (current ? updater(current) : current),
+  );
+}
 
 type NotificationApiRecord = {
   id: number;
@@ -91,7 +108,7 @@ export function normalizeNotification(
 
 export function useNotifications(userId?: string) {
   return useQuery<Notification[]>({
-    queryKey: ["notifications", userId],
+    queryKey: [...NOTIFICATIONS_QUERY_KEY, userId],
     queryFn: async () => {
       const { data } = await api.get(API_ENDPOINTS.NOTIFICATIONS.LIST);
       return unwrapNotificationList(data).map(normalizeNotification);
@@ -110,8 +127,14 @@ export function useMarkNotificationRead() {
       const record = (data?.data ?? data) as NotificationApiRecord;
       return normalizeNotification(record);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    onSuccess: (updated) => {
+      patchNotificationsCache(queryClient, (notifications) =>
+        notifications.map((notification) =>
+          notification.id === updated.id
+            ? { ...notification, read: true }
+            : notification,
+        ),
+      );
     },
   });
 }
@@ -119,14 +142,36 @@ export function useMarkNotificationRead() {
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, string[]>({
+  return useMutation<
+    void,
+    Error,
+    string[],
+    { previous: ReturnType<QueryClient["getQueriesData"]> }
+  >({
     mutationFn: async (ids: string[]) => {
       await Promise.all(
         ids.map((id) => api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id))),
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+      const previous = queryClient.getQueriesData<Notification[]>({
+        queryKey: NOTIFICATIONS_QUERY_KEY,
+      });
+      const unreadIds = new Set(ids);
+      patchNotificationsCache(queryClient, (notifications) =>
+        notifications.map((notification) =>
+          unreadIds.has(notification.id)
+            ? { ...notification, read: true }
+            : notification,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _ids, context) => {
+      context?.previous.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
   });
 }
@@ -136,10 +181,13 @@ export function useClearAllNotifications() {
 
   return useMutation<void, Error, void>({
     mutationFn: async () => {
-      await api.post(API_ENDPOINTS.NOTIFICATIONS.CLEAR);
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.CLEAR, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.setQueriesData<Notification[]>(
+        { queryKey: NOTIFICATIONS_QUERY_KEY },
+        [],
+      );
     },
   });
 }

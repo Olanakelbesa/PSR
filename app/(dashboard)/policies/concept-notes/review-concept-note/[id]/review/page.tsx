@@ -27,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -142,15 +142,71 @@ export default function ConceptNoteReviewPage() {
   if (isLoading) {
     return (
       <PageContainer title="Loading Review Workspace...">
-        <div className="space-y-6">
-          <div className="h-32 bg-muted animate-pulse rounded-xl" />
-          <div className="h-96 bg-muted animate-pulse rounded-xl" />
+        <div className="grid gap-6 lg:grid-cols-3 items-start">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="h-72 animate-pulse rounded-xl bg-muted" />
+            <div className="h-64 animate-pulse rounded-xl bg-muted" />
+          </div>
+          <div className="h-80 animate-pulse rounded-xl bg-muted" />
         </div>
       </PageContainer>
     );
   }
 
-  if (!note) return null;
+  if (!note) {
+    return (
+      <PageContainer title="Error Loading Concept Note">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+          <h3 className="text-lg font-semibold">Failed to load concept note</h3>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">
+            There was a problem retrieving this concept note. Please verify the URL or try again.
+          </p>
+          <div className="mt-6 flex gap-3">
+            <Button variant="outline" asChild>
+              <Link href="/policies/concept-notes/review-concept-note">
+                Go to Reviews Queue
+              </Link>
+            </Button>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  const decisionOptions = [
+    {
+      value: "approve" as const,
+      id: "approve",
+      label: "Accepted",
+      icon: CheckCircle2,
+      iconClass: "text-green-500",
+      labelClass: "text-green-700",
+      selectedClass: "border-green-500 bg-green-50 ring-green-500/25",
+    },
+    {
+      value: "revise" as const,
+      id: "revise",
+      label: "Partial Accepted",
+      icon: AlertCircle,
+      iconClass: "text-orange-500",
+      labelClass: "text-orange-700",
+      selectedClass: "border-orange-500 bg-orange-50 ring-orange-500/25",
+    },
+    {
+      value: "reject" as const,
+      id: "reject",
+      label: "Not Accepted",
+      icon: XCircle,
+      iconClass: "text-red-500",
+      labelClass: "text-red-700",
+      selectedClass: "border-red-500 bg-red-50 ring-red-500/25",
+    },
+  ];
+
+  const fileUploadMinHeight = "min-h-[9.5rem]";
+  const decisionCardHeight = "h-[7.5rem]";
 
   return (
     <PageContainer
@@ -218,14 +274,22 @@ export default function ConceptNoteReviewPage() {
                 {!selectedFile && !existingFileUrl ? (
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
+                    className={cn(
+                      "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer",
+                      fileUploadMinHeight,
+                    )}
                   >
                     <Upload className="h-8 w-8 text-muted-foreground mb-3" />
                     <p className="text-sm font-medium text-foreground">Click to upload annotated files</p>
                     <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to {MAX_FILE_SIZE_MB}MB</p>
                   </div>
                 ) : selectedFile ? (
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 border-emerald-100">
+                  <div
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border bg-emerald-50/50 border-emerald-100 p-3",
+                      fileUploadMinHeight,
+                    )}
+                  >
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
                       <div className="flex flex-col overflow-hidden">
@@ -248,7 +312,12 @@ export default function ConceptNoteReviewPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between p-3 border rounded-lg bg-emerald-50/50 border-emerald-100">
+                  <div
+                    className={cn(
+                      "flex items-center justify-between rounded-lg border bg-emerald-50/50 border-emerald-100 p-3",
+                      fileUploadMinHeight,
+                    )}
+                  >
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
                       <div className="flex flex-col overflow-hidden">
@@ -294,42 +363,45 @@ export default function ConceptNoteReviewPage() {
               <CardDescription>Select the outcome of this evaluation phase.</CardDescription>
             </CardHeader>
             <CardContent>
-              <RadioGroup
+              <div
                 className="grid gap-4 sm:grid-cols-3"
-                value={decision || ""}
-                onValueChange={(val: any) => setDecision(val)}
+                role="radiogroup"
+                aria-label="Final expert decision"
               >
-                <div>
-                  <RadioGroupItem value="approve" id="approve" className="peer sr-only" />
-                  <Label
-                    htmlFor="approve"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-green-500 has-[[data-state=checked]]:bg-green-50 cursor-pointer transition-all"
-                  >
-                    <CheckCircle2 className="mb-3 h-6 w-6 text-green-500" />
-                    <span className="font-semibold text-green-700">Accepted</span>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="revise" id="revise" className="peer sr-only" />
-                  <Label
-                    htmlFor="revise"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-orange-500 has-[[data-state=checked]]:bg-orange-50 cursor-pointer transition-all"
-                  >
-                    <AlertCircle className="mb-3 h-6 w-6 text-orange-500" />
-                    <span className="font-semibold text-orange-700">Partial Accepted</span>
-                  </Label>
-                </div>
-                <div>
-                  <RadioGroupItem value="reject" id="reject" className="peer sr-only" />
-                  <Label
-                    htmlFor="reject"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-red-500 has-[[data-state=checked]]:bg-red-50 cursor-pointer transition-all"
-                  >
-                    <XCircle className="mb-3 h-6 w-6 text-red-500" />
-                    <span className="font-semibold text-red-700">Not Accepted</span>
-                  </Label>
-                </div>
-              </RadioGroup>
+                {decisionOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = decision === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setDecision(option.value)}
+                      className={cn(
+                        "flex w-full flex-col items-center justify-center rounded-md border-2 p-4 ring-2 transition-colors",
+                        decisionCardHeight,
+                        isSelected
+                          ? option.selectedClass
+                          : "border-muted bg-popover ring-transparent hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      <Icon
+                        className={cn("mb-3 h-6 w-6 shrink-0", option.iconClass)}
+                      />
+                      <span
+                        className={cn(
+                          "text-center text-sm font-semibold leading-tight",
+                          option.labelClass,
+                        )}
+                      >
+                        {option.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </CardContent>
             <CardFooter className="bg-muted/30 pt-6 border-t">
               <Button
