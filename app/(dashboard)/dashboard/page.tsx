@@ -67,24 +67,38 @@ const CHART_COLORS = [
 ];
 
 const POLICY_CARD_KEYS = new Set([
-  "total_policy_documents",
-  "submitted_concept_notes",
-  "total_draft_notes",
+  "new_concept_note_submitted",
+  "concept_note_under_review",
+  "concept_note_approved",
+  "new_draft_submitted",
+  "draft_under_review",
+  "draft_approved",
+  "policy_repository_registered",
 ]);
 
 const RESEARCH_CARD_KEYS = new Set([
-  "registered_research",
-  "submitted_proposals",
-  "funded_proposals",
+  "new_proposal_submitted",
+  "under_psr_screening",
+  "under_expert_review",
+  "ready_for_funding",
+  "funded_proposal",
+  "research_repository_registered",
 ]);
 
 const overviewIcons: Record<string, IconType> = {
-  total_policy_documents: BookOpen,
-  submitted_concept_notes: FilePlus,
-  total_draft_notes: FileText,
-  registered_research: FlaskConical,
-  submitted_proposals: FileText,
-  funded_proposals: CheckCircle2,
+  new_concept_note_submitted: FilePlus,
+  concept_note_under_review: Clock,
+  concept_note_approved: CheckCircle2,
+  new_draft_submitted: FileText,
+  draft_under_review: Clock,
+  draft_approved: CheckCircle2,
+  policy_repository_registered: BookOpen,
+  new_proposal_submitted: FileText,
+  under_psr_screening: ClipboardCheck,
+  under_expert_review: Clock,
+  ready_for_funding: AlertCircle,
+  funded_proposal: CheckCircle2,
+  research_repository_registered: FlaskConical,
 };
 
 const cardStyles: Record<
@@ -97,47 +111,96 @@ const cardStyles: Record<
     glowColor: string;
   }
 > = {
-  total_policy_documents: {
+  new_concept_note_submitted: {
     bgGradient: "from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10",
     borderHover: "hover:border-blue-500/30",
     iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
     iconColor: "text-blue-500 dark:text-blue-400",
     glowColor: "shadow-blue-500/5 hover:shadow-blue-500/10",
   },
-  submitted_concept_notes: {
-    bgGradient: "from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10",
-    borderHover: "hover:border-emerald-500/30",
-    iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
-    iconColor: "text-emerald-500 dark:text-emerald-400",
-    glowColor: "shadow-emerald-500/5 hover:shadow-emerald-500/10",
-  },
-  total_draft_notes: {
+  concept_note_under_review: {
     bgGradient: "from-amber-500/5 to-orange-500/5 dark:from-amber-500/10 dark:to-orange-500/10",
     borderHover: "hover:border-amber-500/30",
     iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
     iconColor: "text-amber-500 dark:text-amber-400",
     glowColor: "shadow-amber-500/5 hover:shadow-amber-500/10",
   },
-  registered_research: {
+  concept_note_approved: {
+    bgGradient: "from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10",
+    borderHover: "hover:border-emerald-500/30",
+    iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+    iconColor: "text-emerald-500 dark:text-emerald-400",
+    glowColor: "shadow-emerald-500/5 hover:shadow-emerald-500/10",
+  },
+  new_draft_submitted: {
     bgGradient: "from-violet-500/5 to-fuchsia-500/5 dark:from-violet-500/10 dark:to-fuchsia-500/10",
     borderHover: "hover:border-violet-500/30",
     iconBg: "bg-violet-500/10 dark:bg-violet-500/20",
     iconColor: "text-violet-500 dark:text-violet-400",
     glowColor: "shadow-violet-500/5 hover:shadow-violet-500/10",
   },
-  submitted_proposals: {
+  draft_under_review: {
     bgGradient: "from-sky-500/5 to-cyan-500/5 dark:from-sky-500/10 dark:to-cyan-500/10",
     borderHover: "hover:border-sky-500/30",
     iconBg: "bg-sky-500/10 dark:bg-sky-500/20",
     iconColor: "text-sky-500 dark:text-sky-400",
     glowColor: "shadow-sky-500/5 hover:shadow-sky-500/10",
   },
-  funded_proposals: {
+  draft_approved: {
     bgGradient: "from-teal-500/5 to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10",
     borderHover: "hover:border-teal-500/30",
     iconBg: "bg-teal-500/10 dark:bg-teal-500/20",
     iconColor: "text-teal-500 dark:text-teal-400",
     glowColor: "shadow-teal-500/5 hover:shadow-teal-500/10",
+  },
+  policy_repository_registered: {
+    bgGradient: "from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10",
+    borderHover: "hover:border-indigo-500/30",
+    iconBg: "bg-indigo-500/10 dark:bg-indigo-500/20",
+    iconColor: "text-indigo-500 dark:text-indigo-400",
+    glowColor: "shadow-indigo-500/5 hover:shadow-indigo-500/10",
+  },
+  new_proposal_submitted: {
+    bgGradient: "from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10",
+    borderHover: "hover:border-blue-500/30",
+    iconBg: "bg-blue-500/10 dark:bg-blue-500/20",
+    iconColor: "text-blue-500 dark:text-blue-400",
+    glowColor: "shadow-blue-500/5 hover:shadow-blue-500/10",
+  },
+  under_psr_screening: {
+    bgGradient: "from-amber-500/5 to-orange-500/5 dark:from-amber-500/10 dark:to-orange-500/10",
+    borderHover: "hover:border-amber-500/30",
+    iconBg: "bg-amber-500/10 dark:bg-amber-500/20",
+    iconColor: "text-amber-500 dark:text-amber-400",
+    glowColor: "shadow-amber-500/5 hover:shadow-amber-500/10",
+  },
+  under_expert_review: {
+    bgGradient: "from-violet-500/5 to-fuchsia-500/5 dark:from-violet-500/10 dark:to-fuchsia-500/10",
+    borderHover: "hover:border-violet-500/30",
+    iconBg: "bg-violet-500/10 dark:bg-violet-500/20",
+    iconColor: "text-violet-500 dark:text-violet-400",
+    glowColor: "shadow-violet-500/5 hover:shadow-violet-500/10",
+  },
+  ready_for_funding: {
+    bgGradient: "from-sky-500/5 to-cyan-500/5 dark:from-sky-500/10 dark:to-cyan-500/10",
+    borderHover: "hover:border-sky-500/30",
+    iconBg: "bg-sky-500/10 dark:bg-sky-500/20",
+    iconColor: "text-sky-500 dark:text-sky-400",
+    glowColor: "shadow-sky-500/5 hover:shadow-sky-500/10",
+  },
+  funded_proposal: {
+    bgGradient: "from-teal-500/5 to-emerald-500/5 dark:from-teal-500/10 dark:to-emerald-500/10",
+    borderHover: "hover:border-teal-500/30",
+    iconBg: "bg-teal-500/10 dark:bg-teal-500/20",
+    iconColor: "text-teal-500 dark:text-teal-400",
+    glowColor: "shadow-teal-500/5 hover:shadow-teal-500/10",
+  },
+  research_repository_registered: {
+    bgGradient: "from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10",
+    borderHover: "hover:border-emerald-500/30",
+    iconBg: "bg-emerald-500/10 dark:bg-emerald-500/20",
+    iconColor: "text-emerald-500 dark:text-emerald-400",
+    glowColor: "shadow-emerald-500/5 hover:shadow-emerald-500/10",
   },
 };
 
@@ -260,12 +323,19 @@ function StatCard({ stat }: { stat: DashboardOverviewCard }) {
       {/* Corner color glow overlay */}
       <div className={cn(
         "absolute -right-4 -top-4 h-16 w-16 rounded-full blur-2xl opacity-40 dark:opacity-20 transition-opacity group-hover:opacity-60",
-        stat.key === "total_policy_documents" && "bg-blue-500",
-        stat.key === "submitted_concept_notes" && "bg-emerald-500",
-        stat.key === "total_draft_notes" && "bg-amber-500",
-        stat.key === "registered_research" && "bg-violet-500",
-        stat.key === "submitted_proposals" && "bg-sky-500",
-        stat.key === "funded_proposals" && "bg-teal-500"
+        stat.key === "new_concept_note_submitted" && "bg-blue-500",
+        stat.key === "concept_note_under_review" && "bg-amber-500",
+        stat.key === "concept_note_approved" && "bg-emerald-500",
+        stat.key === "new_draft_submitted" && "bg-violet-500",
+        stat.key === "draft_under_review" && "bg-sky-500",
+        stat.key === "draft_approved" && "bg-teal-500",
+        stat.key === "policy_repository_registered" && "bg-indigo-500",
+        stat.key === "new_proposal_submitted" && "bg-blue-500",
+        stat.key === "under_psr_screening" && "bg-amber-500",
+        stat.key === "under_expert_review" && "bg-violet-500",
+        stat.key === "ready_for_funding" && "bg-sky-500",
+        stat.key === "funded_proposal" && "bg-teal-500",
+        stat.key === "research_repository_registered" && "bg-emerald-500"
       )} />
 
       <CardContent className="p-5">
@@ -832,7 +902,7 @@ export default function DashboardPage() {
             {greeting}, {user.firstName}
           </h1>
           <p className="mt-1 font-medium text-muted-foreground">
-            Policy & Research Dashboard. Last updated {lastUpdated}.
+            Policy & Research. Last updated {lastUpdated}.
           </p>
         </div>
         <Button
@@ -872,13 +942,13 @@ export default function DashboardPage() {
           <div className="space-y-8">
             <AnalyticsCardRow
               title="Policy Analytics"
-              description="Registered policy documents, submitted concept notes, and policy drafts."
+              description="Your submitted concept notes, policy drafts, and repository records."
               icon={BookOpen}
               cards={policyCards}
             />
             <AnalyticsCardRow
               title="Research Analytics"
-              description="Registered research outputs, submitted proposals, and funded projects."
+              description="Proposals submitted, under screening, expert review, ready for funding, and registered outputs."
               icon={FlaskConical}
               cards={researchCards}
             />

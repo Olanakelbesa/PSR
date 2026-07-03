@@ -18,3 +18,5 @@ node_modules
 .kiro/
 
 .env*
+
+next-env.d.ts
