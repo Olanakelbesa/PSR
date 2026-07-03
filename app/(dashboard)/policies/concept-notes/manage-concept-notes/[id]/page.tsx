@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
+import { ConceptNoteAttachmentViewer } from "@/components/policies/concept-notes/concept-note-attachment-viewer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useManageConceptNoteDetail } from "@/lib/queries/concept-notes";
@@ -225,84 +226,11 @@ export default function ManageConceptNoteDetailPage() {
 
             {/* Document viewer tab */}
             <TabsContent value="document" className="mt-4">
-              {fileUrl ? (
-                <Card className="shadow-sm overflow-hidden">
-                  {/* Toolbar */}
-                  <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground truncate max-w-[300px]">
-                        {fileUrl.split("/").pop()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 gap-1.5"
-                        asChild
-                      >
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Maximize2 className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Open in Tab</span>
-                        </a>
-                      </Button>
-                      <Button size="sm" className="h-8 gap-1.5" asChild>
-                        <a href={fileUrl} download>
-                          <Download className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">Download</span>
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Viewer — native iframe for PDFs, fallback card for other types */}
-                  {fileUrl.toLowerCase().endsWith(".pdf") ? (
-                    <div className="w-full" style={{ height: "75vh" }}>
-                      <iframe
-                        src={fileUrl}
-                        className="w-full h-full border-0"
-                        title="Concept Note Document"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center bg-muted/10">
-                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <FileText className="h-8 w-8 text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-semibold text-foreground">
-                          Document preview not available
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          This file type cannot be previewed in the browser.
-                          Download it to view the contents.
-                        </p>
-                      </div>
-                      <Button asChild>
-                        <a href={fileUrl} download>
-                          <Download className="mr-2 h-4 w-4" /> Download
-                          Document
-                        </a>
-                      </Button>
-                    </div>
-                  )}
-                </Card>
-              ) : (
-                <div className="rounded-xl border border-dashed p-16 text-center">
-                  <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="font-medium text-muted-foreground">
-                    No document attached
-                  </p>
-                  <p className="text-sm text-muted-foreground/70 mt-1">
-                    The concept note does not have a file uploaded yet.
-                  </p>
-                </div>
-              )}
+              <ConceptNoteAttachmentViewer
+                url={fileUrl ?? ""}
+                title={extractFileName(fileUrl) || note.title}
+                viewerClassName="h-[75vh]"
+              />
             </TabsContent>
 
             {/* Overview tab */}
@@ -319,48 +247,6 @@ export default function ManageConceptNoteDetailPage() {
                   </p>
                 </CardContent>
               </Card>
-
-              {fileUrl && (
-                <Card className="shadow-sm border-primary/10">
-                  <CardHeader className="border-b bg-primary/5 pb-3">
-                    <CardTitle className="text-sm font-semibold">
-                      Attached Document
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground line-clamp-1">
-                          {fileUrl.split("/").pop()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Concept Note Document
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" asChild>
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />{" "}
-                          Preview
-                        </a>
-                      </Button>
-                      <Button size="sm" asChild>
-                        <a href={fileUrl} download>
-                          <Download className="mr-1.5 h-3.5 w-3.5" /> Download
-                        </a>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </TabsContent>
 
             {/* Expert Feedback tab */}

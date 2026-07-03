@@ -5,6 +5,7 @@ import { ExternalLink, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useRef, useState } from "react";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 
 interface PdfViewerDialogProps {
   isOpen: boolean;
@@ -30,13 +31,18 @@ export function PdfViewerDialog({
 
   if (!url) return null;
 
+  const attachmentKind = getConceptNoteAttachmentKind(url);
+  if (attachmentKind !== "pdf") return null;
+
+  const safeUrl = encodeURI(url);
+
   const handleOpenInNewTab = () => {
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(safeUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleDownload = () => {
     const link = document.createElement("a");
-    link.href = blobUrl || url;
+    link.href = blobUrl || safeUrl;
     link.download = title;
     link.rel = "noopener noreferrer";
     document.body.appendChild(link);
@@ -46,7 +52,7 @@ export function PdfViewerDialog({
 
   const fetchAndSetBlob = async () => {
     try {
-      const res = await fetch(url);
+      const res = await fetch(safeUrl);
       if (!res.ok) throw new Error("Failed to fetch PDF");
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -82,7 +88,7 @@ export function PdfViewerDialog({
         <div className="flex-1 h-full w-full bg-background">
           <iframe
             ref={iframeRef}
-            src={blobUrl || url}
+            src={(blobUrl || safeUrl) + "#toolbar=0&navpanes=0&scrollbar=0"}
             title={title}
             className="h-full w-full border-0"
             onError={handleIframeError}

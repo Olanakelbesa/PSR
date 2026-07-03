@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   MoreHorizontal,
-  Plus,
   ArrowUpDown,
   FileText,
   Calendar,
@@ -14,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  Inbox,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,10 @@ import {
   type ConceptNoteItem,
 } from "@/lib/queries/concept-notes";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+
+type ManageQueueFilter = "all" | "new_submissions";
 
 // ── Status display helpers ─────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -307,18 +310,18 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
               </DropdownMenuItem>
               {(note.currentStatus === "submitted" ||
                 note.currentStatus === "under_review") && (
-                <>
-                  <DropdownMenuSeparator className="bg-muted/50" />
-                  <DropdownMenuItem asChild>
-                    <Link
-                      href={`/policies/concept-notes/manage-concept-notes/${note.id}/approve`}
-                      className="cursor-pointer flex items-center px-2 py-2 text-sm font-semibold rounded-md focus:bg-primary/10 focus:text-primary"
-                    >
-                      Approve
-                    </Link>
-                  </DropdownMenuItem>
-                </>
-              )}
+                  <>
+                    <DropdownMenuSeparator className="bg-muted/50" />
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/policies/concept-notes/manage-concept-notes/${note.id}/approve`}
+                        className="cursor-pointer flex items-center px-2 py-2 text-sm font-semibold rounded-md focus:bg-primary/10 focus:text-primary"
+                      >
+                        Approve
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -369,9 +372,17 @@ export default function ManageConceptNotesPage() {
   const router = useRouter();
   const { backendToken } = useAuth();
   const [page, setPage] = useState(1);
+  const [queueFilter, setQueueFilter] = useState<ManageQueueFilter>("all");
 
   const { data, isLoading, isError, error, refetch, isFetching } =
-    useManageConceptNotes({ limit: 100, page }, backendToken);
+    useManageConceptNotes(
+      {
+        limit: 100,
+        page,
+        ...(queueFilter === "new_submissions" ? { new_submissions: true } : {}),
+      },
+      backendToken,
+    );
 
   const notes = data?.data ?? [];
   const meta = data?.meta as any;
@@ -382,17 +393,77 @@ export default function ManageConceptNotesPage() {
     draft:
       statistics.inDraft ??
       notes.filter((n) => n.currentStatus === "draft").length,
+    newSubmissions:
+      statistics.newSubmissions ??
+      notes.filter((n) => n.currentStatus === "submitted").length,
     review:
       statistics.underReview ??
-      notes.filter((n) =>
-        ["submitted", "under_review"].includes(n.currentStatus),
-      ).length,
+      notes.filter((n) => n.currentStatus === "under_review").length,
     approved:
       statistics.approved ??
       notes.filter((n) =>
         ["accepted", "policy_draft_ready"].includes(n.currentStatus),
       ).length,
   };
+
+  const statCards: Array<{
+    key: ManageQueueFilter | "draft" | "review" | "approved";
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    iconBg: string;
+    border: string;
+    sub: string;
+    filter?: ManageQueueFilter;
+  }> = [
+    {
+      key: "all",
+      label: "Total Concept Notes",
+      value: stats.total,
+      icon: <FileText className="h-4 w-4 text-primary" />,
+      iconBg: "bg-primary/10",
+      border: "border-primary/10",
+      sub: "Across all categories",
+      filter: "all",
+    },
+    {
+      key: "new_submissions",
+      label: "New Concept Note Submitted",
+      value: stats.newSubmissions,
+      icon: <Inbox className="h-4 w-4 text-violet-600" />,
+      iconBg: "bg-violet-100",
+      border: "border-violet-200/70 bg-violet-50/20",
+      sub: "Awaiting review & expert assignment",
+      filter: "new_submissions",
+    },
+    {
+      key: "draft",
+      label: "In Draft",
+      value: stats.draft,
+      icon: <Clock className="h-4 w-4 text-orange-500" />,
+      iconBg: "bg-orange-100",
+      border: "border-orange-100/50 bg-orange-50/10",
+      sub: "Pending submission",
+    },
+    {
+      key: "review",
+      label: "Under Review",
+      value: stats.review,
+      icon: <AlertCircle className="h-4 w-4 text-blue-500" />,
+      iconBg: "bg-blue-100",
+      border: "border-blue-100/50 bg-blue-50/10",
+      sub: "Assigned to experts",
+    },
+    {
+      key: "approved",
+      label: "Approved",
+      value: stats.approved,
+      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+      iconBg: "bg-green-100",
+      border: "border-green-100/50 bg-green-50/10",
+      sub: "Ready for next stage",
+    },
+  ];
 
   return (
     <PageContainer
@@ -416,63 +487,79 @@ export default function ManageConceptNotesPage() {
       }
     >
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[
-          {
-            label: "Total Notes",
-            value: stats.total,
-            icon: <FileText className="h-4 w-4 text-primary" />,
-            iconBg: "bg-primary/10",
-            border: "border-primary/10",
-            sub: "Across all categories",
-          },
-          {
-            label: "In Draft",
-            value: stats.draft,
-            icon: <Clock className="h-4 w-4 text-orange-500" />,
-            iconBg: "bg-orange-100",
-            border: "border-orange-100/50 bg-orange-50/10",
-            sub: "Pending submission",
-          },
-          {
-            label: "Under Review",
-            value: stats.review,
-            icon: <AlertCircle className="h-4 w-4 text-blue-500" />,
-            iconBg: "bg-blue-100",
-            border: "border-blue-100/50 bg-blue-50/10",
-            sub: "Requiring attention",
-          },
-          {
-            label: "Approved",
-            value: stats.approved,
-            icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-            iconBg: "bg-green-100",
-            border: "border-green-100/50 bg-green-50/10",
-            sub: "Ready for next stage",
-          },
-        ].map(({ label, value, icon, iconBg, border, sub }) => (
-          <Card key={label} className={border}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {label}
-              </CardTitle>
-              <div
-                className={`h-8 w-8 rounded-full ${iconBg} flex items-center justify-center`}
-              >
-                {icon}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isLoading ? <Skeleton className="h-8 w-12" /> : value}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-                {sub}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {statCards.map(({ key, label, value, icon, iconBg, border, sub, filter }) => {
+          const isActive = filter ? queueFilter === filter : false;
+          const isClickable = Boolean(filter);
+
+          return (
+            <Card
+              key={key}
+              role={isClickable ? "button" : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              onClick={() => {
+                if (!filter) return;
+                setQueueFilter(filter);
+                setPage(1);
+              }}
+              onKeyDown={(event) => {
+                if (!isClickable || !filter) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setQueueFilter(filter);
+                  setPage(1);
+                }
+              }}
+              className={cn(
+                border,
+                isClickable &&
+                  "cursor-pointer transition-all hover:shadow-md hover:border-violet-300/80",
+                isActive &&
+                  "ring-2 ring-violet-500/60 shadow-md border-violet-300",
+              )}
+            >
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {label}
+                </CardTitle>
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${iconBg}`}
+                >
+                  {icon}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? <Skeleton className="h-8 w-12" /> : value}
+                </div>
+                <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                  {sub}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {queueFilter === "new_submissions" && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-violet-200/70 bg-violet-50/40 px-4 py-3">
+          <p className="text-sm text-violet-950">
+            Showing newly submitted concept notes that need PSR review and expert
+            assignment.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-violet-200 bg-background"
+            onClick={() => {
+              setQueueFilter("all");
+              setPage(1);
+            }}
+          >
+            Clear filter
+          </Button>
+        </div>
+      )}
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
       <div className="mt-8 w-full max-w-full overflow-hidden">
@@ -514,31 +601,45 @@ export default function ManageConceptNotesPage() {
             columns={columns}
             data={notes}
             searchKey="title"
-            searchPlaceholder="Search concept notes..."
+            searchPlaceholder={
+              queueFilter === "new_submissions"
+                ? "Search new submissions..."
+                : "Search concept notes..."
+            }
             onRowClick={(note) =>
               router.push(
                 `/policies/concept-notes/manage-concept-notes/${note.id}`,
               )
             }
-            filterOptions={[
-              {
-                key: "currentStatus",
-                label: "Status",
-                options: Object.entries(STATUS_CONFIG).map(
-                  ([value, { label }]) => ({ value, label }),
-                ),
-              },
-            ]}
+            filterOptions={
+              queueFilter === "all"
+                ? [
+                    {
+                      key: "currentStatus",
+                      label: "Status",
+                      options: Object.entries(STATUS_CONFIG).map(
+                        ([value, { label }]) => ({ value, label }),
+                      ),
+                    },
+                  ]
+                : []
+            }
           />
         ) : (
-          <Empty className="py-24 border-dashed">
+          <Empty className="border-dashed py-24">
             <EmptyMedia variant="icon">
               <FileText className="h-6 w-6" />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>No concept notes found</EmptyTitle>
+              <EmptyTitle>
+                {queueFilter === "new_submissions"
+                  ? "No new submissions"
+                  : "No concept notes found"}
+              </EmptyTitle>
               <EmptyDescription>
-                No concept notes have been submitted to the platform yet.
+                {queueFilter === "new_submissions"
+                  ? "There are no newly submitted concept notes waiting for expert assignment right now."
+                  : "No concept notes have been submitted to the platform yet."}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
-import { MAX_FILE_SIZE_MB } from "@/lib/constants";
+import { MAX_FILE_SIZE_MB, MAX_CONCEPT_NOTE_SUMMARY_WORDS } from "@/lib/constants";
+import {
+  countWords,
+  CONCEPT_NOTE_SUMMARY_TEXTAREA_CLASS,
+  getSummaryWordCountStatus,
+} from "@/lib/utils/word-count";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
@@ -55,13 +60,19 @@ import { toast } from "sonner";
 import { useOrganizations } from "@/lib/queries/organizations";
 import { useUnits } from "@/lib/queries/units";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  CONCEPT_NOTE_ATTACHMENT_ACCEPT,
+  isConceptNoteAllowedAttachment,
+} from "@/lib/utils/concept-note-attachments";
 
 const MAX_TITLE_LENGTH = 500;
-const MAX_SUMMARY_WORDS = 250;
+const MAX_SUMMARY_WORDS = MAX_CONCEPT_NOTE_SUMMARY_WORDS;
 
 export default function NewConceptNotePage() {
   const router = useRouter();
   const { backendToken } = useAuth();
+  const { user: currentUser, isLoading: isLoadingCurrentUser } = useCurrentUser();
   const createConceptNoteMutation = useCreateConceptNote();
   const updateConceptNoteMutation = useUpdateConceptNote(backendToken);
   const submitConceptNoteMutation = useSubmitConceptNote(backendToken);
@@ -77,6 +88,8 @@ export default function NewConceptNotePage() {
   const lastSavedValuesRef = useRef<any>(null);
   const isFirstRender = useRef(true);
   const isSavingInProgressRef = useRef(false);
+  const hasAppliedUserOrganizationRef = useRef(false);
+  const hasAppliedUserUnitRef = useRef(false);
 
   const { data: documentTypes = [] } = usePolicyDocumentTypes();
   // Thematic areas removed — frontend no longer loads or selects them
@@ -111,7 +124,66 @@ export default function NewConceptNotePage() {
     selectedOrganization ? [selectedOrganization] : null,
   );
 
-  // Reset selected unit if it is no longer valid for the selected organizations
+  // Pre-fill organization from the signed-in user's profile (editable afterward).
+  useEffect(() => {
+    if (hasAppliedUserOrganizationRef.current) return;
+    if (isLoadingCurrentUser) return;
+    if (organizations.length === 0) return;
+
+    if (!currentUser?.organization?.id) {
+      hasAppliedUserOrganizationRef.current = true;
+      return;
+    }
+
+    const orgId = String(currentUser.organization.id);
+    if (!organizations.some((org) => String(org.id) === orgId)) {
+      return;
+    }
+
+    if (!form.getValues("organization")) {
+      form.setValue("organization", orgId, { shouldDirty: false });
+    }
+    hasAppliedUserOrganizationRef.current = true;
+  }, [currentUser, isLoadingCurrentUser, organizations, form]);
+
+  // Pre-fill unit once units for the selected organization have loaded.
+  useEffect(() => {
+    if (hasAppliedUserUnitRef.current) return;
+    if (isLoadingCurrentUser) return;
+
+    if (!currentUser?.unit?.id) {
+      hasAppliedUserUnitRef.current = true;
+      return;
+    }
+
+    if (!selectedOrganization) {
+      if (hasAppliedUserOrganizationRef.current) {
+        hasAppliedUserUnitRef.current = true;
+      }
+      return;
+    }
+
+    if (isLoadingUnits) return;
+
+    const unitId = String(currentUser.unit.id);
+    if (
+      units.some((unit) => String(unit.id) === unitId) &&
+      !form.getValues("unit")
+    ) {
+      form.setValue("unit", unitId, { shouldDirty: false });
+    }
+
+    hasAppliedUserUnitRef.current = true;
+  }, [
+    currentUser,
+    isLoadingCurrentUser,
+    selectedOrganization,
+    units,
+    isLoadingUnits,
+    form,
+  ]);
+
+  // Reset selected unit if it is no longer valid for the selected organization
   useEffect(() => {
     if (!selectedOrganization) {
       form.setValue("unit", "");
@@ -126,14 +198,15 @@ export default function NewConceptNotePage() {
     }
   }, [selectedOrganization, units, selectedUnit, form]);
   
-  const wordCount = calculateWordCount(executiveSummary);
+  const wordCount = countWords(executiveSummary);
+  const summaryWordStatus = getSummaryWordCountStatus(wordCount, MAX_SUMMARY_WORDS);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
     Boolean(selectedOrganization),
     selectedStrategicObjectives.length > 0,
-    wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
+    wordCount > 0 && !summaryWordStatus.isOverLimit,
     Boolean(selectedFile),
   ];
   const completion = Math.round(
@@ -201,11 +274,13 @@ export default function NewConceptNotePage() {
         ? fallbackDocType
         : parsedDocType;
 
-    const parsedOrg =
-      values.organization && values.organization.length > 0
-        ? Number(values.organization[0])
-        : NaN;
-    const orgVal = isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
+    const parsedOrg = values.organization ? Number(values.organization) : NaN;
+    const orgVal =
+      Number.isNaN(parsedOrg) || parsedOrg <= 0 ? fallbackOrg : parsedOrg;
+
+    const parsedUnit = values.unit ? Number(values.unit) : NaN;
+    const unitVal =
+      !Number.isNaN(parsedUnit) && parsedUnit > 0 ? parsedUnit : null;
 
     if (!docTypeVal || !orgVal) {
       throw new Error("Please select a valid document type and organization before saving.");
@@ -223,6 +298,9 @@ export default function NewConceptNotePage() {
       );
       formData.append("organization", orgVal.toString());
       formData.append("document_category", values.documentCategory || "new");
+      if (unitVal) {
+        formData.append("unit", String(unitVal));
+      }
 
       for (const objectiveId of strategicObjectiveIds) {
         formData.append("strategic_objective_ids", String(objectiveId));
@@ -245,6 +323,9 @@ export default function NewConceptNotePage() {
         document_category: values.documentCategory || "new",
         strategic_objective_ids: strategicObjectiveIds,
       };
+      if (unitVal) {
+        payload.unit = unitVal;
+      }
 
       return payload;
     }
@@ -558,8 +639,8 @@ export default function NewConceptNotePage() {
                   <div className="space-y-1">
                     <CardTitle className="text-lg">Organization</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Select the organization context for this concept note and
-                      choose a university when needed.
+                      Pre-filled from your profile. Change the organization or
+                      unit if this concept note belongs elsewhere.
                     </p>
                   </div>
                 </div>
@@ -592,7 +673,8 @@ export default function NewConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Select the organization responsible for this concept note.
+                        Defaults to your organization. You can select a different
+                        one if needed.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -635,7 +717,8 @@ export default function NewConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Specify the specific department or unit within the selected organization.
+                        Defaults to your unit or department. You can change it if
+                        needed.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -656,11 +739,11 @@ export default function NewConceptNotePage() {
                   </div>
                   <Badge
                     variant={
-                      wordCount > MAX_SUMMARY_WORDS ? "destructive" : "outline"
+                      summaryWordStatus.isOverLimit ? "destructive" : "outline"
                     }
                     className="w-fit"
                   >
-                    {wordCount}/{MAX_SUMMARY_WORDS} words
+                    {summaryWordStatus.badgeLabel}
                   </Badge>
                 </div>
               </CardHeader>
@@ -681,23 +764,25 @@ export default function NewConceptNotePage() {
                         <FormControl>
                           <Textarea
                             placeholder="Describe the policy issue, proposed direction, affected stakeholders, and expected public value..."
-                            className="min-h-55 resize-y leading-6"
+                            className={CONCEPT_NOTE_SUMMARY_TEXTAREA_CLASS}
                             {...field}
                             onChange={handleChange}
                           />
                         </FormControl>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <FormDescription>
-                            Keep the summary concise enough for reviewer triage.
+                            Summarize the policy issue and proposed response. Up
+                            to about 2 pages (~{MAX_SUMMARY_WORDS} words) is
+                            supported.
                           </FormDescription>
                           <span
                             className={
-                              wordCount > MAX_SUMMARY_WORDS
+                              summaryWordStatus.isOverLimit
                                 ? "text-xs font-medium text-destructive"
                                 : "text-xs text-muted-foreground"
                             }
                           >
-                            {MAX_SUMMARY_WORDS - wordCount} words remaining
+                            {summaryWordStatus.hintLabel}
                           </span>
                         </div>
                         <FormMessage />
@@ -738,12 +823,18 @@ export default function NewConceptNotePage() {
                           <Input
                             ref={fileInputRef}
                             type="file"
-                            accept=".pdf,.doc,.docx,.txt"
+                            accept={CONCEPT_NOTE_ATTACHMENT_ACCEPT}
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) {
-                                field.onChange(file);
+                              if (!file) return;
+                              if (!isConceptNoteAllowedAttachment(file)) {
+                                toast.error(
+                                  "Only PDF and Word (.doc, .docx) files are allowed.",
+                                );
+                                e.target.value = "";
+                                return;
                               }
+                              field.onChange(file);
                             }}
                             className="hidden"
                           />
@@ -799,7 +890,7 @@ export default function NewConceptNotePage() {
                                   Choose a document to upload
                                 </span>
                                 <p className="block text-xs text-muted-foreground m-0">
-                                  PDF, DOC, DOCX, or TXT up to {MAX_FILE_SIZE_MB}MB
+                                  PDF or Word (.doc, .docx) up to {MAX_FILE_SIZE_MB}MB
                                 </p>
                               </span>
                             </div>
@@ -949,11 +1040,4 @@ function ReadinessItem({
       </span>
     </div>
   );
-}
-
-function calculateWordCount(text: string) {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0).length;
 }

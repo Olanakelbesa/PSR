@@ -249,55 +249,6 @@ export default function ConceptNoteDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="pb-3 border-b bg-muted/30">
-              <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3 space-y-2">
-              {isDraft && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start h-9 text-sm"
-                  asChild
-                >
-                  <Link href={`/policies/concept-notes/my-concept-note/edit/${note.id}`}>
-                    <Edit className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Edit Concept
-                  </Link>
-                </Button>
-              )}
-              {isRevisionRequired && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start h-9 text-sm"
-                  asChild
-                >
-                  <Link href={`/policies/concept-notes/my-concept-note/edit/${note.id}`}>
-                    <RefreshCw className="mr-2 h-4 w-4 text-muted-foreground" />
-                    Resubmit Proposal
-                  </Link>
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start h-9 text-sm"
-              >
-                <Download className="mr-2 h-4 w-4 text-muted-foreground" />
-                Download PDF
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start h-9 text-sm"
-              >
-                <ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
-                Share Concept
-              </Button>
-            </CardContent>
-          </Card>
         </aside>
       </div>
 

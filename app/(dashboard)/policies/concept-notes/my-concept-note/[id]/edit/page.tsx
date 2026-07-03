@@ -19,7 +19,12 @@ import {
 
 import { cn } from "@/lib/utils";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
-import { MAX_FILE_SIZE_MB } from "@/lib/constants";
+import { MAX_FILE_SIZE_MB, MAX_CONCEPT_NOTE_SUMMARY_WORDS } from "@/lib/constants";
+import {
+  countWords,
+  CONCEPT_NOTE_SUMMARY_TEXTAREA_CLASS,
+  getSummaryWordCountStatus,
+} from "@/lib/utils/word-count";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,9 +63,13 @@ import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
 // thematic areas removed from concept notes
 import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { toast } from "sonner";
+import {
+  CONCEPT_NOTE_ATTACHMENT_ACCEPT,
+  isConceptNoteAllowedAttachment,
+} from "@/lib/utils/concept-note-attachments";
 
 const MAX_TITLE_LENGTH = 500;
-const MAX_SUMMARY_WORDS = 250;
+const MAX_SUMMARY_WORDS = MAX_CONCEPT_NOTE_SUMMARY_WORDS;
 
 export default function EditConceptNotePage() {
   const router = useRouter();
@@ -292,7 +301,8 @@ export default function EditConceptNotePage() {
     }
   }, [form, selectedOrganization]);
 
-  const wordCount = calculateWordCount(executiveSummary);
+  const wordCount = countWords(executiveSummary);
+  const summaryWordStatus = getSummaryWordCountStatus(wordCount, MAX_SUMMARY_WORDS);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
@@ -300,7 +310,7 @@ export default function EditConceptNotePage() {
     Boolean(selectedOrganization),
     selectedStrategicObjectives.length > 0,
     Boolean(selectedUnit),
-    wordCount > 0 && wordCount <= MAX_SUMMARY_WORDS,
+    wordCount > 0 && !summaryWordStatus.isOverLimit,
     Boolean(selectedFile || existingFileUrl),
   ];
   const completion = Math.round(
@@ -653,11 +663,11 @@ export default function EditConceptNotePage() {
                   </div>
                   <Badge
                     variant={
-                      wordCount > MAX_SUMMARY_WORDS ? "destructive" : "outline"
+                      summaryWordStatus.isOverLimit ? "destructive" : "outline"
                     }
                     className="w-fit"
                   >
-                    {wordCount}/{MAX_SUMMARY_WORDS} words
+                    {summaryWordStatus.badgeLabel}
                   </Badge>
                 </div>
               </CardHeader>
@@ -670,22 +680,24 @@ export default function EditConceptNotePage() {
                       <FormControl>
                         <Textarea
                           placeholder="Describe the policy issue, proposed direction, affected stakeholders, and expected public value..."
-                          className="min-h-55 resize-y leading-6"
+                          className={CONCEPT_NOTE_SUMMARY_TEXTAREA_CLASS}
                           {...field}
                         />
                       </FormControl>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <FormDescription>
-                          Keep the summary concise enough for reviewer triage.
+                          Summarize the policy issue and proposed response. Up
+                          to about 2 pages (~{MAX_SUMMARY_WORDS} words) is
+                          supported.
                         </FormDescription>
                         <span
                           className={
-                            wordCount > MAX_SUMMARY_WORDS
+                            summaryWordStatus.isOverLimit
                               ? "text-xs font-medium text-destructive"
                               : "text-xs text-muted-foreground"
                           }
                         >
-                          {MAX_SUMMARY_WORDS - wordCount} words remaining
+                          {summaryWordStatus.hintLabel}
                         </span>
                       </div>
                       <FormMessage />
@@ -719,13 +731,19 @@ export default function EditConceptNotePage() {
                           <Input
                             ref={fileInputRef}
                             type="file"
-                            accept=".pdf,.doc,.docx,.txt"
+                            accept={CONCEPT_NOTE_ATTACHMENT_ACCEPT}
                             className="hidden"
                             onChange={(event) => {
                               const file = event.target.files?.[0];
-                              if (file) {
-                                field.onChange(file);
+                              if (!file) return;
+                              if (!isConceptNoteAllowedAttachment(file)) {
+                                toast.error(
+                                  "Only PDF and Word (.doc, .docx) files are allowed.",
+                                );
+                                event.target.value = "";
+                                return;
                               }
+                              field.onChange(file);
                             }}
                           />
 
@@ -797,7 +815,7 @@ export default function EditConceptNotePage() {
                                   Choose a document to upload
                                 </span>
                                 <span className="block text-xs text-muted-foreground">
-                                  PDF up to {MAX_FILE_SIZE_MB}MB
+                                  PDF or Word (.doc, .docx) up to {MAX_FILE_SIZE_MB}MB
                                 </span>
                               </span>
                             </div>
@@ -935,11 +953,4 @@ function ReadinessItem({
       </span>
     </div>
   );
-}
-
-function calculateWordCount(text: string) {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0).length;
 }

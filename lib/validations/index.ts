@@ -3,6 +3,9 @@
 // ============================================================================
 
 import { z } from "zod";
+import { MAX_CONCEPT_NOTE_SUMMARY_WORDS, MAX_FILE_SIZE } from "@/lib/constants";
+import { countWords } from "@/lib/utils/word-count";
+import { isConceptNoteAllowedAttachment } from "@/lib/utils/concept-note-attachments";
 
 // ============================================================================
 // Authentication Schemas
@@ -199,7 +202,10 @@ export const conceptNoteSchema = z.object({
   executiveSummary: z
     .string()
     .min(1, "Executive summary is required")
-    .max(1500, "Executive summary must not exceed 250 words"),
+    .refine(
+      (value) => countWords(value) <= MAX_CONCEPT_NOTE_SUMMARY_WORDS,
+      `Executive summary must not exceed ${MAX_CONCEPT_NOTE_SUMMARY_WORDS} words (about 2 pages)`,
+    ),
   documentType: z.number().min(1, "Document type is required"),
   organization: z.string().min(1, "Select an organization"),
   unit: z.string().optional(),
@@ -212,21 +218,18 @@ export const conceptNoteSchema = z.object({
       "File must be a valid file object"
     )
     .refine(
-      (file) => !file || typeof file === "string" || (file instanceof File && file.size <= 10 * 1024 * 1024),
-      "File size must be less than 10MB"
+      (file) =>
+        !file ||
+        typeof file === "string" ||
+        (file instanceof File && file.size <= MAX_FILE_SIZE),
+      "File size exceeds the maximum allowed size"
     )
     .refine(
       (file) =>
         !file ||
         typeof file === "string" ||
-        (file instanceof File &&
-          [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-          ].includes(file.type)),
-      "File must be a PDF, DOC, DOCX, or TXT file"
+        (file instanceof File && isConceptNoteAllowedAttachment(file)),
+      "Only PDF and Word (.doc, .docx) files are allowed",
     )
     .optional()
     .nullable(),

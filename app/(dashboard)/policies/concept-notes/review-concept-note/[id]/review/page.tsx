@@ -25,9 +25,17 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
+import { PdfViewerDialog } from "@/components/shared";
 import { toast } from "sonner";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
+import {
+  CONCEPT_NOTE_ATTACHMENT_ACCEPT,
+  downloadConceptNoteAttachment,
+  getConceptNoteAttachmentKind,
+  isConceptNoteAllowedAttachment,
+} from "@/lib/utils/concept-note-attachments";
 import { cn } from "@/lib/utils";
+import { CONCEPT_NOTE_SUMMARY_PANEL_CLASS } from "@/lib/utils/word-count";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -49,6 +57,10 @@ export default function ConceptNoteReviewPage() {
   const [decision, setDecision] = useState<"approve" | "revise" | "reject" | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -256,13 +268,22 @@ export default function ConceptNoteReviewPage() {
                   type="file"
                   ref={fileInputRef}
                   className="hidden"
-                  accept=".pdf,.doc,.docx"
+                  accept={CONCEPT_NOTE_ATTACHMENT_ACCEPT}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
 
+                    if (!isConceptNoteAllowedAttachment(file)) {
+                      toast.error(
+                        "Only PDF and Word (.doc, .docx) files are allowed.",
+                      );
+                      e.target.value = "";
+                      return;
+                    }
+
                     if (file.size > MAX_FILE_SIZE) {
                       toast.error(`File size must be under ${MAX_FILE_SIZE_MB}MB`);
+                      e.target.value = "";
                       return;
                     }
 
@@ -281,7 +302,7 @@ export default function ConceptNoteReviewPage() {
                   >
                     <Upload className="h-8 w-8 text-muted-foreground mb-3" />
                     <p className="text-sm font-medium text-foreground">Click to upload annotated files</p>
-                    <p className="text-xs text-muted-foreground mt-1">PDF, DOCX up to {MAX_FILE_SIZE_MB}MB</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF or Word (.doc, .docx) up to {MAX_FILE_SIZE_MB}MB</p>
                   </div>
                 ) : selectedFile ? (
                   <div
@@ -428,27 +449,51 @@ export default function ConceptNoteReviewPage() {
                 <span className="text-xs text-primary font-mono mt-1 block">{note.id}</span>
               </div>
 
-              <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground leading-relaxed line-clamp-6">
+              <div className={CONCEPT_NOTE_SUMMARY_PANEL_CLASS}>
                 {note.overview?.executiveSummary || "No summary provided."}
               </div>
 
-              {note.overview?.file && (
-                <div className="pt-2">
-                  <p className="text-xs font-semibold mb-2">Original File</p>
-                  <div
-                    className="flex items-center gap-2 p-2 border rounded hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() =>
-                      window.open(
-                        resolveFileUrl(note.overview.file!) ?? "#",
-                        "_blank",
-                      )
-                    }
-                  >
-                    <FileText className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-xs truncate">{note.overview.file.split("/").pop()}</span>
+              {note.overview?.file && (() => {
+                const originalFileUrl =
+                  resolveFileUrl(note.overview.file!) ?? "";
+                const originalFileName =
+                  note.overview.file.split("/").pop() || "document";
+                const originalFileKind =
+                  getConceptNoteAttachmentKind(originalFileUrl);
+
+                return (
+                  <div className="pt-2">
+                    <p className="mb-2 text-xs font-semibold">Original File</p>
+                    <div
+                      className="flex cursor-pointer items-center gap-2 rounded border p-2 transition-colors hover:bg-muted/30"
+                      onClick={() => {
+                        if (originalFileKind === "pdf") {
+                          setPreviewFile({
+                            url: originalFileUrl,
+                            name: originalFileName,
+                          });
+                          return;
+                        }
+                        if (originalFileKind === "word") {
+                          downloadConceptNoteAttachment(
+                            originalFileUrl,
+                            originalFileName,
+                          );
+                          return;
+                        }
+                        toast.error(
+                          "Only PDF and Word (.doc, .docx) attachments are supported.",
+                        );
+                      }}
+                    >
+                      <FileText className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate text-xs">
+                        {originalFileName}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -460,6 +505,13 @@ export default function ConceptNoteReviewPage() {
           </div>
         </div>
       </div>
+
+      <PdfViewerDialog
+        isOpen={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+        url={previewFile?.url ?? ""}
+        title={previewFile?.name ?? "Document preview"}
+      />
     </PageContainer>
   );
 }

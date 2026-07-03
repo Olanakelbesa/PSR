@@ -293,6 +293,9 @@ export const ALLOWED_FILE_TYPES = {
 export const MAX_FILE_SIZE_MB = 200;
 export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024; // 200MB
 
+/** ~2 pages of single-spaced text (≈500 words/page). */
+export const MAX_CONCEPT_NOTE_SUMMARY_WORDS = 1000;
+
 // Pagination Defaults
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];

@@ -483,7 +483,7 @@ export default function ConceptNotesPage() {
         <Card className="bg-card border-primary/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-primary/80">
-              Total Notes
+              Total Concept Notes
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
               <FileText className="h-4 w-4 text-primary" />

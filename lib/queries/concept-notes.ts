@@ -51,6 +51,8 @@ export interface ConceptNotesParams {
   limit?: number;
   search?: string;
   current_status?: ConceptNoteItem["currentStatus"];
+  /** PSR queue: only newly submitted notes awaiting expert assignment */
+  new_submissions?: boolean;
   document_category?: "new" | "revision";
   organization?: number;
   submitted_by?: number;
@@ -101,6 +103,7 @@ export function useManageConceptNotes(
           statistics?: {
             totalConceptNote: number;
             inDraft: number;
+            newSubmissions: number;
             underReview: number;
             approved: number;
           };
@@ -127,6 +130,7 @@ export function useMyReviews(
           statistics?: {
             totalConceptNote: number;
             inDraft: number;
+            newSubmissions: number;
             underReview: number;
             approved: number;
           };

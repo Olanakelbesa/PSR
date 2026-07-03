@@ -91,7 +91,7 @@ export default function ConceptNoteDetailPage() {
   const summaryCardRows = [
     { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
     { label: "Status", value: note.currentStatus?.status },
-    { label: "Document Type", value: note.docType?.name || note.documentType?.name },
+    { label: "Document Type", value: note.docType?.name },
     { label: "Category", value: note.documentCategory },
     { label: "Organization", value: note.organization?.name },
     { label: "Unit", value: note.unit?.name },
