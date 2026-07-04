@@ -902,7 +902,7 @@ export default function DashboardPage() {
             {greeting}, {user.firstName}
           </h1>
           <p className="mt-1 font-medium text-muted-foreground">
-            Policy & Research. Last updated {lastUpdated}.
+            {/* Policy & Research. Last updated {lastUpdated}. */}
           </p>
         </div>
         <Button

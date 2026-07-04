@@ -171,6 +171,8 @@ const handler = auth(async (req, context) => {
 
     const isBinary =
       upstreamContentType.includes("application/pdf") ||
+      upstreamContentType.includes("application/msword") ||
+      upstreamContentType.includes("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
       upstreamContentType.includes("application/octet-stream") ||
       upstreamContentType.startsWith("image/");
 

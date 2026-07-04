@@ -1,14 +1,10 @@
 "use client";
 
-import { Download, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 
-import { PdfViewer } from "@/components/shared";
-import { Button } from "@/components/ui/button";
+import { PdfViewer, WordViewer } from "@/components/shared";
 import { Card } from "@/components/ui/card";
-import {
-  downloadConceptNoteAttachment,
-  getConceptNoteAttachmentKind,
-} from "@/lib/utils/concept-note-attachments";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 
 interface ConceptNoteAttachmentViewerProps {
   url: string;
@@ -49,26 +45,10 @@ export function ConceptNoteAttachmentViewer({
 
   if (kind === "word") {
     return (
-      <Card className={`overflow-hidden shadow-sm ${className ?? ""}`}>
-        <div className="flex flex-col items-center justify-center gap-4 bg-muted/10 px-6 py-16 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <FileText className="h-8 w-8 text-primary" />
-          </div>
-          <div className="space-y-1">
-            <p className="font-semibold text-foreground">Word document</p>
-            <p className="max-w-md text-sm text-muted-foreground">
-              Word files cannot be previewed in the browser. Download the file to
-              open it in Microsoft Word or another compatible app.
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => downloadConceptNoteAttachment(url, title)}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download Word Document
-          </Button>
-        </div>
+      <Card
+        className={`overflow-hidden border-primary/20 shadow-lg ${className ?? ""}`}
+      >
+        <WordViewer url={url} title={title} className={viewerClassName} />
       </Card>
     );
   }
