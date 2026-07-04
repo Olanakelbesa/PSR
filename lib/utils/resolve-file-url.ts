@@ -29,6 +29,7 @@ export function resolveFileUrl(filePath?: string | null): string | null {
     filePath.startsWith("/final_outputs/") ||
     filePath.startsWith("/registered_policies/") ||
     filePath.startsWith("/drafts/") ||
+    filePath.startsWith("/concept_notes/") ||
     filePath.startsWith("/attachments/")
   ) {
     return `/bff/media/stream/${filePath.slice(1)}`;
@@ -39,6 +40,41 @@ export function resolveFileUrl(filePath?: string | null): string | null {
 
 /** @deprecated Use resolveFileUrl — kept for callers expecting this name. */
 export const getPublicFileUrl = resolveFileUrl;
+
+/** Resolve the best available concept note attachment URL from a detail payload. */
+export function resolveConceptNoteDocumentUrl(note: {
+  overview?: { file?: string | null } | null;
+  versions?: Array<{ file?: string | null; isLatest?: boolean | null }> | null;
+  attachments?: Array<{ url?: string | null; file?: string | null }> | null;
+}): string | null {
+  const versionFiles = note.versions ?? [];
+  const candidates: Array<string | null | undefined> = [
+    note.overview?.file,
+    ...versionFiles
+      .filter((version) => version.isLatest && version.file)
+      .map((version) => version.file),
+    ...versionFiles.map((version) => version.file),
+    ...(note.attachments ?? []).map(
+      (attachment) => attachment.url ?? attachment.file,
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = resolveFileUrl(candidate);
+    if (resolved) return resolved;
+  }
+
+  return null;
+}
+
+export function hasConceptNoteDocument(
+  file: unknown,
+  existingFileUrl?: string | null,
+): boolean {
+  if (file instanceof File) return true;
+  if (typeof file === "string" && file.trim().length > 0) return true;
+  return Boolean(existingFileUrl);
+}
 
 export function extractFileName(filePath?: string | null): string {
   if (!filePath) return "Document";

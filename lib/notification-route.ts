@@ -27,6 +27,8 @@ export type SupportedResourceType = (typeof SUPPORTED_RESOURCE_TYPES)[number];
 const EVENT_ROUTES: Record<string, (resourceId: number) => string> = {
   CONCEPT_NOTE_SUBMITTED: (id) =>
     `/policies/concept-notes/manage-concept-notes/${id}`,
+  POLICY_DRAFT_SUBMITTED: (id) =>
+    `/policies/drafts/manage-drafts/${id}`,
   CONCEPT_NOTE_REVIEW_ASSIGNED: (id) =>
     `/policies/concept-notes/review-concept-note/${id}/review`,
   POLICY_REVIEW_ASSIGNED: (id) =>

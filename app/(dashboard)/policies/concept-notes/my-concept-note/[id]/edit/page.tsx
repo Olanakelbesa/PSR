@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   ArrowLeft,
   Check,
@@ -13,12 +14,18 @@ import {
   RefreshCw,
   Save,
   Send,
+  Eye,
+  Download,
   UploadCloud,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import {
+  extractFileName,
+  hasConceptNoteDocument,
+  resolveConceptNoteDocumentUrl,
+} from "@/lib/utils/resolve-file-url";
 import { MAX_FILE_SIZE_MB, MAX_CONCEPT_NOTE_SUMMARY_WORDS } from "@/lib/constants";
 import {
   countWords,
@@ -65,11 +72,28 @@ import { conceptNoteSchema, type ConceptNoteFormData } from "@/lib/validations";
 import { toast } from "sonner";
 import {
   CONCEPT_NOTE_ATTACHMENT_ACCEPT,
+  downloadConceptNoteAttachment,
+  getConceptNoteAttachmentKind,
   isConceptNoteAllowedAttachment,
 } from "@/lib/utils/concept-note-attachments";
+import { PdfViewerDialog } from "@/components/shared";
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_SUMMARY_WORDS = MAX_CONCEPT_NOTE_SUMMARY_WORDS;
+
+const editConceptNoteSchema = conceptNoteSchema.superRefine((data, ctx) => {
+  const hasDocument =
+    data.file instanceof File ||
+    (typeof data.file === "string" && data.file.trim().length > 0);
+
+  if (!hasDocument) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "A concept note document is required.",
+      path: ["file"],
+    });
+  }
+});
 
 export default function EditConceptNotePage() {
   const router = useRouter();
@@ -83,10 +107,14 @@ export default function EditConceptNotePage() {
   const resubmitMutation = useResubmitConceptNote(backendToken);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
+  const [viewingFile, setViewingFile] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<ConceptNoteFormData>({
-    resolver: zodResolver(conceptNoteSchema),
+    resolver: zodResolver(editConceptNoteSchema),
     defaultValues: {
       title: "",
       executiveSummary: "",
@@ -153,10 +181,7 @@ export default function EditConceptNotePage() {
   useEffect(() => {
     if (!conceptNote) return;
 
-    const latestVersionFile =
-      conceptNote.versions?.find((version) => Boolean(version.file))?.file ??
-      null;
-    const existingUrl = conceptNote.overview?.file ?? latestVersionFile ?? null;
+    const resolvedDocumentUrl = resolveConceptNoteDocumentUrl(conceptNote);
 
     const loadedStrategicObjectives = Array.isArray(
       (conceptNote as any).strategicObjectives,
@@ -190,9 +215,9 @@ export default function EditConceptNotePage() {
       documentCategory:
         conceptNote.documentCategory === "revision" ? "revision" : "new",
       strategicObjectives: loadedStrategicObjectives,
-      file: undefined,
+      file: resolvedDocumentUrl ?? undefined,
     });
-    setExistingFileUrl(resolveFileUrl(existingUrl));
+    setExistingFileUrl(resolvedDocumentUrl);
 
     if (loadedStrategicObjectives.length > 0) {
       form.setValue("strategicObjectives", loadedStrategicObjectives, {
@@ -236,7 +261,13 @@ export default function EditConceptNotePage() {
   const selectedUnit =
     form.watch("unit") ||
     (conceptNote?.unit?.id != null ? String(conceptNote.unit.id) : "");
-  const selectedFile = form.watch("file") as File | undefined;
+  const selectedFile = form.watch("file") as File | string | undefined;
+  const uploadedFile = selectedFile instanceof File ? selectedFile : null;
+  const retainedDocumentUrl =
+    typeof selectedFile === "string" && selectedFile.trim().length > 0
+      ? selectedFile
+      : existingFileUrl;
+  const hasDocument = hasConceptNoteDocument(selectedFile, existingFileUrl);
   const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
   const selectedDocumentTypeName = useMemo(() => {
@@ -311,7 +342,7 @@ export default function EditConceptNotePage() {
     selectedStrategicObjectives.length > 0,
     Boolean(selectedUnit),
     wordCount > 0 && !summaryWordStatus.isOverLimit,
-    Boolean(selectedFile || existingFileUrl),
+    Boolean(hasDocument),
   ];
   const completion = Math.round(
     (completionItems.filter(Boolean).length / completionItems.length) * 100,
@@ -368,16 +399,26 @@ export default function EditConceptNotePage() {
     return payload;
   };
 
+  const handleViewDocument = (url: string, fileName: string) => {
+    const kind = getConceptNoteAttachmentKind(url);
+    if (kind === "pdf") {
+      setViewingFile({ url, name: fileName });
+      return;
+    }
+
+    if (kind === "word") {
+      downloadConceptNoteAttachment(url, fileName);
+      return;
+    }
+
+    toast.error("Only PDF and Word (.doc, .docx) files can be opened.");
+  };
+
   const handleSubmit = async (
     data: ConceptNoteFormData,
     submitForReview = false,
   ) => {
     if (!backendToken) return;
-
-    if (submitForReview && !selectedFile && !existingFileUrl) {
-      toast.error("Please upload a concept note document before submitting.");
-      return;
-    }
 
     setIsSaving(true);
     try {
@@ -710,13 +751,9 @@ export default function EditConceptNotePage() {
             <Card className="overflow-hidden shadow-sm border-primary/10">
               <CardHeader className="border-b bg-muted/30">
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="text-lg">Document update</CardTitle>
-                  <Badge
-                    variant={
-                      selectedFile || existingFileUrl ? "default" : "outline"
-                    }
-                  >
-                    {selectedFile || existingFileUrl ? "Attached" : "Optional"}
+                  <CardTitle className="text-lg">Document upload</CardTitle>
+                  <Badge variant={hasDocument ? "default" : "outline"}>
+                    {hasDocument ? "Attached" : "Required"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -726,8 +763,14 @@ export default function EditConceptNotePage() {
                   name="file"
                   render={({ field }) => (
                     <FormItem>
+                      <FormLabel>Concept note document</FormLabel>
                       <FormControl>
-                        <div className="rounded-lg border-2 border-dashed bg-muted/20 p-8 text-center transition-colors hover:bg-muted/30">
+                        <div
+                          className={cn(
+                            "rounded-lg border-2 border-dashed bg-muted/20 p-8 text-center transition-colors hover:bg-muted/30",
+                            !hasDocument && "border-destructive/40",
+                          )}
+                        >
                           <Input
                             ref={fileInputRef}
                             type="file"
@@ -747,14 +790,14 @@ export default function EditConceptNotePage() {
                             }}
                           />
 
-                          {selectedFile ? (
+                          {uploadedFile ? (
                             <div className="flex flex-col items-center gap-3">
                               <FileText className="h-10 w-10 text-primary" />
                               <p className="text-sm font-medium">
-                                {selectedFile.name}
+                                {uploadedFile.name}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {(selectedFile.size / (1024 * 1024)).toFixed(2)}{" "}
+                                {(uploadedFile.size / (1024 * 1024)).toFixed(2)}{" "}
                                 MB
                               </p>
                               <div className="flex flex-wrap justify-center gap-2">
@@ -770,37 +813,71 @@ export default function EditConceptNotePage() {
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => field.onChange(undefined)}
+                                  onClick={() => {
+                                    field.onChange(existingFileUrl ?? undefined);
+                                    if (fileInputRef.current) {
+                                      fileInputRef.current.value = "";
+                                    }
+                                  }}
                                 >
                                   <X className="mr-2 h-4 w-4" />
                                   Remove
                                 </Button>
                               </div>
                             </div>
-                          ) : existingFileUrl ? (
+                          ) : retainedDocumentUrl ? (
                             <div className="flex flex-col items-center gap-3">
                               <FileText className="h-10 w-10 text-primary" />
                               <div className="space-y-1">
                                 <p className="text-sm font-medium">
-                                  {extractFileName(existingFileUrl)}
+                                  {extractFileName(retainedDocumentUrl)}
                                 </p>
-                                <a
-                                  href={existingFileUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs text-primary underline underline-offset-2"
-                                >
-                                  Open current file
-                                </a>
+                                <p className="text-xs text-muted-foreground">
+                                  Current document on file
+                                </p>
                               </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => fileInputRef.current?.click()}
-                              >
-                                upload updated concept note document
-                              </Button>
+                              <div className="flex flex-wrap justify-center gap-2">
+                                {getConceptNoteAttachmentKind(
+                                  retainedDocumentUrl,
+                                ) === "pdf" ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleViewDocument(
+                                        retainedDocumentUrl,
+                                        extractFileName(retainedDocumentUrl),
+                                      )
+                                    }
+                                  >
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    downloadConceptNoteAttachment(
+                                      retainedDocumentUrl,
+                                      extractFileName(retainedDocumentUrl),
+                                    )
+                                  }
+                                >
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Download
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => fileInputRef.current?.click()}
+                                >
+                                  Replace
+                                </Button>
+                              </div>
                             </div>
                           ) : (
                             <div
@@ -815,7 +892,8 @@ export default function EditConceptNotePage() {
                                   Choose a document to upload
                                 </span>
                                 <span className="block text-xs text-muted-foreground">
-                                  PDF or Word (.doc, .docx) up to {MAX_FILE_SIZE_MB}MB
+                                  PDF or Word (.doc, .docx) up to{" "}
+                                  {MAX_FILE_SIZE_MB}MB
                                 </span>
                               </span>
                             </div>
@@ -823,7 +901,8 @@ export default function EditConceptNotePage() {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Upload a replacement file if the concept note changed.
+                        Upload the concept note document. A PDF or Word file is
+                        required before saving or submitting.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -921,6 +1000,13 @@ export default function EditConceptNotePage() {
           </aside>
         </form>
       </Form>
+
+      <PdfViewerDialog
+        isOpen={!!viewingFile}
+        onOpenChange={(open) => !open && setViewingFile(null)}
+        url={viewingFile?.url || ""}
+        title={viewingFile?.name || conceptNote?.title || "Concept note"}
+      />
     </PageContainer>
   );
 }
