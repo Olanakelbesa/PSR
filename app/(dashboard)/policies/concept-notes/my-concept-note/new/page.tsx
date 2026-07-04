@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
-import { MAX_FILE_SIZE_MB, MAX_CONCEPT_NOTE_SUMMARY_WORDS } from "@/lib/constants";
+import { MAX_FILE_SIZE_MB } from "@/lib/constants";
 import {
   countWords,
   CONCEPT_NOTE_SUMMARY_TEXTAREA_CLASS,
-  getSummaryWordCountStatus,
 } from "@/lib/utils/word-count";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -67,7 +66,6 @@ import {
 } from "@/lib/utils/concept-note-attachments";
 
 const MAX_TITLE_LENGTH = 500;
-const MAX_SUMMARY_WORDS = MAX_CONCEPT_NOTE_SUMMARY_WORDS;
 
 export default function NewConceptNotePage() {
   const router = useRouter();
@@ -198,15 +196,13 @@ export default function NewConceptNotePage() {
     }
   }, [selectedOrganization, units, selectedUnit, form]);
   
-  const wordCount = countWords(executiveSummary);
-  const summaryWordStatus = getSummaryWordCountStatus(wordCount, MAX_SUMMARY_WORDS);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
     Boolean(selectedDocumentCategory),
     Boolean(selectedOrganization),
     selectedStrategicObjectives.length > 0,
-    wordCount > 0 && !summaryWordStatus.isOverLimit,
+    countWords(executiveSummary) > 0,
     Boolean(selectedFile),
   ];
   const completion = Math.round(
@@ -729,23 +725,18 @@ export default function NewConceptNotePage() {
 
             <Card className="overflow-hidden">
               <CardHeader className="border-b bg-muted/30">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">Executive summary</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Summarize the purpose, policy problem, and intended
-                      response.
-                    </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-lg">Executive summary</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Summarize the purpose, policy problem, and intended
+                        response.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="w-fit">
+                      {countWords(executiveSummary)} words
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      summaryWordStatus.isOverLimit ? "destructive" : "outline"
-                    }
-                    className="w-fit"
-                  >
-                    {summaryWordStatus.badgeLabel}
-                  </Badge>
-                </div>
               </CardHeader>
               <CardContent className="pt-6">
                 <FormField
@@ -769,22 +760,9 @@ export default function NewConceptNotePage() {
                             onChange={handleChange}
                           />
                         </FormControl>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <FormDescription>
-                            Summarize the policy issue and proposed response. Up
-                            to about 2 pages (~{MAX_SUMMARY_WORDS} words) is
-                            supported.
-                          </FormDescription>
-                          <span
-                            className={
-                              summaryWordStatus.isOverLimit
-                                ? "text-xs font-medium text-destructive"
-                                : "text-xs text-muted-foreground"
-                            }
-                          >
-                            {summaryWordStatus.hintLabel}
-                          </span>
-                        </div>
+                        <FormDescription>
+                          Summarize the policy issue and proposed response.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     );

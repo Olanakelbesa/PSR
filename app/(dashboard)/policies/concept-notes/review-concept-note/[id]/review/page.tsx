@@ -30,7 +30,6 @@ import { toast } from "sonner";
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/lib/constants";
 import {
   CONCEPT_NOTE_ATTACHMENT_ACCEPT,
-  downloadConceptNoteAttachment,
   getConceptNoteAttachmentKind,
   isConceptNoteAllowedAttachment,
 } from "@/lib/utils/concept-note-attachments";
@@ -467,18 +466,11 @@ export default function ConceptNoteReviewPage() {
                     <div
                       className="flex cursor-pointer items-center gap-2 rounded border p-2 transition-colors hover:bg-muted/30"
                       onClick={() => {
-                        if (originalFileKind === "pdf") {
+                        if (originalFileKind === "pdf" || originalFileKind === "word") {
                           setPreviewFile({
                             url: originalFileUrl,
                             name: originalFileName,
                           });
-                          return;
-                        }
-                        if (originalFileKind === "word") {
-                          downloadConceptNoteAttachment(
-                            originalFileUrl,
-                            originalFileName,
-                          );
                           return;
                         }
                         toast.error(

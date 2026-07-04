@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useRef, useState } from "react";
 import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
+import { WordViewer } from "@/components/shared/word-viewer";
 
 interface PdfViewerDialogProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export function PdfViewerDialog({
   if (!url) return null;
 
   const attachmentKind = getConceptNoteAttachmentKind(url);
-  if (attachmentKind !== "pdf") return null;
+  if (attachmentKind === "unsupported") return null;
 
   const safeUrl = encodeURI(url);
 
@@ -74,25 +75,33 @@ export function PdfViewerDialog({
             <DialogTitle className="truncate text-sm font-semibold text-foreground">
               {title}
             </DialogTitle>
-            <p className="text-xs text-muted-foreground">Document preview</p>
+            <p className="text-xs text-muted-foreground">
+              {attachmentKind === "pdf" ? "Document preview" : "Word Document Viewer"}
+            </p>
           </div>
           <div className="flex items-center gap-2 px-8">
-            <Button variant="outline" size="sm" onClick={handleOpenInNewTab}>
-              <ExternalLink className="h-4 w-4" />
-            </Button>
+            {attachmentKind === "pdf" && (
+              <Button variant="outline" size="sm" onClick={handleOpenInNewTab}>
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleDownload}>
               <Download className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        <div className="flex-1 h-full w-full bg-background">
-          <iframe
-            ref={iframeRef}
-            src={(blobUrl || safeUrl) + "#toolbar=0&navpanes=0&scrollbar=0"}
-            title={title}
-            className="h-full w-full border-0"
-            onError={handleIframeError}
-          />
+        <div className="flex-1 h-full w-full bg-background overflow-hidden">
+          {attachmentKind === "pdf" ? (
+            <iframe
+              ref={iframeRef}
+              src={(blobUrl || safeUrl) + "#toolbar=0&navpanes=0&scrollbar=0"}
+              title={title}
+              className="h-full w-full border-0"
+              onError={handleIframeError}
+            />
+          ) : (
+            <WordViewer url={url} title={title} className="h-full" />
+          )}
         </div>
       </DialogContent>
     </Dialog>

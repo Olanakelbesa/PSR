@@ -30,7 +30,6 @@ import { MAX_FILE_SIZE_MB, MAX_CONCEPT_NOTE_SUMMARY_WORDS } from "@/lib/constant
 import {
   countWords,
   CONCEPT_NOTE_SUMMARY_TEXTAREA_CLASS,
-  getSummaryWordCountStatus,
 } from "@/lib/utils/word-count";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -332,8 +331,6 @@ export default function EditConceptNotePage() {
     }
   }, [form, selectedOrganization]);
 
-  const wordCount = countWords(executiveSummary);
-  const summaryWordStatus = getSummaryWordCountStatus(wordCount, MAX_SUMMARY_WORDS);
   const completionItems = [
     title.trim().length > 0,
     Boolean(selectedDocumentType),
@@ -341,7 +338,7 @@ export default function EditConceptNotePage() {
     Boolean(selectedOrganization),
     selectedStrategicObjectives.length > 0,
     Boolean(selectedUnit),
-    wordCount > 0 && !summaryWordStatus.isOverLimit,
+    countWords(executiveSummary) > 0 && countWords(executiveSummary) <= MAX_SUMMARY_WORDS,
     Boolean(hasDocument),
   ];
   const completion = Math.round(
@@ -694,23 +691,18 @@ export default function EditConceptNotePage() {
 
             <Card className="overflow-hidden shadow-sm border-primary/10">
               <CardHeader className="border-b bg-muted/30">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">Executive summary</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Summarize the purpose, policy problem, and intended
-                      response.
-                    </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-lg">Executive summary</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Summarize the purpose, policy problem, and intended
+                        response.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="w-fit">
+                      {countWords(executiveSummary)} words
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={
-                      summaryWordStatus.isOverLimit ? "destructive" : "outline"
-                    }
-                    className="w-fit"
-                  >
-                    {summaryWordStatus.badgeLabel}
-                  </Badge>
-                </div>
               </CardHeader>
               <CardContent className="pt-6">
                 <FormField
@@ -725,22 +717,9 @@ export default function EditConceptNotePage() {
                           {...field}
                         />
                       </FormControl>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <FormDescription>
-                          Summarize the policy issue and proposed response. Up
-                          to about 2 pages (~{MAX_SUMMARY_WORDS} words) is
-                          supported.
-                        </FormDescription>
-                        <span
-                          className={
-                            summaryWordStatus.isOverLimit
-                              ? "text-xs font-medium text-destructive"
-                              : "text-xs text-muted-foreground"
-                          }
-                        >
-                          {summaryWordStatus.hintLabel}
-                        </span>
-                      </div>
+                      <FormDescription>
+                        Summarize the policy issue and proposed response.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -6,10 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { CONCEPT_NOTE_SUMMARY_PANEL_CLASS } from "@/lib/utils/word-count";
-import {
-  downloadConceptNoteAttachment,
-  getConceptNoteAttachmentKind,
-} from "@/lib/utils/concept-note-attachments";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 import { toast } from "sonner";
 
 interface ConceptNoteOverviewProps {
@@ -51,16 +48,11 @@ export function ConceptNoteOverview({
   const handleOpenAttachment = () => {
     if (!supportingFile) return;
 
-    if (supportingFileKind === "pdf") {
+    if (supportingFileKind === "pdf" || supportingFileKind === "word") {
       setViewingFile?.({
         name: supportingFileName,
         url: supportingFile,
       });
-      return;
-    }
-
-    if (supportingFileKind === "word") {
-      downloadConceptNoteAttachment(supportingFile, supportingFileName);
       return;
     }
 
