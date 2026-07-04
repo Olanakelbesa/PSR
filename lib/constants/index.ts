@@ -30,9 +30,9 @@ export const ROLES: Record<
     description: "Learning & Evidence Office staff",
     color: "bg-indigo-100 text-indigo-800",
   },
-  researcher: {
-    label: "Researcher",
-    description: "Principal or co-investigator on research projects",
+  user: {
+    label: "User",
+    description: "Default role assigned to newly registered users",
     color: "bg-green-100 text-green-800",
   },
   roc_reviewer: {

@@ -250,7 +250,7 @@ export default function ProposalsPage() {
         email: proposal.createdBy?.email || "",
         firstName,
         lastName,
-        role: "researcher",
+        role: "user",
         status: "active",
         createdAt: "",
         updatedAt: "",

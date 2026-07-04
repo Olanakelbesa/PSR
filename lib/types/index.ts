@@ -7,7 +7,7 @@ export type UserRole =
   | "system_admin"
   | "psr_officer"
   | "leo_officer"
-  | "researcher"
+  | "user"
   | "roc_reviewer"
   | "director"
   | "institutional_partner";

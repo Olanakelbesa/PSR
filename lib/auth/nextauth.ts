@@ -77,7 +77,7 @@ function buildMinimalSessionUser(user: any): MinimalSessionUser {
   const role =
     (user?.roles?.[0]?.slug as User["role"] | undefined) ??
     (user?.role as User["role"] | undefined) ??
-    "researcher";
+    "user";
 
   return {
     id: String(user?.id ?? ""),
