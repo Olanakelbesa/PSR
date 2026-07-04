@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -382,6 +382,7 @@ export default function AssignReviewersDetailPage() {
   const [loading, setLoading] = useState(true);
   const [reviewersLoading, setReviewersLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const searchSeq = useRef(0);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -425,19 +426,18 @@ export default function AssignReviewersDetailPage() {
 
   const loadReviewers = useCallback(
     async (targetPage: number, searchTerm: string) => {
+      const seq = ++searchSeq.current;
       setReviewersLoading(true);
       try {
         const params: ReviewerSelectorFilters = {
           page: targetPage,
           limit: PAGE_LIMIT,
           search: searchTerm || undefined,
-          organization: undefined,
-          title: undefined,
-          unit: undefined,
-          organization_type: undefined,
         };
 
         const response = await getReviewerSelector(params);
+        if (seq !== searchSeq.current) return;
+
         const mapped = (response.data || []).map(mapReviewer);
 
         setReviewers(mapped);

@@ -58,7 +58,7 @@ export const UserSchema = z.object({
       z.object({
         id: z.union([z.string(), z.number()]).transform(Number),
         name: z.string(),
-        slug: z.string().optional(),
+        slug: z.string().nullable().optional(),
       }),
     )
     .optional()
@@ -264,8 +264,14 @@ export async function getUserById(id: string): Promise<User> {
 export async function getReviewerSelector(
   filters: ReviewerSelectorFilters = {},
 ): Promise<ReviewerSelectorList> {
+  const cleanedParams: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== null) {
+      cleanedParams[key] = value;
+    }
+  }
   const res = await apiClient.get(API_ENDPOINTS.USERS.SELECTOR, {
-    params: filters,
+    params: cleanedParams,
   });
   return ReviewerSelectorListSchema.parse(
     normalizeReviewerSelectorResponse(res.data),
