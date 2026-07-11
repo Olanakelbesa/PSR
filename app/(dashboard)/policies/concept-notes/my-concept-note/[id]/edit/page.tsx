@@ -57,6 +57,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageContainer } from "@/components/layout";
 import { StrategicObjectivesField } from "@/components/policies/concept-notes/strategic-objectives-field";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  useConceptNoteProfileDefaults,
+  withProfileOrganization,
+  withProfileUnit,
+} from "@/hooks/useConceptNoteProfileDefaults";
 import { useOrganizations } from "@/lib/queries/organizations";
 import { useUnits } from "@/lib/queries/units";
 import {
@@ -101,10 +107,12 @@ export default function EditConceptNotePage() {
     ? params.id[0]
     : String(params.id);
   const { backendToken } = useAuth();
+  const { user: currentUser } = useCurrentUser();
   const updateMutation = useUpdateConceptNote(backendToken);
   const submitMutation = useSubmitConceptNote(backendToken);
   const resubmitMutation = useResubmitConceptNote(backendToken);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previousOrganizationRef = useRef<string>("");
   const [existingFileUrl, setExistingFileUrl] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<{
     name: string;
@@ -151,19 +159,6 @@ export default function EditConceptNotePage() {
 
     return [conceptNote.docType, ...documentTypes];
   }, [conceptNote, documentTypes]);
-
-  const organizationOptions = useMemo(() => {
-    if (!conceptNote?.organization) return organizations;
-
-    const currentOrganizationId = String(conceptNote.organization.id);
-    const hasCurrentOrganization = organizations.some(
-      (organization) => String(organization.id) === currentOrganizationId,
-    );
-
-    if (hasCurrentOrganization) return organizations;
-
-    return [conceptNote.organization, ...organizations];
-  }, [conceptNote, organizations]);
 
   const isRevisionRequired =
     String(conceptNote?.currentStatus?.status ?? "")
@@ -283,8 +278,45 @@ export default function EditConceptNotePage() {
     return null;
   }, [selectedDocumentCategory]);
 
+  const organizationForUnits =
+    selectedOrganization ||
+    (currentUser?.organization?.id ? String(currentUser.organization.id) : "");
+
   const { data: units = [], isLoading: isLoadingUnits } = useUnits(
-    selectedOrganization ? [selectedOrganization] : null,
+    organizationForUnits ? [organizationForUnits] : null,
+  );
+
+  const { profileOrganization, profileUnit } = useConceptNoteProfileDefaults({
+    form,
+    organizations,
+    units,
+    isLoadingOrganizations,
+    isLoadingUnits,
+    onlyWhenEmpty: true,
+    enabled: Boolean(conceptNote) && !isLoadingNote,
+    resetKey: conceptNoteId,
+  });
+
+  const organizationOptions = useMemo(() => {
+    const baseOptions = (() => {
+      if (!conceptNote?.organization) return organizations;
+
+      const currentOrganizationId = String(conceptNote.organization.id);
+      const hasCurrentOrganization = organizations.some(
+        (organization) => String(organization.id) === currentOrganizationId,
+      );
+
+      if (hasCurrentOrganization) return organizations;
+
+      return [conceptNote.organization, ...organizations];
+    })();
+
+    return withProfileOrganization(baseOptions, profileOrganization);
+  }, [conceptNote, organizations, profileOrganization]);
+
+  const unitOptions = useMemo(
+    () => withProfileUnit(units, profileUnit),
+    [units, profileUnit],
   );
 
   // Re-apply select values after reference data (document types, units)
@@ -312,24 +344,29 @@ export default function EditConceptNotePage() {
   }, [conceptNote, documentTypeOptions, units, form]);
 
   useEffect(() => {
+    const previousOrganization = previousOrganizationRef.current;
+
     if (!selectedOrganization) {
-      form.setValue("unit", "");
+      previousOrganizationRef.current = "";
       return;
     }
+
+    if (
+      previousOrganization &&
+      previousOrganization !== selectedOrganization
+    ) {
+      form.setValue("unit", "");
+    }
+
+    previousOrganizationRef.current = selectedOrganization;
 
     if (!selectedUnit || isLoadingUnits) return;
 
     const isValid = units.some((unit) => String(unit.id) === selectedUnit);
-    if (!isValid) {
+    if (!isValid && units.length > 0) {
       form.setValue("unit", "");
     }
   }, [form, selectedOrganization, selectedUnit, units, isLoadingUnits]);
-
-  useEffect(() => {
-    if (!selectedOrganization) {
-      form.setValue("unit", "");
-    }
-  }, [form, selectedOrganization]);
 
   const completionItems = [
     title.trim().length > 0,
@@ -602,7 +639,8 @@ export default function EditConceptNotePage() {
                   <div className="space-y-1">
                     <CardTitle className="text-lg">Organization</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Select the organization context and the matching unit.
+                      Pre-filled from your profile when empty. Change the
+                      organization or unit if this concept note belongs elsewhere.
                     </p>
                   </div>
                 </div>
@@ -638,8 +676,8 @@ export default function EditConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Select the organization responsible for this concept
-                        note.
+                        Defaults to your organization when empty. You can select
+                        a different one if needed.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -671,7 +709,7 @@ export default function EditConceptNotePage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {units.map((unit) => (
+                          {unitOptions.map((unit) => (
                             <SelectItem key={unit.id} value={String(unit.id)}>
                               {unit.name}
                             </SelectItem>
@@ -679,8 +717,8 @@ export default function EditConceptNotePage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Choose the unit associated with the selected
-                        organization.
+                        Defaults to your unit or department when empty. You can
+                        change it if needed.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

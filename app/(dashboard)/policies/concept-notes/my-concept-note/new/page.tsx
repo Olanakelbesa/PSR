@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -61,6 +61,11 @@ import { useUnits } from "@/lib/queries/units";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
+  useConceptNoteProfileDefaults,
+  withProfileOrganization,
+  withProfileUnit,
+} from "@/hooks/useConceptNoteProfileDefaults";
+import {
   CONCEPT_NOTE_ATTACHMENT_ACCEPT,
   isConceptNoteAllowedAttachment,
 } from "@/lib/utils/concept-note-attachments";
@@ -70,7 +75,7 @@ const MAX_TITLE_LENGTH = 500;
 export default function NewConceptNotePage() {
   const router = useRouter();
   const { backendToken } = useAuth();
-  const { user: currentUser, isLoading: isLoadingCurrentUser } = useCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const createConceptNoteMutation = useCreateConceptNote();
   const updateConceptNoteMutation = useUpdateConceptNote(backendToken);
   const submitConceptNoteMutation = useSubmitConceptNote(backendToken);
@@ -86,14 +91,14 @@ export default function NewConceptNotePage() {
   const lastSavedValuesRef = useRef<any>(null);
   const isFirstRender = useRef(true);
   const isSavingInProgressRef = useRef(false);
-  const hasAppliedUserOrganizationRef = useRef(false);
-  const hasAppliedUserUnitRef = useRef(false);
 
   const { data: documentTypes = [] } = usePolicyDocumentTypes();
   // Thematic areas removed — frontend no longer loads or selects them
 
-  const { data: organizations = [] } = useOrganizations();
-  const isReferenceDataReady = documentTypes.length > 0 && organizations.length > 0;
+  const { data: organizations = [], isLoading: isLoadingOrganizations } =
+    useOrganizations();
+  const isReferenceDataReady =
+    documentTypes.length > 0 && organizations.length > 0;
 
   const form = useForm<ConceptNoteFormData>({
     resolver: zodResolver(conceptNoteSchema),
@@ -118,78 +123,57 @@ export default function NewConceptNotePage() {
   const selectedFile = form.watch("file") as File | undefined;
   const selectedStrategicObjectives = form.watch("strategicObjectives") || [];
 
+  const organizationForUnits =
+    selectedOrganization ||
+    (currentUser?.organization?.id ? String(currentUser.organization.id) : "");
+
   const { data: units = [], isLoading: isLoadingUnits } = useUnits(
-    selectedOrganization ? [selectedOrganization] : null,
+    organizationForUnits ? [organizationForUnits] : null,
   );
 
-  // Pre-fill organization from the signed-in user's profile (editable afterward).
-  useEffect(() => {
-    if (hasAppliedUserOrganizationRef.current) return;
-    if (isLoadingCurrentUser) return;
-    if (organizations.length === 0) return;
-
-    if (!currentUser?.organization?.id) {
-      hasAppliedUserOrganizationRef.current = true;
-      return;
-    }
-
-    const orgId = String(currentUser.organization.id);
-    if (!organizations.some((org) => String(org.id) === orgId)) {
-      return;
-    }
-
-    if (!form.getValues("organization")) {
-      form.setValue("organization", orgId, { shouldDirty: false });
-    }
-    hasAppliedUserOrganizationRef.current = true;
-  }, [currentUser, isLoadingCurrentUser, organizations, form]);
-
-  // Pre-fill unit once units for the selected organization have loaded.
-  useEffect(() => {
-    if (hasAppliedUserUnitRef.current) return;
-    if (isLoadingCurrentUser) return;
-
-    if (!currentUser?.unit?.id) {
-      hasAppliedUserUnitRef.current = true;
-      return;
-    }
-
-    if (!selectedOrganization) {
-      if (hasAppliedUserOrganizationRef.current) {
-        hasAppliedUserUnitRef.current = true;
-      }
-      return;
-    }
-
-    if (isLoadingUnits) return;
-
-    const unitId = String(currentUser.unit.id);
-    if (
-      units.some((unit) => String(unit.id) === unitId) &&
-      !form.getValues("unit")
-    ) {
-      form.setValue("unit", unitId, { shouldDirty: false });
-    }
-
-    hasAppliedUserUnitRef.current = true;
-  }, [
-    currentUser,
-    isLoadingCurrentUser,
-    selectedOrganization,
-    units,
-    isLoadingUnits,
+  const { profileOrganization, profileUnit } = useConceptNoteProfileDefaults({
     form,
-  ]);
+    organizations,
+    units,
+    isLoadingOrganizations,
+    isLoadingUnits,
+    onlyWhenEmpty: true,
+    enabled: true,
+    resetKey: "new",
+  });
 
-  // Reset selected unit if it is no longer valid for the selected organization
+  const organizationOptions = useMemo(
+    () => withProfileOrganization(organizations, profileOrganization),
+    [organizations, profileOrganization],
+  );
+
+  const unitOptions = useMemo(
+    () => withProfileUnit(units, profileUnit),
+    [units, profileUnit],
+  );
+
+  const previousOrganizationRef = useRef<string>("");
+
+  // Clear unit only when the user changes organization, not during initial autofill.
   useEffect(() => {
+    const previousOrganization = previousOrganizationRef.current;
+
     if (!selectedOrganization) {
-      form.setValue("unit", "");
+      previousOrganizationRef.current = "";
       return;
     }
+
+    if (
+      previousOrganization &&
+      previousOrganization !== selectedOrganization
+    ) {
+      form.setValue("unit", "");
+    }
+
+    previousOrganizationRef.current = selectedOrganization;
 
     if (selectedUnit && units.length > 0) {
-      const isValid = units.some((u) => String(u.id) === selectedUnit);
+      const isValid = units.some((unit) => String(unit.id) === selectedUnit);
       if (!isValid) {
         form.setValue("unit", "");
       }
@@ -661,7 +645,7 @@ export default function NewConceptNotePage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {organizations.map((organization) => (
+                          {organizationOptions.map((organization) => (
                             <SelectItem key={organization.id} value={String(organization.id)}>
                               {organization.name}
                             </SelectItem>
@@ -684,15 +668,15 @@ export default function NewConceptNotePage() {
                     <FormItem className="pt-2">
                       <FormLabel>Unit / Department</FormLabel>
                       <Select
-                        disabled={!selectedOrganization || isLoadingUnits}
+                        disabled={!organizationForUnits || isLoadingUnits}
                         onValueChange={field.onChange}
-                        value={field.value}
+                        value={field.value || ""}
                       >
                         <FormControl>
                           <SelectTrigger className="h-11">
                             <SelectValue
                               placeholder={
-                                !selectedOrganization
+                                !organizationForUnits
                                   ? "Select organization first"
                                   : isLoadingUnits
                                     ? "Loading units..."
@@ -702,7 +686,7 @@ export default function NewConceptNotePage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {units.map((unitOption) => (
+                          {unitOptions.map((unitOption) => (
                             <SelectItem
                               key={unitOption.id}
                               value={String(unitOption.id)}
