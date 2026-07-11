@@ -46,7 +46,7 @@ export function ConceptNoteAttachmentViewer({
   if (kind === "word") {
     return (
       <Card
-        className={`overflow-hidden border-primary/20 shadow-lg ${className ?? ""}`}
+        className={`overflow-hidden border-primary/20 bg-[#ededed] shadow-lg ${className ?? ""}`}
       >
         <WordViewer url={url} title={title} className={viewerClassName} />
       </Card>

@@ -1,0 +1,172 @@
+/* Microsoft Word–style paginated document viewer */
+
+.word-viewer-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  background: #ededed;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.word-document-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 0 auto;
+  width: min(100%, 816px);
+}
+
+.word-document-page {
+  flex-shrink: 0;
+  width: 100%;
+  height: 1056px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 6px 24px rgba(0, 0, 0, 0.1);
+  color: #000000;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+}
+
+.word-document-content {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 96px;
+  overflow: hidden;
+  font-family: Calibri, "Segoe UI", Candara, Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.15;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.word-document-content--measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.word-document-content p {
+  margin: 0 0 8pt;
+}
+
+.word-document-content h1,
+.word-document-content h2,
+.word-document-content h3,
+.word-document-content h4,
+.word-document-content h5,
+.word-document-content h6 {
+  font-family: Calibri Light, Calibri, "Segoe UI", sans-serif;
+  color: #2f5496;
+  font-weight: 400;
+  margin: 12pt 0 6pt;
+  line-height: 1.15;
+}
+
+.word-document-content h1 {
+  font-size: 16pt;
+}
+
+.word-document-content h2 {
+  font-size: 13pt;
+}
+
+.word-document-content h3 {
+  font-size: 12pt;
+  color: #1f3864;
+}
+
+.word-document-content h4,
+.word-document-content h5,
+.word-document-content h6 {
+  font-size: 11pt;
+  color: #000000;
+  font-weight: 700;
+}
+
+.word-document-content strong,
+.word-document-content b {
+  font-weight: 700;
+}
+
+.word-document-content em,
+.word-document-content i {
+  font-style: italic;
+}
+
+.word-document-content u {
+  text-decoration: underline;
+}
+
+.word-document-content a {
+  color: #0563c1;
+  text-decoration: underline;
+}
+
+.word-document-content ul,
+.word-document-content ol {
+  margin: 0 0 8pt;
+  padding-left: 0.5in;
+}
+
+.word-document-content li {
+  margin: 0 0 4pt;
+}
+
+.word-document-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8pt 0;
+  font-size: inherit;
+}
+
+.word-document-content th,
+.word-document-content td {
+  border: 1px solid #bfbfbf;
+  padding: 4pt 6pt;
+  vertical-align: top;
+}
+
+.word-document-content th {
+  background: #f2f2f2;
+  font-weight: 700;
+}
+
+.word-document-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.word-document-content blockquote {
+  margin: 8pt 0 8pt 0.5in;
+  padding-left: 12pt;
+  border-left: 3px solid #bfbfbf;
+  color: #404040;
+}
+
+.word-document-content hr {
+  border: none;
+  border-top: 1px solid #bfbfbf;
+  margin: 12pt 0;
+}
+
+@media (max-width: 900px) {
+  .word-viewer-canvas {
+    padding: 1rem 0.75rem 1.5rem;
+  }
+
+  .word-document-page {
+    height: auto;
+    min-height: 70vh;
+  }
+
+  .word-document-content {
+    min-height: 70vh;
+    padding: 48px 32px;
+  }
+}
