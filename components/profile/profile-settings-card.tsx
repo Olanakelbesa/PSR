@@ -403,16 +403,6 @@ export function ProfileSettingsCard() {
                 </p>
                 <p className="text-sm">{formatDate(profile?.createdAt)}</p>
               </div>
-              <div className="space-y-1">
-                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  <Shield className="h-3.5 w-3.5" />
-                  Effective permissions
-                </p>
-                <p className="text-sm">
-                  {(profile?.permissions ?? []).length} permission
-                  {(profile?.permissions ?? []).length === 1 ? "" : "s"}
-                </p>
-              </div>
             </div>
 
             <div className="flex justify-end border-t pt-4">

@@ -21,13 +21,18 @@ export interface DashboardStatusItem {
   count: number;
 }
 
-export interface DashboardDeadline {
+export interface DashboardResearchGrant {
+  id: number;
   title: string;
   label: string;
   status: string;
+  urgency: string;
   daysLeft: number;
+  daysUntilOpen: number | null;
+  isOpen: boolean;
   dueDate: string;
-  source: string;
+  openDate: string;
+  budget: number | string | null;
 }
 
 export interface DashboardActivity {
@@ -64,8 +69,8 @@ export interface DashboardAnalytics {
   operationalStatus: {
     items: DashboardStatusItem[];
   };
-  criticalDeadlines: {
-    items: DashboardDeadline[];
+  upcomingResearchGrants: {
+    items: DashboardResearchGrant[];
   };
   liveActivityFeed: {
     items: DashboardActivity[];

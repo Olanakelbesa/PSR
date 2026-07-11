@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertCircle,
@@ -47,7 +48,7 @@ import type {
   DashboardActivity,
   DashboardAnalytics,
   DashboardChangeDirection,
-  DashboardDeadline,
+  DashboardResearchGrant,
   DashboardOverviewCard,
   DashboardStage,
   DashboardStatusItem,
@@ -238,13 +239,25 @@ function getChangeClass(direction: DashboardChangeDirection) {
   return "text-emerald-500";
 }
 
-function getDeadlineClass(deadline: DashboardDeadline) {
-  if (deadline.status === "overdue" || deadline.daysLeft < 0) {
+function getGrantUrgencyClass(grant: DashboardResearchGrant) {
+  if (grant.urgency === "urgent" || grant.daysLeft <= 3) {
     return "text-red-600";
   }
 
-  if (deadline.daysLeft <= 7) return "text-amber-600";
+  if (grant.urgency === "scheduled" || grant.daysLeft <= 7) {
+    return "text-amber-600";
+  }
+
   return "text-emerald-600";
+}
+
+function formatGrantStatus(status: string) {
+  return status.replace(/_/g, " ");
+}
+
+function isUpcomingGrantCall(grant: DashboardResearchGrant) {
+  const status = grant.status.toLowerCase();
+  return status === "published" || status === "open";
 }
 
 function EmptyState({ label }: { label: string }) {
@@ -496,61 +509,86 @@ function WorkflowOverview({ items }: { items: DashboardStatusItem[] }) {
   );
 }
 
-function CriticalDeadlines({ deadlines }: { deadlines: DashboardDeadline[] }) {
+function UpcomingResearchGrants({
+  grants,
+}: {
+  grants: DashboardResearchGrant[];
+}) {
   const [showAll, setShowAll] = useState(false);
-  const visibleDeadlines = showAll ? deadlines : deadlines.slice(0, 5);
-  const canToggle = deadlines.length > 5;
+  const upcomingCalls = useMemo(
+    () => grants.filter(isUpcomingGrantCall),
+    [grants],
+  );
+  const visibleGrants = showAll ? upcomingCalls : upcomingCalls.slice(0, 5);
+  const canToggle = upcomingCalls.length > 5;
 
   return (
     <Card className="flex h-full flex-col border-primary/10 shadow-sm">
       <CardHeader className="min-h-[76px] border-b bg-muted/30 pb-2">
         <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
-          <AlertCircle className="h-4 w-4 text-primary" />
-          Critical Deadlines
+          <FlaskConical className="h-4 w-4 text-primary" />
+          Upcoming Research Grant Calls
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col pt-6">
-        {deadlines.length === 0 ? (
-          <EmptyState label="No critical deadlines" />
+        {upcomingCalls.length === 0 ? (
+          <EmptyState label="No upcoming research grant calls" />
         ) : (
           <>
             <div className="flex-1 space-y-5">
-              {visibleDeadlines.map((deadline) => (
-                <div
-                  key={`${deadline.source}-${deadline.title}-${deadline.dueDate}`}
-                  className="group flex items-start justify-between gap-4"
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="rounded-lg bg-muted p-2 transition-colors group-hover:bg-primary/5">
-                      <Calendar className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+              {visibleGrants.map((grant) => {
+                const countdown =
+                  !grant.isOpen &&
+                  grant.daysUntilOpen !== null &&
+                  grant.daysUntilOpen >= 0
+                    ? grant.daysUntilOpen
+                    : Math.max(grant.daysLeft, 0);
+                const countdownLabel =
+                  !grant.isOpen &&
+                  grant.daysUntilOpen !== null &&
+                  grant.daysUntilOpen >= 0
+                    ? "Days Until Open"
+                    : "Days Left";
+
+                return (
+                  <Link
+                    key={grant.id}
+                    href={`/research/grant-calls/${grant.id}`}
+                    className="group flex items-start justify-between gap-4 rounded-lg transition-colors hover:bg-muted/40"
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="rounded-lg bg-muted p-2 transition-colors group-hover:bg-primary/5">
+                        <Calendar className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 text-sm font-bold leading-snug">
+                          {grant.title}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {grant.label}
+                          {grant.isOpen
+                            ? ` · Closes ${formatDate(grant.dueDate)}`
+                            : ` · Opens ${formatDate(grant.openDate)}`}
+                        </p>
+                        <p
+                          className={cn(
+                            "mt-1 text-[10px] font-bold uppercase",
+                            getGrantUrgencyClass(grant),
+                          )}
+                        >
+                          {formatGrantStatus(grant.status)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="line-clamp-2 text-sm font-bold leading-snug">
-                        {deadline.title}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {deadline.label} · {formatDate(deadline.dueDate)}
-                      </p>
-                      <p
-                        className={cn(
-                          "mt-1 text-[10px] font-bold uppercase",
-                          getDeadlineClass(deadline),
-                        )}
-                      >
-                        {deadline.status.replace(/_/g, " ")}
+                    <div className="shrink-0 text-right">
+                      <span className="text-2xl font-black">{countdown}</span>
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                        {countdownLabel}
                       </p>
                     </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <span className="text-2xl font-black">
-                      {Math.abs(deadline.daysLeft)}
-                    </span>
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                      {deadline.daysLeft < 0 ? "Days Overdue" : "Days Left"}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
             {canToggle && (
               <Button
@@ -558,7 +596,7 @@ function CriticalDeadlines({ deadlines }: { deadlines: DashboardDeadline[] }) {
                 className="mt-6 h-9 w-full text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/5"
                 onClick={() => setShowAll((value) => !value)}
               >
-                {showAll ? "Show Less" : `Show All (${deadlines.length})`}
+                {showAll ? "Show Less" : `Show All (${upcomingCalls.length})`}
               </Button>
             )}
           </>
@@ -569,10 +607,6 @@ function CriticalDeadlines({ deadlines }: { deadlines: DashboardDeadline[] }) {
 }
 
 function RecentActivities({ activities }: { activities: DashboardActivity[] }) {
-  const [showAll, setShowAll] = useState(false);
-  const visibleActivities = showAll ? activities : activities.slice(0, 6);
-  const canToggle = activities.length > 6;
-
   const sourceColors: Record<string, string> = {
     domain: "bg-emerald-500",
     audit: "bg-blue-500",
@@ -586,51 +620,40 @@ function RecentActivities({ activities }: { activities: DashboardActivity[] }) {
           Live Activity Feed
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col pt-6">
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-6">
         {activities.length === 0 ? (
           <EmptyState label="No recent activity" />
         ) : (
-          <>
-            <div className="relative flex-1 space-y-4">
-              <div className="absolute bottom-2 left-1 top-2 w-0.5 bg-muted" />
-              {visibleActivities.map((activity, index) => (
-                <div
-                  key={`${activity.timestamp}-${index}`}
-                  className="relative z-10 flex items-start gap-4"
-                >
-                  <div
-                    className={cn(
-                      "mt-1.5 h-2 w-2 shrink-0 rounded-full shadow-sm",
-                      sourceColors[activity.source] || "bg-slate-500",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs leading-relaxed">
-                      <span className="font-black text-foreground">
-                        {activity.actor || "System"}{" "}
-                      </span>
-                      <span className="font-medium text-muted-foreground">
-                        {activity.title}
-                      </span>
-                    </p>
-                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Clock className="h-2.5 w-2.5" />
-                      {activity.relativeTime || formatDateTime(activity.timestamp)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {canToggle && (
-              <Button
-                variant="ghost"
-                className="mt-6 h-9 w-full text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/5"
-                onClick={() => setShowAll((value) => !value)}
+          <div className="relative max-h-[23.5rem] space-y-4 overflow-y-auto pr-1">
+            <div className="absolute bottom-2 left-1 top-2 w-0.5 bg-muted" />
+            {activities.map((activity, index) => (
+              <div
+                key={`${activity.timestamp}-${index}`}
+                className="relative z-10 flex items-start gap-4"
               >
-                {showAll ? "Show Less" : `Show All (${activities.length})`}
-              </Button>
-            )}
-          </>
+                <div
+                  className={cn(
+                    "mt-1.5 h-2 w-2 shrink-0 rounded-full shadow-sm",
+                    sourceColors[activity.source] || "bg-slate-500",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs leading-relaxed">
+                    <span className="font-black text-foreground">
+                      {activity.actor || "System"}{" "}
+                    </span>
+                    <span className="font-medium text-muted-foreground">
+                      {activity.title}
+                    </span>
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Clock className="h-2.5 w-2.5" />
+                    {activity.relativeTime || formatDateTime(activity.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -941,7 +964,7 @@ export default function DashboardPage() {
         <>
           <div className="space-y-8">
             <AnalyticsCardRow
-              title="Policy Analytics"
+              title="Policy Documents"
               description="Your submitted concept notes, policy drafts, and repository records."
               icon={BookOpen}
               cards={policyCards}
@@ -965,8 +988,8 @@ export default function DashboardPage() {
               <WorkflowOverview items={analytics.operationalStatus.items} />
             </div>
             <div className="lg:col-span-4">
-              <CriticalDeadlines
-                deadlines={analytics.criticalDeadlines.items}
+              <UpcomingResearchGrants
+                grants={analytics.upcomingResearchGrants?.items ?? []}
               />
             </div>
           </div>
