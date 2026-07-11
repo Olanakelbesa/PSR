@@ -222,7 +222,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (isPublicPath(nextUrl.pathname)) return true;
       return !!session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         const u = user as any;
         token.backendToken = u.backendToken;
@@ -230,6 +230,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.backendTokenExpires = u.backendTokenExpires;
         token.user = u.psrUser;
         token.error = undefined;
+      }
+
+      if (trigger === "update" && session?.user && token.user) {
+        token.user = {
+          ...token.user,
+          ...(session.user as Partial<typeof token.user>),
+        };
+        return token;
       }
 
       if (token.error === "RefreshTokenError") {

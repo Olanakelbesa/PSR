@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { invalidateDashboardAnalytics } from "@/lib/queries/dashboard";
 
 export interface PolicyDraftItem {
   id: number;
@@ -194,6 +195,7 @@ export function useAssignDraftReviewers() {
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-assigned-reviewers", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -225,6 +227,7 @@ export function useAssignPSRDecision() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", Number(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -252,6 +255,7 @@ export function useSendToRepository() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft-manage", Number(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(draftId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(draftId)] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -306,6 +310,7 @@ export function useCreatePolicyDraft() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -323,6 +328,7 @@ export function useUpdatePolicyDraft() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -340,6 +346,7 @@ export function useSubmitPolicyDraft() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -356,6 +363,7 @@ export function useResubmitPolicyDraft() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }
@@ -377,6 +385,7 @@ export function useSubmitPolicyDraftChecklistReview() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft-my-review", String(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft-checklist", String(id), String(versionId)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-my-reviews"] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }

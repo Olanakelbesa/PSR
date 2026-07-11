@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import {
@@ -40,9 +40,10 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { dashboardService } from "@/api/services/dashboard.service";
 import type { ApiError } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDashboardAnalytics } from "@/lib/queries/dashboard";
 import { cn } from "@/lib/utils";
 import type {
   DashboardActivity,
@@ -854,34 +855,31 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user: sessionUser } = useAuth();
+  const { user: currentUser } = useCurrentUser();
+  const {
+    data: analytics,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useDashboardAnalytics();
   const [greeting, setGreeting] = useState("Good morning");
-  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadAnalytics = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const displayFirstName =
+    currentUser?.firstName?.trim() ||
+    sessionUser?.firstName ||
+    "there";
 
-    try {
-      const data = await dashboardService.getAnalytics();
-      setAnalytics(data);
-    } catch (err) {
-      const apiError = err as ApiError;
-      const message =
-        apiError?.status === 502
+  const errorMessage = isError
+    ? (() => {
+        const apiError = error as unknown as ApiError;
+        return apiError?.status === 502
           ? "Unable to reach the backend. Ensure Docker is running (backend-web on port 8000), then refresh."
           : apiError?.message || "Unable to load dashboard analytics.";
-
-      console.error("Failed to load dashboard analytics:", apiError);
-      setAnalytics(null);
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      })()
+    : null;
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -889,14 +887,6 @@ export default function DashboardPage() {
     else if (hour < 18) setGreeting("Good afternoon");
     else setGreeting("Good evening");
   }, []);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    void loadAnalytics();
-  }, [loadAnalytics]);
 
   const { policyCards, researchCards } = useMemo(() => {
     const cards = analytics?.generalOverview.cards ?? [];
@@ -915,14 +905,14 @@ export default function DashboardPage() {
     [analytics],
   );
 
-  if (!user) return null;
+  if (!sessionUser) return null;
 
   return (
     <div className="flex-1 space-y-6 bg-background p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-foreground">
-            {greeting}, {user.firstName}
+            {greeting}, {displayFirstName}
           </h1>
           <p className="mt-1 font-medium text-muted-foreground">
             {/* Policy & Research. Last updated {lastUpdated}. */}
@@ -930,8 +920,8 @@ export default function DashboardPage() {
         </div>
         <Button
           variant="outline"
-          onClick={loadAnalytics}
-          disabled={!isHydrated || isLoading}
+          onClick={() => refetch()}
+          disabled={isFetching}
         >
           <RefreshCcw className="mr-2 h-4 w-4" />
           Refresh
@@ -940,7 +930,7 @@ export default function DashboardPage() {
 
       {isLoading ? (
         <DashboardSkeleton />
-      ) : error || !analytics ? (
+      ) : errorMessage || !analytics ? (
         <Card className="border-rose-200 bg-rose-50/40 shadow-sm">
           <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
             <div className="rounded-full bg-rose-100 p-4 text-rose-600">
@@ -948,13 +938,13 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-1">
               <p className="text-lg font-semibold">
-                {error || "Dashboard analytics unavailable"}
+                {errorMessage || "Dashboard analytics unavailable"}
               </p>
               <p className="text-sm text-muted-foreground">
                 Check the backend connection and try again.
               </p>
             </div>
-            <Button onClick={loadAnalytics}>
+            <Button onClick={() => refetch()}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               Retry
             </Button>

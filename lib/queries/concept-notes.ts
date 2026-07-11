@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import {
@@ -10,6 +15,21 @@ import {
   reviewConceptNote,
   type ConceptNoteDetail,
 } from "@/api/services/concept-notes.service";
+import { invalidateDashboardAnalytics } from "@/lib/queries/dashboard";
+
+function invalidateConceptNoteCaches(
+  queryClient: QueryClient,
+  id?: string | number,
+) {
+  queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+  if (id !== undefined) {
+    queryClient.invalidateQueries({ queryKey: ["concept-note-detail", id] });
+    queryClient.invalidateQueries({
+      queryKey: ["concept-note-manage-detail", id],
+    });
+  }
+  void invalidateDashboardAnalytics(queryClient);
+}
 
 // ── Backend response shape ────────────────────────────────────────────────────
 export interface ConceptNoteItem {
@@ -184,13 +204,8 @@ export function useCreateConceptNote() {
       return data;
     },
     onSuccess: (_data, variables) => {
-      // Invalidate list and also the detail cache for the updated id
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
-      if (variables && (variables as any).id) {
-        queryClient.invalidateQueries({
-          queryKey: ["concept-note-detail", (variables as any).id],
-        });
-      }
+      const id = (variables as { id?: string | number }).id;
+      invalidateConceptNoteCaches(queryClient, id);
     },
   });
 }
@@ -213,8 +228,8 @@ export function useUpdateConceptNote(backendToken?: string | null) {
       );
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    onSuccess: (_data, { id }) => {
+      invalidateConceptNoteCaches(queryClient, id);
     },
   });
 }
@@ -227,9 +242,7 @@ export function useDeleteConceptNote() {
       await deleteConceptNote(id);
     },
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-detail", id] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", id] });
+      invalidateConceptNoteCaches(queryClient, id);
     },
   });
 }
@@ -245,8 +258,8 @@ export function useSubmitConceptNote(backendToken?: string | null) {
       );
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
+    onSuccess: (_data, id) => {
+      invalidateConceptNoteCaches(queryClient, id);
     },
   });
 }
@@ -263,9 +276,7 @@ export function useResubmitConceptNote(backendToken?: string | null) {
       return resubmitConceptNote(id);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-detail", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["concept-note-manage-detail", variables.id] });
+      invalidateConceptNoteCaches(queryClient, variables.id);
     },
   });
 }
@@ -286,14 +297,8 @@ export function useApproveConceptNote() {
       return approveConceptNote(id, { decision, comments });
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes-manage"] });
-      queryClient.invalidateQueries({
-        queryKey: ["concept-note-detail", variables.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["concept-note-manage-detail", variables.id],
-      });
+      invalidateConceptNoteCaches(queryClient, variables.id);
     },
   });
 }
@@ -331,19 +336,13 @@ export function useReviewConceptNote() {
       return reviewConceptNote(id, payload);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes-manage"] });
       queryClient.invalidateQueries({ queryKey: ["my-reviews"] });
       queryClient.invalidateQueries({ queryKey: ["my-reviews", {}] });
       queryClient.invalidateQueries({
-        queryKey: ["concept-note-detail", variables.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["concept-note-manage-detail", variables.id],
-      });
-      queryClient.invalidateQueries({
         queryKey: ["my-review-detail", variables.id],
       });
+      invalidateConceptNoteCaches(queryClient, variables.id);
     },
   });
 }

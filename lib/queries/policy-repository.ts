@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { invalidateDashboardAnalytics } from "@/lib/queries/dashboard";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 export interface PolicyRepositoryItem {
@@ -331,6 +332,7 @@ export function useRegisterPolicy() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(variables.source_draft_id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(variables.source_draft_id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      void invalidateDashboardAnalytics(queryClient);
     },
   });
 }

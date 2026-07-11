@@ -115,6 +115,8 @@ export function useNotifications(userId?: string) {
     },
     enabled: !!userId,
     staleTime: 1000 * 60,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 }
 
