@@ -73,6 +73,14 @@ export interface ConceptNotesParams {
   current_status?: ConceptNoteItem["currentStatus"];
   /** PSR queue: only newly submitted notes awaiting expert assignment */
   new_submissions?: boolean;
+  /** Manage dashboard queue card filter */
+  queue?:
+    | "all"
+    | "new_submissions"
+    | "draft"
+    | "under_review"
+    | "resubmitted"
+    | "approved";
   document_category?: "new" | "revision";
   organization?: number;
   submitted_by?: number;
@@ -125,6 +133,7 @@ export function useManageConceptNotes(
             inDraft: number;
             newSubmissions: number;
             underReview: number;
+            resubmitted: number;
             approved: number;
           };
         },
@@ -152,6 +161,7 @@ export function useMyReviews(
             inDraft: number;
             newSubmissions: number;
             underReview: number;
+            resubmitted: number;
             approved: number;
           };
         },

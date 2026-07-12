@@ -213,7 +213,7 @@ export default function PolicyDraftsPage() {
       cell: ({ row }) => {
         const status = row.original.currentStatus;
         const display = row.original.currentStatusDisplay || status;
-        
+
         let badgeStyles = "bg-slate-100 text-slate-800 border-slate-200/50 hover:bg-slate-100";
         if (["submitted", "resubmitted"].includes(status)) {
           badgeStyles = "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50";
@@ -226,7 +226,7 @@ export default function PolicyDraftsPage() {
         } else if (status === "resubmission_required") {
           badgeStyles = "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50";
         }
-        
+
         return (
           <Badge variant="outline" className={`font-semibold text-xs py-0.5 px-2.5 rounded-full ${badgeStyles}`}>
             {display}
@@ -345,7 +345,7 @@ export default function PolicyDraftsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-blue-100/50 bg-blue-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-blue-600/80">
@@ -364,7 +364,7 @@ export default function PolicyDraftsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-orange-100/50 bg-orange-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-orange-600/80">
@@ -383,7 +383,7 @@ export default function PolicyDraftsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-green-100/50 bg-green-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-green-600/80">
