@@ -8,33 +8,67 @@ import {
   Calendar,
   ChevronDown,
   Download,
-  Eye,
   FileText,
   Globe,
+  Library,
   Lock,
+  Microscope,
   Search,
-  Shield,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { usePolicyRepository, type PolicyRepositoryItem } from "@/lib/queries/policy-repository";
+import {
+  useUnifiedSearch,
+  type SearchResultItem,
+} from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 100;
+
+type PublicationTab = "all" | "policy_repository" | "research_output";
+
+const TABS: Array<{
+  value: PublicationTab;
+  label: string;
+  shortLabel: string;
+  description: string;
+  icon: typeof Library;
+}> = [
+  {
+    value: "all",
+    label: "All",
+    shortLabel: "All",
+    description: "Published repository",
+    icon: Library,
+  },
+  {
+    value: "policy_repository",
+    label: "Policy Docs",
+    shortLabel: "Policies",
+    description: "Published policies",
+    icon: FileText,
+  },
+  {
+    value: "research_output",
+    label: "Research",
+    shortLabel: "Research",
+    description: "Approved outputs",
+    icon: Microscope,
+  },
+];
 
 function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
   const parsed = new Date(dateValue);
-  return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString();
-}
-
-function getAccessIcon(accessLevel?: string) {
-  return accessLevel === "restricted" ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />;
+  return Number.isNaN(parsed.getTime())
+    ? dateValue
+    : parsed.toLocaleDateString();
 }
 
 function getAccessBadgeClass(accessLevel?: string) {
@@ -43,14 +77,38 @@ function getAccessBadgeClass(accessLevel?: string) {
     : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
 }
 
-function getStatusBadgeClass(status?: string) {
-  return status === "Published"
-    ? "bg-primary/10 text-primary border-primary/20"
-    : "bg-slate-500/10 text-slate-500 border-slate-500/20";
+function getSourceBadgeClass(source?: string) {
+  return source === "research_output"
+    ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
+    : "bg-primary/10 text-primary border-primary/20";
 }
 
-function buildCategories(items: PolicyRepositoryItem[]) {
-  return ["All", ...Array.from(new Set(items.map((item) => item.docType).filter(Boolean)))];
+function getSourceLabel(source?: string) {
+  return source === "research_output" ? "Research" : "Policy";
+}
+
+function isPublishedPolicy(item: SearchResultItem) {
+  if (item.source !== "policy_repository") return true;
+  const status = String(item.metadata?.status ?? "").toLowerCase();
+  return !status || status === "published";
+}
+
+function resolveTabFromParams(
+  typeParam: string | null,
+  sourceParam: string | null,
+): PublicationTab {
+  const raw = (typeParam || sourceParam || "all").toLowerCase();
+  if (raw === "research" || raw === "research_output") return "research_output";
+  if (raw === "policy" || raw === "policy_docs" || raw === "policy_repository") {
+    return "policy_repository";
+  }
+  return "all";
+}
+
+function tabToUrlType(tab: PublicationTab) {
+  if (tab === "research_output") return "research";
+  if (tab === "policy_repository") return "policy";
+  return null;
 }
 
 export default function PublicPublicationsPage() {
@@ -58,8 +116,13 @@ export default function PublicPublicationsPage() {
   const searchParams = useSearchParams();
   const routeSearch = searchParams.get("search") ?? "";
   const routeSelected = searchParams.get("selected") ?? null;
+  const routeType = searchParams.get("type");
+  const routeSource = searchParams.get("source");
+
   const [searchQuery, setSearchQuery] = useState(routeSearch);
-  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [activeTab, setActiveTab] = useState<PublicationTab>(() =>
+    resolveTabFromParams(routeType, routeSource),
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -68,91 +131,110 @@ export default function PublicPublicationsPage() {
     setSearchQuery(routeSearch);
   }, [routeSearch]);
 
-  const { data, isLoading, isError } = usePolicyRepository({
-    access_level: "public",
+  useEffect(() => {
+    setActiveTab(resolveTabFromParams(routeType, routeSource));
+  }, [routeType, routeSource]);
+
+  const { data, isLoading, isError } = useUnifiedSearch({
     search: routeSearch,
-    limit: PAGE_SIZE,
-    ordering: sortBy === "newest" ? "-effective_date" : "effective_date",
+    source: activeTab,
+    access_level: "public",
+    mode: "hybrid",
+    sort: sortBy === "newest" ? "date_desc" : "date_asc",
+    page_size: PAGE_SIZE,
   });
 
-  const policies = data?.data ?? [];
-  const categories = useMemo(() => buildCategories(policies), [policies]);
+  const publications = useMemo(() => {
+    const results = (data?.results ?? []).filter(isPublishedPolicy);
 
-  const filteredPublications = useMemo(() => {
-    let result = policies;
+    if (!searchQuery.trim()) return results;
 
-    // Filter by Category
-    if (categoryFilter !== "All") {
-      result = result.filter((pub) => pub.docType === categoryFilter);
-    }
+    const q = searchQuery.toLowerCase();
+    return results.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.subtitle.toLowerCase().includes(q) ||
+        item.document_type.toLowerCase().includes(q) ||
+        item.snippet.toLowerCase().includes(q) ||
+        String(item.metadata?.organization ?? "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.metadata?.serial_number ?? "")
+          .toLowerCase()
+          .includes(q) ||
+        String(item.metadata?.version_code ?? "")
+          .toLowerCase()
+          .includes(q),
+    );
+  }, [data?.results, searchQuery]);
 
-    // Filter by Search Query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (pub) =>
-          pub.draftPolicy.toLowerCase().includes(q) ||
-          pub.docType.toLowerCase().includes(q) ||
-          pub.organizationName.toLowerCase().includes(q) ||
-          pub.serialNumber.toLowerCase().includes(q) ||
-          pub.versionCode.toLowerCase().includes(q)
-      );
-    }
+  const tabCounts = useMemo(() => {
+    const policy =
+      data?.meta?.counts?.policy_repository ??
+      publications.filter((item) => item.source === "policy_repository").length;
+    const research =
+      data?.meta?.counts?.research_outputs ??
+      publications.filter((item) => item.source === "research_output").length;
+    return {
+      all: policy + research,
+      policy_repository: policy,
+      research_output: research,
+    };
+  }, [data?.meta?.counts, publications]);
 
-    // Sort
-    result = [...result].sort((a, b) => {
-      const left = new Date(a.effectiveDate).getTime();
-      const right = new Date(b.effectiveDate).getTime();
-      return sortBy === "newest" ? right - left : left - right;
-    });
-
-    return result;
-  }, [policies, searchQuery, categoryFilter, sortBy]);
-
-  // If the route includes `selected`, expand that item once the data is available.
   useEffect(() => {
-    if (!routeSelected) return;
-    // Wait until policies are loaded
-    if (!data) return;
+    if (!routeSelected || !data) return;
 
-    const exists = policies.find((p) => String(p.id) === String(routeSelected));
-    if (exists) {
-      setExpandedId(String(routeSelected));
-      // Scroll the item into view after a short delay to allow layout to settle
-      setTimeout(() => {
-        const el = document.getElementById(`pub-${routeSelected}`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 120);
+    const exists = publications.find(
+      (item) => String(item.id) === String(routeSelected),
+    );
+    if (!exists) return;
+
+    setExpandedId(`${exists.source}-${routeSelected}`);
+    setTimeout(() => {
+      const el = document.getElementById(
+        `pub-${exists.source}-${routeSelected}`,
+      );
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+  }, [routeSelected, data, publications]);
+
+  const handleTabChange = (value: string) => {
+    const next = value as PublicationTab;
+    setActiveTab(next);
+    setExpandedId(null);
+
+    const params = new URLSearchParams(searchParams.toString());
+    const typeValue = tabToUrlType(next);
+    if (typeValue) {
+      params.set("type", typeValue);
+    } else {
+      params.delete("type");
     }
-  }, [routeSelected, data]);
-
-  const handleDownload = (pub: PolicyRepositoryItem) => {
-    setDownloadingId(String(pub.id));
-    window.setTimeout(() => {
-      setDownloadingId(null);
-    }, 800);
+    params.delete("source");
+    params.delete("selected");
+    const qs = params.toString();
+    router.push(qs ? `/publications?${qs}` : "/publications");
   };
 
-  const stats = useMemo(() => {
-    const published = policies.filter((item) => item.status === "Published").length;
-    const organizations = new Set(policies.map((item) => item.organizationName)).size;
-    const types = new Set(policies.map((item) => item.docType)).size;
+  const handleDownload = (item: SearchResultItem) => {
+    setDownloadingId(`${item.source}-${item.id}`);
+    window.setTimeout(() => setDownloadingId(null), 800);
+  };
 
-    return {
-      total: policies.length,
-      published,
-      organizations,
-      types,
-    };
-  }, [policies]);
+  const emptyLabel =
+    activeTab === "research_output"
+      ? "research outputs"
+      : activeTab === "policy_repository"
+        ? "policy documents"
+        : "publications";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <main className="grow w-full">
-        {/* Hero Banner */}
         <section className="relative w-full h-[380px] md:h-[480px] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 z-10 opacity-90" />
-          
+
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <motion.div
               className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-3xl"
@@ -162,7 +244,12 @@ export default function PublicPublicationsPage() {
             <motion.div
               className="absolute bottom-[-10%] left-[-5%] w-[450px] h-[450px] bg-indigo-500/10 rounded-full blur-3xl"
               animate={{ x: [0, -15, 0], y: [0, 15, 0] }}
-              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              transition={{
+                duration: 18,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 1,
+              }}
             />
           </div>
 
@@ -173,7 +260,7 @@ export default function PublicPublicationsPage() {
             width={1920}
             height={1080}
           />
-          
+
           <div className="relative z-20 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center text-center">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -182,117 +269,163 @@ export default function PublicPublicationsPage() {
               className="space-y-4"
             >
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight">
-                Policy & <span className="text-primary">Research Repository</span>
+                Policy &{" "}
+                <span className="text-primary">Research Repository</span>
               </h1>
               <p className="max-w-2xl text-base md:text-lg text-white leading-relaxed mx-auto">
-                A centralized repository for accessing research publications, policy documents, reports, guidelines, and institutional resources.
+                A centralized repository for accessing research publications,
+                policy documents, reports, guidelines, and institutional
+                resources.
               </p>
             </motion.div>
           </div>
         </section>
 
-        {/* Catalog Section */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex flex-col gap-8">
-
-            <div className="grid gap-4 md:grid-cols-4">
-              {[
-                { label: "Public Records", value: stats.total, icon: Globe },
-                { label: "Published", value: stats.published, icon: Shield },
-                { label: "Organizations", value: stats.organizations, icon: Building2 },
-                { label: "Document Types", value: stats.types, icon: FileText },
-              ].map((stat) => (
-                <Card key={stat.label} className="border border-white/5 backdrop-blur-md rounded-2xl">
-                  <CardContent className="p-5 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{stat.label}</p>
-                      <p className="mt-1 text-2xl font-black text-foreground">{stat.value}</p>
-                    </div>
-                    <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                      <stat.icon className="h-5 w-5" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            
-            {/* Filter and Sorting Header */}
-            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 pb-6 border-b border-white/5">
-              {/* Category tags */}
-              <div className="flex flex-wrap items-center gap-2">
-                {categories.map((cat) => (
-                  <Button
-                    key={cat}
-                    variant={categoryFilter === cat ? "default" : "outline"}
-                    onClick={() => {
-                      setCategoryFilter(cat);
-                      setExpandedId(null);
-                    }}
-                    className="rounded-full h-9 px-5 text-xs font-bold border-white/5 transition-all duration-300"
-                  >
-                    {cat}
-                  </Button>
-                ))}
-              </div>
-
-              {/* Sorting & Search */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortBy(sortBy === "newest" ? "oldest" : "newest")}
-                  className="rounded-xl h-10 border-white/5 text-xs font-bold flex items-center gap-2 bg-muted/20"
+            <div className="flex flex-col gap-5 pb-6 border-b border-border/60">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div
+                  role="tablist"
+                  aria-label="Publication sources"
+                  className="grid grid-cols-3 gap-1 p-1.5 rounded-2xl border border-border/70 bg-card/80 backdrop-blur-md shadow-sm w-full xl:w-auto xl:min-w-[520px]"
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5" />
-                  Sort: {sortBy === "newest" ? "Newest" : "Oldest"}
-                </Button>
+                  {TABS.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.value;
+                    const count = tabCounts[tab.value];
 
-                <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const query = searchQuery.trim();
-                  router.push(`/publications?search=${encodeURIComponent(query)}`);
-                }}
-                className="relative w-full sm:w-64 group"
-              >
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  type="text"
-                  placeholder="Search titles, serials, organizations..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setExpandedId(null);
-                  }}
-                  className="pl-9 h-10 bg-muted/30 border-white/5 focus-visible:ring-primary rounded-xl"
-                />
-              </form>
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => handleTabChange(tab.value)}
+                        className={cn(
+                          "relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-3 py-2.5 text-center transition-all duration-200",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
+                          <span className="text-[11px] sm:text-xs font-bold tracking-wide truncate">
+                            <span className="sm:hidden">{tab.shortLabel}</span>
+                            <span className="hidden sm:inline">{tab.label}</span>
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center justify-center rounded-full px-1.5 min-w-5 h-5 text-[10px] font-bold tabular-nums",
+                              isActive
+                                ? "bg-primary-foreground/20 text-primary-foreground"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {count}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setSortBy(sortBy === "newest" ? "oldest" : "newest")
+                    }
+                    className="rounded-xl h-11 border-border/70 text-xs font-bold flex items-center gap-2 bg-card/60"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                    Sort: {sortBy === "newest" ? "Newest" : "Oldest"}
+                  </Button>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const query = searchQuery.trim();
+                      const params = new URLSearchParams(
+                        searchParams.toString(),
+                      );
+                      if (query) params.set("search", query);
+                      else params.delete("search");
+                      const qs = params.toString();
+                      router.push(
+                        qs ? `/publications?${qs}` : "/publications",
+                      );
+                    }}
+                    className="relative w-full sm:w-72 group"
+                  >
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                      type="text"
+                      placeholder="Search titles, orgs, serials…"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setExpandedId(null);
+                      }}
+                      className="pl-9 h-11 bg-card/60 border-border/70 focus-visible:ring-primary rounded-xl"
+                    />
+                  </form>
+                </div>
               </div>
+
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {TABS.find((tab) => tab.value === activeTab)?.description}
+                {activeTab === "all"
+                  ? " — policies and research in one place"
+                  : null}
+              </p>
             </div>
 
-            {/* List */}
             {isLoading ? (
               <div className="py-24 text-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-                <p className="text-muted-foreground text-sm mt-4">Indexing publication database...</p>
+                <p className="text-muted-foreground text-sm mt-4">
+                  Indexing publication database...
+                </p>
               </div>
             ) : isError ? (
               <div className="py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
                 <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-bold text-foreground">Unable to load the repository</h3>
+                <h3 className="text-lg font-bold text-foreground">
+                  Unable to load the repository
+                </h3>
                 <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                  The public policy repository could not be loaded right now.
+                  The public repository could not be loaded right now.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 <AnimatePresence mode="popLayout">
-                  {filteredPublications.map((pub) => {
-                    const isExpanded = expandedId === String(pub.id);
+                  {publications.map((pub) => {
+                    const rowKey = `${pub.source}-${pub.id}`;
+                    const isExpanded = expandedId === rowKey;
+                    const organization = String(
+                      pub.metadata?.organization ?? pub.subtitle ?? "—",
+                    );
+                    const serial = String(pub.metadata?.serial_number ?? "");
+                    const version = String(pub.metadata?.version_code ?? "");
+                    const status = String(
+                      pub.metadata?.status ??
+                        (pub.source === "research_output"
+                          ? "Approved"
+                          : "Published"),
+                    );
+                    const fileUrl = resolveFileUrl(
+                      pub.file_url || pub.metadata?.file_url,
+                    );
+                    const isDownloading = downloadingId === rowKey;
+
                     return (
                       <motion.div
-                        id={`pub-${pub.id}`}
-                        key={pub.id}
+                        id={`pub-${rowKey}`}
+                        key={rowKey}
                         layout
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -302,31 +435,47 @@ export default function PublicPublicationsPage() {
                         <Card className="border border-white/5 backdrop-blur-md rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300">
                           <button
                             type="button"
-                            onClick={() => setExpandedId(isExpanded ? null : String(pub.id))}
+                            onClick={() =>
+                              setExpandedId(isExpanded ? null : rowKey)
+                            }
                             className="w-full text-left p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-white/1 transition"
                           >
                             <div className="space-y-2 grow">
                               <div className="flex flex-wrap items-center gap-3">
+                                <Badge
+                                  className={`border text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${getSourceBadgeClass(pub.source)}`}
+                                >
+                                  {getSourceLabel(pub.source)}
+                                </Badge>
                                 <Badge className="bg-primary/5 text-primary border-primary/20 text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md">
-                                  {pub.docType}
+                                  {pub.document_type || "Document"}
                                 </Badge>
-                                <Badge className={`border text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${getAccessBadgeClass(pub.accessLevel)}`}>
-                                  {pub.accessLevel}
-                                </Badge>
-                                <Badge className={`border text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${getStatusBadgeClass(pub.status)}`}>
-                                  {pub.status}
+                                <Badge
+                                  className={`border text-[9px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${getAccessBadgeClass(pub.access_level)}`}
+                                >
+                                  {pub.access_level === "restricted" ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Lock className="h-3 w-3" /> Restricted
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Globe className="h-3 w-3" /> Public
+                                    </span>
+                                  )}
                                 </Badge>
                                 <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 font-mono">
                                   <Calendar className="w-3 h-3" />
-                                  {formatDate(pub.effectiveDate)}
+                                  {formatDate(pub.date)}
                                 </span>
                               </div>
                               <h3 className="text-base md:text-lg font-bold text-foreground leading-snug">
-                                {pub.draftPolicy}
+                                {pub.title}
                               </h3>
                               <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                                 <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                                <span className="line-clamp-1">{pub.organizationName}</span>
+                                <span className="line-clamp-1">
+                                  {organization}
+                                </span>
                               </div>
                             </div>
 
@@ -351,58 +500,102 @@ export default function PublicPublicationsPage() {
                                     <div className="space-y-1.5 md:col-span-2">
                                       <h4 className="text-xs font-bold text-foreground uppercase tracking-widest flex items-center gap-1">
                                         <FileText className="w-3.5 h-3.5 text-primary" />
-                                        Registry Summary
+                                        Summary
                                       </h4>
                                       <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-                                        {pub.draftPolicy} is registered under serial {pub.serialNumber} with version {pub.versionCode}.
+                                        {pub.snippet ||
+                                          (serial
+                                            ? `${pub.title} is registered under serial ${serial}${version ? ` with version ${version}` : ""}.`
+                                            : pub.title)}
                                       </p>
                                     </div>
 
+                                    {serial ? (
+                                      <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                          Serial Number
+                                        </p>
+                                        <p className="mt-1 font-semibold text-foreground font-mono">
+                                          {serial}
+                                        </p>
+                                      </div>
+                                    ) : null}
+                                    {version ? (
+                                      <div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                          Version Code
+                                        </p>
+                                        <p className="mt-1 font-semibold text-foreground font-mono">
+                                          {version}
+                                        </p>
+                                      </div>
+                                    ) : null}
                                     <div>
-                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Draft Policy ID</p>
-                                      <p className="mt-1 font-semibold text-foreground">{pub.draftPolicyId}</p>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                        Date
+                                      </p>
+                                      <p className="mt-1 font-semibold text-foreground">
+                                        {formatDate(pub.date)}
+                                      </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Effective Date</p>
-                                      <p className="mt-1 font-semibold text-foreground">{formatDate(pub.effectiveDate)}</p>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                        Organization
+                                      </p>
+                                      <p className="mt-1 font-semibold text-foreground">
+                                        {organization}
+                                      </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Organization</p>
-                                      <p className="mt-1 font-semibold text-foreground">{pub.organizationName}</p>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                        Status
+                                      </p>
+                                      <p className="mt-1 font-semibold text-foreground">
+                                        {status}
+                                      </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Access</p>
-                                      <p className="mt-1 font-semibold text-foreground">{pub.accessLevel}</p>
+                                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                        Access
+                                      </p>
+                                      <p className="mt-1 font-semibold text-foreground capitalize">
+                                        {pub.access_level}
+                                      </p>
                                     </div>
                                   </div>
 
-                                  {/* Action */}
                                   <div className="pt-4 border-t border-white/5 flex justify-end">
-                                    <Button
-                                      asChild
-                                      disabled={downloadingId !== null}
-                                      className="rounded-xl font-bold text-xs tracking-wider uppercase h-10 px-6 gap-2"
-                                    >
-                                      <a
-                                        href={resolveFileUrl(pub.draftFile) ?? "#"}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        download={extractFileName(pub.draftFile)}
-                                        onClick={() => handleDownload(pub)}
+                                    {fileUrl && fileUrl !== "#" ? (
+                                      <Button
+                                        asChild
+                                        disabled={isDownloading}
+                                        className="rounded-xl font-bold text-xs tracking-wider uppercase h-10 px-6 gap-2"
                                       >
-                                        {downloadingId === String(pub.id) ? (
-                                          <>
-                                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                            Opening File
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Download className="w-4 h-4" />
-                                            Download Official File
-                                          </>
-                                        )}
-                                      </a>
-                                    </Button>
+                                        <a
+                                          href={fileUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          download={extractFileName(fileUrl)}
+                                          onClick={() => handleDownload(pub)}
+                                        >
+                                          {isDownloading ? (
+                                            <>
+                                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                              Opening File
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Download className="w-4 h-4" />
+                                              Download Official File
+                                            </>
+                                          )}
+                                        </a>
+                                      </Button>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground">
+                                        No downloadable file available.
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </motion.div>
@@ -414,18 +607,22 @@ export default function PublicPublicationsPage() {
                   })}
                 </AnimatePresence>
 
-                {!isLoading && filteredPublications.length === 0 && (
+                {!isLoading && publications.length === 0 && (
                   <div className="py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
                     <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-bold text-foreground">No Research Matches</h3>
+                    <h3 className="text-lg font-bold text-foreground">
+                      No matches found
+                    </h3>
                     <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                      No matching records found for "{searchQuery}". Modify your search parameters or check a different category.
+                      No {emptyLabel} found
+                      {searchQuery ? ` for "${searchQuery}"` : ""}. Try another
+                      tab or clear your search.
                     </p>
                     <Button
                       variant="outline"
                       onClick={() => {
                         setSearchQuery("");
-                        setCategoryFilter("All");
+                        handleTabChange("all");
                       }}
                       className="mt-4 border-white/5"
                     >

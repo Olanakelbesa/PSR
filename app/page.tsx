@@ -543,35 +543,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Impact / Analytics Section (moved earlier) */}
-        <section id="impact" className="py-8 md:py-12 md:px-20 border-y border-white/5 relative bg-background">
-          <div className="container mx-auto px-4">
-            <RevealOnScroll>
-              <StatsStrip overview={derivedOverview} />
-            </RevealOnScroll>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-              {/* <div className="col-span-2">
-                <RevealOnScroll>
-                  <TrendsCard data={trendData} title="Monthly proposal submissions" />
-                </RevealOnScroll>
-              </div>
-
-              <div className="col-span-1">
-                <RevealOnScroll>
-                  <DistributionChart items={distributionItems} />
-                </RevealOnScroll>
-              </div> */}
-            </div>
-
-            {/* <div className="mt-6">
-              <RevealOnScroll>
-                <TrustBand trust={trustPayload} />
-              </RevealOnScroll>
-            </div> */}
-          </div>
-        </section>
-
         {/* Features / Modules Section */}
         <section id="modules" className="py-12 md:py-24 md:px-20 bg-background relative">
           <div className="container mx-auto px-4">
