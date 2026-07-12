@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { ConceptNoteTabs } from "@/components/policies/concept-notes/concept-note-tabs";
 import { toast } from "sonner";
@@ -84,10 +83,6 @@ export default function ConceptNoteDetailPage() {
     );
   }
 
-  const authorName = note.submittedBy?.fullName || "Anonymous";
-  const authorEmail = note.submittedBy?.email || "";
-  const authorPhoto = note.submittedBy?.photoUrl;
-  const authorInstitution = (note as any).organization?.name || "Ministry of Health";
   const summaryCardRows = [
     { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
     { label: "Status", value: note.currentStatus?.status },
@@ -97,12 +92,6 @@ export default function ConceptNoteDetailPage() {
     { label: "Unit", value: note.unit?.name },
     { label: "Latest Version", value: note.currentStatus?.version || note.versions?.find((version: any) => version.isLatest)?.versionNumber },
   ];
-  const initials = authorName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .substring(0, 2);
 
   return (
     <PageContainer
@@ -171,28 +160,6 @@ export default function ConceptNoteDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Version</span>
                 <Badge variant="secondary" className="text-[10px]">{note.currentStatus?.version || "CN-0001-V1"}</Badge>
-              </div>
-              <Separator />
-              <div className="space-y-3">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Submitted By</span>
-                <div className="flex items-center gap-3 pt-1">
-                  <Avatar className="h-9 w-9 border shadow-sm">
-                    {authorPhoto && (
-                      <AvatarImage src={authorPhoto} alt={authorName} />
-                    )}
-                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold uppercase">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="text-sm font-semibold truncate text-foreground">
-                      {authorName}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground truncate">
-                      {authorInstitution}
-                    </span>
-                  </div>
-                </div>
               </div>
               <Separator />
               <div className="space-y-2 text-xs text-muted-foreground">

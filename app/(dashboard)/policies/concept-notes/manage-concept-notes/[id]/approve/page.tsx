@@ -56,12 +56,10 @@ import {
 } from "@/lib/queries/concept-notes";
 
 const formatTimestamp = (timestampString?: string | null) => {
-  if (!timestampString) return "Recently";
-  try {
-    return formatDistanceToNow(new Date(timestampString), { addSuffix: true });
-  } catch {
-    return "Recently";
-  }
+  if (!timestampString) return "—";
+  const date = new Date(timestampString);
+  if (Number.isNaN(date.getTime())) return "—";
+  return formatDistanceToNow(date, { addSuffix: true });
 };
 
 const normalizeStatusKey = (status?: string | null) =>
@@ -317,7 +315,12 @@ export default function ApproveConceptNotePage() {
         isLatestVersion: versionFb.isLatest,
         finalDecisionStatus:
           detail.finalDecisionStatus ?? detail.final_decision_status,
-        commentGivenAt: detail.commentGivenAt ?? detail.comment_given_at,
+        commentGivenAt:
+          detail.decisionMadeAt ??
+          detail.decision_made_at ??
+          detail.commentGivenAt ??
+          detail.comment_given_at,
+        decisionMadeAt: detail.decisionMadeAt ?? detail.decision_made_at,
         reviewFile: detail.reviewFile ?? detail.review_file,
         expertReviewer: {
           ...detail.expertReviewer,
@@ -485,10 +488,10 @@ export default function ApproveConceptNotePage() {
                     </div>
                     <div className="ml-3">
                       <span className="block text-sm font-semibold text-foreground">
-                        Request Changes
+                      Request Resubmission
                       </span>
                       <span className="block text-xs text-muted-foreground mt-0.5">
-                        Needs revision before approval.
+                        Needs revision before resubmission.
                       </span>
                     </div>
                   </button>
@@ -536,8 +539,7 @@ export default function ApproveConceptNotePage() {
                 Reviewer Assessments
               </CardTitle>
               <CardDescription>
-                Detailed feedback and recommendations from the technical
-                committee
+                Detailed feedback
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
@@ -601,7 +603,12 @@ export default function ApproveConceptNotePage() {
                                 })}
                               </div>
                               <p className="text-[10px] text-muted-foreground font-medium">
-                                {formatTimestamp(review.commentGivenAt)}
+                                {isExpertReviewSubmitted(review)
+                                  ? formatTimestamp(
+                                      review.decisionMadeAt ??
+                                        review.commentGivenAt,
+                                    )
+                                  : "Awaiting review"}
                               </p>
                             </div>
                           </div>
