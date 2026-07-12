@@ -329,30 +329,35 @@ export default function ApproveConceptNotePage() {
       })),
     ) || [];
 
-  const isReviewDetailCompleted = (detail: any) => {
+  const isExpertReviewSubmitted = (detail: any) => {
     const finalStatus = String(
       detail.finalDecisionStatus ?? detail.final_decision_status ?? "",
     )
       .trim()
-      .toLowerCase();
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
 
-    const reviewerPresent = Boolean(
-      detail.expertReviewer || detail.reviewer || detail.expert_reviewer,
-    );
-    const commentPresent = Boolean(
-      String(detail.comment || detail.recommendation || "").trim(),
-    );
-    const hasFinalDecision = Boolean(
+    return Boolean(
       finalStatus &&
         finalStatus !== "pending" &&
         finalStatus !== "draft" &&
         finalStatus !== "unreviewed",
     );
-
-    return reviewerPresent || commentPresent || hasFinalDecision;
   };
 
-  const hasReviewerFeedback = allFeedbacks.some(isReviewDetailCompleted);
+  const latestFeedbacks = allFeedbacks.filter(
+    (detail: any) => detail.isLatestVersion !== false,
+  );
+  const assignedLatestReviews = (
+    latestFeedbacks.length > 0 ? latestFeedbacks : allFeedbacks
+  ).filter((detail: any) =>
+    Boolean(detail.expertReviewer || detail.reviewer || detail.expert_reviewer),
+  );
+
+  const expertReviewsComplete =
+    assignedLatestReviews.length > 0 &&
+    assignedLatestReviews.every(isExpertReviewSubmitted);
+  const hasReviewerFeedback = expertReviewsComplete;
   const currentStatus =
     note.currentStatus?.status ??
     (note as any).current_status?.status ??
@@ -631,7 +636,7 @@ export default function ApproveConceptNotePage() {
                                   })
                                 }
                               >
-                                VIEW PDF
+                                View File
                               </Button>
                             </div>
                           )}

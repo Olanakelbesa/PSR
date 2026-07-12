@@ -355,8 +355,9 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
                   Assign Expert
                 </Link>
               </DropdownMenuItem>
-              {(note.currentStatus === "submitted" ||
-                note.currentStatus === "under_review") && (
+              {(note.currentStatus === "accepted" ||
+                note.currentStatus === "partially_accepted" ||
+                note.currentStatus === "not_accepted") && (
                   <>
                     <DropdownMenuSeparator className="bg-muted/50" />
                     <DropdownMenuItem asChild>

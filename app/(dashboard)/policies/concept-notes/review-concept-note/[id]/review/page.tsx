@@ -378,7 +378,7 @@ export default function ConceptNoteReviewPage() {
           <Card className="shadow-sm border-primary/20">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4" /> 3. Final Expert Decision
+                3. Expert Decision
               </CardTitle>
               <CardDescription>Select the outcome of this evaluation phase.</CardDescription>
             </CardHeader>

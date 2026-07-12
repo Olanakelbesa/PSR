@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   User,
@@ -17,6 +19,7 @@ import {
   AlertCircle,
   Building2,
   Maximize2,
+  Eye,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,18 @@ import { useManageConceptNoteDetail } from "@/lib/queries/concept-notes";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import {
+  downloadConceptNoteAttachment,
+  getConceptNoteAttachmentKind,
+} from "@/lib/utils/concept-note-attachments";
+
+const PdfViewerDialog = dynamic(
+  () =>
+    import("@/components/shared/pdf-viewer-dialog").then(
+      (mod) => mod.PdfViewerDialog,
+    ),
+  { ssr: false },
+);
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -101,6 +116,10 @@ export default function ManageConceptNoteDetailPage() {
   const params = useParams();
   const { backendToken } = useAuth();
   const id = params.id as string;
+  const [viewerDocument, setViewerDocument] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   const {
     data: note,
@@ -141,35 +160,56 @@ export default function ManageConceptNoteDetailPage() {
     );
   }
 
-  const currentStatusKey = note.currentStatus?.status ?? "";
+  const currentStatusKey = String(note.currentStatus?.status ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   const submittedAt = note.submittedBy?.submittedAt;
   const lastUpdated = note.submittedBy?.lastUpdated;
   const fileUrl = resolveFileUrl(note.overview?.file);
   const latestVersion = note.versions?.[note.versions.length - 1];
 
-  const isReviewDetailCompleted = (detail: any) => {
+  const isExpertReviewSubmitted = (detail: any) => {
     const finalStatus = String(
       detail.finalDecisionStatus ?? detail.final_decision_status ?? "",
     )
       .trim()
-      .toLowerCase();
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
 
-    const reviewerPresent = Boolean(
-      detail.expertReviewer || detail.reviewer || detail.expert_reviewer,
+    // Assignment alone is not enough — require an expert final decision.
+    return Boolean(
+      finalStatus &&
+        finalStatus !== "pending" &&
+        finalStatus !== "draft" &&
+        finalStatus !== "unreviewed",
     );
-    const commentPresent = Boolean(
-      String(detail.comment || detail.recommendation || "").trim(),
-    );
-    const hasFinalDecision =
-      finalStatus && finalStatus !== "pending" && finalStatus !== "draft";
-
-    return reviewerPresent || commentPresent || hasFinalDecision;
   };
 
-  const hasReviewerFeedback =
-    note.expertFeedback?.some((fb: any) =>
-      (fb.feedbackDetail || []).some(isReviewDetailCompleted),
-    ) ?? false;
+  const latestFeedback =
+    note.expertFeedback?.find((fb: any) => fb.isLatest) ??
+    note.expertFeedback?.[note.expertFeedback.length - 1];
+
+  const assignedReviews = (latestFeedback?.feedbackDetail ?? []).filter(
+    (detail: any) =>
+      Boolean(
+        detail.expertReviewer || detail.reviewer || detail.expert_reviewer,
+      ),
+  );
+
+  const expertReviewsComplete =
+    assignedReviews.length > 0 &&
+    assignedReviews.every(isExpertReviewSubmitted);
+
+  const canShowApproveButton =
+    expertReviewsComplete &&
+    [
+      "under_review",
+      "accepted",
+      "partially_accepted",
+      "not_accepted",
+      "resubmitted",
+    ].includes(currentStatusKey);
 
   return (
     <PageContainer
@@ -191,7 +231,7 @@ export default function ManageConceptNoteDetailPage() {
               Assign Expert
             </Link>
           </Button>
-          {hasReviewerFeedback && (
+          {canShowApproveButton && (
             <Button
               asChild
               variant="outline"
@@ -295,33 +335,107 @@ export default function ManageConceptNoteDetailPage() {
 
                             const reviewerName =
                               detail.expertReviewer?.fullName ??
+                              detail.expertReviewer?.full_name ??
                               detail.reviewer ??
                               `Reviewer ${di + 1}`;
                             const reviewerEmail =
                               detail.expertReviewer?.email ?? "";
+                            const decision =
+                              detail.decision ??
+                              detail.finalDecisionStatus ??
+                              detail.final_decision_status;
+                            const reviewFileRaw =
+                              detail.reviewFile ?? detail.review_file ?? null;
+                            const reviewFileUrl = resolveFileUrl(reviewFileRaw);
+                            const reviewFileName =
+                              extractFileName(reviewFileRaw) ||
+                              reviewFileRaw?.split?.("/")?.pop?.() ||
+                              "Review attachment";
+                            const canPreviewAttachment =
+                              Boolean(reviewFileUrl) &&
+                              getConceptNoteAttachmentKind(reviewFileUrl!) !==
+                                "unsupported";
 
                             return (
                               <div
                                 key={di}
-                                className="p-3 rounded-lg bg-muted/30 space-y-1"
+                                className="space-y-3 rounded-lg bg-muted/30 p-3"
                               >
                                 <div className="flex flex-col gap-0.5">
-                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                    {reviewerName} {reviewerEmail && <span>({reviewerEmail})</span>}
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {reviewerName}{" "}
+                                    {reviewerEmail && (
+                                      <span>({reviewerEmail})</span>
+                                    )}
                                   </p>
-                                 
                                 </div>
                                 <p className="text-sm text-foreground/80">
-                                  {detail.comment ?? detail.recommendation}
+                                  {detail.comment ??
+                                    detail.recommendation ??
+                                    "No comment provided."}
                                 </p>
-                                {detail.decision && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px] mt-1"
-                                  >
-                                    {detail.decision}
-                                  </Badge>
-                                )}
+                                {decision &&
+                                  String(decision).toLowerCase() !==
+                                    "pending" && (
+                                    <Badge
+                                      variant="outline"
+                                      className="mt-1 text-[10px]"
+                                    >
+                                      {String(decision).replace(/_/g, " ")}
+                                    </Badge>
+                                  )}
+
+                                {reviewFileUrl ? (
+                                  <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/80 p-3">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                                        <FileText className="h-4 w-4 text-primary" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="truncate text-xs font-semibold text-foreground">
+                                          {reviewFileName}
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground">
+                                          Reviewer attachment
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                      {canPreviewAttachment && (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-[11px] font-semibold"
+                                          onClick={() =>
+                                            setViewerDocument({
+                                              url: reviewFileUrl,
+                                              title: reviewFileName,
+                                            })
+                                          }
+                                        >
+                                          <Eye className="mr-1 h-3.5 w-3.5" />
+                                          View
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 px-2 text-[11px] font-semibold"
+                                        onClick={() =>
+                                          downloadConceptNoteAttachment(
+                                            reviewFileUrl,
+                                            reviewFileName,
+                                          )
+                                        }
+                                      >
+                                        <Download className="mr-1 h-3.5 w-3.5" />
+                                        Download
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}
@@ -636,19 +750,32 @@ export default function ManageConceptNoteDetailPage() {
                   Assign Expert
                 </Link>
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start h-9 text-sm"
-                asChild
-              >
-                <Link
-                  href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}
+              {canShowApproveButton ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start h-9 text-sm"
+                  asChild
                 >
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Review & Approve
-                </Link>
-              </Button>
+                  <Link
+                    href={`/policies/concept-notes/manage-concept-notes/${id}/approve`}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                    Review & Approve
+                  </Link>
+                </Button>
+              ) : (
+                <div className="rounded-md border border-dashed px-3 py-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Approve unavailable
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground/80">
+                    {assignedReviews.length === 0
+                      ? "Assign an expert and wait for their review to finish."
+                      : "Waiting for assigned experts to finish their review."}
+                  </p>
+                </div>
+              )}
               {fileUrl && (
                 <Button
                   variant="ghost"
@@ -720,6 +847,13 @@ export default function ManageConceptNoteDetailPage() {
           )}
         </aside>
       </div>
+
+      <PdfViewerDialog
+        isOpen={!!viewerDocument}
+        onOpenChange={(open) => !open && setViewerDocument(null)}
+        url={viewerDocument?.url ?? ""}
+        title={viewerDocument?.title ?? "Review attachment"}
+      />
     </PageContainer>
   );
 }
