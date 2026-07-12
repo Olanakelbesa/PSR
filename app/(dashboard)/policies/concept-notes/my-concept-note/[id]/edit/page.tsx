@@ -169,7 +169,7 @@ export default function EditConceptNotePage() {
       .toLowerCase()
       .replace(/[\s-]+/g, "_") === "draft" || isRevisionRequired;
   const submitActionLabel = isRevisionRequired
-    ? "Resubmit Proposal"
+    ? "Resubmit Concept Note"
     : "Submit for Review";
 
   useEffect(() => {

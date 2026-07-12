@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, CheckCircle2, Clock } from "lucide-react";
+import { Calendar, CheckCircle2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -8,10 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 
 interface ConceptNoteTimelineProps {
   note: any;
+}
+
+function replaceManagerWithPsr(value?: string | null) {
+  if (!value) return value ?? "";
+  return value
+    .replace(/\bPSR\s+manager\b/gi, "PSR")
+    .replace(/\bManager\b/g, "PSR")
+    .replace(/\bmanager\b/g, "PSR");
 }
 
 export function ConceptNoteTimeline({ note }: ConceptNoteTimelineProps) {
@@ -44,9 +51,11 @@ export function ConceptNoteTimeline({ note }: ConceptNoteTimelineProps) {
                   )}
                 </div>
                 <div className="pt-1 pb-2">
-                  <p className="text-sm font-semibold">{event.title}</p>
+                  <p className="text-sm font-semibold">
+                    {replaceManagerWithPsr(event.title)}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {event.actor}
+                    {replaceManagerWithPsr(event.actor)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                     <Calendar className="h-3 w-3" />{" "}

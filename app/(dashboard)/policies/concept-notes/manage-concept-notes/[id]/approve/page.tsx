@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageContainer } from "@/components/layout";
+import { Skeleton } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -269,12 +270,93 @@ export default function ApproveConceptNotePage() {
 
   if (isLoading) {
     return (
-      <PageContainer title="Loading approval page...">
-        <div className="flex flex-col gap-4 max-w-4xl mx-auto py-8">
-          <div className="h-10 w-48 bg-muted animate-pulse rounded-lg" />
-          <div className="grid gap-6 lg:grid-cols-12 mt-6">
-            <div className="lg:col-span-4 h-[350px] bg-muted animate-pulse rounded-xl" />
-            <div className="lg:col-span-8 h-[500px] bg-muted animate-pulse rounded-xl" />
+      <PageContainer
+        title="Approve Concept Note"
+        description="Review expert assessment summaries and make a final governance decision."
+        actions={
+          <Skeleton className="h-9 w-36 rounded-md" />
+        }
+      >
+        <div className="grid gap-6 lg:grid-cols-12 items-start">
+          {/* Decision sidebar skeleton */}
+          <div className="lg:col-span-4 space-y-6 sticky top-6">
+            <Card className="shadow-sm border-primary/10 overflow-hidden">
+              <CardHeader className="border-b bg-muted/30 pb-4 space-y-3">
+                <Skeleton className="h-6 w-36" />
+                <Skeleton className="h-4 w-full max-w-[260px]" />
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-6 w-28" />
+                  </div>
+                  <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-6 w-24" />
+                  </div>
+                </div>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 rounded-xl border p-4"
+                  >
+                    <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-2 pt-0.5">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-56 max-w-full" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Reviewer assessments skeleton */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="shadow-sm border-primary/10 overflow-hidden">
+              <CardHeader className="border-b bg-muted/30 pb-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded" />
+                  <Skeleton className="h-6 w-48" />
+                </div>
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent className="pt-6 space-y-6">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border p-5 space-y-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-3 w-52 max-w-full" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                    <div className="pl-4 border-l-2 border-muted space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-[92%]" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                    <div className="pt-3 border-t flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Skeleton className="h-4 w-4 shrink-0" />
+                        <Skeleton className="h-3 w-40 max-w-full" />
+                      </div>
+                      <Skeleton className="h-8 w-20 shrink-0" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </PageContainer>
