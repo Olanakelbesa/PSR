@@ -192,7 +192,7 @@ const columns: ColumnDef<PolicyDraftItem>[] = [
     cell: ({ row }) => {
       const status = row.original.currentStatus;
       const display = row.original.currentStatusDisplay || status;
-      
+
       const badgeStyles: Record<string, string> = {
         draft: "bg-slate-100 text-slate-700 border-slate-200",
         submitted: "bg-blue-100 text-blue-700 border-blue-200",
@@ -337,7 +337,7 @@ export default function PolicyDraftsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-blue-100/50 bg-blue-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-blue-600/80">
@@ -356,7 +356,7 @@ export default function PolicyDraftsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-orange-100/50 bg-orange-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-orange-600/80">
@@ -375,11 +375,11 @@ export default function PolicyDraftsPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-green-100/50 bg-green-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-green-600/80">
-              Ratified (Approved)
+              Accepted
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -447,7 +447,7 @@ export default function PolicyDraftsPage() {
                   Create a new draft
                 </Link>
               </Button>
-            </EmptyHeader>  
+            </EmptyHeader>
           </Empty>
         )}
       </div>

@@ -409,7 +409,7 @@ export default function DraftDetailPage() {
             </Link>
           </Button>
           {hasPermission("policy_development.assign_reviewer") && (
-            <Button size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
+            <Button size="sm" asChild className="shadow-sm border-primary/20 hover:primary/90">
               <Link href={`/policies/drafts/manage-drafts/${draft.id}/assign`}>
                 <Users className="mr-2 h-4 w-4" />
                 {hasAssignedReviewers ? "Change Reviewers" : "Assign Reviewers"}
@@ -419,7 +419,7 @@ export default function DraftDetailPage() {
           {canRecordDecision && (
             <Button size="sm" className="shadow-sm font-semibold" onClick={handleOpenDecisionModal}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Record / Edit Decision
+              Decision
             </Button>
           )}
           {hasPermission("policy_development.psr_decision") && canSendToRepository && (

@@ -33,7 +33,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared";
 import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
-import { POLICY_TYPES } from "@/lib/constants";
 import { useServerPermissions } from "@/lib/queries/useServerPermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,9 +44,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
-
-
-
 
 
 const statusOptions = [
@@ -387,7 +383,7 @@ export default function PolicyDraftsPage() {
         <Card className="border-green-100/50 bg-green-50/10 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-green-600/80">
-              Ratified (Approved)
+              Accepted
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
