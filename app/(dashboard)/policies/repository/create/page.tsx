@@ -436,19 +436,13 @@ export default function CreateRepositoryEntryPage() {
                   label: "Next Review Date",
                   field: "nextReviewDate",
                 },
-                {
-                  id: "operationalPeriod",
-                  label: "Operational Period",
-                  field: "operationalPeriod",
-                  placeholder: "e.g. 2 years",
-                },
               ].map((item) => (
                 <div key={item.id} className="space-y-2">
                   <Label htmlFor={item.id}>{item.label}</Label>
                   {"placeholder" in item ? (
                     <Input
                       id={item.id}
-                      placeholder={item.placeholder}
+                      placeholder={item.placeholder as string}
                       value={(form as any)[item.field]}
                       onChange={(e) => set(item.field, e.target.value)}
                     />

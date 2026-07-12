@@ -1,23 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { 
-  Filter, 
-  Activity, 
-  ClipboardCheck, 
-  CheckCircle2, 
-  XCircle, 
-  Calendar 
+import {
+  Filter,
+  Activity,
+  ClipboardCheck,
+  CheckCircle2,
+  XCircle,
+  Calendar
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
@@ -152,9 +152,9 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
             const completedExpertReviews = expertReviews.filter((review: any) => review.score !== null);
             const avgScore = completedExpertReviews.length
               ? Math.round(
-                  completedExpertReviews.reduce((sum: number, r: any) => sum + (r.score || 0), 0) /
-                  completedExpertReviews.length
-                )
+                completedExpertReviews.reduce((sum: number, r: any) => sum + (r.score || 0), 0) /
+                completedExpertReviews.length
+              )
               : 0;
             const expertiseCount = expertReviews.length;
             const categories = buildChecklistCategories(versionReviews);
@@ -177,8 +177,8 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
                               {managerResponses[0].decision === "psr_approved"
                                 ? "Approved"
                                 : managerResponses[0].decision === "resubmission_required"
-                                ? "Revision Requested"
-                                : "Final Response"}
+                                  ? "Revision Requested"
+                                  : "Final Response"}
                             </span>
                           </div>
                         )}
@@ -201,146 +201,146 @@ export function DraftFeedback({ reviews }: DraftFeedbackProps) {
                   <AccordionContent className="px-6 py-6">
                     <div className="overflow-x-auto rounded-xl border border-muted/30 bg-white">
                       <table className="min-w-full border-collapse text-left">
-                      <thead className="bg-slate-50">
-                        <tr>
-                          <th className="border-b border-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Checklist Item
-                          </th>
-                          {expertReviews.map((review: any) => (
-                            <th key={review.id} className="border-b border-muted/20 px-4 py-3 text-left align-top">
-                              <div className="flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="h-9 w-9 border border-muted/20">
-                                    <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                                      {review.reviewer.firstName?.[0]}
-                                      {review.reviewer.lastName?.[0]}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <div className="text-sm font-semibold text-foreground">
-                                      {review.reviewer.firstName} {review.reviewer.lastName}
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground">
-                                      {review.reviewer.position || "Expert Reviewer"}
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="border-b border-muted/20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              Checklist Item
+                            </th>
+                            {expertReviews.map((review: any) => (
+                              <th key={review.id} className="border-b border-muted/20 px-4 py-3 text-left align-top">
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-9 w-9 border border-muted/20">
+                                      <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
+                                        {review.reviewer.firstName?.[0]}
+                                        {review.reviewer.lastName?.[0]}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="text-sm font-semibold text-foreground">
+                                        {review.reviewer.firstName} {review.reviewer.lastName}
+                                      </div>
+                                      <div className="text-[10px] text-muted-foreground">
+                                        {review.reviewer.position || "Expert Reviewer"}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                <Badge
-                                  className={cn(
-                                    "font-mono text-[10px] font-semibold px-2 py-1",
-                                    review.score === null
-                                      ? "bg-muted text-muted-foreground"
-                                      : review.score >= 70
-                                      ? "bg-green-100 text-green-700 border-green-200"
-                                      : "bg-orange-100 text-orange-700 border-orange-200"
-                                  )}
-                                >
-                                  {review.score !== null ? `${review.score}%` : "N/A"}
-                                </Badge>
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {categories.length > 0 ? (
-                          categories.map((category) => (
-                            <tr key={category} className="border-b last:border-b-0 border-muted/20">
-                              <td className="px-4 py-4 align-top w-48 text-sm font-medium text-foreground">
-                                {category}
-                              </td>
-                              {expertReviews.map((review: any) => {
-                                const item = (review.checklist || []).find((check: any) => check.category === category || check.question === category);
-                                return (
-                                  <td key={`${review.id}-${category}`} className="px-4 py-4 align-top text-sm text-slate-700">
-                                    {item ? (
-                                      <div className="space-y-2">
-                                        <Badge
-                                          className={cn(
-                                            "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wider",
-                                            item.passed
-                                              ? "bg-emerald-100 text-emerald-700"
-                                              : item.pending
-                                              ? "bg-amber-100 text-amber-700"
-                                              : "bg-rose-100 text-rose-700"
-                                          )}
-                                        >
-                                          {item.passed ? (
-                                            <>
-                                              <CheckCircle2 className="h-3 w-3" />
-                                              Yes
-                                            </>
-                                          ) : item.pending ? (
-                                            <>Pending</>
-                                          ) : (
-                                            <>
-                                              <XCircle className="h-3 w-3" />
-                                              No
-                                            </>
-                                          )}
-                                        </Badge>
-                                        {item.feedback ? (
-                                          <p className="text-xs text-muted-foreground leading-snug">
-                                            {item.feedback}
-                                          </p>
-                                        ) : (
-                                          <p className="text-xs text-muted-foreground italic">No comment</p>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">No response</span>
+                                  <Badge
+                                    className={cn(
+                                      "font-mono text-[10px] font-semibold px-2 py-1",
+                                      review.score === null
+                                        ? "bg-muted text-muted-foreground"
+                                        : review.score >= 70
+                                          ? "bg-green-100 text-green-700 border-green-200"
+                                          : "bg-orange-100 text-orange-700 border-orange-200"
                                     )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={versionReviews.length + 1} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                              No checklist items available for this version.
-                            </td>
+                                  >
+                                    {review.score !== null ? `${review.score}%` : "N/A"}
+                                  </Badge>
+                                </div>
+                              </th>
+                            ))}
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  {managerResponses.length > 0 && (
-                    <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 mt-4">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">PSR Manager Decision</p>
-                            <p className="text-xs text-muted-foreground">Final institutional response for this version</p>
+                        </thead>
+                        <tbody>
+                          {categories.length > 0 ? (
+                            categories.map((category) => (
+                              <tr key={category} className="border-b last:border-b-0 border-muted/20">
+                                <td className="px-4 py-4 align-top w-48 text-sm font-medium text-foreground">
+                                  {category}
+                                </td>
+                                {expertReviews.map((review: any) => {
+                                  const item = (review.checklist || []).find((check: any) => check.category === category || check.question === category);
+                                  return (
+                                    <td key={`${review.id}-${category}`} className="px-4 py-4 align-top text-sm text-slate-700">
+                                      {item ? (
+                                        <div className="space-y-2">
+                                          <Badge
+                                            className={cn(
+                                              "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wider",
+                                              item.passed
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : item.pending
+                                                  ? "bg-amber-100 text-amber-700"
+                                                  : "bg-rose-100 text-rose-700"
+                                            )}
+                                          >
+                                            {item.passed ? (
+                                              <>
+                                                <CheckCircle2 className="h-3 w-3" />
+                                                Yes
+                                              </>
+                                            ) : item.pending ? (
+                                              <>Pending</>
+                                            ) : (
+                                              <>
+                                                <XCircle className="h-3 w-3" />
+                                                No
+                                              </>
+                                            )}
+                                          </Badge>
+                                          {item.feedback ? (
+                                            <p className="text-xs text-muted-foreground leading-snug">
+                                              {item.feedback}
+                                            </p>
+                                          ) : (
+                                            <p className="text-xs text-muted-foreground italic">No comment</p>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground"></span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={versionReviews.length + 1} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                                No checklist items available for this version.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {managerResponses.length > 0 && (
+                      <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 mt-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">PSR Manager Decision</p>
+                              <p className="text-xs text-muted-foreground">Final institutional response for this version</p>
+                            </div>
+                            <Badge className="font-mono text-[10px] font-semibold px-2 py-1 bg-orange-100 text-orange-700 border-orange-200">
+                              {managerResponses[0].decision === "psr_approved"
+                                ? "Approved"
+                                : managerResponses[0].decision === "resubmission_required"
+                                  ? "Revision Requested"
+                                  : "Final Response"}
+                            </Badge>
                           </div>
-                          <Badge className="font-mono text-[10px] font-semibold px-2 py-1 bg-orange-100 text-orange-700 border-orange-200">
-                            {managerResponses[0].decision === "psr_approved"
-                              ? "Approved"
-                              : managerResponses[0].decision === "resubmission_required"
-                              ? "Revision Requested"
-                              : "Final Response"}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-slate-700">
-                          {managerResponses[0].comments || "No comments provided."}
+                          <div className="text-sm text-slate-700">
+                            {managerResponses[0].comments || "No comments provided."}
+                          </div>
                         </div>
                       </div>
+                    )}
+                    <div className="bg-muted/10 border-t px-6 py-4 text-xs text-muted-foreground flex flex-col md:flex-row md:justify-between gap-2">
+                      <span>
+                        Version {version} contains {expertReviews.length} expert reviewer{expertReviews.length !== 1 ? "s" : ""}.
+                      </span>
+                      <span>
+                        Last reviewed: {new Date(expertReviews[0]?.createdAt || Date.now()).toLocaleDateString()}
+                      </span>
                     </div>
-                  )}
-                  <div className="bg-muted/10 border-t px-6 py-4 text-xs text-muted-foreground flex flex-col md:flex-row md:justify-between gap-2">
-                    <span>
-                      Version {version} contains {expertReviews.length} expert reviewer{expertReviews.length !== 1 ? "s" : ""}.
-                    </span>
-                    <span>
-                      Last reviewed: {new Date(expertReviews[0]?.createdAt || Date.now()).toLocaleDateString()}
-                    </span>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Card>
-          );
-        })}
-      </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              </Card>
+            );
+          })}
+        </Accordion>
       ) : (
         <div className="text-center py-20 bg-muted/20 border-2 border-dashed rounded-xl">
           <ClipboardCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />

@@ -7,24 +7,22 @@ import { ColumnDef } from "@tanstack/react-table";
 import {
   Search,
   Library,
-  FileText,
+  FileCheck2,
+  FileClock,
+  Download,
+  Plus,
+  Pencil,
+  ArrowUpDown,
+  Loader2,
   Globe,
   Lock,
   Shield,
-  Download,
-  Building2,
-  Plus,
-  ArrowUpDown,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -47,8 +45,14 @@ import {
   usePolicyRepository,
   useRecordPolicyDownload,
   type PolicyRepositoryItem,
+  type PolicyRepositoryResponse,
 } from "@/lib/queries/policy-repository";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
+
+type RepositoryQueueFilter = "all" | "ready" | "published" | "unpublished";
+type RepositoryStatistics = NonNullable<
+  PolicyRepositoryResponse["meta"]["statistics"]
+>;
 
 const ACCESS_ICONS: Record<
   string,
@@ -88,17 +92,18 @@ export default function RepositoryDashboardPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [accessFilter, setAccessFilter] = useState("all");
-  const [publishFilter, setPublishFilter] = useState("all");
+  const [queueFilter, setQueueFilter] =
+    useState<RepositoryQueueFilter>("all");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const { data: docTypes = [] } = usePolicyDocumentTypes();
   const recordDownload = useRecordPolicyDownload();
 
   const mappedPublishStatus = useMemo(() => {
-    if (publishFilter === "published") return true;
-    if (publishFilter === "unpublished") return false;
+    if (queueFilter === "published") return true;
+    if (queueFilter === "unpublished") return false;
     return undefined;
-  }, [publishFilter]);
+  }, [queueFilter]);
 
   const { data: repositoryResponse, isLoading } = usePolicyRepository({
     search: search || undefined,
@@ -110,26 +115,32 @@ export default function RepositoryDashboardPage() {
 
   const policiesList = repositoryResponse?.data ?? [];
   const totalItems = repositoryResponse?.meta?.total ?? policiesList.length;
+  const statistics: RepositoryStatistics | undefined =
+    repositoryResponse?.meta?.statistics;
 
   const stats = useMemo(() => {
-    const publishedCount = policiesList.filter(
+    const publishedFromList = policiesList.filter(
       (p) => p.status === "Published",
     ).length;
-
-    const uniqueOrgs = new Set<string>();
-    const uniqueTypes = new Set<string>();
-    policiesList.forEach((p) => {
-      if (p.organizationName) uniqueOrgs.add(p.organizationName);
-      if (p.docType) uniqueTypes.add(p.docType);
-    });
+    const unpublishedFromList = policiesList.filter(
+      (p) => p.status !== "Published",
+    ).length;
 
     return {
-      total: totalItems,
-      published: publishedCount,
-      orgs: uniqueOrgs.size,
-      types: uniqueTypes.size,
+      total: statistics?.totalRegistered ?? totalItems,
+      readyForRegistration: statistics?.readyForRegistration ?? 0,
+      published: statistics?.published ?? publishedFromList,
+      unpublished: statistics?.unpublished ?? unpublishedFromList,
     };
-  }, [policiesList, totalItems]);
+  }, [policiesList, statistics, totalItems]);
+
+  const applyQueueFilter = (filter: RepositoryQueueFilter) => {
+    if (filter === "ready") {
+      router.push("/policies/repository/create");
+      return;
+    }
+    setQueueFilter((current) => (current === filter ? "all" : filter));
+  };
 
   const handleDownload = useCallback(
     async (policy: PolicyRepositoryItem, event?: React.MouseEvent) => {
@@ -289,28 +300,40 @@ export default function RepositoryDashboardPage() {
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => {
           const policy = row.original;
-          if (!policy.draftFile) return null;
           const isDownloading = downloadingId === policy.id;
           return (
             <div
-              className="flex justify-end"
+              className="flex justify-end gap-1.5"
               onClick={(event) => event.stopPropagation()}
             >
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 gap-1.5 px-2.5 text-primary hover:bg-muted"
-                disabled={isDownloading}
-                title="Download document"
-                onClick={(event) => void handleDownload(policy, event)}
+                className="h-8 gap-1.5 px-2.5"
+                asChild
               >
-                {isDownloading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Download
+                <Link href={`/policies/repository/${policy.id}/edit`}>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Link>
               </Button>
+              {policy.draftFile ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 px-2.5 text-primary hover:bg-muted"
+                  disabled={isDownloading}
+                  title="Download document"
+                  onClick={(event) => void handleDownload(policy, event)}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download
+                </Button>
+              ) : null}
             </div>
           );
         },
@@ -325,7 +348,11 @@ export default function RepositoryDashboardPage() {
         <div>
           <p className="text-sm font-semibold text-foreground">Policy registry</p>
           <p className="text-xs text-muted-foreground">
-            {totalItems} polic{totalItems === 1 ? "y" : "ies"} found
+            {queueFilter === "published"
+              ? "Showing published policies"
+              : queueFilter === "unpublished"
+                ? "Showing unpublished policies"
+                : `${totalItems} polic${totalItems === 1 ? "y" : "ies"} found`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -364,20 +391,77 @@ export default function RepositoryDashboardPage() {
             </SelectContent>
           </Select>
 
-          <Select value={publishFilter} onValueChange={setPublishFilter}>
-            <SelectTrigger className="h-10 w-36 focus:ring-primary/20">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="unpublished">Unpublished</SelectItem>
-            </SelectContent>
-          </Select>
+          {(queueFilter === "published" || queueFilter === "unpublished") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10"
+              onClick={() => setQueueFilter("all")}
+            >
+              Clear status filter
+            </Button>
+          )}
         </div>
       </div>
     </div>
   );
+
+  const statCards: Array<{
+    key: RepositoryQueueFilter;
+    label: string;
+    value: number;
+    icon: typeof Library;
+    color: string;
+    bg: string;
+    border: string;
+    activeRing: string;
+    sub: string;
+  }> = [
+    {
+      key: "all",
+      label: "Total registered",
+      value: stats.total,
+      icon: Library,
+      color: "text-primary",
+      bg: "bg-primary/10",
+      border: "border-primary/20",
+      activeRing: "ring-primary/50 border-primary/40",
+      sub: "In the policy registry",
+    },
+    {
+      key: "ready",
+      label: "Ready for Repository registration",
+      value: stats.readyForRegistration,
+      icon: FileCheck2,
+      color: "text-teal-600",
+      bg: "bg-teal-50",
+      border: "border-teal-200",
+      activeRing: "ring-teal-500/60 border-teal-300",
+      sub: "Approved drafts awaiting registration",
+    },
+    {
+      key: "published",
+      label: "Published",
+      value: stats.published,
+      icon: Globe,
+      color: "text-green-600",
+      bg: "bg-green-50",
+      border: "border-green-200",
+      activeRing: "ring-green-500/60 border-green-300",
+      sub: "Live in the public registry",
+    },
+    {
+      key: "unpublished",
+      label: "Unpublished",
+      value: stats.unpublished,
+      icon: FileClock,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      border: "border-amber-200",
+      activeRing: "ring-amber-500/60 border-amber-300",
+      sub: "Registered but not yet published",
+    },
+  ];
 
   return (
     <PageContainer
@@ -397,54 +481,50 @@ export default function RepositoryDashboardPage() {
     >
       <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            {
-              label: "Total registered",
-              value: stats.total,
-              icon: Library,
-              color: "text-primary",
-              bg: "bg-primary/10",
-              border: "border-primary/20",
-            },
-            {
-              label: "Published",
-              value: stats.published,
-              icon: Globe,
-              color: "text-green-600",
-              bg: "bg-green-50",
-              border: "border-green-200",
-            },
-            {
-              label: "Organizations",
-              value: stats.orgs,
-              icon: Building2,
-              color: "text-blue-600",
-              bg: "bg-blue-50",
-              border: "border-blue-200",
-            },
-            {
-              label: "Document types",
-              value: stats.types,
-              icon: FileText,
-              color: "text-purple-600",
-              bg: "bg-purple-50",
-              border: "border-purple-200",
-            },
-          ].map((stat) => (
-            <Card key={stat.label} className={cn("border shadow-sm", stat.border)}>
-              <CardContent className="flex items-center gap-4 p-5">
-                <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
-                  <stat.icon className={cn("h-5 w-5", stat.color)} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black">{stat.value}</p>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {stat.label}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {statCards.map((stat) => {
+            const isActive = queueFilter === stat.key;
+
+            return (
+              <Card
+                key={stat.key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyQueueFilter(stat.key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    applyQueueFilter(stat.key);
+                  }
+                }}
+                className={cn(
+                  "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                  stat.border,
+                  isActive && cn("ring-2 shadow-md", stat.activeRing),
+                )}
+              >
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                    <stat.icon className={cn("h-5 w-5", stat.color)} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black">
+                      {isLoading ? (
+                        <Skeleton className="h-8 w-12" />
+                      ) : (
+                        stat.value
+                      )}
+                    </p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {stat.label}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                      {stat.sub}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {isLoading ? (

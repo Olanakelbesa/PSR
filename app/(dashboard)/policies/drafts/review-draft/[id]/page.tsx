@@ -8,8 +8,6 @@ import {
   FileText,
   User,
   Calendar,
-  CheckCircle2,
-  Clock,
   ClipboardCheck,
 } from "lucide-react";
 
@@ -21,12 +19,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/layout";
 import { StatusBadge } from "@/components/shared";
 import { POLICY_TYPES } from "@/lib/constants";
-import type { PolicyStatus, PolicyType } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import type { PolicyType } from "@/lib/types";
+import { useAuth } from "@/hooks/useAuth";
 
 import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
 import { ExpertReviewersSection } from "@/components/policies/drafts/expert-reviewers-section";
@@ -35,143 +32,195 @@ import { usePolicyDraftMyReviewDetail } from "@/lib/queries/policy-drafts";
 export default function DraftDetailPage() {
   const params = useParams();
   const draftId = (params as any)?.id;
+  const { user } = useAuth();
 
   const { data: rawResponse, isLoading } = usePolicyDraftMyReviewDetail(draftId);
   const rawDraft = rawResponse?.data;
 
   const draft = useMemo(() => {
     if (!rawDraft) return null;
-    
-    // 1. Basic status mapping
+
     const statusMap: Record<string, string> = {
-      "draft": "draft",
-      "submitted": "submitted",
-      "under_review": "under_review",
-      "review_completed": "review_completed",
-      "psr_approved": "approved",
-      "repository_registered": "approved",
-      "resubmission_required": "resubmission_required",
-      "resubmitted": "resubmitted"
+      draft: "draft",
+      submitted: "submitted",
+      under_review: "under_review",
+      review_completed: "review_completed",
+      psr_approved: "approved",
+      repository_registered: "approved",
+      resubmission_required: "resubmission_required",
+      resubmitted: "resubmitted",
     };
 
-    const statusValue = typeof rawDraft.currentStatus === "string" 
-      ? rawDraft.currentStatus 
-      : rawDraft.currentStatus?.status || rawDraft.current_status || "draft";
-      
-    const resolvedStatus = statusMap[String(statusValue).toLowerCase()] || "under_review";
+    const statusValue =
+      typeof rawDraft.currentStatus === "string"
+        ? rawDraft.currentStatus
+        : rawDraft.currentStatus?.status ||
+          rawDraft.current_status ||
+          "draft";
 
-    // 2. Map expert reviews from expertFeedback
+    const resolvedStatus =
+      statusMap[String(statusValue).toLowerCase()] || "under_review";
+
     const reviewsList: any[] = [];
     const expertFeedback = rawDraft.expertFeedback || [];
-    
+    const currentUserId = user?.id != null ? String(user.id) : null;
+
     expertFeedback.forEach((vFeed: any) => {
       const version = vFeed.versionNumber || "v1.0.0";
       const details = vFeed.feedbackDetail || [];
-      
+
       details.forEach((det: any, index: number) => {
         const reviewerData = det.expertReviewer || det.expert_reviewer || {};
-        const reviewerNameRaw = reviewerData?.fullName || reviewerData?.full_name || "Anonymous Reviewer";
-        const reviewerPosition = reviewerData?.position || reviewerData?.role || "Expert Evaluator";
-        const isManagerEntry = reviewerPosition === "PSR Manager" || reviewerNameRaw.includes("PSR Manager");
-        const reviewerName = isManagerEntry
-          ? reviewerNameRaw.replace(" (PSR Manager)", "")
-          : reviewerNameRaw;
-        const [firstName, ...rest] = reviewerName.split(" ");
-        const lastName = rest.join(" ") || (isManagerEntry ? "PSR Manager" : "");
-        
+        const reviewerId =
+          reviewerData?.id != null ? String(reviewerData.id) : null;
+        const reviewerPosition =
+          reviewerData?.position || reviewerData?.role || "Expert Evaluator";
+        const reviewerNameRaw =
+          reviewerData?.fullName ||
+          reviewerData?.full_name ||
+          "Anonymous Reviewer";
+        const isManagerEntry =
+          reviewerPosition === "PSR Manager" ||
+          reviewerNameRaw.includes("PSR Manager");
+
+        // Only the signed-in reviewer's own assessment
+        if (isManagerEntry) return;
+        if (currentUserId && reviewerId && reviewerId !== currentUserId) return;
+        if (currentUserId && !reviewerId) return;
+
+        const [firstName, ...rest] = reviewerNameRaw.split(" ");
+        const lastName = rest.join(" ") || "";
+
         const checklist = (det.checklistBreakdown || []).map((chk: any) => {
-          const isPassed = chk.fulfillment === "yes" || chk.isPassed === true || chk.is_passed === true;
-          const isPending = chk.fulfillment === "pending" || ((chk.isPassed === null || chk.isPassed === undefined) && chk.fulfillment == null && chk.is_passed == null);
+          const isPassed =
+            chk.fulfillment === "yes" ||
+            chk.isPassed === true ||
+            chk.is_passed === true;
+          const isPending =
+            chk.fulfillment === "pending" ||
+            ((chk.isPassed === null || chk.isPassed === undefined) &&
+              chk.fulfillment == null &&
+              chk.is_passed == null);
 
           return {
             category: chk.questionText || "Criterion",
             passed: isPassed,
             pending: isPending,
-            feedback: chk.reviewerNote || ""
+            feedback: chk.reviewerNote || "",
           };
         });
 
         const answeredItems = checklist.filter((item: any) => !item.pending);
-        const computedScore = answeredItems.length > 0
-          ? Math.round((answeredItems.filter((item: any) => item.passed).length / answeredItems.length) * 100)
-          : null;
+        const computedScore =
+          answeredItems.length > 0
+            ? Math.round(
+                (answeredItems.filter((item: any) => item.passed).length /
+                  answeredItems.length) *
+                  100,
+              )
+            : null;
 
         reviewsList.push({
           id: String(det.id || `REV-${version}-${index}`),
           version: version,
           reviewer: {
             id: String(reviewerData?.id || `r-${index}`),
-            firstName: firstName,
-            lastName: lastName,
+            firstName,
+            lastName,
             position: reviewerPosition,
-            institution: isManagerEntry ? "PSR Management" : "PSR Council"
+            institution: "PSR Council",
           },
-          status: det.currentStatus === "graded" || det.finalDecisionStatus === "completed" ? "completed" : "pending",
+          status:
+            det.currentStatus === "graded" ||
+            det.finalDecisionStatus === "completed"
+              ? "completed"
+              : "pending",
           score: det.score ?? computedScore,
           comments: det.comment,
           createdAt: det.commentGivenAt || new Date().toISOString(),
-          checklist: checklist,
-          isPSRManager: isManagerEntry,
+          checklist,
+          isPSRManager: false,
         });
       });
     });
 
-    // 3. Map version history
     const versions = rawDraft.versions || [];
     const versionHistory = versions.map((ver: any) => {
       const authorName = ver.createdByName || "Author";
       const [firstName, ...rest] = authorName.split(" ");
       const lastName = rest.join(" ") || "";
-      
+
       return {
         version: ver.versionNumber || "v1.0.0",
         date: ver.createdAt || new Date().toISOString(),
         author: { firstName, lastName },
-        description: ver.isResubmission ? "Revised resubmission following expert feedback." : "Initial draft document submission.",
+        description: ver.isResubmission
+          ? "Revised resubmission following expert feedback."
+          : "Initial draft document submission.",
         status: ver.isLatest ? "current" : "archived",
         size: "Document File",
-        file: ver.file || ""
+        file: ver.file || "",
       };
     });
 
-    // 4. Map timeline
     const timeline = (rawDraft.timeline || []).map((t: any) => ({
       eventType: t.eventType,
       title: t.title,
       actor: t.actor,
       actorPhoto: t.actorPhoto,
       timestamp: t.timestamp,
-      version: t.version
+      version: t.version,
     }));
 
-    const originalConceptNoteId = rawDraft.concept_note?.id ?? rawDraft.conceptNote?.id ?? rawDraft.currentStatus?.conceptId;
-    const originalConceptLabel = rawDraft.currentStatus?.conceptId || (originalConceptNoteId ? `CN-${String(originalConceptNoteId).padStart(4, "0")}` : "CN");
+    const originalConceptNoteId =
+      rawDraft.concept_note?.id ??
+      rawDraft.conceptNote?.id ??
+      rawDraft.currentStatus?.conceptId;
+    const originalConceptLabel =
+      rawDraft.currentStatus?.conceptId ||
+      (originalConceptNoteId
+        ? `CN-${String(originalConceptNoteId).padStart(4, "0")}`
+        : "CN");
 
     return {
       id: String(rawDraft.id),
       title: rawDraft.title || "Policy Draft",
-      versionNumber: rawDraft.currentStatus?.version || rawDraft.versionNumber || "v1.0.0",
-      type: (rawDraft.docType?.name ? rawDraft.docType.name.toLowerCase() : "policy") as any,
+      versionNumber:
+        rawDraft.currentStatus?.version ||
+        rawDraft.versionNumber ||
+        "v1.0.0",
+      type: (rawDraft.docType?.name
+        ? rawDraft.docType.name.toLowerCase()
+        : "policy") as any,
       status: resolvedStatus as any,
-      submissionDate: rawDraft.submittedBy?.submittedAt || rawDraft.submissionDate || new Date().toISOString(),
+      submissionDate:
+        rawDraft.submittedBy?.submittedAt ||
+        rawDraft.submissionDate ||
+        new Date().toISOString(),
       submittedBy: {
         firstName: rawDraft.submittedBy?.fullName?.split(" ")[0] || "Proposed",
-        lastName: rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") || "User",
-        role: "Submitter"
+        lastName:
+          rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") ||
+          "User",
+        role: "Submitter",
       },
       conceptNoteId: originalConceptNoteId,
       conceptNoteLabel: originalConceptLabel,
-      executiveSummary: rawDraft.overview?.executiveSummary || rawDraft.executiveSummary || "No summary provided.",
+      executiveSummary:
+        rawDraft.overview?.executiveSummary ||
+        rawDraft.executiveSummary ||
+        "No summary provided.",
       draftFile: {
-        name: rawDraft.overview?.file?.split("/").pop() || "Draft_Document.pdf",
-        size: "PDF Document"
+        name:
+          rawDraft.overview?.file?.split("/").pop() || "Draft_Document.pdf",
+        size: "PDF Document",
       },
       url: rawDraft.overview?.file || "",
-      versionHistory: versionHistory,
+      versionHistory,
       reviews: reviewsList,
-      timeline: timeline
+      timeline,
     };
-  }, [rawDraft]);
+  }, [rawDraft, user?.id]);
 
   if (isLoading || !draft) {
     return (
@@ -193,7 +242,12 @@ export default function DraftDetailPage() {
       description={`Reviewing Draft Version: ${draft.versionNumber}`}
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild className="shadow-sm border-primary/20 hover:bg-primary/5">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="shadow-sm border-primary/20 hover:bg-primary/5"
+          >
             <Link href="/policies/drafts/review-draft">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Drafts
@@ -210,7 +264,7 @@ export default function DraftDetailPage() {
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">
-          <DraftTabs draft={draft} isFeedbackVisible={false} />
+          <DraftTabs draft={draft} isFeedbackVisible />
         </div>
 
         <aside className="space-y-6">

@@ -11,6 +11,7 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -169,6 +170,17 @@ export default function RepositoryDetailPage() {
               Repository
             </Link>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="border-primary/20 shadow-sm hover:bg-primary/5"
+          >
+            <Link href={`/policies/repository/${policy.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
           {hasDocument && (
             <Button
               size="sm"
@@ -267,6 +279,17 @@ export default function RepositoryDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-full justify-start text-sm"
+                asChild
+              >
+                <Link href={`/policies/repository/${policy.id}/edit`}>
+                  <Pencil className="mr-2 h-4 w-4 text-muted-foreground" />
+                  Edit registry entry
+                </Link>
+              </Button>
               {hasDocument ? (
                 <Button
                   variant="ghost"

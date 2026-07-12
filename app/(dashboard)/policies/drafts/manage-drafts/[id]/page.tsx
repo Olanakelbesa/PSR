@@ -622,10 +622,10 @@ export default function DraftDetailPage() {
             >
               {decisionMutation.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Recording...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Approving...
                 </>
               ) : (
-                "Record Decision"
+                "Approve"
               )}
             </Button>
           </DialogFooter>

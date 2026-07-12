@@ -36,6 +36,12 @@ export interface PolicyRepositoryResponse {
     limit: number;
     total: number;
     totalPages: number;
+    statistics?: {
+      totalRegistered: number;
+      published: number;
+      unpublished: number;
+      readyForRegistration: number;
+    };
   };
 }
 
@@ -332,6 +338,59 @@ export function useRegisterPolicy() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(variables.source_draft_id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(variables.source_draft_id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      void invalidateDashboardAnalytics(queryClient);
+    },
+  });
+}
+
+export function useUpdateRegisteredPolicy(id: string | number) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    any,
+    any,
+    {
+      serial_number: string;
+      version_code: string;
+      approval_date: string;
+      effective_date: string;
+      next_review_date: string;
+      access_level: string;
+      publish_status: boolean;
+      policy_document_source?: File | null;
+    }
+  >({
+    mutationFn: async (variables) => {
+      const formData = new FormData();
+      formData.append("serial_number", variables.serial_number.trim());
+      formData.append("version_code", variables.version_code.trim());
+      formData.append("approval_date", variables.approval_date);
+      formData.append("effective_date", variables.effective_date);
+      formData.append("next_review_date", variables.next_review_date);
+      formData.append("access_level", variables.access_level.toLowerCase());
+      formData.append("publish_status", String(variables.publish_status));
+      if (variables.policy_document_source) {
+        formData.append(
+          "policy_document_source",
+          variables.policy_document_source,
+        );
+      }
+
+      const { data } = await api.patch(
+        API_ENDPOINTS.POLICY_REPOSITORY.UPDATE(id),
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy-repository"] });
+      queryClient.invalidateQueries({
+        queryKey: ["policy-repository-detail", String(id)],
+      });
       void invalidateDashboardAnalytics(queryClient);
     },
   });
