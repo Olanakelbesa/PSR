@@ -401,7 +401,7 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-base md:text-xl text-muted-foreground max-w-2xl mx-auto opacity-90">
-                The unified operating system for policy repositories and
+                The system for policy repositories and
                 research lifecycle management. Built for institutions that
                 prioritize transparency and efficiency.
               </p>

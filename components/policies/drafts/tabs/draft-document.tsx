@@ -1,7 +1,6 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
-import { PdfViewer } from "@/components/shared";
+import { ConceptNoteAttachmentViewer } from "@/components/policies/concept-notes/concept-note-attachment-viewer";
 
 interface DraftDocumentProps {
   url: string;
@@ -9,13 +8,5 @@ interface DraftDocumentProps {
 }
 
 export function DraftDocument({ url, fileName }: DraftDocumentProps) {
-  return (
-    <Card className="shadow-lg border-primary/20 overflow-hidden">
-      <PdfViewer
-        url={url}
-        title={fileName}
-        className="h-[900px]"
-      />
-    </Card>
-  );
+  return <ConceptNoteAttachmentViewer url={url} title={fileName} />;
 }
