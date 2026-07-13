@@ -74,7 +74,7 @@ import {
   useUpdateUser,
   useUsers,
 } from "@/hooks/useUsers";
-import { usePermissionCatalog, useRoles } from "@/hooks/useRoles";
+import { useRoles } from "@/hooks/useRoles";
 import {
   useOrganizationTypes,
   useOrganizations,
@@ -365,7 +365,7 @@ export default function UsersManagementPage() {
   return (
     <PageContainer
       title="User Management"
-      description="Manage user accounts, roles, and access status."
+        description="Manage user accounts, roles, and access status."
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
@@ -780,7 +780,6 @@ export default function UsersManagementPage() {
                     )}
                   </div>
                 </div>
-
 
                 {!editingUser && (
                   <div className="space-y-2">

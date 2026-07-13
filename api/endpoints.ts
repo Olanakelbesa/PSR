@@ -365,23 +365,8 @@ export const API_ENDPOINTS = {
 
   ROLES: {
     LIST: "/v1/roles/",
-    DETAIL: (id: string | number) => `/v1/roles/${id}/`,
-    CREATE: "/v1/roles/",
-    UPDATE: (id: string | number) => `/v1/roles/${id}/`,
-    DELETE: (id: string | number) => `/v1/roles/${id}/`,
   },
 
-  PERMISSIONS: {
-    CATALOG: "/v1/permissions/catalog/",
-  },
-
-  GROUPS: {
-    LIST: "/v1/groups/",
-    DETAIL: (id: string | number) => `/v1/groups/${id}/`,
-    CREATE: "/v1/groups/",
-    UPDATE: (id: string | number) => `/v1/groups/${id}/`,
-    DELETE: (id: string | number) => `/v1/groups/${id}/`,
-  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

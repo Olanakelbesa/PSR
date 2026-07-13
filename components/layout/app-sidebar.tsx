@@ -31,8 +31,6 @@ import {
   Globe,
   FileUp,
   Lightbulb,
-  Shield,
-  Layers,
 } from "lucide-react";
 
 import {
@@ -328,18 +326,6 @@ const navigationGroups: NavGroup[] = [
             href: "/settings/access-control/users",
             icon: Users,
             permissions: [...PERMISSION_GROUPS.USER_MANAGEMENT],
-          },
-          {
-            label: "Roles & Permissions",
-            href: "/settings/access-control/roles",
-            icon: Shield,
-            permissions: [...PERMISSION_GROUPS.ROLE_MANAGEMENT],
-          },
-          {
-            label: "Permission Groups",
-            href: "/settings/access-control/groups",
-            icon: Layers,
-            permissions: [...PERMISSION_GROUPS.ROLE_MANAGEMENT],
           },
           {
             label: "Audit Logs",
