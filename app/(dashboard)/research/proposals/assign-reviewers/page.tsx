@@ -28,7 +28,7 @@ import { getScreenings, type Screening } from "@/api/services";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type ScreeningRow = Screening & {
   proposalId: string;
@@ -48,7 +48,7 @@ export default function AssignReviewersPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
-  const { hasPermission } = useServerPermissions();
+  const { hasPermission } = useCurrentUser();
 
   const formatProposalReference = (id: string | number) =>
     String(id)

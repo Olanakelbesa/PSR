@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Search,
   Filter,
@@ -9,21 +9,35 @@ import {
   FileText,
   LogIn,
   LogOut,
-  Edit,
-  Trash2,
   Plus,
-  Eye,
-  Settings,
+  Pencil,
+  Send,
+  RotateCcw,
+  UserPlus,
+  BookOpen,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  CircleAlert,
+  Copy,
+  ArrowRightLeft,
+  Archive,
+  BookMarked,
+  KeyRound,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import apiClient from '@/api/client'
 import { API_ENDPOINTS } from '@/api/endpoints'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -47,142 +61,292 @@ import {
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { PageContainer } from '@/components/layout'
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 interface AuditLog {
-  id: string;
-  action: string;
-  userId: string;
-  userName: string;
-  userRole: string;
-  resource: string;
-  resourceId: string;
-  details: string;
-  ipAddress: string;
-  userAgent: string;
-  timestamp: string;
+  id: string
+  action: string
+  eventType: string
+  userId: string
+  userName: string
+  userRole: string
+  documentType: string
+  resourceId: string
+  description: string
+  ipAddress: string
+  timestamp: string
 }
 
+interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+// ── Action normalization (shared with user-detail-activity) ─────────────────────
+
+const ACTION_MAP: Record<string, string> = {
+  CREATED: 'created',
+  UPDATED: 'updated',
+  SUBMITTED: 'submitted',
+  RESUBMITTED: 'resubmitted',
+  REVIEWER_ASSIGNED: 'reviewer_assigned',
+  REVIEW_STARTED: 'review_started',
+  REVIEW_COMPLETED: 'review_completed',
+  PARTIALLY_ACCEPTED: 'partially_accepted',
+  NOT_ACCEPTED: 'not_accepted',
+  ACCEPTED: 'accepted',
+  REVISION_REQUIRED: 'revision_required',
+  VERSION_CREATED: 'version_created',
+  STATUS_CHANGED: 'status_changed',
+  ARCHIVED: 'archived',
+  REPOSITORY_REGISTERED: 'repository_registered',
+  LOGIN: 'login',
+  LOGOUT: 'logout',
+  USER_REGISTERED: 'user_registered',
+  PASSWORD_RESET: 'password_reset',
+  PASSWORD_CHANGED: 'password_changed',
+}
+
+function normalizeAction(eventType: string): string {
+  const direct = ACTION_MAP[eventType]
+  if (direct) return direct
+
+  const t = eventType.toLowerCase()
+  if (t.includes('submit')) return 'submitted'
+  if (t.includes('create')) return 'created'
+  if (t.includes('update')) return 'updated'
+  if (t.includes('delete')) return 'updated'
+  if (t.includes('login')) return 'login'
+  if (t.includes('logout')) return 'logout'
+  if (t.includes('review')) return 'review_completed'
+  if (t.includes('assign')) return 'reviewer_assigned'
+  if (t.includes('accept')) return 'accepted'
+  if (t.includes('reject') || t.includes('not_accept')) return 'not_accepted'
+  if (t.includes('revision')) return 'revision_required'
+  if (t.includes('archive')) return 'archived'
+  if (t.includes('register')) return 'user_registered'
+  if (t.includes('password')) return 'password_changed'
+  return 'updated'
+}
+
+// ── Icons & Colors ─────────────────────────────────────────────────────────────
+
 const actionIcons: Record<string, typeof FileText> = {
+  created: Plus,
+  updated: Pencil,
+  submitted: Send,
+  resubmitted: RotateCcw,
+  reviewer_assigned: UserPlus,
+  review_started: BookOpen,
+  review_completed: CheckCircle2,
+  accepted: CheckCircle2,
+  not_accepted: XCircle,
+  partially_accepted: AlertCircle,
+  revision_required: CircleAlert,
+  version_created: Copy,
+  status_changed: ArrowRightLeft,
+  archived: Archive,
+  repository_registered: BookMarked,
   login: LogIn,
   logout: LogOut,
-  create: Plus,
-  update: Edit,
-  delete: Trash2,
-  view: Eye,
-  export: Download,
-  settings: Settings,
+  user_registered: UserPlus,
+  password_reset: KeyRound,
+  password_changed: KeyRound,
 }
 
 const actionColors: Record<string, string> = {
+  created: 'text-blue-500 bg-blue-500/10',
+  updated: 'text-amber-500 bg-amber-500/10',
+  submitted: 'text-blue-600 bg-blue-600/10',
+  resubmitted: 'text-blue-400 bg-blue-400/10',
+  reviewer_assigned: 'text-indigo-500 bg-indigo-500/10',
+  review_started: 'text-violet-500 bg-violet-500/10',
+  review_completed: 'text-green-500 bg-green-500/10',
+  accepted: 'text-green-600 bg-green-600/10',
+  not_accepted: 'text-red-500 bg-red-500/10',
+  partially_accepted: 'text-orange-500 bg-orange-500/10',
+  revision_required: 'text-yellow-600 bg-yellow-600/10',
+  version_created: 'text-purple-500 bg-purple-500/10',
+  status_changed: 'text-teal-500 bg-teal-500/10',
+  archived: 'text-slate-400 bg-slate-400/10',
+  repository_registered: 'text-emerald-500 bg-emerald-500/10',
   login: 'text-green-500 bg-green-500/10',
   logout: 'text-slate-500 bg-slate-500/10',
-  create: 'text-blue-500 bg-blue-500/10',
-  update: 'text-amber-500 bg-amber-500/10',
-  delete: 'text-red-500 bg-red-500/10',
-  view: 'text-purple-500 bg-purple-500/10',
-  export: 'text-cyan-500 bg-cyan-500/10',
-  settings: 'text-slate-500 bg-slate-500/10',
+  user_registered: 'text-cyan-500 bg-cyan-500/10',
+  password_reset: 'text-orange-400 bg-orange-400/10',
+  password_changed: 'text-amber-500 bg-amber-500/10',
 }
+
+// ── Display helpers ────────────────────────────────────────────────────────────
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  CONCEPT_NOTE: 'Concept Note',
+  POLICY_DRAFT: 'Policy Draft',
+  POLICY_REPOSITORY: 'Policy Repository',
+  PROPOSAL: 'Proposal',
+  SCREENING: 'Screening',
+  USER: 'User',
+  GRANT_CALL: 'Grant Call',
+  PROGRESS_REPORT: 'Progress Report',
+  TERMINAL_REPORT: 'Terminal Report',
+}
+
+function formatDocumentType(raw: string): string {
+  if (!raw) return ''
+  return DOCUMENT_TYPE_LABELS[raw] || raw.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatStatus(raw: string): string {
+  if (!raw) return ''
+  return raw.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+// ── Normalize log entry ────────────────────────────────────────────────────────
 
 function normalizeAuditLog(event: any): AuditLog {
-  const actionType = String(event.eventType || 'audit').toLowerCase()
-  const action = (
-    actionType === 'login' ||
-    actionType === 'logout' ||
-    actionType === 'create' ||
-    actionType === 'update' ||
-    actionType === 'delete' ||
-    actionType === 'view' ||
-    actionType === 'export' ||
-    actionType === 'settings'
-  )
-    ? actionType
-    : actionType.includes('create')
-    ? 'create'
-    : actionType.includes('update')
-    ? 'update'
-    : actionType.includes('delete')
-    ? 'delete'
-    : actionType.includes('login')
-    ? 'login'
-    : actionType.includes('logout')
-    ? 'logout'
-    : actionType.includes('submit')
-    ? 'view'
-    : 'settings'
-
   const metadata = event.metadata || {}
-  const documentType = event.document_type
-  const documentId = event.document_id ? String(event.document_id) : ''
-  const resource =
-    documentType || metadata.title || metadata.action || event.eventType || 'Audit Event'
-  const resourceId = documentId || event.relatedVersion || ''
+  const eventType = event.eventType || event.event_type || 'UPDATED'
+  const docType = event.documentType || event.document_type || metadata.documentType || metadata.document_type || ''
+  const docId = (event.documentId ?? event.document_id) ? String(event.documentId ?? event.document_id) : ''
 
-  return {
-    id: event.eventId ?? String(event.event_id ?? ''),
-    action,
-    userId: String(event.actor?.id ?? metadata.actor_id ?? ''),
-    userName:
-      event.actor?.name || metadata.email || metadata.actor_name || 'System',
+  const log: AuditLog = {
+    id: (event.eventId ?? event.event_id ?? event.id ?? '').toString(),
+    action: normalizeAction(eventType),
+    eventType,
+    userId: String(event.actor?.id ?? metadata.actorId ?? metadata.actor_id ?? ''),
+    userName: event.actor?.name || metadata.email || metadata.actorName || metadata.actor_name || 'System',
     userRole: metadata.role || '',
-    resource,
-    resourceId,
-    details:
-      metadata.title || metadata.description || metadata.message || event.eventType || '',
-    ipAddress: event.ipAddress || metadata.ip_address || '',
-    userAgent: metadata.user_agent || '',
-    timestamp: event.timestamp || event.created_at || new Date().toISOString(),
+    documentType: docType,
+    resourceId: docId,
+    description: metadata.title || metadata.description || metadata.message || '',
+    ipAddress: event.ipAddress || event.ip_address || '',
+    timestamp: event.timestamp || event.createdAt || event.created_at || new Date().toISOString(),
   }
+
+  if (!log.description) {
+    const docLabel = formatDocumentType(docType)
+    const docRef = docId ? ` #${docId}` : ''
+    const fromStatus = event.fromStatus || event.from_status || ''
+    const toStatus = event.toStatus || event.to_status || ''
+    switch (log.action) {
+      case 'submitted': log.description = `Submitted ${docLabel}${docRef}`; break
+      case 'resubmitted': log.description = `Resubmitted ${docLabel}${docRef}`; break
+      case 'reviewer_assigned': log.description = metadata.reviewerName || metadata.reviewer_name ? `Assigned to ${metadata.reviewerName || metadata.reviewer_name}` : `Assigned reviewer to ${docLabel}${docRef}`; break
+      case 'review_completed': log.description = metadata.decision ? `Review completed — ${formatStatus(metadata.decision)}` : `Review completed for ${docLabel}${docRef}`; break
+      case 'accepted': log.description = `Accepted ${docLabel}${docRef}`; break
+      case 'not_accepted': log.description = `Not accepted ${docLabel}${docRef}`; break
+      case 'partially_accepted': log.description = `Partially accepted ${docLabel}${docRef}`; break
+      case 'revision_required': log.description = `Revision required for ${docLabel}${docRef}`; break
+      case 'version_created': log.description = `New version created for ${docLabel}${docRef}`; break
+      case 'status_changed': log.description = `Status changed: ${formatStatus(fromStatus)} → ${formatStatus(toStatus)}`; break
+      case 'archived': log.description = `Archived ${docLabel}${docRef}`; break
+      case 'repository_registered': log.description = `Registered in repository ${docLabel}${docRef}`; break
+      case 'created': log.description = `Created ${docLabel}${docRef}`; break
+      case 'updated': log.description = `Updated ${docLabel}${docRef}`; break
+      case 'login': log.description = 'Logged in'; break
+      case 'logout': log.description = 'Logged out'; break
+      case 'user_registered': log.description = 'Registered'; break
+      case 'password_reset': log.description = 'Password reset requested'; break
+      case 'password_changed': log.description = 'Changed password'; break
+      default: log.description = `${formatStatus(eventType)} ${docLabel}${docRef}`.trim()
+    }
+  }
+
+  return log
 }
+
+// ── Filter options ─────────────────────────────────────────────────────────────
+
+const EVENT_TYPE_OPTIONS = [
+  { value: 'all', label: 'All Events' },
+  { value: 'LOGIN', label: 'Login' },
+  { value: 'LOGOUT', label: 'Logout' },
+  { value: 'CREATED', label: 'Created' },
+  { value: 'UPDATED', label: 'Updated' },
+  { value: 'SUBMITTED', label: 'Submitted' },
+  { value: 'RESUBMITTED', label: 'Resubmitted' },
+  { value: 'REVIEWER_ASSIGNED', label: 'Reviewer Assigned' },
+  { value: 'REVIEW_COMPLETED', label: 'Review Completed' },
+  { value: 'ACCEPTED', label: 'Accepted' },
+  { value: 'NOT_ACCEPTED', label: 'Not Accepted' },
+  { value: 'REVISION_REQUIRED', label: 'Revision Required' },
+  { value: 'STATUS_CHANGED', label: 'Status Changed' },
+  { value: 'ARCHIVED', label: 'Archived' },
+  { value: 'REPOSITORY_REGISTERED', label: 'Repository Registered' },
+  { value: 'USER_REGISTERED', label: 'User Registered' },
+  { value: 'PASSWORD_CHANGED', label: 'Password Changed' },
+]
+
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [actionFilter, setActionFilter] = useState<string>('all')
+  const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit: 25, total: 0, totalPages: 0 })
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('')
+  const [eventTypeFilter, setEventTypeFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
 
-  const loadAuditLogs = async () => {
+  // Debounced search value sent to API
+  const [appliedSearch, setAppliedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAppliedSearch(searchQuery), 400)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  const loadAuditLogs = useCallback(async (page = 1) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await apiClient.get(API_ENDPOINTS.AUDIT_LOGS.LIST)
-      const items = Array.isArray(response.data?.data)
-        ? response.data.data
-        : []
+      const params: Record<string, any> = {
+        limit: meta.limit,
+        page,
+        ordering: '-created_at',
+      }
+      if (eventTypeFilter !== 'all') params.event_type = eventTypeFilter
+      if (appliedSearch) params.search = appliedSearch
+      if (dateFrom) params.start_date = dateFrom.toISOString()
+      if (dateTo) params.end_date = dateTo.toISOString()
+
+      const response = await apiClient.get(API_ENDPOINTS.AUDIT_LOGS.LIST, { params })
+      const items = Array.isArray(response.data?.data) ? response.data.data : []
+      const pagination = response.data?.meta || {}
+
       setLogs(items.map(normalizeAuditLog))
-    } catch (err) {
+      setMeta({
+        page: pagination.page ?? page,
+        limit: pagination.limit ?? meta.limit,
+        total: pagination.total ?? 0,
+        totalPages: pagination.total_pages ?? 1,
+      })
+    } catch {
       setError('Unable to load audit logs. Please refresh or try again later.')
+      setLogs([])
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [meta.limit, eventTypeFilter, appliedSearch, dateFrom, dateTo])
 
+  // Refetch when filters change
   useEffect(() => {
-    loadAuditLogs()
-  }, [])
+    loadAuditLogs(1)
+  }, [loadAuditLogs])
 
-  const filteredLogs = logs.filter(log => {
-    if (actionFilter !== 'all' && log.action !== actionFilter) return false
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      if (!log.userName.toLowerCase().includes(query) && 
-          !log.details.toLowerCase().includes(query) &&
-          !log.resource.toLowerCase().includes(query)) {
-        return false
-      }
-    }
-    return true
-  })
+  const hasActiveFilters = eventTypeFilter !== 'all' || !!appliedSearch || !!dateFrom || !!dateTo
 
-  const handleExport = () => {
-    console.log('Exporting audit logs...')
-  }
-
-  const handleRefresh = () => {
-    loadAuditLogs()
+  const clearFilters = () => {
+    setSearchQuery('')
+    setEventTypeFilter('all')
+    setDateFrom(undefined)
+    setDateTo(undefined)
   }
 
   return (
@@ -191,13 +355,9 @@ export default function AuditLogsPage() {
       description="View and search system activity logs"
       actions={
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+          <Button variant="outline" onClick={() => loadAuditLogs(meta.page)} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
           </Button>
         </div>
       }
@@ -212,7 +372,7 @@ export default function AuditLogsPage() {
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -222,20 +382,17 @@ export default function AuditLogsPage() {
                   className="pl-9"
                 />
               </div>
-              <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-full lg:w-40">
+              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                <SelectTrigger className="w-full lg:w-48">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Action type" />
+                  <SelectValue placeholder="Event type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Actions</SelectItem>
-                  <SelectItem value="login">Login</SelectItem>
-                  <SelectItem value="logout">Logout</SelectItem>
-                  <SelectItem value="create">Create</SelectItem>
-                  <SelectItem value="update">Update</SelectItem>
-                  <SelectItem value="delete">Delete</SelectItem>
-                  <SelectItem value="view">View</SelectItem>
-                  <SelectItem value="export">Export</SelectItem>
+                  {EVENT_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Popover>
@@ -268,6 +425,12 @@ export default function AuditLogsPage() {
                   />
                 </PopoverContent>
               </Popover>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -280,72 +443,120 @@ export default function AuditLogsPage() {
                 <TableRow>
                   <TableHead className="w-12">Action</TableHead>
                   <TableHead>User</TableHead>
-                  <TableHead>Resource</TableHead>
-                  <TableHead className="hidden lg:table-cell">Details</TableHead>
-                  <TableHead className="hidden md:table-cell">IP Address</TableHead>
-                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="hidden lg:table-cell">IP</TableHead>
+                  <TableHead className="text-right">Timestamp</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map((log) => {
-                  const Icon = actionIcons[log.action] || FileText
-                  const colorClass = actionColors[log.action] || 'text-slate-500 bg-slate-500/10'
-                  
-                  return (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        <div className={`p-2 rounded-lg w-fit ${colorClass}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{log.userName}</p>
-                          <p className="text-xs text-muted-foreground">{log.userRole}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{log.resource}</p>
-                          {log.resourceId && (
-                            <p className="text-xs text-muted-foreground">{log.resourceId}</p>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`skeleton-${i}`}>
+                      <TableCell><div className="h-8 w-8 animate-pulse rounded-lg bg-muted" /></TableCell>
+                      <TableCell><div className="h-4 w-24 animate-pulse rounded bg-muted" /></TableCell>
+                      <TableCell><div className="h-4 w-64 animate-pulse rounded bg-muted" /></TableCell>
+                      <TableCell className="hidden lg:table-cell"><div className="h-4 w-20 animate-pulse rounded bg-muted" /></TableCell>
+                      <TableCell className="text-right"><div className="h-4 w-20 animate-pulse rounded bg-muted ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                      No audit logs found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((log) => {
+                    const Icon = actionIcons[log.action] || FileText
+                    const colorClass = actionColors[log.action] || 'text-slate-500 bg-slate-500/10'
+
+                    return (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <div className={`p-2 rounded-lg w-fit ${colorClass}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-sm">{log.userName}</p>
+                            {log.userRole && (
+                              <p className="text-xs text-muted-foreground">{log.userRole}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="text-sm">{log.description}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {log.documentType && (
+                                <Badge variant="secondary" className="text-[10px] font-normal">
+                                  {formatDocumentType(log.documentType)}
+                                </Badge>
+                              )}
+                              {log.resourceId && (
+                                <span className="text-xs text-muted-foreground">#{log.resourceId}</span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {log.ipAddress ? (
+                            <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+                              {log.ipAddress}
+                            </code>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell max-w-xs">
-                        <p className="text-sm text-muted-foreground truncate">{log.details}</p>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {log.ipAddress}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm">{format(new Date(log.timestamp), 'MMM d, yyyy')}</p>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <p className="text-sm">
+                            {format(new Date(log.timestamp), 'MMM d, yyyy')}
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(log.timestamp), 'HH:mm:ss')}
                           </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
 
-        {/* Pagination would go here */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredLogs.length} of {logs.length} entries
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>Previous</Button>
-            <Button variant="outline" size="sm">Next</Button>
-          </div>
-        </div>
+        {/* Pagination */}
+        {meta.totalPages > 1 && (
+          <>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Page {meta.page} of {meta.totalPages} ({meta.total} total)
+              </p>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={meta.page <= 1 || isLoading}
+                  onClick={() => loadAuditLogs(meta.page - 1)}
+                >
+                  <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={meta.page >= meta.totalPages || isLoading}
+                  onClick={() => loadAuditLogs(meta.page + 1)}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </PageContainer>
   )

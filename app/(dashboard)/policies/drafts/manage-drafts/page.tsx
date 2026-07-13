@@ -33,7 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared";
 import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -61,7 +61,7 @@ export default function PolicyDraftsPage() {
 
   const { data: manageResponse, isLoading } = usePolicyDraftsManage();
   const policies = manageResponse?.data || [];
-  const { hasPermission } = useServerPermissions();
+  const { hasPermission } = useCurrentUser();
 
   const columns: ColumnDef<any>[] = [
     {

@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     template: "%s | RPDMS",
   },
   description: "Research and Policy Documents Management System",
+  icons: {
+    icon: "/moh_logo.png",
+  },
 };
 
 export default function RootLayout({
