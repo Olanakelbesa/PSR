@@ -2,38 +2,21 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Search,
-  Filter,
-  Download,
-  Calendar,
   FileText,
-  LogIn,
-  LogOut,
-  Plus,
-  Pencil,
-  Send,
-  RotateCcw,
-  UserPlus,
-  BookOpen,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  CircleAlert,
-  Copy,
-  ArrowRightLeft,
-  Archive,
-  BookMarked,
-  KeyRound,
   RefreshCw,
-  ChevronLeft,
+  ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  Filter,
   X,
+  Search,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import apiClient from '@/api/client'
 import { API_ENDPOINTS } from '@/api/endpoints'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -46,14 +29,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -61,200 +36,25 @@ import {
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { PageContainer } from '@/components/layout'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+import {
+  type AuditLog,
+  normalizeLog,
+  actionIcons,
+  actionColors,
+  formatDocumentType,
+  formatStatus,
+  getRelativeTime,
+  getDateGroupLabel,
+  getDateGroupKey,
+} from '@/components/settings/activity-log/activity-log-utils'
 
-interface AuditLog {
-  id: string
-  action: string
-  eventType: string
-  userId: string
-  userName: string
-  userRole: string
-  documentType: string
-  resourceId: string
-  description: string
-  ipAddress: string
-  timestamp: string
-}
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface PaginationMeta {
   page: number
   limit: number
   total: number
   totalPages: number
-}
-
-// ── Action normalization (shared with user-detail-activity) ─────────────────────
-
-const ACTION_MAP: Record<string, string> = {
-  CREATED: 'created',
-  UPDATED: 'updated',
-  SUBMITTED: 'submitted',
-  RESUBMITTED: 'resubmitted',
-  REVIEWER_ASSIGNED: 'reviewer_assigned',
-  REVIEW_STARTED: 'review_started',
-  REVIEW_COMPLETED: 'review_completed',
-  PARTIALLY_ACCEPTED: 'partially_accepted',
-  NOT_ACCEPTED: 'not_accepted',
-  ACCEPTED: 'accepted',
-  REVISION_REQUIRED: 'revision_required',
-  VERSION_CREATED: 'version_created',
-  STATUS_CHANGED: 'status_changed',
-  ARCHIVED: 'archived',
-  REPOSITORY_REGISTERED: 'repository_registered',
-  LOGIN: 'login',
-  LOGOUT: 'logout',
-  USER_REGISTERED: 'user_registered',
-  PASSWORD_RESET: 'password_reset',
-  PASSWORD_CHANGED: 'password_changed',
-}
-
-function normalizeAction(eventType: string): string {
-  const direct = ACTION_MAP[eventType]
-  if (direct) return direct
-
-  const t = eventType.toLowerCase()
-  if (t.includes('submit')) return 'submitted'
-  if (t.includes('create')) return 'created'
-  if (t.includes('update')) return 'updated'
-  if (t.includes('delete')) return 'updated'
-  if (t.includes('login')) return 'login'
-  if (t.includes('logout')) return 'logout'
-  if (t.includes('review')) return 'review_completed'
-  if (t.includes('assign')) return 'reviewer_assigned'
-  if (t.includes('accept')) return 'accepted'
-  if (t.includes('reject') || t.includes('not_accept')) return 'not_accepted'
-  if (t.includes('revision')) return 'revision_required'
-  if (t.includes('archive')) return 'archived'
-  if (t.includes('register')) return 'user_registered'
-  if (t.includes('password')) return 'password_changed'
-  return 'updated'
-}
-
-// ── Icons & Colors ─────────────────────────────────────────────────────────────
-
-const actionIcons: Record<string, typeof FileText> = {
-  created: Plus,
-  updated: Pencil,
-  submitted: Send,
-  resubmitted: RotateCcw,
-  reviewer_assigned: UserPlus,
-  review_started: BookOpen,
-  review_completed: CheckCircle2,
-  accepted: CheckCircle2,
-  not_accepted: XCircle,
-  partially_accepted: AlertCircle,
-  revision_required: CircleAlert,
-  version_created: Copy,
-  status_changed: ArrowRightLeft,
-  archived: Archive,
-  repository_registered: BookMarked,
-  login: LogIn,
-  logout: LogOut,
-  user_registered: UserPlus,
-  password_reset: KeyRound,
-  password_changed: KeyRound,
-}
-
-const actionColors: Record<string, string> = {
-  created: 'text-blue-500 bg-blue-500/10',
-  updated: 'text-amber-500 bg-amber-500/10',
-  submitted: 'text-blue-600 bg-blue-600/10',
-  resubmitted: 'text-blue-400 bg-blue-400/10',
-  reviewer_assigned: 'text-indigo-500 bg-indigo-500/10',
-  review_started: 'text-violet-500 bg-violet-500/10',
-  review_completed: 'text-green-500 bg-green-500/10',
-  accepted: 'text-green-600 bg-green-600/10',
-  not_accepted: 'text-red-500 bg-red-500/10',
-  partially_accepted: 'text-orange-500 bg-orange-500/10',
-  revision_required: 'text-yellow-600 bg-yellow-600/10',
-  version_created: 'text-purple-500 bg-purple-500/10',
-  status_changed: 'text-teal-500 bg-teal-500/10',
-  archived: 'text-slate-400 bg-slate-400/10',
-  repository_registered: 'text-emerald-500 bg-emerald-500/10',
-  login: 'text-green-500 bg-green-500/10',
-  logout: 'text-slate-500 bg-slate-500/10',
-  user_registered: 'text-cyan-500 bg-cyan-500/10',
-  password_reset: 'text-orange-400 bg-orange-400/10',
-  password_changed: 'text-amber-500 bg-amber-500/10',
-}
-
-// ── Display helpers ────────────────────────────────────────────────────────────
-
-const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  CONCEPT_NOTE: 'Concept Note',
-  POLICY_DRAFT: 'Policy Draft',
-  POLICY_REPOSITORY: 'Policy Repository',
-  PROPOSAL: 'Proposal',
-  SCREENING: 'Screening',
-  USER: 'User',
-  GRANT_CALL: 'Grant Call',
-  PROGRESS_REPORT: 'Progress Report',
-  TERMINAL_REPORT: 'Terminal Report',
-}
-
-function formatDocumentType(raw: string): string {
-  if (!raw) return ''
-  return DOCUMENT_TYPE_LABELS[raw] || raw.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatStatus(raw: string): string {
-  if (!raw) return ''
-  return raw.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-// ── Normalize log entry ────────────────────────────────────────────────────────
-
-function normalizeAuditLog(event: any): AuditLog {
-  const metadata = event.metadata || {}
-  const eventType = event.eventType || event.event_type || 'UPDATED'
-  const docType = event.documentType || event.document_type || metadata.documentType || metadata.document_type || ''
-  const docId = (event.documentId ?? event.document_id) ? String(event.documentId ?? event.document_id) : ''
-
-  const log: AuditLog = {
-    id: (event.eventId ?? event.event_id ?? event.id ?? '').toString(),
-    action: normalizeAction(eventType),
-    eventType,
-    userId: String(event.actor?.id ?? metadata.actorId ?? metadata.actor_id ?? ''),
-    userName: event.actor?.name || metadata.email || metadata.actorName || metadata.actor_name || 'System',
-    userRole: metadata.role || '',
-    documentType: docType,
-    resourceId: docId,
-    description: metadata.title || metadata.description || metadata.message || '',
-    ipAddress: event.ipAddress || event.ip_address || '',
-    timestamp: event.timestamp || event.createdAt || event.created_at || new Date().toISOString(),
-  }
-
-  if (!log.description) {
-    const docLabel = formatDocumentType(docType)
-    const docRef = docId ? ` #${docId}` : ''
-    const fromStatus = event.fromStatus || event.from_status || ''
-    const toStatus = event.toStatus || event.to_status || ''
-    switch (log.action) {
-      case 'submitted': log.description = `Submitted ${docLabel}${docRef}`; break
-      case 'resubmitted': log.description = `Resubmitted ${docLabel}${docRef}`; break
-      case 'reviewer_assigned': log.description = metadata.reviewerName || metadata.reviewer_name ? `Assigned to ${metadata.reviewerName || metadata.reviewer_name}` : `Assigned reviewer to ${docLabel}${docRef}`; break
-      case 'review_completed': log.description = metadata.decision ? `Review completed — ${formatStatus(metadata.decision)}` : `Review completed for ${docLabel}${docRef}`; break
-      case 'accepted': log.description = `Accepted ${docLabel}${docRef}`; break
-      case 'not_accepted': log.description = `Not accepted ${docLabel}${docRef}`; break
-      case 'partially_accepted': log.description = `Partially accepted ${docLabel}${docRef}`; break
-      case 'revision_required': log.description = `Revision required for ${docLabel}${docRef}`; break
-      case 'version_created': log.description = `New version created for ${docLabel}${docRef}`; break
-      case 'status_changed': log.description = `Status changed: ${formatStatus(fromStatus)} → ${formatStatus(toStatus)}`; break
-      case 'archived': log.description = `Archived ${docLabel}${docRef}`; break
-      case 'repository_registered': log.description = `Registered in repository ${docLabel}${docRef}`; break
-      case 'created': log.description = `Created ${docLabel}${docRef}`; break
-      case 'updated': log.description = `Updated ${docLabel}${docRef}`; break
-      case 'login': log.description = 'Logged in'; break
-      case 'logout': log.description = 'Logged out'; break
-      case 'user_registered': log.description = 'Registered'; break
-      case 'password_reset': log.description = 'Password reset requested'; break
-      case 'password_changed': log.description = 'Changed password'; break
-      default: log.description = `${formatStatus(eventType)} ${docLabel}${docRef}`.trim()
-    }
-  }
-
-  return log
 }
 
 // ── Filter options ─────────────────────────────────────────────────────────────
@@ -283,7 +83,7 @@ const EVENT_TYPE_OPTIONS = [
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit: 25, total: 0, totalPages: 0 })
 
@@ -292,14 +92,49 @@ export default function AuditLogsPage() {
   const [eventTypeFilter, setEventTypeFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
+  const [fromOpen, setFromOpen] = useState(false)
+  const [toOpen, setToOpen] = useState(false)
 
   // Debounced search value sent to API
   const [appliedSearch, setAppliedSearch] = useState('')
+
+  // Expandable events
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
+
+  // Collapsible date groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const timer = setTimeout(() => setAppliedSearch(searchQuery), 400)
     return () => clearTimeout(timer)
   }, [searchQuery])
+
+  const hasActiveFilters = eventTypeFilter !== 'all' || !!appliedSearch || !!dateFrom || !!dateTo
+
+  const toggleEvent = (id: string) => {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setEventTypeFilter('all')
+    setDateFrom(undefined)
+    setDateTo(undefined)
+  }
 
   const loadAuditLogs = useCallback(async (page = 1) => {
     setIsLoading(true)
@@ -314,13 +149,17 @@ export default function AuditLogsPage() {
       if (eventTypeFilter !== 'all') params.event_type = eventTypeFilter
       if (appliedSearch) params.search = appliedSearch
       if (dateFrom) params.start_date = dateFrom.toISOString()
-      if (dateTo) params.end_date = dateTo.toISOString()
+      if (dateTo) {
+        const endOfDay = new Date(dateTo)
+        endOfDay.setHours(23, 59, 59, 999)
+        params.end_date = endOfDay.toISOString()
+      }
 
       const response = await apiClient.get(API_ENDPOINTS.AUDIT_LOGS.LIST, { params })
       const items = Array.isArray(response.data?.data) ? response.data.data : []
       const pagination = response.data?.meta || {}
 
-      setLogs(items.map(normalizeAuditLog))
+      setLogs(items.map(normalizeLog))
       setMeta({
         page: pagination.page ?? page,
         limit: pagination.limit ?? meta.limit,
@@ -338,29 +177,30 @@ export default function AuditLogsPage() {
   // Refetch when filters change
   useEffect(() => {
     loadAuditLogs(1)
+    setExpandedEvents(new Set())
+    setCollapsedGroups(new Set())
   }, [loadAuditLogs])
 
-  const hasActiveFilters = eventTypeFilter !== 'all' || !!appliedSearch || !!dateFrom || !!dateTo
-
-  const clearFilters = () => {
-    setSearchQuery('')
-    setEventTypeFilter('all')
-    setDateFrom(undefined)
-    setDateTo(undefined)
+  // Group logs by date
+  const groupedLogs: { label: string; key: string; entries: AuditLog[] }[] = []
+  for (const log of logs) {
+    const key = getDateGroupKey(log.timestamp)
+    const existing = groupedLogs.find((g) => g.key === key)
+    if (existing) {
+      existing.entries.push(log)
+    } else {
+      groupedLogs.push({
+        label: getDateGroupLabel(log.timestamp),
+        key,
+        entries: [log],
+      })
+    }
   }
 
   return (
     <PageContainer
       title="Audit Logs"
       description="View and search system activity logs"
-      actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => loadAuditLogs(meta.page)} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      }
     >
       <div className="space-y-4">
         {error && (
@@ -369,7 +209,7 @@ export default function AuditLogsPage() {
           </div>
         )}
 
-        {/* Filters */}
+        {/* Filters card */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col lg:flex-row gap-3">
@@ -395,33 +235,37 @@ export default function AuditLogsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Popover>
+              <Popover open={fromOpen} onOpenChange={setFromOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full lg:w-auto justify-start">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {dateFrom ? format(dateFrom, 'MMM d') : 'From date'}
+                    {dateFrom ? format(dateFrom, 'MMM d, yyyy') : 'From date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <CalendarComponent
                     mode="single"
                     selected={dateFrom}
-                    onSelect={setDateFrom}
+                    onSelect={(d) => {
+                      setDateFrom(d)
+                      setFromOpen(false)
+                    }}
                   />
                 </PopoverContent>
               </Popover>
-              <Popover>
+              <Popover open={toOpen} onOpenChange={setToOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full lg:w-auto justify-start">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {dateTo ? format(dateTo, 'MMM d') : 'To date'}
+                    {dateTo ? format(dateTo, 'MMM d, yyyy') : 'To date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <CalendarComponent
                     mode="single"
                     selected={dateTo}
-                    onSelect={setDateTo}
+                    onSelect={(d) => {
+                      setDateTo(d)
+                      setToOpen(false)
+                    }}
                   />
                 </PopoverContent>
               </Popover>
@@ -431,132 +275,340 @@ export default function AuditLogsPage() {
                   Clear
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadAuditLogs(1)}
+                disabled={isLoading}
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Logs Table */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">Action</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="hidden lg:table-cell">IP</TableHead>
-                  <TableHead className="text-right">Timestamp</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={`skeleton-${i}`}>
-                      <TableCell><div className="h-8 w-8 animate-pulse rounded-lg bg-muted" /></TableCell>
-                      <TableCell><div className="h-4 w-24 animate-pulse rounded bg-muted" /></TableCell>
-                      <TableCell><div className="h-4 w-64 animate-pulse rounded bg-muted" /></TableCell>
-                      <TableCell className="hidden lg:table-cell"><div className="h-4 w-20 animate-pulse rounded bg-muted" /></TableCell>
-                      <TableCell className="text-right"><div className="h-4 w-20 animate-pulse rounded bg-muted ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : logs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                      No audit logs found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  logs.map((log) => {
-                    const Icon = actionIcons[log.action] || FileText
-                    const colorClass = actionColors[log.action] || 'text-slate-500 bg-slate-500/10'
-
-                    return (
-                      <TableRow key={log.id}>
-                        <TableCell>
-                          <div className={`p-2 rounded-lg w-fit ${colorClass}`}>
-                            <Icon className="h-4 w-4" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-sm">{log.userName}</p>
-                            {log.userRole && (
-                              <p className="text-xs text-muted-foreground">{log.userRole}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-sm">{log.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {log.documentType && (
-                                <Badge variant="secondary" className="text-[10px] font-normal">
-                                  {formatDocumentType(log.documentType)}
-                                </Badge>
-                              )}
-                              {log.resourceId && (
-                                <span className="text-xs text-muted-foreground">#{log.resourceId}</span>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {log.ipAddress ? (
-                            <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
-                              {log.ipAddress}
-                            </code>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <p className="text-sm">
-                            {format(new Date(log.timestamp), 'MMM d, yyyy')}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(log.timestamp), 'HH:mm:ss')}
-                          </p>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
+            {/* Active filter badges */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                {eventTypeFilter !== 'all' && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    {EVENT_TYPE_OPTIONS.find((o) => o.value === eventTypeFilter)?.label}
+                    <button
+                      onClick={() => setEventTypeFilter('all')}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
                 )}
-              </TableBody>
-            </Table>
+                {appliedSearch && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    Search: &quot;{appliedSearch}&quot;
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {dateFrom && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    From {format(dateFrom, 'MMM d, yyyy')}
+                    <button
+                      onClick={() => setDateFrom(undefined)}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {dateTo && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    To {format(dateTo, 'MMM d, yyyy')}
+                    <button
+                      onClick={() => setDateTo(undefined)}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Pagination */}
-        {meta.totalPages > 1 && (
-          <>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Page {meta.page} of {meta.totalPages} ({meta.total} total)
-              </p>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={meta.page <= 1 || isLoading}
-                  onClick={() => loadAuditLogs(meta.page - 1)}
-                >
-                  <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={meta.page >= meta.totalPages || isLoading}
-                  onClick={() => loadAuditLogs(meta.page + 1)}
-                >
-                  Next
-                  <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                </Button>
+        {/* Timeline feed */}
+        <Card className="shadow-sm">
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="space-y-0">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-3 px-5 py-4">
+                    <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className="h-3.5 w-64 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-40 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="h-3 w-12 shrink-0 animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
               </div>
-            </div>
-          </>
-        )}
+            ) : logs.length === 0 ? (
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {hasActiveFilters
+                    ? 'No matching activity found.'
+                    : 'No audit logs found.'}
+                </p>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={clearFilters}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {groupedLogs.map((group) => {
+                  const isCollapsed = collapsedGroups.has(group.key)
+                  return (
+                    <div key={group.key}>
+                      {/* Date group header — clickable */}
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(group.key)}
+                        className="flex w-full items-center gap-2 bg-muted/30 px-5 py-2.5 text-left transition-colors hover:bg-muted/50"
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {group.label}
+                        </p>
+                        <Badge variant="secondary" className="text-[10px] ml-1">
+                          {group.entries.length}
+                        </Badge>
+                      </button>
+
+                      {/* Entries */}
+                      {!isCollapsed && (
+                        <div className="relative">
+                          {/* Vertical connector line */}
+                          {group.entries.length > 1 && (
+                            <div className="absolute left-[38px] top-5 bottom-5 w-px bg-border/70" />
+                          )}
+
+                          {group.entries.map((log) => {
+                            const Icon = actionIcons[log.action] || FileText
+                            const colorClass =
+                              actionColors[log.action] ||
+                              'text-slate-500 bg-slate-500/10'
+                            const isExpanded = expandedEvents.has(log.id)
+
+                            return (
+                              <div key={log.id}>
+                                {/* Event row — clickable to expand */}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleEvent(log.id)}
+                                  className="group flex w-full gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/30"
+                                >
+                                  {/* Icon bubble — bg-card backing + color overlay */}
+                                  <div className="relative z-10 shrink-0 pt-0.5">
+                                    <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-card">
+                                      <div className={`absolute inset-0 rounded-full ${colorClass}`} />
+                                      <Icon className="relative h-4 w-4" />
+                                    </div>
+                                  </div>
+
+                                  {/* Content */}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium leading-snug text-foreground">
+                                      {log.description}
+                                    </p>
+                                    {/* Actor + timestamp */}
+                                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                      {log.userName && log.userName !== 'System' && (
+                                        <>
+                                          <span className="text-xs font-semibold text-foreground/80">
+                                            {log.userName}
+                                          </span>
+                                          {log.userRole && (
+                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                                              {log.userRole}
+                                            </Badge>
+                                          )}
+                                          <span className="text-[10px] text-muted-foreground/40">·</span>
+                                        </>
+                                      )}
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {getRelativeTime(log.timestamp)}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground/60">
+                                        {format(
+                                          new Date(log.timestamp),
+                                          "MMM d, yyyy 'at' HH:mm:ss",
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Expand chevron */}
+                                  <div className="shrink-0 pt-1">
+                                    <ChevronDown
+                                      className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                    />
+                                  </div>
+                                </button>
+
+                                {/* Expanded details */}
+                                {isExpanded && (
+                                  <div className="ml-[62px] mr-5 mb-3 rounded-lg border bg-muted/20 p-3">
+                                    <div className="grid gap-2 text-xs">
+                                      {/* Actor */}
+                                      {log.userName && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            User
+                                          </span>
+                                          <span className="font-medium">
+                                            {log.userName}
+                                          </span>
+                                          {log.userRole && (
+                                            <Badge variant="secondary" className="text-[10px]">
+                                              {log.userRole}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
+                                      {/* Status transition */}
+                                      {(log.fromStatus || log.toStatus) && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            Status
+                                          </span>
+                                          <span className="font-medium">
+                                            {formatStatus(log.fromStatus) || '—'}
+                                          </span>
+                                          <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                                          <span className="font-medium">
+                                            {formatStatus(log.toStatus) || '—'}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {/* Actor role */}
+                                      {log.actorRole && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            Role
+                                          </span>
+                                          <Badge variant="secondary" className="text-[10px]">
+                                            {log.actorRole}
+                                          </Badge>
+                                        </div>
+                                      )}
+                                      {/* IP address */}
+                                      {log.ipAddress && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            IP
+                                          </span>
+                                          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                                            {log.ipAddress}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {/* Event type */}
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground w-20 shrink-0">
+                                          Event
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] font-mono">
+                                          {log.eventType}
+                                        </Badge>
+                                      </div>
+                                      {/* Document reference */}
+                                      {log.documentType &&
+                                        log.documentType !== 'USER' &&
+                                        log.resourceId && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground w-20 shrink-0">
+                                              Document
+                                            </span>
+                                            <span className="font-medium">
+                                              {formatDocumentType(log.documentType)} #{log.resourceId}
+                                            </span>
+                                          </div>
+                                        )}
+                                      {/* Full timestamp */}
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground w-20 shrink-0">
+                                          Time
+                                        </span>
+                                        <span className="font-mono text-[11px]">
+                                          {format(
+                                            new Date(log.timestamp),
+                                            "EEE, MMM d, yyyy 'at' HH:mm:ss",
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {meta.totalPages > 1 && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between px-5 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    Page {meta.page} of {meta.totalPages} ({meta.total} total)
+                  </p>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={meta.page <= 1 || isLoading}
+                      onClick={() => loadAuditLogs(meta.page - 1)}
+                    >
+                      <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={meta.page >= meta.totalPages || isLoading}
+                      onClick={() => loadAuditLogs(meta.page + 1)}
+                    >
+                      Next
+                      <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </PageContainer>
   )
