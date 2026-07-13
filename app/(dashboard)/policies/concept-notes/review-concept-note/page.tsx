@@ -28,15 +28,19 @@ import { DataTable } from "@/components/shared";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyReviews } from "@/lib/queries/concept-notes";
 import type { ConceptNoteItem } from "@/lib/queries/concept-notes";
-import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { cn } from "@/lib/utils";
+
+const PSR_DECIDED_STATUSES = [
+  "policy_draft_ready",
+  "revision_required",
+  "not_accepted",
+];
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Empty,
@@ -267,42 +271,6 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
     },
   },
   {
-    id: "submitted_by",
-    accessorKey: "submittedBy.fullName",
-    header: () => <span className="ml-4">Submitted by</span>,
-    cell: ({ row }) => {
-      const author = row.original.submittedBy;
-      if (!author) return <span className="text-muted-foreground">—</span>;
-      const initials = author.fullName
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .substring(0, 2);
-
-      return (
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8 border-2 border-background shadow-sm ring-1 ring-border/50">
-            {author.photoUrl && (
-              <AvatarImage
-                src={resolveFileUrl(author.photoUrl) ?? undefined}
-                alt={author.fullName}
-              />
-            )}
-            <AvatarFallback className="text-[11px] font-bold bg-muted text-muted-foreground">
-              {initials || "CN"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-[13px] font-semibold leading-none text-foreground">
-              {author.fullName}
-            </span>
-          </div>
-        </div>
-      );
-    },
-  },
-  {
     id: "created_at",
     accessorKey: "submissionDate",
     header: ({ column }) => (
@@ -366,14 +334,16 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
                   View details
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/policies/concept-notes/review-concept-note/${note.id}/review`}
-                  className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
-                >
-                  Review
-                </Link>
-              </DropdownMenuItem>
+              {!PSR_DECIDED_STATUSES.includes(note.currentStatus || "") && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={`/policies/concept-notes/review-concept-note/${note.id}/review`}
+                    className="cursor-pointer flex items-center px-2 py-2 text-sm font-medium rounded-md focus:bg-primary/10 focus:text-primary"
+                  >
+                    Review
+                  </Link>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

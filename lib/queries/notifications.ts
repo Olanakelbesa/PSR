@@ -103,6 +103,9 @@ export function normalizeNotification(
       const parsed = Number(raw);
       return Number.isFinite(parsed) ? parsed : null;
     })(),
+    category: notification.category ?? undefined,
+    priority: notification.priority ?? undefined,
+    actionRequired: Boolean(notification.action_required ?? notification.actionRequired),
   };
 }
 
@@ -190,6 +193,40 @@ export function useClearAllNotifications() {
         { queryKey: NOTIFICATIONS_QUERY_KEY },
         [],
       );
+    },
+  });
+}
+
+export function useMarkNotificationUnread() {
+  const queryClient = useQueryClient();
+
+  return useMutation<Notification, Error, string>({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_UNREAD(id));
+      const record = (data?.data ?? data) as NotificationApiRecord;
+      return normalizeNotification(record);
+    },
+    onSuccess: (updated) => {
+      patchNotificationsCache(queryClient, (notifications) =>
+        notifications.map((notification) =>
+          notification.id === updated.id
+            ? { ...notification, read: false }
+            : notification,
+        ),
+      );
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (id: string) => {
+      await api.delete(API_ENDPOINTS.NOTIFICATIONS.DELETE(id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
     },
   });
 }

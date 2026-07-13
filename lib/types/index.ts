@@ -352,6 +352,12 @@ export interface Notification {
   resourceId?: number | null;
   /** Legacy generic FK object id (used when resourceId is absent). */
   objectId?: number | null;
+  /** Notification category (proposal, screening, review, system, security, activity). */
+  category?: string;
+  /** Priority level (low, normal, high, critical). */
+  priority?: string;
+  /** Whether this notification requires user action. */
+  actionRequired?: boolean;
 }
 
 // Taxonomy Types

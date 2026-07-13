@@ -25,7 +25,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,28 +121,7 @@ const columns: ColumnDef<any>[] = [
       return docTypeName === value;
     },
   },
-  {
-    accessorKey: "submittedBy",
-    header: () => <span className="font-semibold text-foreground">Proposer</span>,
-    cell: ({ row }) => {
-      const submitter = row.original.submittedBy;
-      if (!submitter) return <span className="text-xs text-muted-foreground">-</span>;
-      return (
-        <div className="flex items-center gap-2.5">
-          <Avatar className="h-7 w-7 ring-1 ring-border shadow-sm">
-            <AvatarImage src={submitter.photoUrl || undefined} />
-            <AvatarFallback className="text-[9px] font-bold bg-primary/15 text-primary">
-              {submitter.fullName?.[0] || "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold leading-none text-foreground">{submitter.fullName}</span>
-            <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{submitter.email}</span>
-          </div>
-        </div>
-      );
-    },
-  },
+
   {
     accessorKey: "updatedAt",
     header: ({ column }) => (
