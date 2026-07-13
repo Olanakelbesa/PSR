@@ -26,7 +26,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,14 +40,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,8 +62,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from "@/hooks/useUsers";
-import type { User, AdminCreateUserPayload } from "@/api/services/users.service";
+import { useDeleteUser, useUpdateUser, useUsers } from "@/hooks/useUsers";
+import type { User } from "@/api/services/users.service";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -99,20 +90,6 @@ function userInitials(user: User) {
   return user.email.slice(0, 2).toUpperCase();
 }
 
-type CreateFormState = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-};
-
-const emptyCreateForm: CreateFormState = {
-  firstName: "",
-  lastName: "",
-  email: "",
-  password: "",
-};
-
 export default function UsersManagementPage() {
   const { hasPermission } = useCurrentUser();
   const canManageUsers = hasPermission(PERMISSIONS.USER_VIEW);
@@ -125,8 +102,6 @@ export default function UsersManagementPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [deleteCandidate, setDeleteCandidate] = useState<User | null>(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateFormState>(emptyCreateForm);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -141,7 +116,6 @@ export default function UsersManagementPage() {
   );
 
   const { data, isLoading, isFetching, refetch } = useUsers(filters);
-  const createUserMutation = useCreateUser();
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
 
@@ -153,33 +127,6 @@ export default function UsersManagementPage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, statusFilter, limit]);
-
-  const handleCreate = async () => {
-    if (!createForm.email.trim()) {
-      toast.error("Email is required.");
-      return;
-    }
-    if (!createForm.password.trim()) {
-      toast.error("Password is required.");
-      return;
-    }
-    try {
-      const payload: AdminCreateUserPayload = {
-        email: createForm.email.trim(),
-        firstName: createForm.firstName.trim() || null,
-        lastName: createForm.lastName.trim() || null,
-        password: createForm.password,
-      };
-      await createUserMutation.mutateAsync(payload);
-      toast.success("User created successfully.");
-      setIsCreateOpen(false);
-      setCreateForm(emptyCreateForm);
-    } catch (error) {
-      toast.error(
-        (error as { message?: string })?.message ?? "Failed to create user.",
-      );
-    }
-  };
 
   const toggleStatus = async (user: User) => {
     try {
@@ -246,10 +193,12 @@ export default function UsersManagementPage() {
             Refresh
           </Button>
           {canCreateUsers && (
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
+            <Link href="/settings/access-control/users/new">
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add User
+              </Button>
+            </Link>
           )}
         </div>
       }
@@ -485,69 +434,6 @@ export default function UsersManagementPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Create User Dialog */}
-      <Sheet open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Create User</SheetTitle>
-            <SheetDescription>
-              Register a new user account.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label>First Name</Label>
-              <Input
-                value={createForm.firstName}
-                onChange={(e) =>
-                  setCreateForm((p) => ({ ...p, firstName: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Last Name</Label>
-              <Input
-                value={createForm.lastName}
-                onChange={(e) =>
-                  setCreateForm((p) => ({ ...p, lastName: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email *</Label>
-              <Input
-                type="email"
-                value={createForm.email}
-                onChange={(e) =>
-                  setCreateForm((p) => ({ ...p, email: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Password *</Label>
-              <Input
-                type="password"
-                value={createForm.password}
-                onChange={(e) =>
-                  setCreateForm((p) => ({ ...p, password: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <SheetFooter className="mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={createUserMutation.isPending}>
-              Create User
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
 
       {/* Delete Confirmation */}
       <AlertDialog
