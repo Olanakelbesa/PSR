@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -74,14 +74,20 @@ export default function CreateUserPage() {
   const router = useRouter();
   const createUser = useCreateUser();
 
-  // Reference data
-  const { data: titles = [] } = useTitles();
-  const { data: orgTypes = [] } = useOrganizationTypes();
-  const { data: orgsResponse } = useOrganizations({ limit: 200 });
-  const { data: unitsResponse } = useUnitsWithParams({
-    limit: 200,
-  });
-  const { data: rolesResponse } = useRoles({ limit: 100, is_active: true });
+  // Reference data — memoize params so query keys are stable across renders
+  const orgParams = useMemo(() => ({ limit: 200 }), []);
+  const unitParams = useMemo(() => ({ limit: 200 }), []);
+  const roleParams = useMemo(() => ({ limit: 100, is_active: true }), []);
+
+  const { data: titles = [], isLoading: loadingTitles } = useTitles();
+  const { data: orgTypes = [], isLoading: loadingOrgTypes } =
+    useOrganizationTypes();
+  const { data: orgsResponse, isLoading: loadingOrgs } =
+    useOrganizations(orgParams);
+  const { data: unitsResponse, isLoading: loadingUnits } =
+    useUnitsWithParams(unitParams);
+  const { data: rolesResponse, isLoading: loadingRoles } =
+    useRoles(roleParams);
 
   const organizations = orgsResponse?.data ?? [];
   const units = unitsResponse?.data ?? [];
@@ -257,9 +263,14 @@ export default function CreateUserPage() {
                   <Select
                     value={form.titleId}
                     onValueChange={(v) => updateField("titleId", v)}
+                    disabled={loadingTitles}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select title" />
+                      <SelectValue
+                        placeholder={
+                          loadingTitles ? "Loading titles..." : "Select title"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {titles.map((t: any) => (
@@ -370,9 +381,16 @@ export default function CreateUserPage() {
                   <Select
                     value={form.organizationTypeId}
                     onValueChange={(v) => updateField("organizationTypeId", v)}
+                    disabled={loadingOrgTypes}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue
+                        placeholder={
+                          loadingOrgTypes
+                            ? "Loading types..."
+                            : "Select type"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {orgTypes.map((ot: any) => (
@@ -388,11 +406,23 @@ export default function CreateUserPage() {
                   <Select
                     value={form.organizationId}
                     onValueChange={(v) => updateField("organizationId", v)}
+                    disabled={loadingOrgs}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select organization" />
+                      <SelectValue
+                        placeholder={
+                          loadingOrgs
+                            ? "Loading organizations..."
+                            : "Select organization"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
+                      {filteredOrgs.length === 0 && !loadingOrgs && (
+                        <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                          No organizations available
+                        </p>
+                      )}
                       {filteredOrgs.map((o: any) => (
                         <SelectItem key={o.id} value={String(o.id)}>
                           {o.name}
@@ -406,11 +436,23 @@ export default function CreateUserPage() {
                   <Select
                     value={form.unitId}
                     onValueChange={(v) => updateField("unitId", v)}
+                    disabled={loadingUnits}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select unit" />
+                      <SelectValue
+                        placeholder={
+                          loadingUnits
+                            ? "Loading units..."
+                            : "Select unit"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
+                      {filteredUnits.length === 0 && !loadingUnits && (
+                        <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                          No units available
+                        </p>
+                      )}
                       {filteredUnits.map((u: any) => (
                         <SelectItem key={u.id} value={String(u.id)}>
                           {u.name}
@@ -507,7 +549,12 @@ export default function CreateUserPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4 space-y-2 max-h-[300px] overflow-y-auto">
-              {roles.length === 0 ? (
+              {loadingRoles ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">Loading roles...</p>
+                </div>
+              ) : roles.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No roles available.</p>
               ) : (
                 roles.map((role: any) => {
