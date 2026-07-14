@@ -91,7 +91,7 @@ export default function ConceptNoteDetailPage() {
 
   const summaryCardRows = [
     { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
-    { label: "Status", value: note.currentStatus?.status },
+    { label: "Status", value: note.currentStatus?.status_label || note.currentStatus?.status },
     { label: "Document Type", value: note.docType?.name },
     { label: "Category", value: note.documentCategory },
     { label: "Organization", value: note.organization?.name },
@@ -161,7 +161,7 @@ export default function ConceptNoteDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
                 <Badge variant="outline" className="text-[10px] font-semibold bg-primary/10 text-primary border-primary/20 uppercase tracking-wide">
-                  {note.currentStatus?.status || "Under Review"}
+                  {note.currentStatus?.status_label || note.currentStatus?.status || "Under Review"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">

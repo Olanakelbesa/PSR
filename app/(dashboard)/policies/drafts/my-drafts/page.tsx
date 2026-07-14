@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { usePolicyDraftsManage, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
+import { useMyPolicyDrafts, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -317,7 +317,7 @@ const statusOptions = [
 export default function PolicyDraftsPage() {
   const router = useRouter();
   const { backendToken } = useAuth();
-  const { data: manageResponse, isLoading } = usePolicyDraftsManage();
+  const { data: manageResponse, isLoading } = useMyPolicyDrafts();
   const policies = manageResponse?.data || [];
   const draftStatistics = manageResponse?.meta?.statistics;
 
@@ -394,7 +394,7 @@ export default function PolicyDraftsPage() {
       iconBg: "bg-orange-100",
       border: "border-orange-100/50 bg-orange-50/10",
       activeRing: "ring-orange-500/60 border-orange-300",
-      sub: "Drafts to write or revisions to address",
+      sub: "Revisions to address or resubmissions needed",
     },
     {
       key: "under_review",

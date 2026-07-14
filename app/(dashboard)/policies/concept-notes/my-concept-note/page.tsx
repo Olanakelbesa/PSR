@@ -436,7 +436,9 @@ export default function ConceptNotesPage() {
         : null) ?? notes.filter((n) =>
         ["submitted", "under_review", "resubmitted"].includes(n.currentStatus),
       ).length,
-      completed: (backendStats?.approved ?? 0) + (backendStats?.notAccepted ?? 0) || notes.filter((n) =>
+      completed: (backendStats
+        ? (backendStats.approved ?? 0) + (backendStats.notAccepted ?? 0)
+        : null) ?? notes.filter((n) =>
         ["accepted", "partially_accepted", "not_accepted", "policy_draft_ready"].includes(n.currentStatus),
       ).length,
     }),

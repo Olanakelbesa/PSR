@@ -109,6 +109,7 @@ export default function ConceptNoteDetailPage() {
     note.versions?.find((v: any) => v.isLatest)?.versionNumber ??
     "v1.0.0";
   const currentStatus = note.currentStatus?.status ?? "Unknown";
+  const currentStatusLabel = note.currentStatus?.status_label || currentStatus;
   const statusKey = String(currentStatus).toLowerCase().replace(/[\s-]+/g, "_");
   const submittedAt =
     note.submittedBy?.submittedAt ??
@@ -178,7 +179,7 @@ export default function ConceptNoteDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
                 <Badge variant="secondary" className="text-[10px] uppercase">
-                  {currentStatus}
+                  {currentStatusLabel}
                 </Badge>
               </div>
               <div className="flex items-center justify-between gap-4">

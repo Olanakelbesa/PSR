@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Eye,
   FileEdit,
-  Clock,
   AlertCircle,
   RefreshCw,
   Inbox,
@@ -49,8 +48,8 @@ import { cn } from "@/lib/utils";
 type ManageStatusFilter =
   | "all"
   | "new_submissions"
-  | "draft"
   | "under_review"
+  | "review_completed"
   | "resubmitted"
   | "approved";
 
@@ -64,11 +63,11 @@ const QUEUE_FILTER_COPY: Record<
     emptyDescription: "There are no newly submitted drafts waiting for expert assignment right now.",
     searchPlaceholder: "Search new submissions...",
   },
-  draft: {
-    banner: "Showing drafts still in draft and not yet submitted.",
-    emptyTitle: "No draft documents",
-    emptyDescription: "There are no drafts in the manage queue.",
-    searchPlaceholder: "Search draft documents...",
+  review_completed: {
+    banner: "Showing drafts where expert reviews are complete and a PSR decision is pending.",
+    emptyTitle: "No drafts awaiting decision",
+    emptyDescription: "There are no drafts waiting for a PSR decision right now.",
+    searchPlaceholder: "Search drafts awaiting decision...",
   },
   under_review: {
     banner: "Showing drafts currently under expert review.",
@@ -369,8 +368,8 @@ export default function PolicyDraftsPage() {
       return {
         total: draftStatistics.totalDrafts,
         newSubmissions: draftStatistics.newSubmissions,
-        draft: draftStatistics.inDraft,
         underReview: draftStatistics.underReview,
+        reviewCompleted: draftStatistics.reviewCompleted,
         resubmitted: draftStatistics.resubmitted,
         approved: draftStatistics.approved,
       };
@@ -378,8 +377,8 @@ export default function PolicyDraftsPage() {
     return {
       total: policies.length,
       newSubmissions: policies.filter((p) => p.currentStatus === "submitted").length,
-      draft: policies.filter((p) => p.currentStatus === "draft").length,
       underReview: policies.filter((p) => p.currentStatus === "under_review").length,
+      reviewCompleted: policies.filter((p) => p.currentStatus === "review_completed").length,
       resubmitted: policies.filter((p) => p.currentStatus === "resubmitted").length,
       approved: policies.filter((p) =>
         ["psr_approved", "repository_registered"].includes(p.currentStatus)
@@ -425,16 +424,6 @@ export default function PolicyDraftsPage() {
       sub: "Awaiting review & expert assignment",
     },
     {
-      key: "draft",
-      label: "In Draft",
-      value: stats.draft,
-      icon: <Clock className="h-4 w-4 text-orange-500" />,
-      iconBg: "bg-orange-100",
-      border: "border-orange-100/50 bg-orange-50/10",
-      activeRing: "ring-orange-500/60 border-orange-300",
-      sub: "Pending submission",
-    },
-    {
       key: "under_review",
       label: "Under Review",
       value: stats.underReview,
@@ -443,6 +432,16 @@ export default function PolicyDraftsPage() {
       border: "border-blue-100/50 bg-blue-50/10",
       activeRing: "ring-blue-500/60 border-blue-300",
       sub: "Assigned to experts",
+    },
+    {
+      key: "review_completed",
+      label: "Awaiting Decision",
+      value: stats.reviewCompleted,
+      icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+      iconBg: "bg-emerald-100",
+      border: "border-emerald-100/50 bg-emerald-50/10",
+      activeRing: "ring-emerald-500/60 border-emerald-300",
+      sub: "Reviews done, PSR decision pending",
     },
     {
       key: "resubmitted",
@@ -471,8 +470,8 @@ export default function PolicyDraftsPage() {
 
     const statusMap: Record<string, string[]> = {
       new_submissions: ["submitted"],
-      draft: ["draft"],
       under_review: ["under_review"],
+      review_completed: ["review_completed"],
       resubmitted: ["resubmitted"],
       approved: ["psr_approved", "repository_registered"],
     };
