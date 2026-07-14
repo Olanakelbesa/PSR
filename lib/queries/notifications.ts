@@ -117,9 +117,9 @@ export function useNotifications(userId?: string) {
       return unwrapNotificationList(data).map(normalizeNotification);
     },
     enabled: !!userId,
-    staleTime: 1000 * 60,
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    staleTime: 1000 * 10,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
   });
 }
 

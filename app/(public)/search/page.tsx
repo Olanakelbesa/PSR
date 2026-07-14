@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUnifiedSearch, type SearchResultItem } from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { tokenStorage } from "@/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
@@ -74,6 +75,7 @@ export default function PremiumSearchPage() {
   const [explainEnabled, setExplainEnabled] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<SearchResultItem | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const trackDownload = async (item: SearchResultItem) => {
     try {
@@ -84,6 +86,7 @@ export default function PremiumSearchPage() {
         ? `/bff/v1/policy-repository/${item.id}/download/`
         : `/bff/v1/final-submissions/${item.id}/download/`;
       await fetch(url, { method: "POST", headers });
+      queryClient.invalidateQueries({ queryKey: ["public-overview"] });
     } catch {
       // Best effort
     }

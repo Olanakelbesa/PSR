@@ -62,8 +62,8 @@ export const queryClient = new QueryClient({
       staleTime: 1_000 * 60 * 5,
       // Retry once on transient failures; avoids hammering after real errors
       retry: 1,
-      // Do NOT automatically refetch when user switches tabs
-      refetchOnWindowFocus: false,
+      // Automatically refetch stale queries when user switches back to a tab
+      refetchOnWindowFocus: true,
     },
     mutations: {
       // Global mutation error handler — logs in dev, silent in production

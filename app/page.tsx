@@ -34,6 +34,7 @@ import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
 import type { SearchResultItem } from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const grantCallCardThemes = [
   {
@@ -124,9 +125,8 @@ export default function LandingPage() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [overview, setOverview] = useState<any | null>(null);
-  const [loadingOverview, setLoadingOverview] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const trackDownload = async (item: SearchResultItem) => {
     try {
@@ -137,6 +137,7 @@ export default function LandingPage() {
         ? `/bff/v1/policy-repository/${item.id}/download/`
         : `/bff/v1/final-submissions/${item.id}/download/`;
       await fetch(url, { method: "POST", headers });
+      queryClient.invalidateQueries({ queryKey: ["public-overview"] });
     } catch {
       // Best effort — don't block the download
     }
@@ -292,33 +293,19 @@ export default function LandingPage() {
     };
   }, [searchInputRef.current]);
 
-  useEffect(() => {
-    let mounted = true;
-    async function loadOverview() {
-      setLoadingOverview(true);
-      try {
-        const res = await publicApi.getOverview();
-        // Some APIs wrap data in an envelope — try to be resilient
-        const envelope = res ?? null;
-        let payload = envelope?.data ?? envelope;
-        // double-wrapped envelope: { data: { data: {...} } }
-        if (payload && payload.data !== undefined) payload = payload.data;
-        if (!mounted) return;
-        setOverview(payload ?? null);
-      } catch (err) {
-        // graceful fallback: leave overview null
-        if (!mounted) return;
-        setOverview(null);
-      } finally {
-        if (mounted) setLoadingOverview(false);
-      }
-    }
-
-    loadOverview();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { data: overview, isLoading: loadingOverview } = useQuery({
+    queryKey: ["public-overview"],
+    queryFn: async () => {
+      const res = await publicApi.getOverview();
+      const envelope = res ?? null;
+      let payload = envelope?.data ?? envelope;
+      if (payload && payload.data !== undefined) payload = payload.data;
+      return payload ?? null;
+    },
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
 
   const metrics = overview?.metrics ?? {};
 

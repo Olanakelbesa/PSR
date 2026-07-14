@@ -28,6 +28,7 @@ import {
 } from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { tokenStorage } from "@/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 100;
@@ -127,6 +128,7 @@ export default function PublicPublicationsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setSearchQuery(routeSearch);
@@ -227,6 +229,7 @@ export default function PublicPublicationsPage() {
         ? `/bff/v1/policy-repository/${item.id}/download/`
         : `/bff/v1/final-submissions/${item.id}/download/`;
       await fetch(url, { method: "POST", headers });
+      queryClient.invalidateQueries({ queryKey: ["public-overview"] });
     } catch {
       // Best effort
     }
