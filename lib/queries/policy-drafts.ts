@@ -35,6 +35,18 @@ export interface PolicyDraftItem {
   currentStatusDisplay: string;
 }
 
+export interface PolicyDraftStatistics {
+  totalDrafts: number;
+  inDraft: number;
+  newSubmissions: number;
+  underReview: number;
+  reviewCompleted: number;
+  resubmitted: number;
+  needsRevision: number;
+  approved: number;
+  needsAction: number;
+}
+
 export interface PolicyDraftResponse {
   success: boolean;
   data: PolicyDraftItem[];
@@ -43,6 +55,7 @@ export interface PolicyDraftResponse {
     limit: number;
     total: number;
     totalPages: number;
+    statistics?: PolicyDraftStatistics;
   };
 }
 

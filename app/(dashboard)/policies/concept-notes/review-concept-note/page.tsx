@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   MoreHorizontal,
@@ -354,8 +354,18 @@ const columns: ColumnDef<ConceptNoteItem>[] = [
 
 export default function ConceptNotesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { backendToken } = useAuth();
-  const [queueFilter, setQueueFilter] = useState<ReviewQueueFilter>("all");
+
+  const initialQueue = ((): ReviewQueueFilter => {
+    const param = searchParams.get("queue");
+    if (param && ["under_review", "resubmitted", "approved"].includes(param)) {
+      return param as ReviewQueueFilter;
+    }
+    return "all";
+  })();
+
+  const [queueFilter, setQueueFilter] = useState<ReviewQueueFilter>(initialQueue);
 
   const { data, isLoading } = useMyReviews(
     {

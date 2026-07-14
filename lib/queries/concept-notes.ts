@@ -92,6 +92,16 @@ export interface ConceptNotesMeta {
   limit: number;
   total: number;
   totalPages: number;
+  statistics?: {
+    totalConceptNote: number;
+    inDraft: number;
+    newSubmissions: number;
+    underReview: number;
+    resubmitted: number;
+    approved: number;
+    needsAction: number;
+    notAccepted: number;
+  };
 }
 
 export function useConceptNotes(
@@ -135,6 +145,8 @@ export function useManageConceptNotes(
             underReview: number;
             resubmitted: number;
             approved: number;
+            needsAction: number;
+            notAccepted: number;
           };
         },
       };
@@ -163,6 +175,8 @@ export function useMyReviews(
             underReview: number;
             resubmitted: number;
             approved: number;
+            needsAction: number;
+            notAccepted: number;
           };
         },
       };

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   MoreHorizontal,
@@ -418,9 +418,19 @@ function BackendErrorMessage({
 
 export default function ManageConceptNotesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { backendToken } = useAuth();
   const [page, setPage] = useState(1);
-  const [queueFilter, setQueueFilter] = useState<ManageQueueFilter>("all");
+
+  const initialQueue = ((): ManageQueueFilter => {
+    const param = searchParams.get("queue");
+    if (param && ["new_submissions", "draft", "under_review", "resubmitted", "approved"].includes(param)) {
+      return param as ManageQueueFilter;
+    }
+    return "all";
+  })();
+
+  const [queueFilter, setQueueFilter] = useState<ManageQueueFilter>(initialQueue);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useManageConceptNotes(

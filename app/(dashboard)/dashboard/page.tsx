@@ -76,6 +76,8 @@ const POLICY_CARD_KEYS = new Set([
   "draft_under_review",
   "draft_approved",
   "policy_repository_registered",
+  "resubmitted_concept_notes",
+  "resubmitted_drafts",
 ]);
 
 const RESEARCH_CARD_KEYS = new Set([
@@ -95,6 +97,8 @@ const overviewIcons: Record<string, IconType> = {
   draft_under_review: Clock,
   draft_approved: CheckCircle2,
   policy_repository_registered: BookOpen,
+  resubmitted_concept_notes: RefreshCcw,
+  resubmitted_drafts: RefreshCcw,
   new_proposal_submitted: FileText,
   under_psr_screening: ClipboardCheck,
   under_expert_review: Clock,
@@ -162,6 +166,20 @@ const cardStyles: Record<
     iconColor: "text-indigo-500 dark:text-indigo-400",
     glowColor: "shadow-indigo-500/5 hover:shadow-indigo-500/10",
   },
+  resubmitted_concept_notes: {
+    bgGradient: "from-rose-500/5 to-pink-500/5 dark:from-rose-500/10 dark:to-pink-500/10",
+    borderHover: "hover:border-rose-500/30",
+    iconBg: "bg-rose-500/10 dark:bg-rose-500/20",
+    iconColor: "text-rose-500 dark:text-rose-400",
+    glowColor: "shadow-rose-500/5 hover:shadow-rose-500/10",
+  },
+  resubmitted_drafts: {
+    bgGradient: "from-orange-500/5 to-amber-500/5 dark:from-orange-500/10 dark:to-amber-500/10",
+    borderHover: "hover:border-orange-500/30",
+    iconBg: "bg-orange-500/10 dark:bg-orange-500/20",
+    iconColor: "text-orange-500 dark:text-orange-400",
+    glowColor: "shadow-orange-500/5 hover:shadow-orange-500/10",
+  },
   new_proposal_submitted: {
     bgGradient: "from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10",
     borderHover: "hover:border-blue-500/30",
@@ -204,6 +222,24 @@ const cardStyles: Record<
     iconColor: "text-emerald-500 dark:text-emerald-400",
     glowColor: "shadow-emerald-500/5 hover:shadow-emerald-500/10",
   },
+};
+
+const CARD_ROUTES: Record<string, string> = {
+  new_concept_note_submitted: "/policies/concept-notes/manage-concept-notes?queue=new_submissions",
+  concept_note_under_review: "/policies/concept-notes/manage-concept-notes?queue=under_review",
+  concept_note_approved: "/policies/concept-notes/manage-concept-notes?queue=approved",
+  new_draft_submitted: "/policies/drafts/manage-drafts?status=submitted",
+  draft_under_review: "/policies/drafts/review-draft?status=under_review",
+  draft_approved: "/policies/drafts/manage-drafts?status=psr_approved",
+  policy_repository_registered: "/policies/repository",
+  resubmitted_concept_notes: "/policies/concept-notes/review-concept-note?queue=resubmitted",
+  resubmitted_drafts: "/policies/drafts/review-draft?status=resubmitted",
+  new_proposal_submitted: "/research/proposals/my-proposals",
+  under_psr_screening: "/research/proposals/screening-reviews",
+  under_expert_review: "/research/proposals/technical-reviews",
+  ready_for_funding: "/research/ready-for-funding",
+  funded_proposal: "/research/funding-recommendations",
+  research_repository_registered: "/research/repository",
 };
 
 function formatDateTime(value?: string) {
@@ -278,18 +314,21 @@ function AnalyticsCardRow({
   description,
   icon: Icon,
   cards,
+  extraCard,
 }: {
   title: string;
   description: string;
   icon: IconType;
   cards: DashboardOverviewCard[];
+  extraCard?: React.ReactNode;
 }) {
+  const totalItems = cards.length + (extraCard ? 1 : 0);
   const gridClass =
-    cards.length <= 1
+    totalItems <= 1
       ? "grid-cols-1 sm:max-w-sm"
-      : cards.length === 2
+      : totalItems === 2
         ? "grid-cols-1 sm:grid-cols-2"
-        : cards.length === 3
+        : totalItems === 3
           ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
           : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4";
 
@@ -310,6 +349,7 @@ function AnalyticsCardRow({
         {cards.map((stat) => (
           <StatCard key={stat.key} stat={stat} />
         ))}
+        {extraCard}
       </div>
     </section>
   );
@@ -326,10 +366,12 @@ function StatCard({ stat }: { stat: DashboardOverviewCard }) {
   };
   const isDown = stat.changeDirection === "down";
   const TrendIcon = isDown ? TrendingDown : TrendingUp;
+  const href = CARD_ROUTES[stat.key];
 
-  return (
+  const card = (
     <Card className={cn(
       "group relative overflow-hidden h-full border border-primary/10 bg-gradient-to-br bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
+      href && "cursor-pointer",
       style.bgGradient,
       style.borderHover,
       style.glowColor
@@ -380,6 +422,98 @@ function StatCard({ stat }: { stat: DashboardOverviewCard }) {
               {stat.changeLabel}
             </span>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (!href) return card;
+
+  return (
+    <Link href={href} className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-xl">
+      {card}
+    </Link>
+  );
+}
+
+const RESUBMITTED_KEYS = new Set(["resubmitted_concept_notes", "resubmitted_drafts"]);
+
+function ResubmittedSplitCard({
+  conceptNoteCard,
+  draftCard,
+}: {
+  conceptNoteCard: DashboardOverviewCard;
+  draftCard: DashboardOverviewCard;
+}) {
+  const cnIsDown = conceptNoteCard.changeDirection === "down";
+  const drIsDown = draftCard.changeDirection === "down";
+  const CNTrendIcon = cnIsDown ? TrendingDown : TrendingUp;
+  const DRTrendIcon = drIsDown ? TrendingDown : TrendingUp;
+
+  return (
+    <Card className="h-full border border-primary/10 shadow-sm">
+      <CardContent className="p-0 h-full flex flex-col">
+        <div className="px-4 pt-3.5 pb-3 text-center">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Resubmitted
+          </p>
+        </div>
+        <div className="h-px bg-border/60" />
+        <div className="flex-1 flex flex-col sm:flex-row">
+          <Link
+            href={CARD_ROUTES.resubmitted_concept_notes}
+            className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0 transition-colors hover:bg-rose-500/5 dark:hover:bg-rose-500/10 cursor-pointer"
+          >
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+                Concept Notes
+              </p>
+              <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                {conceptNoteCard.value.toLocaleString()}
+              </p>
+              <div className="mt-2.5">
+                <span className={cn(
+                  "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                  cnIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                )}>
+                  <CNTrendIcon className="h-3 w-3" />
+                  <span>{cnIsDown ? "-" : "+"}{Math.abs(conceptNoteCard.changePercent)}%</span>
+                </span>
+              </div>
+            </div>
+            <div className="rounded-xl p-2.5 bg-rose-500/10 dark:bg-rose-500/20 shrink-0">
+              <FilePlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
+            </div>
+          </Link>
+
+          <div className="hidden sm:block w-px self-stretch bg-border/60" />
+          <div className="block sm:hidden h-px mx-4 bg-border/60" />
+
+          <Link
+            href={CARD_ROUTES.resubmitted_drafts}
+            className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0 transition-colors hover:bg-orange-500/5 dark:hover:bg-orange-500/10 cursor-pointer"
+          >
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+                Drafts
+              </p>
+              <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                {draftCard.value.toLocaleString()}
+              </p>
+              <div className="mt-2.5">
+                <span className={cn(
+                  "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                  drIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                )}>
+                  <DRTrendIcon className="h-3 w-3" />
+                  <span>{drIsDown ? "-" : "+"}{Math.abs(draftCard.changePercent)}%</span>
+                </span>
+              </div>
+            </div>
+            <div className="rounded-xl p-2.5 bg-orange-500/10 dark:bg-orange-500/20 shrink-0">
+              <FileText className="h-5 w-5 text-orange-500 dark:text-orange-400" />
+            </div>
+          </Link>
         </div>
       </CardContent>
     </Card>
@@ -888,12 +1022,14 @@ export default function DashboardPage() {
     else setGreeting("Good evening");
   }, []);
 
-  const { policyCards, researchCards } = useMemo(() => {
+  const { policyCards, researchCards, resubmittedCN, resubmittedDraft } = useMemo(() => {
     const cards = analytics?.generalOverview.cards ?? [];
 
     return {
-      policyCards: cards.filter((card) => POLICY_CARD_KEYS.has(card.key)),
+      policyCards: cards.filter((card) => POLICY_CARD_KEYS.has(card.key) && !RESUBMITTED_KEYS.has(card.key)),
       researchCards: cards.filter((card) => RESEARCH_CARD_KEYS.has(card.key)),
+      resubmittedCN: cards.find((card) => card.key === "resubmitted_concept_notes"),
+      resubmittedDraft: cards.find((card) => card.key === "resubmitted_drafts"),
     };
   }, [analytics]);
 
@@ -958,6 +1094,14 @@ export default function DashboardPage() {
               description="Your submitted concept notes, policy drafts, and repository records."
               icon={BookOpen}
               cards={policyCards}
+              extraCard={
+                resubmittedCN && resubmittedDraft ? (
+                  <ResubmittedSplitCard
+                    conceptNoteCard={resubmittedCN}
+                    draftCard={resubmittedDraft}
+                  />
+                ) : undefined
+              }
             />
             <AnalyticsCardRow
               title="Research Analytics"
