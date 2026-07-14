@@ -231,7 +231,7 @@ const CARD_ROUTES: Record<string, string> = {
   concept_note_approved: "/policies/concept-notes/manage-concept-notes?queue=approved",
   new_draft_submitted: "/policies/drafts/manage-drafts?status=submitted",
   draft_under_review: "/policies/drafts/review-draft?status=under_review",
-  draft_approved: "/policies/drafts/manage-drafts?status=psr_approved",
+  draft_approved: "/policies/drafts/manage-drafts?status=approved",
   policy_repository_registered: "/policies/repository",
   resubmitted_concept_notes: "/policies/concept-notes/review-concept-note?queue=resubmitted",
   resubmitted_drafts: "/policies/drafts/review-draft?status=resubmitted",
