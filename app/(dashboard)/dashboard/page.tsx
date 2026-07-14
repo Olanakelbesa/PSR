@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import {
@@ -44,6 +44,7 @@ import type { ApiError } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDashboardAnalytics } from "@/lib/queries/dashboard";
+import { PERMISSIONS, PERMISSION_GROUPS, type PermissionValue } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type {
   DashboardActivity,
@@ -242,6 +243,24 @@ const CARD_ROUTES: Record<string, string> = {
   research_repository_registered: "/research/repository",
 };
 
+const CARD_PERMISSIONS: Record<string, readonly PermissionValue[]> = {
+  new_concept_note_submitted: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
+  concept_note_under_review: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
+  concept_note_approved: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
+  new_draft_submitted: [...PERMISSION_GROUPS.DRAFT_MANAGE],
+  draft_under_review: [...PERMISSION_GROUPS.DRAFT_REVIEW],
+  draft_approved: [...PERMISSION_GROUPS.DRAFT_MANAGE],
+  policy_repository_registered: [PERMISSIONS.POLICY_VIEW_REPOSITORY],
+  resubmitted_concept_notes: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
+  resubmitted_drafts: [...PERMISSION_GROUPS.DRAFT_REVIEW],
+  new_proposal_submitted: [],
+  under_psr_screening: [PERMISSIONS.RESEARCH_VIEW_SCREENING],
+  under_expert_review: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
+  ready_for_funding: [PERMISSIONS.RESEARCH_VIEW_READY_FOR_FUNDING],
+  funded_proposal: [PERMISSIONS.RESEARCH_VIEW_FUNDING_RECOMMENDATION],
+  research_repository_registered: [PERMISSIONS.RESEARCH_VIEW_FINAL_SUBMISSION],
+};
+
 function formatDateTime(value?: string) {
   if (!value) return "Unavailable";
 
@@ -315,12 +334,14 @@ function AnalyticsCardRow({
   icon: Icon,
   cards,
   extraCard,
+  canAccessCard,
 }: {
   title: string;
   description: string;
   icon: IconType;
   cards: DashboardOverviewCard[];
   extraCard?: React.ReactNode;
+  canAccessCard: (cardKey: string) => boolean;
 }) {
   const totalItems = cards.length + (extraCard ? 1 : 0);
   const gridClass =
@@ -347,7 +368,7 @@ function AnalyticsCardRow({
       </div>
       <div className={cn("grid auto-rows-fr gap-4", gridClass)}>
         {cards.map((stat) => (
-          <StatCard key={stat.key} stat={stat} />
+          <StatCard key={stat.key} stat={stat} canAccess={canAccessCard(stat.key)} />
         ))}
         {extraCard}
       </div>
@@ -355,7 +376,7 @@ function AnalyticsCardRow({
   );
 }
 
-function StatCard({ stat }: { stat: DashboardOverviewCard }) {
+function StatCard({ stat, canAccess }: { stat: DashboardOverviewCard; canAccess: boolean }) {
   const Icon = overviewIcons[stat.key] || FileText;
   const style = cardStyles[stat.key] || {
     bgGradient: "from-slate-500/5 to-gray-500/5",
@@ -371,7 +392,7 @@ function StatCard({ stat }: { stat: DashboardOverviewCard }) {
   const card = (
     <Card className={cn(
       "group relative overflow-hidden h-full border border-primary/10 bg-gradient-to-br bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md",
-      href && "cursor-pointer",
+      href && canAccess && "cursor-pointer",
       style.bgGradient,
       style.borderHover,
       style.glowColor
@@ -427,7 +448,7 @@ function StatCard({ stat }: { stat: DashboardOverviewCard }) {
     </Card>
   );
 
-  if (!href) return card;
+  if (!href || !canAccess) return card;
 
   return (
     <Link href={href} className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-xl">
@@ -441,9 +462,13 @@ const RESUBMITTED_KEYS = new Set(["resubmitted_concept_notes", "resubmitted_draf
 function ResubmittedSplitCard({
   conceptNoteCard,
   draftCard,
+  canAccessCn,
+  canAccessDraft,
 }: {
   conceptNoteCard: DashboardOverviewCard;
   draftCard: DashboardOverviewCard;
+  canAccessCn: boolean;
+  canAccessDraft: boolean;
 }) {
   const cnIsDown = conceptNoteCard.changeDirection === "down";
   const drIsDown = draftCard.changeDirection === "down";
@@ -460,60 +485,110 @@ function ResubmittedSplitCard({
         </div>
         <div className="h-px bg-border/60" />
         <div className="flex-1 flex flex-col sm:flex-row">
-          <Link
-            href={CARD_ROUTES.resubmitted_concept_notes}
-            className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0 transition-colors hover:bg-rose-500/5 dark:hover:bg-rose-500/10 cursor-pointer"
-          >
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
-                Concept Notes
-              </p>
-              <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
-                {conceptNoteCard.value.toLocaleString()}
-              </p>
-              <div className="mt-2.5">
-                <span className={cn(
-                  "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                  cnIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                )}>
-                  <CNTrendIcon className="h-3 w-3" />
-                  <span>{cnIsDown ? "-" : "+"}{Math.abs(conceptNoteCard.changePercent)}%</span>
-                </span>
+          {canAccessCn ? (
+            <Link
+              href={CARD_ROUTES.resubmitted_concept_notes}
+              className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0 transition-colors hover:bg-rose-500/5 dark:hover:bg-rose-500/10 cursor-pointer"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+                  Concept Notes
+                </p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {conceptNoteCard.value.toLocaleString()}
+                </p>
+                <div className="mt-2.5">
+                  <span className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                    cnIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  )}>
+                    <CNTrendIcon className="h-3 w-3" />
+                    <span>{cnIsDown ? "-" : "+"}{Math.abs(conceptNoteCard.changePercent)}%</span>
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl p-2.5 bg-rose-500/10 dark:bg-rose-500/20 shrink-0">
+                <FilePlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
+              </div>
+            </Link>
+          ) : (
+            <div className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+                  Concept Notes
+                </p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {conceptNoteCard.value.toLocaleString()}
+                </p>
+                <div className="mt-2.5">
+                  <span className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                    cnIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  )}>
+                    <CNTrendIcon className="h-3 w-3" />
+                    <span>{cnIsDown ? "-" : "+"}{Math.abs(conceptNoteCard.changePercent)}%</span>
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl p-2.5 bg-rose-500/10 dark:bg-rose-500/20 shrink-0">
+                <FilePlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
               </div>
             </div>
-            <div className="rounded-xl p-2.5 bg-rose-500/10 dark:bg-rose-500/20 shrink-0">
-              <FilePlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
-            </div>
-          </Link>
+          )}
 
           <div className="hidden sm:block w-px self-stretch bg-border/60" />
           <div className="block sm:hidden h-px mx-4 bg-border/60" />
 
-          <Link
-            href={CARD_ROUTES.resubmitted_drafts}
-            className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0 transition-colors hover:bg-orange-500/5 dark:hover:bg-orange-500/10 cursor-pointer"
-          >
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
-                Drafts
-              </p>
-              <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
-                {draftCard.value.toLocaleString()}
-              </p>
-              <div className="mt-2.5">
-                <span className={cn(
-                  "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                  drIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                )}>
-                  <DRTrendIcon className="h-3 w-3" />
-                  <span>{drIsDown ? "-" : "+"}{Math.abs(draftCard.changePercent)}%</span>
-                </span>
+          {canAccessDraft ? (
+            <Link
+              href={CARD_ROUTES.resubmitted_drafts}
+              className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0 transition-colors hover:bg-orange-500/5 dark:hover:bg-orange-500/10 cursor-pointer"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+                  Drafts
+                </p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {draftCard.value.toLocaleString()}
+                </p>
+                <div className="mt-2.5">
+                  <span className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                    drIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  )}>
+                    <DRTrendIcon className="h-3 w-3" />
+                    <span>{drIsDown ? "-" : "+"}{Math.abs(draftCard.changePercent)}%</span>
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl p-2.5 bg-orange-500/10 dark:bg-orange-500/20 shrink-0">
+                <FileText className="h-5 w-5 text-orange-500 dark:text-orange-400" />
+              </div>
+            </Link>
+          ) : (
+            <div className="flex-1 flex items-center justify-between gap-3 p-4 min-w-0">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground leading-tight">
+                  Drafts
+                </p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-foreground">
+                  {draftCard.value.toLocaleString()}
+                </p>
+                <div className="mt-2.5">
+                  <span className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                    drIsDown ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  )}>
+                    <DRTrendIcon className="h-3 w-3" />
+                    <span>{drIsDown ? "-" : "+"}{Math.abs(draftCard.changePercent)}%</span>
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl p-2.5 bg-orange-500/10 dark:bg-orange-500/20 shrink-0">
+                <FileText className="h-5 w-5 text-orange-500 dark:text-orange-400" />
               </div>
             </div>
-            <div className="rounded-xl p-2.5 bg-orange-500/10 dark:bg-orange-500/20 shrink-0">
-              <FileText className="h-5 w-5 text-orange-500 dark:text-orange-400" />
-            </div>
-          </Link>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -990,7 +1065,7 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   const { user: sessionUser } = useAuth();
-  const { user: currentUser } = useCurrentUser();
+  const { user: currentUser, hasAny } = useCurrentUser();
   const {
     data: analytics,
     isLoading,
@@ -1039,6 +1114,15 @@ export default function DashboardPage() {
         analytics?.generalOverview.asOf || analytics?.generatedAt || undefined,
       ),
     [analytics],
+  );
+
+  const canAccessCard = useCallback(
+    (cardKey: string) => {
+      const required = CARD_PERMISSIONS[cardKey];
+      if (!required || required.length === 0) return true;
+      return hasAny(required);
+    },
+    [hasAny],
   );
 
   if (!sessionUser) return null;
@@ -1094,11 +1178,14 @@ export default function DashboardPage() {
               description="Your submitted concept notes, policy drafts, and repository records."
               icon={BookOpen}
               cards={policyCards}
+              canAccessCard={canAccessCard}
               extraCard={
                 resubmittedCN && resubmittedDraft ? (
                   <ResubmittedSplitCard
                     conceptNoteCard={resubmittedCN}
                     draftCard={resubmittedDraft}
+                    canAccessCn={canAccessCard("resubmitted_concept_notes")}
+                    canAccessDraft={canAccessCard("resubmitted_drafts")}
                   />
                 ) : undefined
               }
@@ -1108,6 +1195,7 @@ export default function DashboardPage() {
               description="Proposals submitted, under screening, expert review, ready for funding, and registered outputs."
               icon={FlaskConical}
               cards={researchCards}
+              canAccessCard={canAccessCard}
             />
           </div>
 
