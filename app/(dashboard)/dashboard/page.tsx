@@ -227,7 +227,7 @@ const cardStyles: Record<
 
 const CARD_ROUTES: Record<string, string> = {
   new_concept_note_submitted: "/policies/concept-notes/manage-concept-notes?queue=new_submissions",
-  concept_note_under_review: "/policies/concept-notes/manage-concept-notes?queue=under_review",
+  concept_note_under_review: "/policies/concept-notes/review-concept-note?queue=under_review",
   concept_note_approved: "/policies/concept-notes/manage-concept-notes?queue=approved",
   new_draft_submitted: "/policies/drafts/manage-drafts?status=submitted",
   draft_under_review: "/policies/drafts/review-draft?status=under_review",
@@ -245,7 +245,7 @@ const CARD_ROUTES: Record<string, string> = {
 
 const CARD_PERMISSIONS: Record<string, readonly PermissionValue[]> = {
   new_concept_note_submitted: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
-  concept_note_under_review: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
+  concept_note_under_review: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
   concept_note_approved: [...PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE],
   new_draft_submitted: [...PERMISSION_GROUPS.DRAFT_MANAGE],
   draft_under_review: [...PERMISSION_GROUPS.DRAFT_REVIEW],
