@@ -17,6 +17,8 @@ import {
   getSubCallTypes,
   getInternalUsers,
   getTerminalReportTypes,
+  getIssueTypes,
+  getClassifications,
 } from "@/api/services/reference.service";
 
 // Long stale time: reference data rarely changes
@@ -34,6 +36,9 @@ export const referenceKeys = {
   subCallTypes: ["reference", "sub-call-types"] as const,
   internalUsers: ["reference", "internal-users"] as const,
   terminalReportTypes: ["reference", "terminal-report-types"] as const,
+  issueTypes: ["reference", "issue-types"] as const,
+  classifications: (issueTypeId?: number) =>
+    ["reference", "classifications", { issue_type: issueTypeId }] as const,
 };
 
 export function useTitles() {
@@ -163,5 +168,22 @@ export function useTerminalReportTypes() {
     queryKey: referenceKeys.terminalReportTypes,
     queryFn: () => getTerminalReportTypes(),
     staleTime: REFERENCE_STALE_TIME,
+  });
+}
+
+export function useIssueTypes() {
+  return useQuery({
+    queryKey: referenceKeys.issueTypes,
+    queryFn: () => getIssueTypes(),
+    staleTime: REFERENCE_STALE_TIME,
+  });
+}
+
+export function useClassifications(issueTypeId?: number) {
+  return useQuery({
+    queryKey: referenceKeys.classifications(issueTypeId),
+    queryFn: () => getClassifications({ issue_type: issueTypeId }),
+    staleTime: REFERENCE_STALE_TIME,
+    enabled: !!issueTypeId,
   });
 }

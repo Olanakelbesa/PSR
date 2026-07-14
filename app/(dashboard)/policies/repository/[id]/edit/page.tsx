@@ -29,6 +29,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -39,6 +46,7 @@ import {
   usePolicyRepositoryDetail,
   useUpdateRegisteredPolicy,
 } from "@/lib/queries/policy-repository";
+import { useIssueTypes, useClassifications } from "@/hooks/useReference";
 
 const READINESS = [
   { key: "serialNumber", label: "Serial number set" },
@@ -64,6 +72,8 @@ export default function EditRepositoryEntryPage() {
     usePolicyRepositoryDetail(policyId);
   const updateMutation = useUpdateRegisteredPolicy(policyId);
 
+  const { data: issueTypes = [] } = useIssueTypes();
+
   const policy = useMemo(() => {
     if (!detailResponse?.data) return null;
     return mapPolicyRepositoryDetail(detailResponse.data, extractFileName);
@@ -77,12 +87,18 @@ export default function EditRepositoryEntryPage() {
     organization: "",
     serialNumber: "",
     versionCode: "",
+    issueType: "",
+    classification: "",
     approvalDate: "",
     effectiveDate: "",
     nextReviewDate: "",
     accessLevel: "public",
     publishNow: false,
   });
+
+  const { data: classifications = [] } = useClassifications(
+    form.issueType ? Number(form.issueType) : undefined
+  );
 
   useEffect(() => {
     if (!policy) return;
@@ -92,6 +108,8 @@ export default function EditRepositoryEntryPage() {
       organization: policy.organization,
       serialNumber: policy.serialNumber,
       versionCode: policy.versionCode,
+      issueType: policy.issueTypeId ? String(policy.issueTypeId) : "",
+      classification: policy.classificationId ? String(policy.classificationId) : "",
       approvalDate: toInputDate(policy.approvalDate),
       effectiveDate: toInputDate(policy.effectiveDate),
       nextReviewDate: toInputDate(policy.nextReviewDate),
@@ -131,6 +149,8 @@ export default function EditRepositoryEntryPage() {
         access_level: form.accessLevel,
         publish_status: form.publishNow,
         policy_document_source: selectedFile,
+        issue_type_id: form.issueType ? Number(form.issueType) : null,
+        classification_id: form.classification ? Number(form.classification) : null,
       });
       toast.success(`Policy "${form.title}" has been updated.`);
       router.push(`/policies/repository/${policyId}`);
@@ -264,6 +284,93 @@ export default function EditRepositoryEntryPage() {
                   <p className="text-[11px] text-muted-foreground">
                     Must be unique across the repository
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-primary/10 overflow-hidden">
+            <CardHeader className="border-b bg-muted/30 pb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base">Issue Type & Classification</CardTitle>
+              </div>
+              <CardDescription>
+                Update the issue type and classification for this policy
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="issueType">Issue Type</Label>
+                  <Select
+                    value={form.issueType}
+                    onValueChange={(value) => {
+                      set("issueType", value);
+                      set("classification", "");
+                    }}
+                  >
+                    <SelectTrigger id="issueType" className="h-11 shadow-sm">
+                      <SelectValue placeholder="Select issue type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {issueTypes.length > 0 ? (
+                        issueTypes.map((it) => (
+                          <SelectItem key={it.id} value={String(it.id)}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{it.name}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">
+                                ({it.acronym})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          No issue types found.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="classification">Classification</Label>
+                  <Select
+                    value={form.classification}
+                    onValueChange={(value) => set("classification", value)}
+                    disabled={!form.issueType}
+                  >
+                    <SelectTrigger id="classification" className="h-11 shadow-sm">
+                      <SelectValue
+                        placeholder={
+                          form.issueType
+                            ? "Select classification..."
+                            : "Select issue type first"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classifications.length > 0 ? (
+                        classifications.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{c.name}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">
+                                ({c.code})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          {form.issueType
+                            ? "No classifications for this issue type."
+                            : "Select an issue type first."}
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>

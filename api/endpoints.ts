@@ -74,6 +74,8 @@ export const API_ENDPOINTS = {
     OFFICES: "/v1/offices",
     INTERNAL_USERS: "/v1/users/selector/",
     CHECKLIST_TEMPLATES: "/v1/checklisttemplates/",
+    ISSUE_TYPES: "/v1/issuetypes/",
+    CLASSIFICATIONS: "/v1/classifications/",
   },
 
   // ── Concept Notes ─────────────────────────────────────────────────────────

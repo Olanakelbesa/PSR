@@ -39,12 +39,15 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
 import { useRegisterPolicy } from "@/lib/queries/policy-repository";
+import { useIssueTypes, useClassifications } from "@/hooks/useReference";
 import { MAX_FILE_SIZE_MB } from "@/lib/constants";
 
 const READINESS = [
   { key: "title", label: "Policy title selected" },
   { key: "type", label: "Document type identified" },
   { key: "org", label: "Organization identified" },
+  { key: "issueType", label: "Issue type selected" },
+  { key: "classification", label: "Classification selected" },
   { key: "effectiveDate", label: "Effective date set" },
   { key: "accessLevel", label: "Access level chosen" },
   { key: "document", label: "Document uploaded" },
@@ -62,6 +65,8 @@ export default function CreateRepositoryEntryPage() {
     type: "",
     organization: "",
     sourceDraft: "",
+    issueType: "",
+    classification: "",
     approvalDate: "",
     effectiveDate: "",
     nextReviewDate: "",
@@ -77,6 +82,11 @@ export default function CreateRepositoryEntryPage() {
 
   const approvedDrafts = approvedDraftsResponse?.data || [];
   const registerMutation = useRegisterPolicy();
+
+  const { data: issueTypes = [] } = useIssueTypes();
+  const { data: classifications = [] } = useClassifications(
+    form.issueType ? Number(form.issueType) : undefined
+  );
 
   const handleDraftSelect = (draftId: string) => {
     const draft = approvedDrafts.find((d) => String(d.id) === draftId);
@@ -105,6 +115,8 @@ export default function CreateRepositoryEntryPage() {
     title: !!form.title.trim(),
     type: !!form.type,
     org: !!form.organization.trim(),
+    issueType: !!form.issueType,
+    classification: !!form.classification,
     effectiveDate: !!form.effectiveDate,
     accessLevel: !!form.accessLevel,
     document: documentSource === 'draft' ? !!form.sourceDraft : !!selectedFile,
@@ -130,6 +142,8 @@ export default function CreateRepositoryEntryPage() {
         access_level: form.accessLevel.toLowerCase(),
         publish_status: form.publishNow,
         policy_document_source: selectedFile,
+        issue_type_id: Number(form.issueType),
+        classification_id: Number(form.classification),
       });
       toast.success(
         `Policy "${form.title}" has been registered in the repository.`,
@@ -246,6 +260,108 @@ export default function CreateRepositoryEntryPage() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Issue Type & Classification */}
+          <Card className="shadow-sm border-primary/10 overflow-hidden">
+            <CardHeader className="border-b bg-muted/30 pb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base">
+                  Issue Type & Classification
+                </CardTitle>
+              </div>
+              <CardDescription>
+                Select the issue type and its classification for serial number generation
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="issueType">
+                    Issue Type{" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={form.issueType}
+                    onValueChange={(value) => {
+                      set("issueType", value);
+                      set("classification", "");
+                    }}
+                  >
+                    <SelectTrigger
+                      id="issueType"
+                      className="h-11 shadow-sm focus:ring-primary/20"
+                    >
+                      <SelectValue placeholder="Select issue type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {issueTypes.length > 0 ? (
+                        issueTypes.map((it) => (
+                          <SelectItem key={it.id} value={String(it.id)}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{it.name}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">
+                                ({it.acronym})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          No issue types found.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="classification">
+                    Classification{" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={form.classification}
+                    onValueChange={(value) => set("classification", value)}
+                    disabled={!form.issueType}
+                  >
+                    <SelectTrigger
+                      id="classification"
+                      className="h-11 shadow-sm focus:ring-primary/20"
+                    >
+                      <SelectValue
+                        placeholder={
+                          form.issueType
+                            ? "Select classification..."
+                            : "Select issue type first"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classifications.length > 0 ? (
+                        classifications.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold">{c.name}</span>
+                              <span className="text-[10px] text-muted-foreground uppercase">
+                                ({c.code})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-xs text-muted-foreground">
+                          {form.issueType
+                            ? "No classifications for this issue type."
+                            : "Select an issue type first."}
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

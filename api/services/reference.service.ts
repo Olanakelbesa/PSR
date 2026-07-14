@@ -69,6 +69,19 @@ const ThematicAreasResponseSchema = z.object({
 export type LookupItem = z.infer<typeof LookupItemSchema>;
 export type ThematicArea = z.infer<typeof ThematicAreaSchema>;
 
+export interface IssueTypeItem {
+  id: string;
+  name: string;
+  acronym: string;
+}
+
+export interface ClassificationItem {
+  id: string;
+  name: string;
+  code: string;
+  issueType: number;
+}
+
 // ─── GET /v1/titles/ ──────────────────────────────────────────────────────────
 export async function getTitles(): Promise<LookupItem[]> {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.TITLES);
@@ -249,5 +262,75 @@ export async function getTerminalReportTypes(): Promise<LookupItem[]> {
     ? res.data
     : (res.data?.data ?? res.data?.results ?? []);
 
+  return Array.isArray(fallbackData) ? fallbackData : [];
+}
+
+// ─── GET /v1/issuetypes/ ─────────────────────────────────────────────────────
+const IssueTypeSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  acronym: z.string(),
+});
+
+const IssueTypeListSchema = z.object({
+  data: z.array(IssueTypeSchema),
+  meta: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+    })
+    .optional(),
+});
+
+export async function getIssueTypes(): Promise<IssueTypeItem[]> {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ISSUE_TYPES);
+  const parsed = IssueTypeListSchema.safeParse(res.data);
+  if (parsed.success) {
+    return parsed.data.data;
+  }
+  const fallbackData = Array.isArray(res.data)
+    ? res.data
+    : (res.data?.data ?? res.data?.results ?? []);
+  return Array.isArray(fallbackData) ? fallbackData : [];
+}
+
+// ─── GET /v1/classifications/ ────────────────────────────────────────────────
+const ClassificationSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  code: z.string(),
+  issue_type: z.union([z.string(), z.number()]).transform(Number).optional(),
+});
+
+const ClassificationListSchema = z.object({
+  data: z.array(ClassificationSchema),
+  meta: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+    })
+    .optional(),
+});
+
+export async function getClassifications(params?: {
+  issue_type?: number;
+}): Promise<ClassificationItem[]> {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.CLASSIFICATIONS, {
+    params,
+  });
+  const parsed = ClassificationListSchema.safeParse(res.data);
+  if (parsed.success) {
+    return parsed.data.data.map((item) => ({
+      ...item,
+      issueType: item.issue_type ?? 0,
+    }));
+  }
+  const fallbackData = Array.isArray(res.data)
+    ? res.data
+    : (res.data?.data ?? res.data?.results ?? []);
   return Array.isArray(fallbackData) ? fallbackData : [];
 }
