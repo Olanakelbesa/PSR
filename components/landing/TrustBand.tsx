@@ -1,34 +1,46 @@
 "use client";
 
 import React from "react";
+import { FileText, BookOpen, DollarSign, Target, Layers, Download } from "lucide-react";
 
 type Trust = {
-  institutions?: number;
-  researchCenters?: number;
-  grantCalls?: number;
-  approvedPolicies?: number;
+  publishedPolicies?: number;
+  totalResearchOutputs?: number;
+  totalGrantCalls?: number;
+  totalStrategicObjectives?: number;
+  totalThematicAreas?: number;
+  totalPolicyDownloads?: number;
+  totalResearchDownloads?: number;
 };
 
-export default function TrustBand({ trust }: { trust?: Trust }) {
-  const institutions = trust?.institutions ?? 0;
-  const centers = trust?.researchCenters ?? 0;
-  const grants = trust?.grantCalls ?? 0;
-  const approved = trust?.approvedPolicies ?? 0;
+const formatCompact = (n: number) =>
+  n >= 1000 ? `${Math.round(n / 1000)}k+` : n.toLocaleString();
 
-  const item = (value: number | string, label: string) => (
-    <div className="text-center">
-      <p className="text-2xl font-bold tabular-nums">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-      <p className="text-xs uppercase text-muted-foreground mt-1">{label}</p>
-    </div>
-  );
+export default function TrustBand({ trust }: { trust?: Trust }) {
+  const stats = [
+    { value: trust?.publishedPolicies ?? 0, label: "Policy Documents", icon: FileText },
+    { value: trust?.totalResearchOutputs ?? 0, label: "Research Outputs", icon: BookOpen },
+    { value: trust?.totalGrantCalls ?? 0, label: "Grant Calls", icon: DollarSign },
+    { value: trust?.totalStrategicObjectives ?? 0, label: "Strategic Objectives", icon: Target },
+    { value: trust?.totalThematicAreas ?? 0, label: "Thematic Areas", icon: Layers },
+    { value: trust?.totalPolicyDownloads ?? 0, label: "Policy Downloads", icon: Download },
+    { value: trust?.totalResearchDownloads ?? 0, label: "Research Downloads", icon: Download },
+  ];
 
   return (
     <section className="py-4 md:py-8">
-      <div className="bg-background/40 border border-border rounded-2xl p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-4 gap-6">
-        {item(institutions >= 1000 ? `${Math.round(institutions / 1000)}k+` : institutions, "Institutions")}
-        {item(centers >= 1000 ? `${Math.round(centers / 1000)}k+` : centers, "Strategic Objectives")}
-        {item(grants >= 1000 ? `${Math.round(grants / 1000)}k+` : grants, "Grant calls")}
-        {item(approved >= 1000 ? `${Math.round(approved / 1000)}k+` : approved, "Approved policies")}
+      <div className="bg-background/40 border border-border rounded-2xl p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-6">
+        {stats.map(({ value, label, icon: Icon }) => (
+          <div key={label} className="text-center flex flex-col items-center gap-1.5">
+            <div className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <p className="text-2xl font-bold tabular-nums">
+              {formatCompact(value)}
+            </p>
+            <p className="text-xs uppercase text-muted-foreground">{label}</p>
+          </div>
+        ))}
       </div>
     </section>
   );

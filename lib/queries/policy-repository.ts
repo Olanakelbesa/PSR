@@ -285,7 +285,20 @@ export function useRecordPolicyDownload() {
         draftFile: resolveFileUrl(payload.draftFile) ?? payload.draftFile,
       };
     },
-    onSuccess: (_data, id) => {
+    onSuccess: (result, id) => {
+      queryClient.setQueryData(["policy-repository"], (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((item: any) =>
+            item.id === id ? { ...item, downloadCount: result.downloadCount } : item
+          ),
+        };
+      });
+      queryClient.setQueryData(["policy-repository-detail", String(id)], (old: any) => {
+        if (!old) return old;
+        return { ...old, data: { ...old.data, downloadCount: result.downloadCount } };
+      });
       queryClient.invalidateQueries({ queryKey: ["policy-repository"] });
       queryClient.invalidateQueries({
         queryKey: ["policy-repository-detail", String(id)],

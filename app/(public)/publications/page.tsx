@@ -27,6 +27,7 @@ import {
   type SearchResultItem,
 } from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { tokenStorage } from "@/api";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 100;
@@ -217,9 +218,24 @@ export default function PublicPublicationsPage() {
     router.push(qs ? `/publications?${qs}` : "/publications");
   };
 
-  const handleDownload = (item: SearchResultItem) => {
+  const trackDownload = async (item: SearchResultItem) => {
+    try {
+      const token = tokenStorage.get();
+      const headers: HeadersInit = { "Content-Type": "application/json", accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = item.source === "policy_repository"
+        ? `/bff/v1/policy-repository/${item.id}/download/`
+        : `/bff/v1/final-submissions/${item.id}/download/`;
+      await fetch(url, { method: "POST", headers });
+    } catch {
+      // Best effort
+    }
+  };
+
+  const handleDownload = async (item: SearchResultItem) => {
     setDownloadingId(`${item.source}-${item.id}`);
-    window.setTimeout(() => setDownloadingId(null), 800);
+    await trackDownload(item);
+    setDownloadingId(null);
   };
 
   const emptyLabel =
@@ -567,29 +583,25 @@ export default function PublicPublicationsPage() {
                                   <div className="pt-4 border-t border-white/5 flex justify-end">
                                     {fileUrl && fileUrl !== "#" ? (
                                       <Button
-                                        asChild
                                         disabled={isDownloading}
                                         className="rounded-xl font-bold text-xs tracking-wider uppercase h-10 px-6 gap-2"
+                                        onClick={() => {
+                                          handleDownload(pub).then(() => {
+                                            window.open(fileUrl, "_blank", "noreferrer");
+                                          });
+                                        }}
                                       >
-                                        <a
-                                          href={fileUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          download={extractFileName(fileUrl)}
-                                          onClick={() => handleDownload(pub)}
-                                        >
-                                          {isDownloading ? (
-                                            <>
-                                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                              Opening File
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Download className="w-4 h-4" />
-                                              Download Official File
-                                            </>
-                                          )}
-                                        </a>
+                                        {isDownloading ? (
+                                          <>
+                                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                            Opening File
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Download className="w-4 h-4" />
+                                            Download Official File
+                                          </>
+                                        )}
                                       </Button>
                                     ) : (
                                       <p className="text-xs text-muted-foreground">

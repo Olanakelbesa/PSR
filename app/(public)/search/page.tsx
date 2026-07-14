@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useUnifiedSearch, type SearchResultItem } from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { tokenStorage } from "@/api";
 
 function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
@@ -72,6 +73,21 @@ export default function PremiumSearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [explainEnabled, setExplainEnabled] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<SearchResultItem | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const trackDownload = async (item: SearchResultItem) => {
+    try {
+      const token = tokenStorage.get();
+      const headers: HeadersInit = { "Content-Type": "application/json", accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = item.source === "policy_repository"
+        ? `/bff/v1/policy-repository/${item.id}/download/`
+        : `/bff/v1/final-submissions/${item.id}/download/`;
+      await fetch(url, { method: "POST", headers });
+    } catch {
+      // Best effort
+    }
+  };
 
   // Sync state with URL changes
   useEffect(() => {
@@ -470,19 +486,19 @@ export default function PremiumSearchPage() {
                             </Button>
 
                             <Button
-                              asChild
                               size="sm"
                               className="rounded-xl font-bold text-xs uppercase px-4 h-9 gap-1.5 shadow"
+                              disabled={downloadingId === `${item.source}-${item.id}`}
+                              onClick={() => {
+                                setDownloadingId(`${item.source}-${item.id}`);
+                                trackDownload(item).finally(() => {
+                                  window.open(resolveFileUrl(item.file_url) ?? "#", "_blank", "noreferrer");
+                                  setDownloadingId(null);
+                                });
+                              }}
                             >
-                              <a
-                                href={resolveFileUrl(item.file_url) ?? "#"}
-                                target="_blank"
-                                rel="noreferrer"
-                                download={extractFileName(item.file_url)}
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                File Field
-                              </a>
+                              <Download className="w-3.5 h-3.5" />
+                              {downloadingId === `${item.source}-${item.id}` ? "Opening..." : "File Field"}
                             </Button>
                           </div>
                         </CardContent>
@@ -620,18 +636,19 @@ export default function PremiumSearchPage() {
                   Close Drawer
                 </Button>
                 <Button
-                  asChild
                   className="rounded-2xl flex-grow font-bold text-xs uppercase h-12 gap-1.5 shadow"
+                  disabled={downloadingId === `drawer-${selectedDoc?.id}`}
+                  onClick={() => {
+                    if (!selectedDoc) return;
+                    setDownloadingId(`drawer-${selectedDoc.id}`);
+                    trackDownload(selectedDoc).finally(() => {
+                      window.open(resolveFileUrl(selectedDoc.file_url) ?? "#", "_blank", "noreferrer");
+                      setDownloadingId(null);
+                    });
+                  }}
                 >
-                  <a
-                    href={resolveFileUrl(selectedDoc.file_url) ?? "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    download={extractFileName(selectedDoc.file_url)}
-                  >
-                    <Download className="w-4 h-4" />
-                    Download File
-                  </a>
+                  <Download className="w-4 h-4" />
+                  {downloadingId === `drawer-${selectedDoc?.id}` ? "Opening..." : "Download File"}
                 </Button>
               </div>
             </motion.div>

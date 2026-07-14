@@ -126,6 +126,21 @@ export default function LandingPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [overview, setOverview] = useState<any | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const trackDownload = async (item: SearchResultItem) => {
+    try {
+      const token = tokenStorage.get();
+      const headers: HeadersInit = { "Content-Type": "application/json", accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = item.source === "policy_repository"
+        ? `/bff/v1/policy-repository/${item.id}/download/`
+        : `/bff/v1/final-submissions/${item.id}/download/`;
+      await fetch(url, { method: "POST", headers });
+    } catch {
+      // Best effort — don't block the download
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -315,10 +330,13 @@ export default function LandingPage() {
   };
 
   const trustPayload = {
-    institutions: metrics.institutionsUsingSystem ?? 0,
-    researchCenters: metrics.researchCenters ?? 0,
-    grantCalls: metrics.totalGrantCallsPublished ?? 0,
-    approvedPolicies: metrics.totalRegisteredPolicies ?? 0,
+    publishedPolicies: metrics.publishedPolicies ?? 0,
+    totalResearchOutputs: metrics.totalResearchOutputs ?? 0,
+    totalGrantCalls: metrics.totalGrantCalls ?? 0,
+    totalStrategicObjectives: metrics.totalStrategicObjectives ?? 0,
+    totalThematicAreas: metrics.totalThematicAreas ?? 0,
+    totalPolicyDownloads: metrics.totalPolicyDownloads ?? 0,
+    totalResearchDownloads: metrics.totalResearchDownloads ?? 0,
   };
 
   const trendData = overview?.monthlyProposalSubmissions ?? [];
@@ -459,16 +477,25 @@ export default function LandingPage() {
                     ) : searchSuggestions.length > 0 ? (
                       <div className="overflow-auto">
                         {searchSuggestions.map((item) => (
-                          <button
+                          <div
                             key={item.id}
-                            type="button"
+                            role="button"
+                            tabIndex={0}
                             onMouseDown={(ev) => ev.preventDefault()}
                             onClick={() => {
                               router.push(
                                 `/search?search=${encodeURIComponent(searchQuery.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all&selected=${encodeURIComponent(String(item.id))}&selected_source=${encodeURIComponent(item.source)}`,
                               );
                             }}
-                            className="w-full text-left p-3 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-200/70 last:border-b-0 dark:border-slate-800"
+                            onKeyDown={(ev) => {
+                              if (ev.key === "Enter" || ev.key === " ") {
+                                ev.preventDefault();
+                                router.push(
+                                  `/search?search=${encodeURIComponent(searchQuery.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all&selected=${encodeURIComponent(String(item.id))}&selected_source=${encodeURIComponent(item.source)}`,
+                                );
+                              }
+                            }}
+                            className="w-full text-left p-3 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-200/70 last:border-b-0 dark:border-slate-800 cursor-pointer"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -496,26 +523,25 @@ export default function LandingPage() {
                               </div>
                               {item.file_url ? (
                                 <Button
-                                  asChild
                                   size="sm"
                                   variant="outline"
                                   className="h-8 rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-                                  onClick={(event) => event.stopPropagation()}
-                                  onMouseDown={(event) => event.stopPropagation()}
+                                  disabled={downloadingId === `${item.source}-${item.id}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setDownloadingId(`${item.source}-${item.id}`);
+                                    trackDownload(item).finally(() => {
+                                      window.open(resolveFileUrl(item.file_url) ?? "#", "_blank", "noreferrer");
+                                      setDownloadingId(null);
+                                    });
+                                  }}
                                 >
-                                  <a
-                                    href={resolveFileUrl(item.file_url) ?? "#"}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    download={extractFileName(item.file_url)}
-                                  >
-                                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                                    Download
-                                  </a>
+                                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                                  {downloadingId === `${item.source}-${item.id}` ? "Downloading..." : "Download"}
                                 </Button>
                               ) : null}
                             </div>
-                          </button>
+                          </div>
                         ))}
                       </div>
                     ) : (
