@@ -13,6 +13,13 @@ import {
   Trash2,
   UserPlus,
   ExternalLink,
+  Users,
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowUpDown,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -63,7 +70,9 @@ import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useDeleteUser, useUpdateUser, useUsers } from "@/hooks/useUsers";
-import type { User } from "@/api/services/users.service";
+import { useRoles } from "@/hooks/useRoles";
+import { useOrganizationsList } from "@/hooks/useOrganizations";
+import type { User, UserStatistics } from "@/api/services/users.service";
 import { PERMISSIONS } from "@/lib/permissions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -99,11 +108,22 @@ export default function UsersManagementPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [organizationFilter, setOrganizationFilter] = useState("all");
+  const [onlineFilter, setOnlineFilter] = useState<string>("all");
+  const [ordering, setOrdering] = useState("-created");
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
+  const [jumpPage, setJumpPage] = useState("");
   const [deleteCandidate, setDeleteCandidate] = useState<User | null>(null);
 
   const debouncedSearch = useDebounce(search, 400);
+
+  const { data: rolesRes } = useRoles({ limit: 100, is_active: true });
+  const roles = rolesRes?.data ?? [];
+
+  const { data: orgsRes } = useOrganizationsList({ limit: 200 });
+  const organizations = orgsRes?.data ?? [];
 
   const filters = useMemo(
     () => ({
@@ -111,8 +131,12 @@ export default function UsersManagementPage() {
       limit,
       search: debouncedSearch || undefined,
       status: statusFilter === "all" ? undefined : statusFilter,
+      role: roleFilter === "all" ? undefined : roleFilter,
+      organization: organizationFilter === "all" ? undefined : Number(organizationFilter),
+      is_logged_in: onlineFilter === "online" ? true : onlineFilter === "offline" ? false : undefined,
+      ordering: ordering || undefined,
     }),
-    [page, limit, debouncedSearch, statusFilter],
+    [page, limit, debouncedSearch, statusFilter, roleFilter, organizationFilter, onlineFilter, ordering],
   );
 
   const { data, isLoading, isFetching, refetch } = useUsers(filters);
@@ -121,12 +145,11 @@ export default function UsersManagementPage() {
 
   const users = data?.data ?? [];
   const meta = data?.meta;
-  const totalUsers = meta?.total ?? users.length;
-  const activeUsers = users.filter((u) => u.enabled).length;
+  const statistics = (meta as any)?.statistics as UserStatistics | undefined;
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, limit]);
+  }, [debouncedSearch, statusFilter, roleFilter, organizationFilter, onlineFilter, ordering, limit]);
 
   const toggleStatus = async (user: User) => {
     try {
@@ -204,20 +227,115 @@ export default function UsersManagementPage() {
       }
     >
       <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Users</CardDescription>
-              <CardTitle className="text-3xl">{totalUsers}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Active on Page</CardDescription>
-              <CardTitle className="text-3xl">{activeUsers}</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
+        {(() => {
+          const isStatusActive = (key: string) => {
+            if (key === "total") return statusFilter === "all" && onlineFilter === "all";
+            if (key === "active") return statusFilter === "Active";
+            if (key === "inactive") return statusFilter === "Inactive";
+            if (key === "online") return onlineFilter === "online";
+            return false;
+          };
+          const toggleStat = (key: string) => {
+            if (key === "total") {
+              setStatusFilter("all");
+              setOnlineFilter("all");
+            } else if (key === "active") {
+              setStatusFilter((c) => (c === "Active" ? "all" : "Active"));
+              setOnlineFilter("all");
+            } else if (key === "inactive") {
+              setStatusFilter((c) => (c === "Inactive" ? "all" : "Inactive"));
+              setOnlineFilter("all");
+            } else if (key === "online") {
+              setOnlineFilter((c) => (c === "online" ? "all" : "online"));
+              setStatusFilter("all");
+            }
+          };
+          const statCards = [
+            {
+              key: "total",
+              label: "Total Users",
+              value: statistics?.total ?? meta?.total ?? users.length,
+              icon: <Users className="h-4 w-4 text-primary" />,
+              iconBg: "bg-primary/10",
+              border: "border-primary/10",
+              activeRing: "ring-primary/50 border-primary/40",
+            },
+            {
+              key: "active",
+              label: "Active",
+              value: statistics?.active ?? 0,
+              icon: <ShieldCheck className="h-4 w-4 text-green-600" />,
+              iconBg: "bg-green-100",
+              border: "border-green-100/50",
+              activeRing: "ring-green-500/60 border-green-300",
+            },
+            {
+              key: "inactive",
+              label: "Inactive",
+              value: statistics?.inactive ?? 0,
+              icon: <ShieldX className="h-4 w-4 text-orange-600" />,
+              iconBg: "bg-orange-100",
+              border: "border-orange-100/50",
+              activeRing: "ring-orange-500/60 border-orange-300",
+            },
+            {
+              key: "online",
+              label: "Active (5 min)",
+              value: statistics?.loggedIn ?? 0,
+              icon: <Activity className="h-4 w-4 text-blue-600" />,
+              iconBg: "bg-blue-100",
+              border: "border-blue-100/50",
+              activeRing: "ring-blue-500/60 border-blue-300",
+            },
+          ];
+          return (
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+              {statCards.map((card) => {
+                const isActive = isStatusActive(card.key);
+                return (
+                  <Card
+                    key={card.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleStat(card.key)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleStat(card.key);
+                      }
+                    }}
+                    className={cn(
+                      card.border,
+                      "cursor-pointer transition-all hover:shadow-md",
+                      isActive && cn("ring-2 shadow-md", card.activeRing),
+                    )}
+                  >
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardDescription>{card.label}</CardDescription>
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${card.iconBg}`}>
+                        {card.icon}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{card.value}</div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {statistics && statistics.roles.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Top roles:</span>
+            {statistics.roles.slice(0, 5).map((role) => (
+              <Badge key={role.slug} variant="secondary" className="text-[10px]">
+                {role.name} ({role.count})
+              </Badge>
+            ))}
+          </div>
+        )}
 
         <Card>
           <CardHeader>
@@ -228,7 +346,7 @@ export default function UsersManagementPage() {
                   Click a user to view details and edit.
                 </CardDescription>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -239,13 +357,55 @@ export default function UsersManagementPage() {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-40">
+                  <SelectTrigger className="w-full sm:w-36">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     <SelectItem value="Active">Active</SelectItem>
                     <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-full sm:w-44">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.slug}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={organizationFilter} onValueChange={setOrganizationFilter}>
+                  <SelectTrigger className="w-full sm:w-52">
+                    <SelectValue placeholder="Organization" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All organizations</SelectItem>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={String(org.id)}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={ordering} onValueChange={setOrdering}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="-created">Newest users</SelectItem>
+                    <SelectItem value="created">Oldest users</SelectItem>
+                    <SelectItem value="first_name">Name A → Z</SelectItem>
+                    <SelectItem value="-first_name">Name Z → A</SelectItem>
+                    <SelectItem value="email">Email A → Z</SelectItem>
+                    <SelectItem value="-email">Email Z → A</SelectItem>
+                    <SelectItem value="organization__name">Organization A → Z</SelectItem>
+                    <SelectItem value="-organization__name">Organization Z → A</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -407,27 +567,106 @@ export default function UsersManagementPage() {
             </div>
 
             {meta && meta.totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
                   Page {meta.page} of {meta.totalPages} ({meta.total} users)
                 </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((current) => current - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= meta.totalPages}
-                    onClick={() => setPage((current) => current + 1)}
-                  >
-                    Next
-                  </Button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Go to</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={meta.totalPages}
+                      placeholder="#"
+                      value={jumpPage}
+                      onChange={(e) => setJumpPage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const p = parseInt(jumpPage);
+                          if (!isNaN(p) && p >= 1 && p <= meta.totalPages) {
+                            setPage(p);
+                            setJumpPage("");
+                          }
+                        }
+                      }}
+                      onBlur={() => setJumpPage("")}
+                      className="h-8 w-16 text-center text-xs"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={page <= 1}
+                      onClick={() => setPage(1)}
+                    >
+                      <ChevronsLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    {(() => {
+                      const total = meta.totalPages;
+                      const current = page;
+                      if (total <= 7) {
+                        return Array.from({ length: total }, (_, i) => i + 1);
+                      }
+                      const pages: (number | "...")[] = [1];
+                      if (current > 3) pages.push("...");
+                      for (
+                        let i = Math.max(2, current - 1);
+                        i <= Math.min(total - 1, current + 1);
+                        i++
+                      ) {
+                        pages.push(i);
+                      }
+                      if (current < total - 2) pages.push("...");
+                      pages.push(total);
+                      return pages;
+                    })().map((p, idx) =>
+                      p === "..." ? (
+                        <span key={`dots-${idx}`} className="px-1.5 text-xs text-muted-foreground self-center">
+                          ...
+                        </span>
+                      ) : (
+                        <Button
+                          key={p}
+                          variant={page === p ? "default" : "outline"}
+                          size="icon"
+                          className="h-8 w-8 text-xs"
+                          onClick={() => setPage(p as number)}
+                        >
+                          {p}
+                        </Button>
+                      ),
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={page >= meta.totalPages}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={page >= meta.totalPages}
+                      onClick={() => setPage(meta.totalPages)}
+                    >
+                      <ChevronsRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

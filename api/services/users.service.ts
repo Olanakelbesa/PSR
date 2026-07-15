@@ -78,6 +78,31 @@ const PaginatedUsersSchema = z.object({
       limit: z.number(),
       total: z.number(),
       totalPages: z.number(),
+      statistics: z
+        .object({
+          total: z.number().default(0),
+          active: z.number().default(0),
+          inactive: z.number().default(0),
+          loggedIn: z.number().default(0),
+          roles: z
+            .array(
+              z.object({
+                slug: z.string().default(""),
+                name: z.string().default(""),
+                count: z.number().default(0),
+              }),
+            )
+            .default([]),
+          organizationTypes: z
+            .array(
+              z.object({
+                name: z.string().default(""),
+                count: z.number().default(0),
+              }),
+            )
+            .default([]),
+        })
+        .optional(),
     })
     .optional(),
   pagination: z
@@ -150,9 +175,32 @@ export interface UserFilters {
   search?: string;
   role?: string;
   status?: string;
+  organization?: number;
+  ordering?: string;
+  is_logged_in?: boolean;
   page?: number;
   pageSize?: number;
   limit?: number;
+}
+
+export interface UserRoleStat {
+  slug: string;
+  name: string;
+  count: number;
+}
+
+export interface UserOrgTypeStat {
+  name: string;
+  count: number;
+}
+
+export interface UserStatistics {
+  total: number;
+  active: number;
+  inactive: number;
+  loggedIn: number;
+  roles: UserRoleStat[];
+  organizationTypes: UserOrgTypeStat[];
 }
 
 export interface AdminCreateUserPayload {
