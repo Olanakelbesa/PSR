@@ -311,7 +311,10 @@ export default function PolicyDraftsMyReviewsPage() {
 
   const [queueFilter, setQueueFilter] = useState<ReviewQueueFilter>(initialQueue);
 
-  const { data: myReviewsResponse, isLoading } = usePolicyDraftsMyReviews();
+  const { data: myReviewsResponse, isLoading } = usePolicyDraftsMyReviews({
+    limit: 100,
+    ...(queueFilter !== "all" ? { queue: queueFilter } : {}),
+  });
   const policies = myReviewsResponse?.data || [];
   const draftStatistics = myReviewsResponse?.meta?.statistics;
 
@@ -331,10 +334,10 @@ export default function PolicyDraftsMyReviewsPage() {
   const stats = useMemo(() => {
     if (draftStatistics) {
       return {
-        total: draftStatistics.totalDrafts,
-        underReview: draftStatistics.underReview,
-        resubmitted: draftStatistics.resubmitted,
-        approved: draftStatistics.approved,
+        total: draftStatistics.total_drafts ?? policies.length,
+        underReview: draftStatistics.under_review ?? 0,
+        resubmitted: draftStatistics.resubmitted ?? 0,
+        approved: draftStatistics.approved ?? 0,
       };
     }
     return {
@@ -346,19 +349,6 @@ export default function PolicyDraftsMyReviewsPage() {
       ).length,
     };
   }, [draftStatistics, policies]);
-
-  const filteredPolicies = useMemo(() => {
-    if (queueFilter === "all") return policies;
-
-    const filterMap: Record<string, string[]> = {
-      under_review: ["under_review"],
-      resubmitted: ["resubmitted"],
-      approved: ["psr_approved", "repository_registered"],
-    };
-
-    const allowedStatuses = filterMap[queueFilter] || [];
-    return policies.filter((p) => allowedStatuses.includes(p.currentStatus));
-  }, [policies, queueFilter]);
 
   const applyQueueFilter = (filter: ReviewQueueFilter) => {
     setQueueFilter((current) => (current === filter ? "all" : filter));
@@ -501,10 +491,10 @@ export default function PolicyDraftsMyReviewsPage() {
               ))}
             </div>
           </div>
-        ) : filteredPolicies.length > 0 ? (
+        ) : policies.length > 0 ? (
           <DataTable
             columns={columns}
-            data={filteredPolicies}
+            data={policies}
             searchKey="title"
             searchPlaceholder={
               activeFilterCopy?.searchPlaceholder ?? "Search draft documents..."

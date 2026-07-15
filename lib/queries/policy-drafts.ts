@@ -64,6 +64,8 @@ export interface PolicyDraftFilters {
   doc_type?: number | string;
   organization?: number | string;
   search?: string;
+  queue?: string;
+  limit?: number;
 }
 
 function normalizePolicyDraftListResponse(payload: any): PolicyDraftItem[] {
@@ -326,11 +328,21 @@ export function useSendToRepository() {
   });
 }
 
-export function usePolicyDraftsMyReviews() {
+export function usePolicyDraftsMyReviews(filters?: PolicyDraftFilters) {
   return useQuery<PolicyDraftResponse>({
-    queryKey: ["policy-drafts-my-reviews"],
+    queryKey: ["policy-drafts-my-reviews", filters],
     queryFn: async () => {
-      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.MY_REVIEWS);
+      const cleanFilters = filters
+        ? Object.fromEntries(
+            Object.entries(filters).filter(
+              ([_, value]) => value !== undefined && value !== "",
+            ),
+          )
+        : {};
+
+      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.MY_REVIEWS, {
+        params: cleanFilters,
+      });
       return data as PolicyDraftResponse;
     },
   });

@@ -113,7 +113,10 @@ export default function PolicyDraftsPage() {
 
   const [statusFilter, setStatusFilter] = useState<ManageStatusFilter>(initialStatus);
 
-  const { data: manageResponse, isLoading } = usePolicyDraftsManage();
+  const { data: manageResponse, isLoading } = usePolicyDraftsManage({
+    limit: 100,
+    ...(statusFilter !== "all" ? { queue: statusFilter } : {}),
+  });
   const policies = manageResponse?.data || [];
   const draftStatistics = manageResponse?.meta?.statistics;
   const { hasPermission } = useCurrentUser();
@@ -366,12 +369,12 @@ export default function PolicyDraftsPage() {
   const stats = useMemo(() => {
     if (draftStatistics) {
       return {
-        total: draftStatistics.totalDrafts,
-        newSubmissions: draftStatistics.newSubmissions,
-        underReview: draftStatistics.underReview,
-        reviewCompleted: draftStatistics.reviewCompleted,
-        resubmitted: draftStatistics.resubmitted,
-        approved: draftStatistics.approved,
+        total: draftStatistics.total_drafts ?? policies.length,
+        newSubmissions: draftStatistics.new_submissions ?? 0,
+        underReview: draftStatistics.under_review ?? 0,
+        reviewCompleted: draftStatistics.review_completed ?? 0,
+        resubmitted: draftStatistics.resubmitted ?? 0,
+        approved: draftStatistics.approved ?? 0,
       };
     }
     return {
@@ -465,21 +468,6 @@ export default function PolicyDraftsPage() {
     },
   ];
 
-  const filteredPolicies = useMemo(() => {
-    if (statusFilter === "all") return policies;
-
-    const statusMap: Record<string, string[]> = {
-      new_submissions: ["submitted"],
-      under_review: ["under_review"],
-      review_completed: ["review_completed"],
-      resubmitted: ["resubmitted"],
-      approved: ["psr_approved", "repository_registered"],
-    };
-
-    const allowedStatuses = statusMap[statusFilter] || [];
-    return policies.filter((p) => allowedStatuses.includes(p.currentStatus));
-  }, [policies, statusFilter]);
-
   return (
     <PageContainer
       title="Manage Policy Drafts"
@@ -562,10 +550,10 @@ export default function PolicyDraftsPage() {
               ))}
             </div>
           </div>
-        ) : filteredPolicies.length > 0 ? (
+        ) : policies.length > 0 ? (
           <DataTable
             columns={columns}
-            data={filteredPolicies}
+            data={policies}
             searchKey="title"
             searchPlaceholder={
               activeFilterCopy?.searchPlaceholder ?? "Search draft documents..."
