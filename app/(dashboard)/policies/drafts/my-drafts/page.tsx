@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Trash,
   Clock,
+  FilePlus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useMyPolicyDrafts, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
+import { useConceptNotes } from "@/lib/queries/concept-notes";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -321,6 +323,10 @@ export default function PolicyDraftsPage() {
   const policies = manageResponse?.data || [];
   const draftStatistics = manageResponse?.meta?.statistics;
 
+  const { data: draftReadyConceptsRes, isLoading: isLoadingConcepts } =
+    useConceptNotes({ current_status: "policy_draft_ready", limit: 1 }, backendToken);
+  const draftReadyCount = draftReadyConceptsRes?.meta?.total ?? 0;
+
   const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
 
   const stats = useMemo(() => {
@@ -479,6 +485,41 @@ export default function PolicyDraftsPage() {
           },
         )}
       </div>
+
+      {draftReadyCount > 0 && (
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => router.push("/policies/drafts/my-drafts/new")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              router.push("/policies/drafts/my-drafts/new");
+            }
+          }}
+          className="mt-4 cursor-pointer border-emerald-200 bg-emerald-50/40 transition-all hover:shadow-md hover:border-emerald-300"
+        >
+          <CardContent className="flex items-center justify-between py-4 px-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                <FilePlus className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {draftReadyCount} concept note{draftReadyCount !== 1 ? "s" : ""} ready to draft
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Approved concept notes awaiting policy draft registration
+                </p>
+              </div>
+            </div>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Register Draft
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {activeFilterCopy && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-muted/40 px-4 py-3">
