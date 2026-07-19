@@ -69,6 +69,7 @@ export const API_ENDPOINTS = {
     SUB_THEMATIC_AREAS: "/v1/subthematicareas/",
     TEAM_MEMBER_ROLES: "/v1/teammemberroles/",
     PROPOSAL_TYPES: "/v1/proposaltypes/",
+    PROPOSAL_SUB_TYPES: "/v1/proposalsubtypes/",
     SUB_CALL_TYPES: "/v1/subcalltypes",
     OFFICE_LEVELS: "/v1/office-levels",
     OFFICES: "/v1/offices",

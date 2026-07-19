@@ -223,6 +223,22 @@ export async function getProposalTypes(params?: {
   };
 }
 
+// ─── GET /v1/proposal-sub-types ──────────────────────────────────────────────
+export async function getProposalSubTypes(params?: {
+  proposaltype?: string | number;
+  search?: string;
+  limit?: number;
+}) {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.PROPOSAL_SUB_TYPES, {
+    params,
+  });
+  const parsed = LookupListSchema.safeParse(res.data);
+  return {
+    data: parsed.success ? parsed.data.data : [],
+    meta: parsed.success ? parsed.data.meta : undefined,
+  };
+}
+
 // ─── GET /v1/subcalltypes ─────────────────────────────────────────────────────
 export async function getSubCallTypes(): Promise<LookupItem[]> {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.SUB_CALL_TYPES);
