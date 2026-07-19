@@ -146,6 +146,7 @@ export const API_ENDPOINTS = {
     LIST: "/v1/policy-repository",
     DETAIL: (id: string | number) => `/v1/policy-repository/${id}/`,
     UPDATE: (id: string | number) => `/v1/policy-repository/${id}/`,
+    DELETE: (id: string | number) => `/v1/policy-repository/${id}/`,
     REGISTER: "/v1/policy-repository/register/",
     DOWNLOAD: (id: string | number) => `/v1/policy-repository/${id}/download/`,
   },

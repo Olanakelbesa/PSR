@@ -17,6 +17,7 @@ import {
   Globe,
   Lock,
   Shield,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,10 +45,14 @@ import { tokenStorage } from "@/lib/axios";
 import {
   usePolicyRepository,
   useRecordPolicyDownload,
+  useDeleteRegisteredPolicy,
   type PolicyRepositoryItem,
   type PolicyRepositoryResponse,
 } from "@/lib/queries/policy-repository";
 import { usePolicyDocumentTypes } from "@/lib/queries/policy-document-types";
+import { ConfirmDialog } from "@/components/shared";
+import { PERMISSIONS } from "@/lib/permissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type RepositoryQueueFilter = "all" | "ready" | "published" | "unpublished";
 type RepositoryStatistics = NonNullable<
@@ -95,9 +100,16 @@ export default function RepositoryDashboardPage() {
   const [queueFilter, setQueueFilter] =
     useState<RepositoryQueueFilter>("all");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PolicyRepositoryItem | null>(
+    null,
+  );
+
+  const { hasAny } = useCurrentUser();
+  const canDelete = hasAny([PERMISSIONS.POLICY_DELETE_REPOSITORY]);
 
   const { data: docTypes = [] } = usePolicyDocumentTypes();
   const recordDownload = useRecordPolicyDownload();
+  const deletePolicy = useDeleteRegisteredPolicy();
 
   const mappedPublishStatus = useMemo(() => {
     if (queueFilter === "published") return true;
@@ -334,6 +346,18 @@ export default function RepositoryDashboardPage() {
                   Download
                 </Button>
               ) : null}
+              {canDelete && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 px-2.5 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  title="Delete policy"
+                  onClick={() => setDeleteTarget(policy)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              )}
             </div>
           );
         },
@@ -549,6 +573,30 @@ export default function RepositoryDashboardPage() {
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete registered policy"
+        description={`Are you sure you want to delete "${deleteTarget?.draftPolicy ?? "this policy"}"? The source draft will be reactivated to "PSR Approved" status and can be re-registered.`}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deletePolicy.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deletePolicy.mutate(deleteTarget.id, {
+            onSuccess: () => {
+              toast.success("Policy deleted successfully. Draft has been reactivated.");
+              setDeleteTarget(null);
+            },
+            onError: (err: any) => {
+              toast.error(err?.message || "Failed to delete policy.");
+            },
+          });
+        }}
+      />
     </PageContainer>
   );
 }

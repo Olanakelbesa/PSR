@@ -374,6 +374,24 @@ export function useRegisterPolicy() {
   });
 }
 
+export function useDeleteRegisteredPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation<void, any, number>({
+    mutationFn: async (id) => {
+      await api.delete(API_ENDPOINTS.POLICY_REPOSITORY.DELETE(id));
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["policy-repository"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.removeQueries({
+        queryKey: ["policy-repository-detail", String(id)],
+      });
+      void invalidateDashboardAnalytics(queryClient);
+    },
+  });
+}
+
 export function useUpdateRegisteredPolicy(id: string | number) {
   const queryClient = useQueryClient();
   return useMutation<

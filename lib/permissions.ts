@@ -60,6 +60,7 @@ export const PERMISSIONS = {
   // ─── Policy — Repository ─────────────────────────────────────────────────────
   POLICY_VIEW_REPOSITORY: "policy_repository.view_registeredpolicy",
   POLICY_ADD_REPOSITORY: "policy_repository.add_registeredpolicy",
+  POLICY_DELETE_REPOSITORY: "policy_repository.delete_registeredpolicy",
 
   // ─── Research — Proposals ────────────────────────────────────────────────────
   RESEARCH_VIEW_PROPOSAL: "research_proposals.view_proposal",

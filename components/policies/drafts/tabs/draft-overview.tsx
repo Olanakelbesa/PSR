@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Tag } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -83,30 +83,6 @@ export function DraftOverview({ executiveSummary, metadata, mode }: DraftOvervie
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Tag className="h-4 w-4 text-primary" /> Thematic Areas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-5 flex flex-wrap gap-2">
-              {metadata.thematicAreas?.length > 0 ? (
-                metadata.thematicAreas.map((area: string) => (
-                  <Badge
-                    key={area}
-                    variant="secondary"
-                    className="px-3 py-1 text-sm"
-                  >
-                    {area}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No thematic areas assigned.
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </>
       )}
     </div>

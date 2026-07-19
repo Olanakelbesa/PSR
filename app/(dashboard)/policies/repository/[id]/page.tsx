@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Loader2,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,7 +35,11 @@ import {
   mapPolicyRepositoryDetail,
   usePolicyRepositoryDetail,
   useRecordPolicyDownload,
+  useDeleteRegisteredPolicy,
 } from "@/lib/queries/policy-repository";
+import { ConfirmDialog } from "@/components/shared";
+import { PERMISSIONS } from "@/lib/permissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const ACCESS_CONFIG: Record<
   string,
@@ -71,8 +76,13 @@ function formatDisplayDate(value?: string) {
 
 export default function RepositoryDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const policyId = (params as { id?: string })?.id;
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const { hasAny } = useCurrentUser();
+  const canDelete = hasAny([PERMISSIONS.POLICY_DELETE_REPOSITORY]);
 
   const {
     data: detailResponse,
@@ -81,6 +91,7 @@ export default function RepositoryDetailPage() {
     error,
   } = usePolicyRepositoryDetail(policyId ?? "");
   const recordDownload = useRecordPolicyDownload();
+  const deletePolicy = useDeleteRegisteredPolicy();
 
   const policy = useMemo(() => {
     if (!detailResponse?.data) return null;
@@ -194,6 +205,17 @@ export default function RepositoryDetailPage() {
                 <Download className="mr-2 h-4 w-4" />
               )}
               Download
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-200 text-red-600 shadow-sm hover:bg-red-50 hover:text-red-700"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
             </Button>
           )}
         </div>
@@ -325,6 +347,29 @@ export default function RepositoryDetailPage() {
           </Card>
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete registered policy"
+        description={`Are you sure you want to delete "${policy?.title ?? "this policy"}"? The source draft will be reactivated to "PSR Approved" status and can be re-registered.`}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deletePolicy.isPending}
+        onConfirm={() => {
+          if (!policyId) return;
+          deletePolicy.mutate(Number(policyId), {
+            onSuccess: () => {
+              toast.success("Policy deleted successfully. Draft has been reactivated.");
+              setShowDeleteDialog(false);
+              router.push("/policies/repository");
+            },
+            onError: (err: any) => {
+              toast.error(err?.message || "Failed to delete policy.");
+            },
+          });
+        }}
+      />
     </PageContainer>
   );
 }
