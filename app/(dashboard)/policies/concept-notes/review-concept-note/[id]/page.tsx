@@ -29,6 +29,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMyReviewDetail } from "@/lib/queries/concept-notes";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
+const PSR_DECIDED_STATUSES = [
+  "ready for policy draft",
+  "revision required",
+  "not accepted",
+];
+
 function formatLabel(value: any, fallback = "N/A") {
   if (!value) return fallback;
   return String(value)
@@ -85,13 +91,16 @@ export default function ConceptNoteDetailPage() {
 
   const summaryCardRows = [
     { label: "Concept ID", value: note.currentStatus?.conceptId || note.id },
-    { label: "Status", value: note.currentStatus?.status },
+    { label: "Status", value: note.currentStatus?.status_label || note.currentStatus?.status },
     { label: "Document Type", value: note.docType?.name },
     { label: "Category", value: note.documentCategory },
     { label: "Organization", value: note.organization?.name },
     { label: "Unit", value: note.unit?.name },
     { label: "Latest Version", value: note.currentStatus?.version || note.versions?.find((version: any) => version.isLatest)?.versionNumber },
   ];
+
+  const currentStatus = note.currentStatus?.status?.toLowerCase() ?? "";
+  const showReviewButton = !PSR_DECIDED_STATUSES.includes(currentStatus);
 
   return (
     <PageContainer
@@ -105,19 +114,21 @@ export default function ConceptNoteDetailPage() {
               Back
             </Link>
           </Button>
-          <Button className="shadow-sm bg-primary hover:bg-primary/90 text-white" asChild>
-            <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`} className="flex items-center px-4 py-2 text-sm font-semibold rounded-md">
-              <Check className="mr-2 h-4 w-4" />
-              Review
-            </Link>
-          </Button>
+          {showReviewButton && (
+            <Button className="shadow-sm bg-primary hover:bg-primary/90 text-white" asChild>
+              <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`} className="flex items-center px-4 py-2 text-sm font-semibold rounded-md">
+                <Check className="mr-2 h-4 w-4" />
+                Review
+              </Link>
+            </Button>
+          )}
         </div>
       }
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         {/* Main Content Area */}
         <div className="space-y-6">
-          <ConceptNoteTabs note={note} setViewingFile={setViewingFile} />
+          <ConceptNoteTabs note={note} setViewingFile={setViewingFile} isReviewMode />
         </div>
 
         {/* Sidebar */}
@@ -150,7 +161,7 @@ export default function ConceptNoteDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Status</span>
                 <Badge variant="outline" className="text-[10px] font-semibold bg-primary/10 text-primary border-primary/20 uppercase tracking-wide">
-                  {note.currentStatus?.status || "Under Review"}
+                  {note.currentStatus?.status_label || note.currentStatus?.status || "Under Review"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
@@ -186,17 +197,19 @@ export default function ConceptNoteDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-3 space-y-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start h-9 text-sm"
-                asChild
-              >
-                <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`}>
-                  <ClipboardCheck className="mr-2 h-4 w-4 text-muted-foreground" />
-                  Review Document
-                </Link>
-              </Button>
+              {showReviewButton && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start h-9 text-sm"
+                  asChild
+                >
+                  <Link href={`/policies/concept-notes/review-concept-note/${note.id}/review`}>
+                    <ClipboardCheck className="mr-2 h-4 w-4 text-muted-foreground" />
+                    Review Document
+                  </Link>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"

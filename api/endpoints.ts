@@ -69,11 +69,14 @@ export const API_ENDPOINTS = {
     SUB_THEMATIC_AREAS: "/v1/subthematicareas/",
     TEAM_MEMBER_ROLES: "/v1/teammemberroles/",
     PROPOSAL_TYPES: "/v1/proposaltypes/",
+    PROPOSAL_SUB_TYPES: "/v1/proposalsubtypes/",
     SUB_CALL_TYPES: "/v1/subcalltypes",
     OFFICE_LEVELS: "/v1/office-levels",
     OFFICES: "/v1/offices",
     INTERNAL_USERS: "/v1/users/selector/",
     CHECKLIST_TEMPLATES: "/v1/checklisttemplates/",
+    ISSUE_TYPES: "/v1/issuetypes/",
+    CLASSIFICATIONS: "/v1/classifications/",
   },
 
   // ── Concept Notes ─────────────────────────────────────────────────────────
@@ -280,6 +283,8 @@ export const API_ENDPOINTS = {
   NOTIFICATIONS: {
     LIST: "/v1/notifications/",
     MARK_READ: (id: string | number) => `/v1/notifications/${id}/mark-read/`,
+    MARK_UNREAD: (id: string | number) => `/v1/notifications/${id}/mark-unread/`,
+    DELETE: (id: string | number) => `/v1/notifications/${id}/`,
     CLEAR: "/v1/notifications/clear/",
   },
 
@@ -365,23 +370,8 @@ export const API_ENDPOINTS = {
 
   ROLES: {
     LIST: "/v1/roles/",
-    DETAIL: (id: string | number) => `/v1/roles/${id}/`,
-    CREATE: "/v1/roles/",
-    UPDATE: (id: string | number) => `/v1/roles/${id}/`,
-    DELETE: (id: string | number) => `/v1/roles/${id}/`,
   },
 
-  PERMISSIONS: {
-    CATALOG: "/v1/permissions/catalog/",
-  },
-
-  GROUPS: {
-    LIST: "/v1/groups/",
-    DETAIL: (id: string | number) => `/v1/groups/${id}/`,
-    CREATE: "/v1/groups/",
-    UPDATE: (id: string | number) => `/v1/groups/${id}/`,
-    DELETE: (id: string | number) => `/v1/groups/${id}/`,
-  },
 } as const;
 
 export type ApiEndpoints = typeof API_ENDPOINTS;

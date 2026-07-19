@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   MoreHorizontal,
@@ -13,11 +13,9 @@ import {
   CheckCircle2,
   Eye,
   FileEdit,
-  ClipboardCheck,
-  Plus,
-  Activity,
   AlertCircle,
-  Trash,
+  RefreshCw,
+  Inbox,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,18 +31,63 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared";
 import { usePolicyDraftsManage } from "@/lib/queries/policy-drafts";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
+type ManageStatusFilter =
+  | "all"
+  | "new_submissions"
+  | "under_review"
+  | "review_completed"
+  | "resubmitted"
+  | "approved";
+
+const QUEUE_FILTER_COPY: Record<
+  Exclude<ManageStatusFilter, "all">,
+  { banner: string; emptyTitle: string; emptyDescription: string; searchPlaceholder: string }
+> = {
+  new_submissions: {
+    banner: "Showing newly submitted drafts that need PSR review and expert assignment.",
+    emptyTitle: "No new submissions",
+    emptyDescription: "There are no newly submitted drafts waiting for expert assignment right now.",
+    searchPlaceholder: "Search new submissions...",
+  },
+  review_completed: {
+    banner: "Showing drafts where expert reviews are complete and a PSR decision is pending.",
+    emptyTitle: "No drafts awaiting decision",
+    emptyDescription: "There are no drafts waiting for a PSR decision right now.",
+    searchPlaceholder: "Search drafts awaiting decision...",
+  },
+  under_review: {
+    banner: "Showing drafts currently under expert review.",
+    emptyTitle: "No drafts under review",
+    emptyDescription: "There are no drafts assigned to experts right now.",
+    searchPlaceholder: "Search under-review drafts...",
+  },
+  resubmitted: {
+    banner: "Showing drafts that were revised and resubmitted for review.",
+    emptyTitle: "No resubmitted drafts",
+    emptyDescription: "There are no resubmitted drafts waiting in the queue.",
+    searchPlaceholder: "Search resubmitted drafts...",
+  },
+  approved: {
+    banner: "Showing approved drafts that are ready for repository registration.",
+    emptyTitle: "No approved drafts",
+    emptyDescription: "There are no approved drafts in this queue.",
+    searchPlaceholder: "Search approved drafts...",
+  },
+};
 
 const statusOptions = [
   { value: "submitted", label: "Submitted" },
@@ -58,10 +101,25 @@ const statusOptions = [
 
 export default function PolicyDraftsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const { data: manageResponse, isLoading } = usePolicyDraftsManage();
+  const initialStatus = ((): ManageStatusFilter => {
+    const param = searchParams.get("status");
+    if (param && ["new_submissions", "draft", "under_review", "resubmitted", "approved"].includes(param)) {
+      return param as ManageStatusFilter;
+    }
+    return "all";
+  })();
+
+  const [statusFilter, setStatusFilter] = useState<ManageStatusFilter>(initialStatus);
+
+  const { data: manageResponse, isLoading } = usePolicyDraftsManage({
+    limit: 100,
+    ...(statusFilter !== "all" ? { queue: statusFilter } : {}),
+  });
   const policies = manageResponse?.data || [];
-  const { hasPermission } = useServerPermissions();
+  const draftStatistics = manageResponse?.meta?.statistics;
+  const { hasPermission } = useCurrentUser();
 
   const columns: ColumnDef<any>[] = [
     {
@@ -309,96 +367,172 @@ export default function PolicyDraftsPage() {
   }, [policies]);
 
   const stats = useMemo(() => {
+    if (draftStatistics) {
+      return {
+        total: draftStatistics.total_drafts ?? policies.length,
+        newSubmissions: draftStatistics.new_submissions ?? 0,
+        underReview: draftStatistics.under_review ?? 0,
+        reviewCompleted: draftStatistics.review_completed ?? 0,
+        resubmitted: draftStatistics.resubmitted ?? 0,
+        approved: draftStatistics.approved ?? 0,
+      };
+    }
     return {
       total: policies.length,
-      inReview: policies.filter((p) => ["under_review", "review_completed"].includes(p.currentStatus)).length,
-      revisions: policies.filter((p) => p.currentStatus === "resubmission_required").length,
-      approved: policies.filter((p) => ["psr_approved", "repository_registered"].includes(p.currentStatus)).length,
+      newSubmissions: policies.filter((p) => p.currentStatus === "submitted").length,
+      underReview: policies.filter((p) => p.currentStatus === "under_review").length,
+      reviewCompleted: policies.filter((p) => p.currentStatus === "review_completed").length,
+      resubmitted: policies.filter((p) => p.currentStatus === "resubmitted").length,
+      approved: policies.filter((p) =>
+        ["psr_approved", "repository_registered"].includes(p.currentStatus)
+      ).length,
     };
-  }, [policies]);
+  }, [draftStatistics, policies]);
+
+  const applyStatusFilter = (filter: ManageStatusFilter) => {
+    setStatusFilter((current) => (current === filter ? "all" : filter));
+  };
+
+  const activeFilterCopy =
+    statusFilter === "all" ? null : QUEUE_FILTER_COPY[statusFilter];
+
+  const statCards: Array<{
+    key: ManageStatusFilter;
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    iconBg: string;
+    border: string;
+    activeRing: string;
+    sub: string;
+  }> = [
+    {
+      key: "all",
+      label: "Total Drafts",
+      value: stats.total,
+      icon: <FileEdit className="h-4 w-4 text-primary" />,
+      iconBg: "bg-primary/10",
+      border: "border-primary/10",
+      activeRing: "ring-primary/50 border-primary/40",
+      sub: "In development pipeline",
+    },
+    {
+      key: "new_submissions",
+      label: "New Draft Submitted",
+      value: stats.newSubmissions,
+      icon: <Inbox className="h-4 w-4 text-violet-600" />,
+      iconBg: "bg-violet-100",
+      border: "border-violet-200/70 bg-violet-50/20",
+      activeRing: "ring-violet-500/60 border-violet-300",
+      sub: "Awaiting review & expert assignment",
+    },
+    {
+      key: "under_review",
+      label: "Under Review",
+      value: stats.underReview,
+      icon: <AlertCircle className="h-4 w-4 text-blue-500" />,
+      iconBg: "bg-blue-100",
+      border: "border-blue-100/50 bg-blue-50/10",
+      activeRing: "ring-blue-500/60 border-blue-300",
+      sub: "Assigned to experts",
+    },
+    {
+      key: "review_completed",
+      label: "Awaiting Decision",
+      value: stats.reviewCompleted,
+      icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+      iconBg: "bg-emerald-100",
+      border: "border-emerald-100/50 bg-emerald-50/10",
+      activeRing: "ring-emerald-500/60 border-emerald-300",
+      sub: "Reviews done, PSR decision pending",
+    },
+    {
+      key: "resubmitted",
+      label: "Resubmitted Drafts",
+      value: stats.resubmitted,
+      icon: <RefreshCw className="h-4 w-4 text-purple-600" />,
+      iconBg: "bg-purple-100",
+      border: "border-purple-200/70 bg-purple-50/20",
+      activeRing: "ring-purple-500/60 border-purple-300",
+      sub: "Revised and sent back for review",
+    },
+    {
+      key: "approved",
+      label: "Approved",
+      value: stats.approved,
+      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+      iconBg: "bg-green-100",
+      border: "border-green-100/50 bg-green-50/10",
+      activeRing: "ring-green-500/60 border-green-300",
+      sub: "Ready for repository registry",
+    },
+  ];
 
   return (
     <PageContainer
-      title="Policy Drafts"
+      title="Manage Policy Drafts"
       description="Manage comprehensive policy drafts, assign expert reviewers, and monitor checklist scoring."
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card border-primary/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-primary/80">
-              Total Drafts
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <FileEdit className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.total}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              In development pipeline
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        {statCards.map(
+          ({ key, label, value, icon, iconBg, border, activeRing, sub }) => {
+            const isActive = statusFilter === key;
 
-        <Card className="border-blue-100/50 bg-blue-50/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600/80">
-              In Review
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <Activity className="h-4 w-4 text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.inReview}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Currently scoring
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-orange-100/50 bg-orange-50/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-orange-600/80">
-              Needs Revision
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-              <AlertCircle className="h-4 w-4 text-orange-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.revisions}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Pending updates from proposer
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-100/50 bg-green-50/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-600/80">
-              Accepted
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.approved}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Ready for repository
-            </p>
-          </CardContent>
-        </Card>
+            return (
+              <Card
+                key={key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyStatusFilter(key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    applyStatusFilter(key);
+                  }
+                }}
+                className={cn(
+                  border,
+                  "cursor-pointer transition-all hover:shadow-md",
+                  isActive && cn("ring-2 shadow-md", activeRing),
+                )}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {label}
+                  </CardTitle>
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full ${iconBg}`}
+                  >
+                    {icon}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {isLoading ? <Skeleton className="h-8 w-12" /> : value}
+                  </div>
+                  <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                    {sub}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          },
+        )}
       </div>
+
+      {activeFilterCopy && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-muted/40 px-4 py-3">
+          <p className="text-sm text-foreground">{activeFilterCopy.banner}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-background"
+            onClick={() => setStatusFilter("all")}
+          >
+            Clear filter
+          </Button>
+        </div>
+      )}
 
       <div className="mt-8">
         {isLoading ? (
@@ -421,20 +555,32 @@ export default function PolicyDraftsPage() {
             columns={columns}
             data={policies}
             searchKey="title"
-            searchPlaceholder="Search draft documents..."
+            searchPlaceholder={
+              activeFilterCopy?.searchPlaceholder ?? "Search draft documents..."
+            }
             onRowClick={(policy) => router.push(`/policies/drafts/manage-drafts/${policy.id}`)}
-            filterOptions={[
-              {
-                key: "docType",
-                label: "Type",
-                options: typeOptions,
-              },
-              {
-                key: "status",
-                label: "Status",
-                options: statusOptions,
-              },
-            ]}
+            filterOptions={
+              statusFilter === "all"
+                ? [
+                    {
+                      key: "docType",
+                      label: "Type",
+                      options: typeOptions,
+                    },
+                    {
+                      key: "status",
+                      label: "Status",
+                      options: statusOptions,
+                    },
+                  ]
+                : [
+                    {
+                      key: "docType",
+                      label: "Type",
+                      options: typeOptions,
+                    },
+                  ]
+            }
           />
         ) : (
           <Empty className="py-24 border-dashed">
@@ -442,11 +588,25 @@ export default function PolicyDraftsPage() {
               <FileEdit className="h-6 w-6" />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>No drafts found</EmptyTitle>
+              <EmptyTitle>
+                {activeFilterCopy?.emptyTitle ?? "No drafts found"}
+              </EmptyTitle>
               <EmptyDescription>
-                There are no policy drafts in the development pipeline.
+                {activeFilterCopy?.emptyDescription ??
+                  "There are no policy drafts in the development pipeline."}
               </EmptyDescription>
             </EmptyHeader>
+            {statusFilter !== "all" && (
+              <EmptyContent>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  Show all drafts
+                </Button>
+              </EmptyContent>
+            )}
           </Empty>
         )}
       </div>

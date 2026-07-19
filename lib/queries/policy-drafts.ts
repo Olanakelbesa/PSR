@@ -35,6 +35,18 @@ export interface PolicyDraftItem {
   currentStatusDisplay: string;
 }
 
+export interface PolicyDraftStatistics {
+  totalDrafts: number;
+  inDraft: number;
+  newSubmissions: number;
+  underReview: number;
+  reviewCompleted: number;
+  resubmitted: number;
+  needsRevision: number;
+  approved: number;
+  needsAction: number;
+}
+
 export interface PolicyDraftResponse {
   success: boolean;
   data: PolicyDraftItem[];
@@ -43,6 +55,7 @@ export interface PolicyDraftResponse {
     limit: number;
     total: number;
     totalPages: number;
+    statistics?: PolicyDraftStatistics;
   };
 }
 
@@ -51,6 +64,8 @@ export interface PolicyDraftFilters {
   doc_type?: number | string;
   organization?: number | string;
   search?: string;
+  queue?: string;
+  limit?: number;
 }
 
 function normalizePolicyDraftListResponse(payload: any): PolicyDraftItem[] {
@@ -134,6 +149,16 @@ export function usePolicyDraftsManage(filters?: PolicyDraftFilters) {
       const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.MANAGE, {
         params: cleanFilters,
       });
+      return data as PolicyDraftResponse;
+    },
+  });
+}
+
+export function useMyPolicyDrafts() {
+  return useQuery<PolicyDraftResponse>({
+    queryKey: ["policy-drafts-my-drafts"],
+    queryFn: async () => {
+      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.LIST);
       return data as PolicyDraftResponse;
     },
   });
@@ -303,11 +328,21 @@ export function useSendToRepository() {
   });
 }
 
-export function usePolicyDraftsMyReviews() {
+export function usePolicyDraftsMyReviews(filters?: PolicyDraftFilters) {
   return useQuery<PolicyDraftResponse>({
-    queryKey: ["policy-drafts-my-reviews"],
+    queryKey: ["policy-drafts-my-reviews", filters],
     queryFn: async () => {
-      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.MY_REVIEWS);
+      const cleanFilters = filters
+        ? Object.fromEntries(
+            Object.entries(filters).filter(
+              ([_, value]) => value !== undefined && value !== "",
+            ),
+          )
+        : {};
+
+      const { data } = await api.get(API_ENDPOINTS.POLICY_DRAFTS.MY_REVIEWS, {
+        params: cleanFilters,
+      });
       return data as PolicyDraftResponse;
     },
   });
@@ -360,6 +395,7 @@ export function useCreatePolicyDraft() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-my-drafts"] });
       void invalidateDashboardAnalytics(queryClient);
     },
   });
@@ -388,6 +424,7 @@ export function useUpdatePolicyDraft() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-my-drafts"] });
       void invalidateDashboardAnalytics(queryClient);
     },
   });
@@ -405,6 +442,7 @@ export function useSubmitPolicyDraft() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-my-drafts"] });
       queryClient.invalidateQueries({ queryKey: ["concept-notes"] });
       void invalidateDashboardAnalytics(queryClient);
     },
@@ -423,6 +461,7 @@ export function useResubmitPolicyDraft() {
       queryClient.invalidateQueries({ queryKey: ["policy-draft", String(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-draft", Number(id)] });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-my-drafts"] });
       void invalidateDashboardAnalytics(queryClient);
     },
   });
@@ -458,6 +497,7 @@ export function useSubmitPolicyDraftChecklistReview() {
         queryKey: ["policy-draft-checklist", String(id), String(versionId)],
       });
       queryClient.invalidateQueries({ queryKey: ["policy-drafts-my-reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["policy-drafts-manage"] });
       void invalidateDashboardAnalytics(queryClient);
     },
   });

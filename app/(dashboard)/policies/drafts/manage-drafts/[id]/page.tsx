@@ -47,7 +47,7 @@ import { DraftTabs } from "@/components/policies/drafts/draft-tabs";
 import { ExpertReviewersSection } from "@/components/policies/drafts/expert-reviewers-section";
 import { usePolicyDraftManage, useAssignPSRDecision, useSendToRepository } from "@/lib/queries/policy-drafts";
 import { toast } from "sonner";
-import { useServerPermissions } from "@/lib/queries/useServerPermissions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function DraftDetailPage() {
   const params = useParams();
@@ -223,7 +223,7 @@ export default function DraftDetailPage() {
     return latestFromHistory ? String(latestFromHistory) : null;
   }, [draft]);
 
-  const { hasPermission } = useServerPermissions();
+  const { hasPermission } = useCurrentUser();
 
   const latestVersionReviews = useMemo(() => {
     if (!draft) return [];

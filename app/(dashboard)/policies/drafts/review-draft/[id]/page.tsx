@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   FileText,
-  User,
   Calendar,
   ClipboardCheck,
 } from "lucide-react";
@@ -197,13 +196,6 @@ export default function DraftDetailPage() {
         rawDraft.submittedBy?.submittedAt ||
         rawDraft.submissionDate ||
         new Date().toISOString(),
-      submittedBy: {
-        firstName: rawDraft.submittedBy?.fullName?.split(" ")[0] || "Proposed",
-        lastName:
-          rawDraft.submittedBy?.fullName?.split(" ").slice(1).join(" ") ||
-          "User",
-        role: "Submitter",
-      },
       conceptNoteId: originalConceptNoteId,
       conceptNoteLabel: originalConceptLabel,
       executiveSummary:
@@ -287,17 +279,6 @@ export default function DraftDetailPage() {
               </div>
               <Separator />
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <User className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-xs text-muted-foreground">
-                      Proposed By
-                    </span>
-                    <span className="text-sm font-medium">
-                      {draft.submittedBy.firstName} {draft.submittedBy.lastName}
-                    </span>
-                  </div>
-                </div>
                 <div className="flex items-start gap-3">
                   <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                   <div className="flex items-center justify-between w-full">

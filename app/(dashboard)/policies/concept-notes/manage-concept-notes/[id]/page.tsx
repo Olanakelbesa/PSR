@@ -211,6 +211,13 @@ export default function ManageConceptNoteDetailPage() {
       "resubmitted",
     ].includes(currentStatusKey);
 
+  const isFinalized =
+    currentStatusKey === "policy_draft_ready" ||
+    currentStatusKey === "revision_required" ||
+    currentStatusKey === "not_accepted";
+
+  const shouldHideAssignButton = canShowApproveButton || isFinalized;
+
   return (
     <PageContainer
       title={note.title}
@@ -223,14 +230,16 @@ export default function ManageConceptNoteDetailPage() {
               Back
             </Link>
           </Button>
-          <Button asChild>
-            <Link
-              href={`/policies/concept-notes/manage-concept-notes/${id}/assign`}
-            >
-              <User className="mr-2 h-4 w-4" />
-              Assign Expert
-            </Link>
-          </Button>
+          {!shouldHideAssignButton && (
+            <Button asChild>
+              <Link
+                href={`/policies/concept-notes/manage-concept-notes/${id}/assign`}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Assign Expert
+              </Link>
+            </Button>
+          )}
           {canShowApproveButton && (
             <Button
               asChild

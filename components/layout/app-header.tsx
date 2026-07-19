@@ -21,6 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useMarkAllNotificationsRead, useClearAllNotifications, useNotifications } from "@/lib/queries/notifications";
 import { useNotificationNavigation } from "@/hooks/useNotificationNavigation";
+import { getCategoryIcon, getPriorityStyles } from "@/lib/notification-helpers";
+import { cn } from "@/lib/utils";
 
 function getRelativeTime(createdAt: string) {
   const diffInMs = Date.now() - new Date(createdAt).getTime();
@@ -177,34 +179,52 @@ export function AppHeader() {
             ) : notifications.length > 0 ? (
               <>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                  {notifications.map((notification) => (
-                    <DropdownMenuItem
-                      key={notification.id}
-                      className="flex cursor-pointer flex-col items-start gap-1 rounded-none p-3"
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        void handleNotificationClick(notification);
-                        setNotificationsOpen(false);
-                      }}
-                    >
-                      <div className="flex w-full items-start gap-2">
-                        {!notification.read && (
-                          <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                        )}
-                        <div className={!notification.read ? "" : "ml-4"}>
-                          <p className="text-sm font-medium">
-                            {notification.title}
-                          </p>
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {notification.message}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {getRelativeTime(notification.createdAt)}
-                          </p>
+                  {notifications.map((notification) => {
+                    const catIcon = getCategoryIcon(notification.category);
+                    const IconComponent = catIcon.icon;
+                    const priorityStyle = getPriorityStyles(notification.priority);
+
+                    return (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className="flex cursor-pointer flex-col items-start gap-1 rounded-none p-3"
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          void handleNotificationClick(notification);
+                          setNotificationsOpen(false);
+                        }}
+                      >
+                        <div className="flex w-full items-start gap-2">
+                          <div className={cn("mt-0.5 shrink-0", catIcon.color)}>
+                            <IconComponent className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium truncate">
+                                {notification.title}
+                              </p>
+                              {notification.actionRequired && (
+                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                  Action
+                                </span>
+                              )}
+                              {priorityStyle && (
+                                <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium", priorityStyle)}>
+                                  {notification.priority}
+                                </span>
+                              )}
+                            </div>
+                            <p className="line-clamp-2 text-xs text-muted-foreground">
+                              {notification.message}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {getRelativeTime(notification.createdAt)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
+                      </DropdownMenuItem>
+                    );
+                  })}
                 </div>
                 <DropdownMenuSeparator className="shrink-0" />
                 <DropdownMenuItem asChild className="shrink-0 justify-center rounded-none">

@@ -104,6 +104,7 @@ interface DataTableProps<TData, TValue> {
   emptyDescription?: string;
   toolbar?: React.ReactNode;
   initialColumnVisibility?: VisibilityState;
+  initialColumnFilters?: ColumnFiltersState;
   showRowNumber?: boolean;
   rowNumberLabel?: string;
 }
@@ -122,11 +123,12 @@ export function DataTable<TData, TValue>({
   emptyDescription,
   toolbar,
   initialColumnVisibility = {},
+  initialColumnFilters = [],
   showRowNumber = true,
   rowNumberLabel = "No.",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialColumnFilters);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
   const [rowSelection, setRowSelection] = useState({});
 

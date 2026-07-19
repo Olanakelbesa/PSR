@@ -111,7 +111,25 @@ export function useRecordFinalSubmissionDownload() {
       id: number;
       fileType?: FinalSubmissionDownloadFileType;
     }) => finalSubmissionsService.recordDownload(id, fileType),
-    onSuccess: (_data, variables) => {
+    onSuccess: (result, variables) => {
+      queryClient.setQueryData(finalSubmissionKeys.all, (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((item: any) =>
+            item.id === variables.id
+              ? { ...item, download_count: result.downloadCount }
+              : item
+          ),
+        };
+      });
+      queryClient.setQueryData(
+        finalSubmissionKeys.detail(variables.id),
+        (old: any) => {
+          if (!old) return old;
+          return { ...old, download_count: result.downloadCount };
+        },
+      );
       queryClient.invalidateQueries({ queryKey: finalSubmissionKeys.all });
       queryClient.invalidateQueries({
         queryKey: finalSubmissionKeys.detail(variables.id),

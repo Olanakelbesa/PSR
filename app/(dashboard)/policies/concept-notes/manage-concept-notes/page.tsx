@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   MoreHorizontal,
   ArrowUpDown,
   FileText,
   Calendar,
-  Clock,
   AlertCircle,
   CheckCircle2,
   RefreshCw,
   Inbox,
+  Clock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -58,9 +58,10 @@ import { useAuth } from "@/hooks/useAuth";
 type ManageQueueFilter =
   | "all"
   | "new_submissions"
-  | "draft"
   | "under_review"
   | "resubmitted"
+  | "awaiting_decision"
+  | "revision_required"
   | "approved";
 
 const QUEUE_FILTER_COPY: Record<
@@ -75,11 +76,11 @@ const QUEUE_FILTER_COPY: Record<
       "There are no newly submitted concept notes waiting for expert assignment right now.",
     searchPlaceholder: "Search new submissions...",
   },
-  draft: {
-    banner: "Showing concept notes still in draft and not yet submitted.",
-    emptyTitle: "No draft concept notes",
-    emptyDescription: "There are no draft concept notes in the manage queue.",
-    searchPlaceholder: "Search draft concept notes...",
+  revision_required: {
+    banner: "Showing concept notes where PSR has requested revisions. The submitter must revise and resubmit.",
+    emptyTitle: "No revision requests",
+    emptyDescription: "There are no concept notes awaiting revision right now.",
+    searchPlaceholder: "Search revision requests...",
   },
   under_review: {
     banner: "Showing concept notes currently under expert review.",
@@ -94,6 +95,14 @@ const QUEUE_FILTER_COPY: Record<
     emptyDescription:
       "There are no resubmitted concept notes waiting in the queue.",
     searchPlaceholder: "Search resubmitted notes...",
+  },
+  awaiting_decision: {
+    banner:
+      "Showing concept notes where expert review is complete and awaiting the manager's PSR decision.",
+    emptyTitle: "No notes awaiting decision",
+    emptyDescription:
+      "There are no concept notes awaiting a PSR decision right now.",
+    searchPlaceholder: "Search awaiting decision...",
   },
   approved: {
     banner:
@@ -418,9 +427,19 @@ function BackendErrorMessage({
 
 export default function ManageConceptNotesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { backendToken } = useAuth();
   const [page, setPage] = useState(1);
-  const [queueFilter, setQueueFilter] = useState<ManageQueueFilter>("all");
+
+  const initialQueue = ((): ManageQueueFilter => {
+    const param = searchParams.get("queue");
+    if (param && ["new_submissions", "under_review", "resubmitted", "awaiting_decision", "revision_required", "approved"].includes(param)) {
+      return param as ManageQueueFilter;
+    }
+    return "all";
+  })();
+
+  const [queueFilter, setQueueFilter] = useState<ManageQueueFilter>(initialQueue);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useManageConceptNotes(
@@ -438,9 +457,6 @@ export default function ManageConceptNotesPage() {
 
   const stats = {
     total: statistics.totalConceptNote ?? notes.length,
-    draft:
-      statistics.inDraft ??
-      notes.filter((n) => n.currentStatus === "draft").length,
     newSubmissions:
       statistics.newSubmissions ??
       notes.filter((n) => n.currentStatus === "submitted").length,
@@ -450,13 +466,17 @@ export default function ManageConceptNotesPage() {
     resubmitted:
       statistics.resubmitted ??
       notes.filter((n) => n.currentStatus === "resubmitted").length,
+    awaitingDecision:
+      statistics.awaitingDecision ??
+      notes.filter((n) =>
+        ["accepted", "partially_accepted"].includes(n.currentStatus),
+      ).length,
+    revisionRequired:
+      statistics.revisionRequired ??
+      notes.filter((n) => n.currentStatus === "revision_required").length,
     approved:
       statistics.approved ??
-      notes.filter((n) =>
-        ["accepted", "policy_draft_ready", "partially_accepted"].includes(
-          n.currentStatus,
-        ),
-      ).length,
+      notes.filter((n) => n.currentStatus === "policy_draft_ready").length,
   };
 
   const applyQueueFilter = (filter: ManageQueueFilter) => {
@@ -498,16 +518,6 @@ export default function ManageConceptNotesPage() {
       sub: "Awaiting review & expert assignment",
     },
     {
-      key: "draft",
-      label: "In Draft",
-      value: stats.draft,
-      icon: <Clock className="h-4 w-4 text-orange-500" />,
-      iconBg: "bg-orange-100",
-      border: "border-orange-100/50 bg-orange-50/10",
-      activeRing: "ring-orange-500/60 border-orange-300",
-      sub: "Pending submission",
-    },
-    {
       key: "under_review",
       label: "Under Review",
       value: stats.review,
@@ -528,6 +538,26 @@ export default function ManageConceptNotesPage() {
       sub: "Revised and sent back for review",
     },
     {
+      key: "awaiting_decision",
+      label: "Awaiting Decision",
+      value: stats.awaitingDecision,
+      icon: <Clock className="h-4 w-4 text-amber-600" />,
+      iconBg: "bg-amber-100",
+      border: "border-amber-200/70 bg-amber-50/20",
+      activeRing: "ring-amber-500/60 border-amber-300",
+      sub: "Expert review complete, PSR approval pending",
+    },
+    {
+      key: "revision_required",
+      label: "Revision Required",
+      value: stats.revisionRequired,
+      icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
+      iconBg: "bg-amber-100",
+      border: "border-amber-100/50 bg-amber-50/10",
+      activeRing: "ring-amber-500/60 border-amber-300",
+      sub: "Awaiting submitter revision",
+    },
+    {
       key: "approved",
       label: "Approved",
       value: stats.approved,
@@ -535,7 +565,7 @@ export default function ManageConceptNotesPage() {
       iconBg: "bg-green-100",
       border: "border-green-100/50 bg-green-50/10",
       activeRing: "ring-green-500/60 border-green-300",
-      sub: "Ready for next stage",
+      sub: "Ready for policy draft",
     },
   ];
 
@@ -561,7 +591,7 @@ export default function ManageConceptNotesPage() {
       }
     >
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7">
         {statCards.map(
           ({ key, label, value, icon, iconBg, border, activeRing, sub }) => {
             const isActive = queueFilter === key;

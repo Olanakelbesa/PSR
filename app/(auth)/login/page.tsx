@@ -53,8 +53,16 @@ export default function LoginPage() {
     defaultValues: { email: "", password: "" },
   });
 
+  async function ensureMinDelay(startTime: number, ms = 800) {
+    const elapsed = Date.now() - startTime;
+    if (elapsed < ms) {
+      await new Promise((r) => setTimeout(r, ms - elapsed));
+    }
+  }
+
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
+    const startTime = Date.now();
 
     try {
       const result = await signIn("credentials", {
@@ -70,14 +78,18 @@ export default function LoginPage() {
           result,
           "Invalid email or password.",
         );
+        await ensureMinDelay(startTime);
         toast.error("Sign in failed", { description: message });
+        setIsLoading(false);
         return;
       }
 
       if (!result?.ok) {
+        await ensureMinDelay(startTime);
         toast.error("Sign in failed", {
           description: "Invalid email or password.",
         });
+        setIsLoading(false);
         return;
       }
 
@@ -85,15 +97,19 @@ export default function LoginPage() {
         description: "You have been signed in successfully.",
       });
       queryClient.clear();
+      // Keep spinner alive — router.replace doesn't return a Promise in App Router,
+      // so the spinner must stay visible until this component unmounts on navigation.
       router.replace("/dashboard");
       router.refresh();
     } catch {
+      await ensureMinDelay(startTime);
       toast.error("Something went wrong", {
         description: "Please try again in a moment.",
       });
-    } finally {
       setIsLoading(false);
     }
+    // Intentionally no finally block — on success isLoading stays true
+    // until the page unmounts during navigation to /dashboard.
   }
 
   return (
@@ -177,7 +193,7 @@ export default function LoginPage() {
                     <div className="flex items-center justify-between gap-2">
                       <FormLabel>Password</FormLabel>
                       <Link
-                        href="/forgot-password"
+                        href={`/forgot-password${form.getValues("email") ? `?email=${encodeURIComponent(form.getValues("email"))}` : ""}`}
                         className="text-sm font-medium text-primary hover:underline underline-offset-4"
                       >
                         Forgot password?

@@ -1,29 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  Search,
-  Filter,
-  Download,
-  Calendar,
   FileText,
-  LogIn,
-  LogOut,
-  Edit,
-  Trash2,
-  Plus,
-  Eye,
-  Settings,
   RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  Filter,
+  X,
+  Search,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import apiClient from '@/api/client'
 import { API_ENDPOINTS } from '@/api/endpoints'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -32,14 +29,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -47,160 +36,171 @@ import {
 import { Calendar as CalendarComponent } from '@/components/ui/calendar'
 import { PageContainer } from '@/components/layout'
 
-interface AuditLog {
-  id: string;
-  action: string;
-  userId: string;
-  userName: string;
-  userRole: string;
-  resource: string;
-  resourceId: string;
-  details: string;
-  ipAddress: string;
-  userAgent: string;
-  timestamp: string;
+import {
+  type AuditLog,
+  normalizeLog,
+  actionIcons,
+  actionColors,
+  formatDocumentType,
+  formatStatus,
+  getRelativeTime,
+  getDateGroupLabel,
+  getDateGroupKey,
+} from '@/components/settings/activity-log/activity-log-utils'
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
 }
 
-const actionIcons: Record<string, typeof FileText> = {
-  login: LogIn,
-  logout: LogOut,
-  create: Plus,
-  update: Edit,
-  delete: Trash2,
-  view: Eye,
-  export: Download,
-  settings: Settings,
-}
+// ── Filter options ─────────────────────────────────────────────────────────────
 
-const actionColors: Record<string, string> = {
-  login: 'text-green-500 bg-green-500/10',
-  logout: 'text-slate-500 bg-slate-500/10',
-  create: 'text-blue-500 bg-blue-500/10',
-  update: 'text-amber-500 bg-amber-500/10',
-  delete: 'text-red-500 bg-red-500/10',
-  view: 'text-purple-500 bg-purple-500/10',
-  export: 'text-cyan-500 bg-cyan-500/10',
-  settings: 'text-slate-500 bg-slate-500/10',
-}
+const EVENT_TYPE_OPTIONS = [
+  { value: 'all', label: 'All Events' },
+  { value: 'LOGIN', label: 'Login' },
+  { value: 'LOGOUT', label: 'Logout' },
+  { value: 'CREATED', label: 'Created' },
+  { value: 'UPDATED', label: 'Updated' },
+  { value: 'SUBMITTED', label: 'Submitted' },
+  { value: 'RESUBMITTED', label: 'Resubmitted' },
+  { value: 'REVIEWER_ASSIGNED', label: 'Reviewer Assigned' },
+  { value: 'REVIEW_COMPLETED', label: 'Review Completed' },
+  { value: 'ACCEPTED', label: 'Accepted' },
+  { value: 'NOT_ACCEPTED', label: 'Not Accepted' },
+  { value: 'REVISION_REQUIRED', label: 'Revision Required' },
+  { value: 'STATUS_CHANGED', label: 'Status Changed' },
+  { value: 'ARCHIVED', label: 'Archived' },
+  { value: 'REPOSITORY_REGISTERED', label: 'Repository Registered' },
+  { value: 'USER_REGISTERED', label: 'User Registered' },
+  { value: 'PASSWORD_CHANGED', label: 'Password Changed' },
+]
 
-function normalizeAuditLog(event: any): AuditLog {
-  const actionType = String(event.eventType || 'audit').toLowerCase()
-  const action = (
-    actionType === 'login' ||
-    actionType === 'logout' ||
-    actionType === 'create' ||
-    actionType === 'update' ||
-    actionType === 'delete' ||
-    actionType === 'view' ||
-    actionType === 'export' ||
-    actionType === 'settings'
-  )
-    ? actionType
-    : actionType.includes('create')
-    ? 'create'
-    : actionType.includes('update')
-    ? 'update'
-    : actionType.includes('delete')
-    ? 'delete'
-    : actionType.includes('login')
-    ? 'login'
-    : actionType.includes('logout')
-    ? 'logout'
-    : actionType.includes('submit')
-    ? 'view'
-    : 'settings'
-
-  const metadata = event.metadata || {}
-  const documentType = event.document_type
-  const documentId = event.document_id ? String(event.document_id) : ''
-  const resource =
-    documentType || metadata.title || metadata.action || event.eventType || 'Audit Event'
-  const resourceId = documentId || event.relatedVersion || ''
-
-  return {
-    id: event.eventId ?? String(event.event_id ?? ''),
-    action,
-    userId: String(event.actor?.id ?? metadata.actor_id ?? ''),
-    userName:
-      event.actor?.name || metadata.email || metadata.actor_name || 'System',
-    userRole: metadata.role || '',
-    resource,
-    resourceId,
-    details:
-      metadata.title || metadata.description || metadata.message || event.eventType || '',
-    ipAddress: event.ipAddress || metadata.ip_address || '',
-    userAgent: metadata.user_agent || '',
-    timestamp: event.timestamp || event.created_at || new Date().toISOString(),
-  }
-}
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [actionFilter, setActionFilter] = useState<string>('all')
+  const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit: 25, total: 0, totalPages: 0 })
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('')
+  const [eventTypeFilter, setEventTypeFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
+  const [fromOpen, setFromOpen] = useState(false)
+  const [toOpen, setToOpen] = useState(false)
 
-  const loadAuditLogs = async () => {
+  // Debounced search value sent to API
+  const [appliedSearch, setAppliedSearch] = useState('')
+
+  // Expandable events
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
+
+  // Collapsible date groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAppliedSearch(searchQuery), 400)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  const hasActiveFilters = eventTypeFilter !== 'all' || !!appliedSearch || !!dateFrom || !!dateTo
+
+  const toggleEvent = (id: string) => {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setEventTypeFilter('all')
+    setDateFrom(undefined)
+    setDateTo(undefined)
+  }
+
+  const loadAuditLogs = useCallback(async (page = 1) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await apiClient.get(API_ENDPOINTS.AUDIT_LOGS.LIST)
-      const items = Array.isArray(response.data?.data)
-        ? response.data.data
-        : []
-      setLogs(items.map(normalizeAuditLog))
-    } catch (err) {
+      const params: Record<string, any> = {
+        limit: meta.limit,
+        page,
+        ordering: '-created_at',
+      }
+      if (eventTypeFilter !== 'all') params.event_type = eventTypeFilter
+      if (appliedSearch) params.search = appliedSearch
+      if (dateFrom) params.start_date = dateFrom.toISOString()
+      if (dateTo) {
+        const endOfDay = new Date(dateTo)
+        endOfDay.setHours(23, 59, 59, 999)
+        params.end_date = endOfDay.toISOString()
+      }
+
+      const response = await apiClient.get(API_ENDPOINTS.AUDIT_LOGS.LIST, { params })
+      const items = Array.isArray(response.data?.data) ? response.data.data : []
+      const pagination = response.data?.meta || {}
+
+      setLogs(items.map(normalizeLog))
+      setMeta({
+        page: pagination.page ?? page,
+        limit: pagination.limit ?? meta.limit,
+        total: pagination.total ?? 0,
+        totalPages: pagination.total_pages ?? 1,
+      })
+    } catch {
       setError('Unable to load audit logs. Please refresh or try again later.')
+      setLogs([])
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [meta.limit, eventTypeFilter, appliedSearch, dateFrom, dateTo])
 
+  // Refetch when filters change
   useEffect(() => {
-    loadAuditLogs()
-  }, [])
+    loadAuditLogs(1)
+    setExpandedEvents(new Set())
+    setCollapsedGroups(new Set())
+  }, [loadAuditLogs])
 
-  const filteredLogs = logs.filter(log => {
-    if (actionFilter !== 'all' && log.action !== actionFilter) return false
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      if (!log.userName.toLowerCase().includes(query) && 
-          !log.details.toLowerCase().includes(query) &&
-          !log.resource.toLowerCase().includes(query)) {
-        return false
-      }
+  // Group logs by date
+  const groupedLogs: { label: string; key: string; entries: AuditLog[] }[] = []
+  for (const log of logs) {
+    const key = getDateGroupKey(log.timestamp)
+    const existing = groupedLogs.find((g) => g.key === key)
+    if (existing) {
+      existing.entries.push(log)
+    } else {
+      groupedLogs.push({
+        label: getDateGroupLabel(log.timestamp),
+        key,
+        entries: [log],
+      })
     }
-    return true
-  })
-
-  const handleExport = () => {
-    console.log('Exporting audit logs...')
-  }
-
-  const handleRefresh = () => {
-    loadAuditLogs()
   }
 
   return (
     <PageContainer
       title="Audit Logs"
       description="View and search system activity logs"
-      actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      }
     >
       <div className="space-y-4">
         {error && (
@@ -209,10 +209,10 @@ export default function AuditLogsPage() {
           </div>
         )}
 
-        {/* Filters */}
+        {/* Filters card */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -222,130 +222,393 @@ export default function AuditLogsPage() {
                   className="pl-9"
                 />
               </div>
-              <Select value={actionFilter} onValueChange={setActionFilter}>
-                <SelectTrigger className="w-full lg:w-40">
+              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                <SelectTrigger className="w-full lg:w-48">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Action type" />
+                  <SelectValue placeholder="Event type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Actions</SelectItem>
-                  <SelectItem value="login">Login</SelectItem>
-                  <SelectItem value="logout">Logout</SelectItem>
-                  <SelectItem value="create">Create</SelectItem>
-                  <SelectItem value="update">Update</SelectItem>
-                  <SelectItem value="delete">Delete</SelectItem>
-                  <SelectItem value="view">View</SelectItem>
-                  <SelectItem value="export">Export</SelectItem>
+                  {EVENT_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Popover>
+              <Popover open={fromOpen} onOpenChange={setFromOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full lg:w-auto justify-start">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {dateFrom ? format(dateFrom, 'MMM d') : 'From date'}
+                    {dateFrom ? format(dateFrom, 'MMM d, yyyy') : 'From date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <CalendarComponent
                     mode="single"
                     selected={dateFrom}
-                    onSelect={setDateFrom}
+                    onSelect={(d) => {
+                      setDateFrom(d)
+                      setFromOpen(false)
+                    }}
                   />
                 </PopoverContent>
               </Popover>
-              <Popover>
+              <Popover open={toOpen} onOpenChange={setToOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full lg:w-auto justify-start">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {dateTo ? format(dateTo, 'MMM d') : 'To date'}
+                    {dateTo ? format(dateTo, 'MMM d, yyyy') : 'To date'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <CalendarComponent
                     mode="single"
                     selected={dateTo}
-                    onSelect={setDateTo}
+                    onSelect={(d) => {
+                      setDateTo(d)
+                      setToOpen(false)
+                    }}
                   />
                 </PopoverContent>
               </Popover>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadAuditLogs(1)}
+                disabled={isLoading}
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
+
+            {/* Active filter badges */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                {eventTypeFilter !== 'all' && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    {EVENT_TYPE_OPTIONS.find((o) => o.value === eventTypeFilter)?.label}
+                    <button
+                      onClick={() => setEventTypeFilter('all')}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {appliedSearch && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    Search: &quot;{appliedSearch}&quot;
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {dateFrom && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    From {format(dateFrom, 'MMM d, yyyy')}
+                    <button
+                      onClick={() => setDateFrom(undefined)}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {dateTo && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    To {format(dateTo, 'MMM d, yyyy')}
+                    <button
+                      onClick={() => setDateTo(undefined)}
+                      className="ml-0.5 rounded-full hover:bg-muted p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Logs Table */}
-        <Card>
+        {/* Timeline feed */}
+        <Card className="shadow-sm">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">Action</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Resource</TableHead>
-                  <TableHead className="hidden lg:table-cell">Details</TableHead>
-                  <TableHead className="hidden md:table-cell">IP Address</TableHead>
-                  <TableHead>Timestamp</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLogs.map((log) => {
-                  const Icon = actionIcons[log.action] || FileText
-                  const colorClass = actionColors[log.action] || 'text-slate-500 bg-slate-500/10'
-                  
+            {isLoading ? (
+              <div className="space-y-0">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex gap-3 px-5 py-4">
+                    <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-muted" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className="h-3.5 w-64 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-40 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="h-3 w-12 shrink-0 animate-pulse rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            ) : logs.length === 0 ? (
+              <div className="px-6 py-16 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {hasActiveFilters
+                    ? 'No matching activity found.'
+                    : 'No audit logs found.'}
+                </p>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={clearFilters}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {groupedLogs.map((group) => {
+                  const isCollapsed = collapsedGroups.has(group.key)
                   return (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        <div className={`p-2 rounded-lg w-fit ${colorClass}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{log.userName}</p>
-                          <p className="text-xs text-muted-foreground">{log.userRole}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{log.resource}</p>
-                          {log.resourceId && (
-                            <p className="text-xs text-muted-foreground">{log.resourceId}</p>
+                    <div key={group.key}>
+                      {/* Date group header — clickable */}
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(group.key)}
+                        className="flex w-full items-center gap-2 bg-muted/30 px-5 py-2.5 text-left transition-colors hover:bg-muted/50"
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {group.label}
+                        </p>
+                        <Badge variant="secondary" className="text-[10px] ml-1">
+                          {group.entries.length}
+                        </Badge>
+                      </button>
+
+                      {/* Entries */}
+                      {!isCollapsed && (
+                        <div className="relative">
+                          {/* Vertical connector line */}
+                          {group.entries.length > 1 && (
+                            <div className="absolute left-[38px] top-5 bottom-5 w-px bg-border/70" />
                           )}
+
+                          {group.entries.map((log) => {
+                            const Icon = actionIcons[log.action] || FileText
+                            const colorClass =
+                              actionColors[log.action] ||
+                              'text-slate-500 bg-slate-500/10'
+                            const isExpanded = expandedEvents.has(log.id)
+
+                            return (
+                              <div key={log.id}>
+                                {/* Event row — clickable to expand */}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleEvent(log.id)}
+                                  className="group flex w-full gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/30"
+                                >
+                                  {/* Icon bubble — bg-card backing + color overlay */}
+                                  <div className="relative z-10 shrink-0 pt-0.5">
+                                    <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-card">
+                                      <div className={`absolute inset-0 rounded-full ${colorClass}`} />
+                                      <Icon className="relative h-4 w-4" />
+                                    </div>
+                                  </div>
+
+                                  {/* Content */}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium leading-snug text-foreground">
+                                      {log.description}
+                                    </p>
+                                    {/* Actor + timestamp */}
+                                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                      {log.userName && log.userName !== 'System' && (
+                                        <>
+                                          <span className="text-xs font-semibold text-foreground/80">
+                                            {log.userName}
+                                          </span>
+                                          {log.userRole && (
+                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                                              {log.userRole}
+                                            </Badge>
+                                          )}
+                                          <span className="text-[10px] text-muted-foreground/40">·</span>
+                                        </>
+                                      )}
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {getRelativeTime(log.timestamp)}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground/60">
+                                        {format(
+                                          new Date(log.timestamp),
+                                          "MMM d, yyyy 'at' HH:mm:ss",
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Expand chevron */}
+                                  <div className="shrink-0 pt-1">
+                                    <ChevronDown
+                                      className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                    />
+                                  </div>
+                                </button>
+
+                                {/* Expanded details */}
+                                {isExpanded && (
+                                  <div className="ml-[62px] mr-5 mb-3 rounded-lg border bg-muted/20 p-3">
+                                    <div className="grid gap-2 text-xs">
+                                      {/* Actor */}
+                                      {log.userName && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            User
+                                          </span>
+                                          <span className="font-medium">
+                                            {log.userName}
+                                          </span>
+                                          {log.userRole && (
+                                            <Badge variant="secondary" className="text-[10px]">
+                                              {log.userRole}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
+                                      {/* Status transition */}
+                                      {(log.fromStatus || log.toStatus) && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            Status
+                                          </span>
+                                          <span className="font-medium">
+                                            {formatStatus(log.fromStatus) || '—'}
+                                          </span>
+                                          <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                                          <span className="font-medium">
+                                            {formatStatus(log.toStatus) || '—'}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {/* Actor role */}
+                                      {log.actorRole && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            Role
+                                          </span>
+                                          <Badge variant="secondary" className="text-[10px]">
+                                            {log.actorRole}
+                                          </Badge>
+                                        </div>
+                                      )}
+                                      {/* IP address */}
+                                      {log.ipAddress && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground w-20 shrink-0">
+                                            IP
+                                          </span>
+                                          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+                                            {log.ipAddress}
+                                          </code>
+                                        </div>
+                                      )}
+                                      {/* Event type */}
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground w-20 shrink-0">
+                                          Event
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] font-mono">
+                                          {log.eventType}
+                                        </Badge>
+                                      </div>
+                                      {/* Document reference */}
+                                      {log.documentType &&
+                                        log.documentType !== 'USER' &&
+                                        log.resourceId && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground w-20 shrink-0">
+                                              Document
+                                            </span>
+                                            <span className="font-medium">
+                                              {formatDocumentType(log.documentType)} #{log.resourceId}
+                                            </span>
+                                          </div>
+                                        )}
+                                      {/* Full timestamp */}
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground w-20 shrink-0">
+                                          Time
+                                        </span>
+                                        <span className="font-mono text-[11px]">
+                                          {format(
+                                            new Date(log.timestamp),
+                                            "EEE, MMM d, yyyy 'at' HH:mm:ss",
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell max-w-xs">
-                        <p className="text-sm text-muted-foreground truncate">{log.details}</p>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {log.ipAddress}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm">{format(new Date(log.timestamp), 'MMM d, yyyy')}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(log.timestamp), 'HH:mm:ss')}
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                      )}
+                    </div>
                   )
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {meta.totalPages > 1 && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between px-5 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    Page {meta.page} of {meta.totalPages} ({meta.total} total)
+                  </p>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={meta.page <= 1 || isLoading}
+                      onClick={() => loadAuditLogs(meta.page - 1)}
+                    >
+                      <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={meta.page >= meta.totalPages || isLoading}
+                      onClick={() => loadAuditLogs(meta.page + 1)}
+                    >
+                      Next
+                      <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
-
-        {/* Pagination would go here */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredLogs.length} of {logs.length} entries
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>Previous</Button>
-            <Button variant="outline" size="sm">Next</Button>
-          </div>
-        </div>
       </div>
     </PageContainer>
   )

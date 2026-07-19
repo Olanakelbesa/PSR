@@ -507,13 +507,13 @@ export default function RepositoryDashboardPage() {
                     <stat.icon className={cn("h-5 w-5", stat.color)} />
                   </div>
                   <div>
-                    <p className="text-2xl font-black">
+                    <div className="text-2xl font-black">
                       {isLoading ? (
                         <Skeleton className="h-8 w-12" />
                       ) : (
                         stat.value
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs font-medium text-muted-foreground">
                       {stat.label}
                     </p>

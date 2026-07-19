@@ -16,11 +16,13 @@ import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 interface ConceptNoteTabsProps {
   note: any;
   setViewingFile?: (file: any) => void;
+  isReviewMode?: boolean;
 }
 
 export function ConceptNoteTabs({
   note,
   setViewingFile,
+  isReviewMode,
 }: ConceptNoteTabsProps) {
   const feedbackItems = note.expertFeedback ?? note.reviews ?? [];
   
@@ -88,7 +90,7 @@ export function ConceptNoteTabs({
 
       {/* Overview Tab */}
       <TabsContent value="overview" className="mt-6 space-y-6">
-        <ConceptNoteOverview note={note} setViewingFile={setViewingFile} />
+        <ConceptNoteOverview note={note} setViewingFile={setViewingFile} isReviewMode={isReviewMode} />
       </TabsContent>
 
       {/* Document Tab */}

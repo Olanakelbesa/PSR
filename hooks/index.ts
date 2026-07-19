@@ -25,6 +25,5 @@ export * from "./use-toast";
 export * from "./use-mobile";
 export * from "./useDebounce";
 export * from "./useApiError";
-export * from "./usePermission";
 export * from "./useCurrentUser";
 export * from "./useAuth";

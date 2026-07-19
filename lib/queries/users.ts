@@ -35,7 +35,9 @@ export function useUserSelector(backendToken?: string | null) {
   return useQuery<UserSelectorItem[]>({
     queryKey: ["users-selector"],
     queryFn: async () => {
-      const { data } = await api.get(API_ENDPOINTS.USERS.SELECTOR);
+      const { data } = await api.get(API_ENDPOINTS.USERS.SELECTOR, {
+        params: { page_size: 1000 },
+      });
       return data.data as UserSelectorItem[];
     },
     staleTime: 5 * 60 * 1000, // 5 min — user list rarely changes

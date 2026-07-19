@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
@@ -16,6 +16,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash,
+  Clock,
+  FilePlus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -41,9 +44,36 @@ import {
 } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { usePolicyDrafts, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
+import { useMyPolicyDrafts, type PolicyDraftItem } from "@/lib/queries/policy-drafts";
+import { useConceptNotes } from "@/lib/queries/concept-notes";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useAuth } from "@/hooks/useAuth";
+
+type ActionFilter = "all" | "needs_action" | "under_review" | "completed";
+
+const ACTION_FILTER_COPY: Record<
+  Exclude<ActionFilter, "all">,
+  { banner: string; emptyTitle: string; emptyDescription: string; searchPlaceholder: string }
+> = {
+  needs_action: {
+    banner: "Showing drafts that need your action — drafts to write or revisions to address.",
+    emptyTitle: "No drafts need action",
+    emptyDescription: "All your drafts are either submitted or completed.",
+    searchPlaceholder: "Search drafts needing action...",
+  },
+  under_review: {
+    banner: "Showing drafts waiting on reviewer or PSR decisions.",
+    emptyTitle: "No drafts under review",
+    emptyDescription: "You have no drafts currently in the review pipeline.",
+    searchPlaceholder: "Search drafts under review...",
+  },
+  completed: {
+    banner: "Showing drafts that have been PSR approved or registered in the repository.",
+    emptyTitle: "No completed drafts",
+    emptyDescription: "You have no completed drafts yet.",
+    searchPlaceholder: "Search completed drafts...",
+  },
+};
 
 const columns: ColumnDef<PolicyDraftItem>[] = [
   {
@@ -289,19 +319,110 @@ const statusOptions = [
 export default function PolicyDraftsPage() {
   const router = useRouter();
   const { backendToken } = useAuth();
-  const { data: policies = [], isLoading } = usePolicyDrafts(
-    undefined,
-    backendToken,
-  );
+  const { data: manageResponse, isLoading } = useMyPolicyDrafts();
+  const policies = manageResponse?.data || [];
+  const draftStatistics = manageResponse?.meta?.statistics;
+
+  const { data: draftReadyConceptsRes, isLoading: isLoadingConcepts } =
+    useConceptNotes({ current_status: "policy_draft_ready", limit: 1 }, backendToken);
+  const draftReadyCount = draftReadyConceptsRes?.meta?.total ?? 0;
+
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
 
   const stats = useMemo(() => {
+    if (draftStatistics) {
+      return {
+        total: draftStatistics.totalDrafts,
+        needsAction: draftStatistics.needsAction,
+        underReview: draftStatistics.newSubmissions + draftStatistics.underReview + draftStatistics.reviewCompleted + draftStatistics.resubmitted,
+        completed: draftStatistics.approved,
+      };
+    }
     return {
       total: policies.length,
-      inReview: policies.filter((p) => p.currentStatus === "under_review").length,
-      revisions: policies.filter((p) => p.currentStatus === "resubmission_required").length,
-      approved: policies.filter((p) => ["psr_approved", "repository_registered"].includes(p.currentStatus)).length,
+      needsAction: policies.filter((p) =>
+        ["draft", "resubmission_required"].includes(p.currentStatus)
+      ).length,
+      underReview: policies.filter((p) =>
+        ["submitted", "under_review", "review_completed", "resubmitted"].includes(p.currentStatus)
+      ).length,
+      completed: policies.filter((p) =>
+        ["psr_approved", "repository_registered"].includes(p.currentStatus)
+      ).length,
     };
-  }, [policies]);
+  }, [draftStatistics, policies]);
+
+  const filteredPolicies = useMemo(() => {
+    if (actionFilter === "all") return policies;
+
+    const filterMap: Record<string, string[]> = {
+      needs_action: ["draft", "resubmission_required"],
+      under_review: ["submitted", "under_review", "review_completed", "resubmitted"],
+      completed: ["psr_approved", "repository_registered"],
+    };
+
+    const allowedStatuses = filterMap[actionFilter] || [];
+    return policies.filter((p) => allowedStatuses.includes(p.currentStatus));
+  }, [policies, actionFilter]);
+
+  const applyActionFilter = (filter: ActionFilter) => {
+    setActionFilter((current) => (current === filter ? "all" : filter));
+  };
+
+  const activeFilterCopy =
+    actionFilter === "all" ? null : ACTION_FILTER_COPY[actionFilter];
+
+  const statCards: Array<{
+    key: ActionFilter;
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    iconBg: string;
+    border: string;
+    activeRing: string;
+    sub: string;
+  }> = [
+    {
+      key: "all",
+      label: "Total Drafts",
+      value: stats.total,
+      icon: <FileEdit className="h-4 w-4 text-primary" />,
+      iconBg: "bg-primary/10",
+      border: "border-primary/10",
+      activeRing: "ring-primary/50 border-primary/40",
+      sub: "In development pipeline",
+    },
+    {
+      key: "needs_action",
+      label: "Needs Action",
+      value: stats.needsAction,
+      icon: <AlertCircle className="h-4 w-4 text-orange-500" />,
+      iconBg: "bg-orange-100",
+      border: "border-orange-100/50 bg-orange-50/10",
+      activeRing: "ring-orange-500/60 border-orange-300",
+      sub: "Revisions to address or resubmissions needed",
+    },
+    {
+      key: "under_review",
+      label: "Under Review",
+      value: stats.underReview,
+      icon: <Clock className="h-4 w-4 text-blue-500" />,
+      iconBg: "bg-blue-100",
+      border: "border-blue-100/50 bg-blue-50/10",
+      activeRing: "ring-blue-500/60 border-blue-300",
+      sub: "Waiting on reviewer decisions",
+    },
+    {
+      key: "completed",
+      label: "Completed",
+      value: stats.completed,
+      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+      iconBg: "bg-green-100",
+      border: "border-green-100/50 bg-green-50/10",
+      activeRing: "ring-green-500/60 border-green-300",
+      sub: "PSR approved or repository registered",
+    },
+  ];
 
   return (
     <PageContainer
@@ -319,82 +440,100 @@ export default function PolicyDraftsPage() {
       }
     >
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card border-primary/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-primary/80">
-              Total Drafts
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <FileEdit className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.total}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              In development pipeline
-            </p>
-          </CardContent>
-        </Card>
+        {statCards.map(
+          ({ key, label, value, icon, iconBg, border, activeRing, sub }) => {
+            const isActive = actionFilter === key;
 
-        <Card className="border-blue-100/50 bg-blue-50/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600/80">
-              In Review
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <Activity className="h-4 w-4 text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.inReview}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Currently scoring
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-orange-100/50 bg-orange-50/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-orange-600/80">
-              Needs Revision
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-              <AlertCircle className="h-4 w-4 text-orange-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.revisions}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Pending updates from proposer
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-100/50 bg-green-50/10 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-600/80">
-              Accepted
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.approved}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Ready for repository
-            </p>
-          </CardContent>
-        </Card>
+            return (
+              <Card
+                key={key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyActionFilter(key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    applyActionFilter(key);
+                  }
+                }}
+                className={cn(
+                  border,
+                  "cursor-pointer transition-all hover:shadow-md",
+                  isActive && cn("ring-2 shadow-md", activeRing),
+                )}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {label}
+                  </CardTitle>
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full ${iconBg}`}
+                  >
+                    {icon}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {isLoading ? <Skeleton className="h-8 w-12" /> : value}
+                  </div>
+                  <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                    {sub}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          },
+        )}
       </div>
+
+      {draftReadyCount > 0 && (
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => router.push("/policies/drafts/my-drafts/new")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              router.push("/policies/drafts/my-drafts/new");
+            }
+          }}
+          className="mt-4 cursor-pointer border-emerald-200 bg-emerald-50/40 transition-all hover:shadow-md hover:border-emerald-300"
+        >
+          <CardContent className="flex items-center justify-between py-4 px-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                <FilePlus className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {draftReadyCount} concept note{draftReadyCount !== 1 ? "s" : ""} ready to draft
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Approved concept notes awaiting policy draft registration
+                </p>
+              </div>
+            </div>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Register Draft
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeFilterCopy && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-muted/40 px-4 py-3">
+          <p className="text-sm text-foreground">{activeFilterCopy.banner}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-background"
+            onClick={() => setActionFilter("all")}
+          >
+            Clear filter
+          </Button>
+        </div>
+      )}
 
       <div className="mt-8">
         {isLoading ? (
@@ -412,25 +551,37 @@ export default function PolicyDraftsPage() {
               ))}
             </div>
           </div>
-        ) : policies.length > 0 ? (
+        ) : filteredPolicies.length > 0 ? (
           <DataTable
             columns={columns}
-            data={policies}
+            data={filteredPolicies}
             searchKey="title"
-            searchPlaceholder="Search draft documents..."
+            searchPlaceholder={
+              activeFilterCopy?.searchPlaceholder ?? "Search draft documents..."
+            }
             onRowClick={(policy) => router.push(`/policies/drafts/my-drafts/${policy.id}`)}
-            filterOptions={[
-              {
-                key: "docType",
-                label: "Type",
-                options: typeOptions,
-              },
-              {
-                key: "currentStatus",
-                label: "Status",
-                options: statusOptions,
-              },
-            ]}
+            filterOptions={
+              actionFilter === "all"
+                ? [
+                    {
+                      key: "docType",
+                      label: "Type",
+                      options: typeOptions,
+                    },
+                    {
+                      key: "currentStatus",
+                      label: "Status",
+                      options: statusOptions,
+                    },
+                  ]
+                : [
+                    {
+                      key: "currentStatus",
+                      label: "Status",
+                      options: statusOptions,
+                    },
+                  ]
+            }
           />
         ) : (
           <Empty className="py-24 border-dashed">
@@ -438,16 +589,34 @@ export default function PolicyDraftsPage() {
               <FileEdit className="h-6 w-6" />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>No drafts found</EmptyTitle>
+              <EmptyTitle>
+                {activeFilterCopy?.emptyTitle ?? "No drafts found"}
+              </EmptyTitle>
               <EmptyDescription>
-                There are no policy drafts in the development pipeline.
+                {activeFilterCopy?.emptyDescription ??
+                  "There are no policy drafts in the development pipeline."}
               </EmptyDescription>
-              <Button asChild className="mt-4 w-full">
-                <Link href="/policies/drafts/my-drafts/new">
-                  Create a new draft
-                </Link>
-              </Button>
             </EmptyHeader>
+            {actionFilter !== "all" ? (
+              <EmptyContent>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActionFilter("all")}
+                >
+                  Show all drafts
+                </Button>
+              </EmptyContent>
+            ) : (
+              <EmptyContent>
+                <Button asChild>
+                  <Link href="/policies/drafts/my-drafts/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create a new draft
+                  </Link>
+                </Button>
+              </EmptyContent>
+            )}
           </Empty>
         )}
       </div>

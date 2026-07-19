@@ -61,6 +61,32 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 // ── Current Status config ─────────────────────────────────────────────────────
+type ActionFilter = "all" | "needs_action" | "under_review" | "completed";
+
+const ACTION_FILTER_COPY: Record<
+  Exclude<ActionFilter, "all">,
+  { banner: string; emptyTitle: string; emptyDescription: string; searchPlaceholder: string }
+> = {
+  needs_action: {
+    banner: "Showing concept notes that need your action — drafts to submit or revisions to address.",
+    emptyTitle: "No concept notes need action",
+    emptyDescription: "All your concept notes are either submitted or completed.",
+    searchPlaceholder: "Search concept notes needing action...",
+  },
+  under_review: {
+    banner: "Showing concept notes waiting on reviewer or PSR decisions.",
+    emptyTitle: "No concept notes under review",
+    emptyDescription: "You have no concept notes currently in the review pipeline.",
+    searchPlaceholder: "Search concept notes under review...",
+  },
+  completed: {
+    banner: "Showing concept notes with final decisions — accepted, partially accepted, or policy draft ready.",
+    emptyTitle: "No completed concept notes",
+    emptyDescription: "You have no completed concept notes yet.",
+    searchPlaceholder: "Search completed concept notes...",
+  },
+};
+
 const STATUS_CONFIG: Record<
   ConceptNoteItem["currentStatus"],
   { label: string; className: string }
@@ -396,19 +422,48 @@ export default function ConceptNotesPage() {
   const notes = data?.data ?? [];
   const meta = data?.meta;
 
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+
+  const backendStats = (meta as any)?.statistics;
   const stats = useMemo(
     () => ({
-      total: meta?.total ?? notes.length,
-      draft: notes.filter((n) => n.currentStatus === "draft").length,
-      review: notes.filter((n) =>
+      total: backendStats?.totalConceptNote ?? meta?.total ?? notes.length,
+      needsAction: backendStats?.needsAction ?? notes.filter((n) =>
+        ["draft", "revision_required"].includes(n.currentStatus),
+      ).length,
+      underReview: (backendStats
+        ? backendStats.newSubmissions + backendStats.underReview + backendStats.resubmitted
+        : null) ?? notes.filter((n) =>
         ["submitted", "under_review", "resubmitted"].includes(n.currentStatus),
       ).length,
-      accepted: notes.filter((n) =>
-        ["accepted", "policy_draft_ready"].includes(n.currentStatus),
+      completed: (backendStats
+        ? (backendStats.approved ?? 0) + (backendStats.notAccepted ?? 0)
+        : null) ?? notes.filter((n) =>
+        ["accepted", "partially_accepted", "not_accepted", "policy_draft_ready"].includes(n.currentStatus),
       ).length,
     }),
-    [notes, meta],
+    [backendStats, notes, meta],
   );
+
+  const filteredNotes = useMemo(() => {
+    if (actionFilter === "all") return notes;
+
+    const filterMap: Record<string, string[]> = {
+      needs_action: ["draft", "revision_required"],
+      under_review: ["submitted", "under_review", "resubmitted"],
+      completed: ["accepted", "partially_accepted", "not_accepted", "policy_draft_ready"],
+    };
+
+    const allowedStatuses = filterMap[actionFilter] || [];
+    return notes.filter((n) => allowedStatuses.includes(n.currentStatus));
+  }, [notes, actionFilter]);
+
+  const applyActionFilter = (filter: ActionFilter) => {
+    setActionFilter((current) => (current === filter ? "all" : filter));
+  };
+
+  const activeFilterCopy =
+    actionFilter === "all" ? null : ACTION_FILTER_COPY[actionFilter];
 
   const statusFilterOptions = Object.entries(STATUS_CONFIG).map(
     ([value, { label }]) => ({
@@ -416,6 +471,58 @@ export default function ConceptNotesPage() {
       label,
     }),
   );
+
+  const statCards: Array<{
+    key: ActionFilter;
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    iconBg: string;
+    border: string;
+    activeRing: string;
+    sub: string;
+  }> = [
+    {
+      key: "all",
+      label: "Total Concept Notes",
+      value: stats.total,
+      icon: <FileText className="h-4 w-4 text-primary" />,
+      iconBg: "bg-primary/10",
+      border: "border-primary/10",
+      activeRing: "ring-primary/50 border-primary/40",
+      sub: "Across all categories",
+    },
+    {
+      key: "needs_action",
+      label: "Needs Action",
+      value: stats.needsAction,
+      icon: <AlertCircle className="h-4 w-4 text-orange-500" />,
+      iconBg: "bg-orange-100",
+      border: "border-orange-100/50 bg-orange-50/10",
+      activeRing: "ring-orange-500/60 border-orange-300",
+      sub: "Drafts to submit or revisions to address",
+    },
+    {
+      key: "under_review",
+      label: "Under Review",
+      value: stats.underReview,
+      icon: <Clock className="h-4 w-4 text-blue-500" />,
+      iconBg: "bg-blue-100",
+      border: "border-blue-100/50 bg-blue-50/10",
+      activeRing: "ring-blue-500/60 border-blue-300",
+      sub: "Waiting on reviewer decisions",
+    },
+    {
+      key: "completed",
+      label: "Completed",
+      value: stats.completed,
+      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+      iconBg: "bg-green-100",
+      border: "border-green-100/50 bg-green-50/10",
+      activeRing: "ring-green-500/60 border-green-300",
+      sub: "Accepted or policy draft ready",
+    },
+  ];
 
   return (
     <PageContainer
@@ -480,82 +587,65 @@ export default function ConceptNotesPage() {
 
       {/* ── Stat Cards ── */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card border-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-primary/80">
-              Total Concept Notes
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <FileText className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.total}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Across all categories
-            </p>
-          </CardContent>
-        </Card>
+        {statCards.map(
+          ({ key, label, value, icon, iconBg, border, activeRing, sub }) => {
+            const isActive = actionFilter === key;
 
-        <Card className="border-orange-100/50 bg-orange-50/10">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-orange-600/80">
-              In Draft
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-orange-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.draft}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Pending submission
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-blue-100/50 bg-blue-50/10">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600/80">
-              Under Review
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <AlertCircle className="h-4 w-4 text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.review}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Requiring attention
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-100/50 bg-green-50/10">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-600/80">
-              Accepted
-            </CardTitle>
-            <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {isLoading ? <Skeleton className="h-8 w-12" /> : stats.accepted}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-              Ready for next stage
-            </p>
-          </CardContent>
-        </Card>
+            return (
+              <Card
+                key={key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyActionFilter(key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    applyActionFilter(key);
+                  }
+                }}
+                className={cn(
+                  border,
+                  "cursor-pointer transition-all hover:shadow-md",
+                  isActive && cn("ring-2 shadow-md", activeRing),
+                )}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {label}
+                  </CardTitle>
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full ${iconBg}`}
+                  >
+                    {icon}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {isLoading ? <Skeleton className="h-8 w-12" /> : value}
+                  </div>
+                  <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                    {sub}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          },
+        )}
       </div>
+
+      {activeFilterCopy && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-muted/40 px-4 py-3">
+          <p className="text-sm text-foreground">{activeFilterCopy.banner}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-background"
+            onClick={() => setActionFilter("all")}
+          >
+            Clear filter
+          </Button>
+        </div>
+      )}
 
       {/* ── Table ── */}
       <div className="mt-8 w-full max-w-full">
@@ -592,30 +682,42 @@ export default function ConceptNotesPage() {
               Retry
             </Button>
           </div>
-        ) : notes.length > 0 ? (
+        ) : filteredNotes.length > 0 ? (
           <DataTable
             columns={columns}
-            data={notes}
+            data={filteredNotes}
             searchKey="title"
-            searchPlaceholder="Search concept notes..."
+            searchPlaceholder={
+              activeFilterCopy?.searchPlaceholder ?? "Search concept notes..."
+            }
             onRowClick={(note) =>
               router.push(`/policies/concept-notes/my-concept-note/${note.id}`)
             }
-            filterOptions={[
-              {
-                key: "currentStatus",
-                label: "Status",
-                options: statusFilterOptions,
-              },
-              {
-                key: "documentCategory",
-                label: "Category",
-                options: [
-                  { value: "new", label: "New" },
-                  { value: "revision", label: "Revision" },
-                ],
-              },
-            ]}
+            filterOptions={
+              actionFilter === "all"
+                ? [
+                    {
+                      key: "currentStatus",
+                      label: "Status",
+                      options: statusFilterOptions,
+                    },
+                    {
+                      key: "documentCategory",
+                      label: "Category",
+                      options: [
+                        { value: "new", label: "New" },
+                        { value: "revision", label: "Revision" },
+                      ],
+                    },
+                  ]
+                : [
+                    {
+                      key: "currentStatus",
+                      label: "Status",
+                      options: statusFilterOptions,
+                    },
+                  ]
+            }
           />
         ) : (
           <Empty className="py-24 border-dashed">
@@ -623,20 +725,34 @@ export default function ConceptNotesPage() {
               <FileText className="h-6 w-6" />
             </EmptyMedia>
             <EmptyHeader>
-              <EmptyTitle>No concept notes found</EmptyTitle>
+              <EmptyTitle>
+                {activeFilterCopy?.emptyTitle ?? "No concept notes found"}
+              </EmptyTitle>
               <EmptyDescription>
-                You haven't created any concept notes yet. Get started by
-                creating a new one.
+                {activeFilterCopy?.emptyDescription ??
+                  "You haven't created any concept notes yet. Get started by creating a new one."}
               </EmptyDescription>
             </EmptyHeader>
-            <EmptyContent>
-              <Button asChild>
-                <Link href="/policies/concept-notes/my-concept-note/new">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create First Note
-                </Link>
-              </Button>
-            </EmptyContent>
+            {actionFilter !== "all" ? (
+              <EmptyContent>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActionFilter("all")}
+                >
+                  Show all concept notes
+                </Button>
+              </EmptyContent>
+            ) : (
+              <EmptyContent>
+                <Button asChild>
+                  <Link href="/policies/concept-notes/my-concept-note/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Note
+                  </Link>
+                </Button>
+              </EmptyContent>
+            )}
           </Empty>
         )}
       </div>

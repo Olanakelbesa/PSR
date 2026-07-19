@@ -113,6 +113,8 @@ export interface PolicyRepositoryDetail {
     operationalPeriod: string;
     nextReviewDate: string;
     organizationName?: string;
+    issueType?: { id: number; name: string; acronym: string } | null;
+    classification?: { id: number; name: string; code: string } | null;
   };
   thematicAreas: PolicyRepositoryDetailThematicArea[];
   publicationStatus: {
@@ -152,6 +154,12 @@ export interface PolicyRepositoryViewModel {
   sourceDraft: string;
   thematicAreas: string[];
   downloadCount: number;
+  issueTypeId?: number | null;
+  issueTypeName?: string | null;
+  issueTypeAcronym?: string | null;
+  classificationId?: number | null;
+  classificationName?: string | null;
+  classificationCode?: string | null;
   versionHistory: Array<{
     version: string;
     date: string;
@@ -241,6 +249,12 @@ export function mapPolicyRepositoryDetail(
     sourceDraft: registryMetadata?.sourceDraft ?? "",
     thematicAreas: thematicAreaNames,
     downloadCount: publicationStatus?.downloadCount ?? 0,
+    issueTypeId: registryMetadata?.issueType?.id ?? null,
+    issueTypeName: registryMetadata?.issueType?.name ?? null,
+    issueTypeAcronym: registryMetadata?.issueType?.acronym ?? null,
+    classificationId: registryMetadata?.classification?.id ?? null,
+    classificationName: registryMetadata?.classification?.name ?? null,
+    classificationCode: registryMetadata?.classification?.code ?? null,
     versionHistory: versionCode
       ? [
           {
@@ -285,7 +299,20 @@ export function useRecordPolicyDownload() {
         draftFile: resolveFileUrl(payload.draftFile) ?? payload.draftFile,
       };
     },
-    onSuccess: (_data, id) => {
+    onSuccess: (result, id) => {
+      queryClient.setQueryData(["policy-repository"], (old: any) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((item: any) =>
+            item.id === id ? { ...item, downloadCount: result.downloadCount } : item
+          ),
+        };
+      });
+      queryClient.setQueryData(["policy-repository-detail", String(id)], (old: any) => {
+        if (!old) return old;
+        return { ...old, data: { ...old.data, downloadCount: result.downloadCount } };
+      });
       queryClient.invalidateQueries({ queryKey: ["policy-repository"] });
       queryClient.invalidateQueries({
         queryKey: ["policy-repository-detail", String(id)],
@@ -307,6 +334,8 @@ export function useRegisterPolicy() {
       access_level: string;
       publish_status: boolean;
       policy_document_source?: File | null;
+      issue_type_id: number;
+      classification_id: number;
     }
   >({
     mutationFn: async (variables) => {
@@ -317,6 +346,8 @@ export function useRegisterPolicy() {
       formData.append("next_review_date", variables.next_review_date);
       formData.append("access_level", variables.access_level.toLowerCase());
       formData.append("publish_status", String(variables.publish_status));
+      formData.append("issue_type_id", String(variables.issue_type_id));
+      formData.append("classification_id", String(variables.classification_id));
       if (variables.policy_document_source) {
         formData.append("policy_document_source", variables.policy_document_source);
       }
@@ -357,6 +388,8 @@ export function useUpdateRegisteredPolicy(id: string | number) {
       access_level: string;
       publish_status: boolean;
       policy_document_source?: File | null;
+      issue_type_id?: number | null;
+      classification_id?: number | null;
     }
   >({
     mutationFn: async (variables) => {
@@ -368,6 +401,12 @@ export function useUpdateRegisteredPolicy(id: string | number) {
       formData.append("next_review_date", variables.next_review_date);
       formData.append("access_level", variables.access_level.toLowerCase());
       formData.append("publish_status", String(variables.publish_status));
+      if (variables.issue_type_id) {
+        formData.append("issue_type_id", String(variables.issue_type_id));
+      }
+      if (variables.classification_id) {
+        formData.append("classification_id", String(variables.classification_id));
+      }
       if (variables.policy_document_source) {
         formData.append(
           "policy_document_source",

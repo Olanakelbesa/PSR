@@ -12,11 +12,13 @@ import { toast } from "sonner";
 interface ConceptNoteOverviewProps {
   note: any;
   setViewingFile?: (file: any) => void;
+  isReviewMode?: boolean;
 }
 
 export function ConceptNoteOverview({
   note,
   setViewingFile,
+  isReviewMode,
 }: ConceptNoteOverviewProps) {
   const summary = note.overview?.executiveSummary ?? note.background ?? "";
   const thematicAreas =
@@ -67,7 +69,7 @@ export function ConceptNoteOverview({
     { label: "Organization", value: note.organization?.name || "N/A" },
     { label: "Unit", value: note.unit?.name || "N/A" },
     { label: "Latest Version", value: note.currentStatus?.version || note.versionNumber || note.versions?.find((version: any) => version.isLatest)?.versionNumber || "N/A" },
-    { label: "Submitted By", value: note.submittedBy?.fullName || "N/A" },
+    ...(!isReviewMode ? [{ label: "Submitted By", value: note.submittedBy?.fullName || "N/A" }] : []),
   ];
 
   return (

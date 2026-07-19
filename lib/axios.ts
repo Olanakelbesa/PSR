@@ -119,14 +119,50 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
+    // Extract DRF-style validation errors from response data
+    const responseData = error.response?.data as any;
+    let drfErrors: Record<string, string[]> | undefined;
+    let drfMessage: string | undefined;
+
+    if (responseData && typeof responseData === "object" && !responseData.error && !responseData.message) {
+      // DRF default: { field_name: ["error1", "error2"], non_field_errors: ["..."] }
+      const keys = Object.keys(responseData);
+      const looksLikeDrfValidation =
+        keys.length > 0 &&
+        keys.every((k) => Array.isArray(responseData[k]));
+
+      if (looksLikeDrfValidation) {
+        drfErrors = responseData as Record<string, string[]>;
+        const nonField = drfErrors.non_field_errors;
+        if (nonField && nonField.length > 0) {
+          drfMessage = nonField.join("; ");
+        } else {
+          drfMessage = keys
+            .filter((k) => k !== "detail")
+            .map((k) => {
+              const msgs = responseData[k];
+              const label = k.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+              return `${label}: ${msgs.join(", ")}`;
+            })
+            .join("; ");
+        }
+      }
+      // DRF detail: { detail: "..." }
+      if (!drfMessage && responseData.detail) {
+        drfMessage = String(responseData.detail);
+      }
+    }
+
     const normalized: ApiError = {
       message:
+        drfMessage ??
         error.response?.data?.message ??
         (error.response?.data as any)?.error?.message ??
         error.message ??
         "Something went wrong",
       status: error.response?.status ?? 0,
       errors:
+        drfErrors ??
         error.response?.data?.errors ??
         (error.response?.data as any)?.error?.details ??
         error.response?.data?.error,
