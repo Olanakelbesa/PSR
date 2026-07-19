@@ -4,6 +4,7 @@ export interface DashboardOverviewCard {
   key: string;
   label: string;
   value: number;
+  assignedCount?: number;
   changePercent: number;
   changeDirection: DashboardChangeDirection;
   changeLabel: string;

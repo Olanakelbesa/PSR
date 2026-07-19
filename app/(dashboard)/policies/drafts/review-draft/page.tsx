@@ -14,6 +14,8 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  Inbox,
+  ThumbsUp,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePolicyDraftsMyReviews } from "@/lib/queries/policy-drafts";
 import { cn } from "@/lib/utils";
 
-type ReviewQueueFilter = "all" | "under_review" | "resubmitted" | "approved";
+type ReviewQueueFilter = "all" | "under_review" | "resubmitted" | "review_completed" | "new_submissions" | "approved";
 
 const QUEUE_FILTER_COPY: Record<
   Exclude<ReviewQueueFilter, "all">,
@@ -67,12 +69,28 @@ const QUEUE_FILTER_COPY: Record<
       "There are no resubmitted drafts assigned to you right now.",
     searchPlaceholder: "Search resubmitted drafts...",
   },
-  approved: {
+  review_completed: {
     banner: "Showing assigned drafts where your review is complete.",
     emptyTitle: "No completed reviews",
     emptyDescription:
       "There are no drafts marked as review done in your assignments.",
     searchPlaceholder: "Search completed reviews...",
+  },
+  new_submissions: {
+    banner:
+      "Showing newly submitted drafts assigned to you that have not yet been actively reviewed.",
+    emptyTitle: "No new submissions",
+    emptyDescription:
+      "There are no newly submitted drafts assigned to you.",
+    searchPlaceholder: "Search new submissions...",
+  },
+  approved: {
+    banner:
+      "Showing approved drafts from your assignments.",
+    emptyTitle: "No approved drafts",
+    emptyDescription:
+      "There are no approved drafts in your assignments.",
+    searchPlaceholder: "Search approved drafts...",
   },
 };
 
@@ -303,7 +321,7 @@ export default function PolicyDraftsMyReviewsPage() {
 
   const initialQueue = ((): ReviewQueueFilter => {
     const param = searchParams.get("status");
-    if (param && ["under_review", "resubmitted", "approved"].includes(param)) {
+    if (param && ["under_review", "resubmitted", "review_completed", "new_submissions", "approved"].includes(param)) {
       return param as ReviewQueueFilter;
     }
     return "all";
@@ -334,16 +352,20 @@ export default function PolicyDraftsMyReviewsPage() {
   const stats = useMemo(() => {
     if (draftStatistics) {
       return {
-        total: draftStatistics.total_drafts ?? policies.length,
-        underReview: draftStatistics.under_review ?? 0,
+        total: draftStatistics.totalDrafts ?? policies.length,
+        newSubmissions: draftStatistics.newSubmissions ?? 0,
+        underReview: draftStatistics.underReview ?? 0,
         resubmitted: draftStatistics.resubmitted ?? 0,
+        reviewCompleted: draftStatistics.reviewCompleted ?? 0,
         approved: draftStatistics.approved ?? 0,
       };
     }
     return {
       total: policies.length,
+      newSubmissions: policies.filter((p) => p.currentStatus === "submitted").length,
       underReview: policies.filter((p) => p.currentStatus === "under_review").length,
       resubmitted: policies.filter((p) => p.currentStatus === "resubmitted").length,
+      reviewCompleted: policies.filter((p) => p.currentStatus === "review_completed").length,
       approved: policies.filter((p) =>
         ["psr_approved", "repository_registered"].includes(p.currentStatus)
       ).length,
@@ -398,14 +420,34 @@ export default function PolicyDraftsMyReviewsPage() {
       sub: "Revised and sent back for review",
     },
     {
-      key: "approved",
+      key: "review_completed",
       label: "Review Done",
-      value: stats.approved,
+      value: stats.reviewCompleted,
       icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
       iconBg: "bg-green-100",
       border: "border-green-100/50 bg-green-50/10",
       activeRing: "ring-green-500/60 border-green-300",
       sub: "Completed assessments",
+    },
+    {
+      key: "new_submissions",
+      label: "New Submissions",
+      value: stats.newSubmissions,
+      icon: <Inbox className="h-4 w-4 text-violet-600" />,
+      iconBg: "bg-violet-100",
+      border: "border-violet-200/70 bg-violet-50/20",
+      activeRing: "ring-violet-500/60 border-violet-300",
+      sub: "Awaiting active review",
+    },
+    {
+      key: "approved",
+      label: "Approved",
+      value: stats.approved,
+      icon: <ThumbsUp className="h-4 w-4 text-emerald-500" />,
+      iconBg: "bg-emerald-100",
+      border: "border-emerald-100/50 bg-emerald-50/10",
+      activeRing: "ring-emerald-500/60 border-emerald-300",
+      sub: "Ready for repository",
     },
   ];
 
@@ -414,7 +456,7 @@ export default function PolicyDraftsMyReviewsPage() {
       title="Assigned Draft Reviews"
       description="Evaluate assigned institutional policy drafts, score quality checklists, and submit official feedback."
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         {statCards.map(
           ({ key, label, value, icon, iconBg, border, activeRing, sub }) => {
             const isActive = queueFilter === key;

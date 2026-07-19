@@ -369,10 +369,10 @@ export default function PolicyDraftsPage() {
   const stats = useMemo(() => {
     if (draftStatistics) {
       return {
-        total: draftStatistics.total_drafts ?? policies.length,
-        newSubmissions: draftStatistics.new_submissions ?? 0,
-        underReview: draftStatistics.under_review ?? 0,
-        reviewCompleted: draftStatistics.review_completed ?? 0,
+        total: draftStatistics.totalDrafts ?? policies.length,
+        newSubmissions: draftStatistics.newSubmissions ?? 0,
+        underReview: draftStatistics.underReview ?? 0,
+        reviewCompleted: draftStatistics.reviewCompleted ?? 0,
         resubmitted: draftStatistics.resubmitted ?? 0,
         approved: draftStatistics.approved ?? 0,
       };

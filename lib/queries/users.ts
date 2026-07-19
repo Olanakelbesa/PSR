@@ -16,6 +16,7 @@ export interface UserSelectorItem {
   organization: { id: number; name: string } | null;
   organizationType: { id: number; name: string } | null;
   unit: { id: number; name: string } | null;
+  roles: { id: number; name: string; slug: string }[];
 }
 
 export interface AssignedReviewerItem {

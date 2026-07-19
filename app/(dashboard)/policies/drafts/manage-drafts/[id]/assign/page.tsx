@@ -373,6 +373,19 @@ export default function AssignExpertsPage() {
                                   user.organization?.name ||
                                   "Institution Partner"}
                               </span>
+                              {user.roles && user.roles.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {user.roles.map((role: any) => (
+                                    <Badge
+                                      key={role.id}
+                                      variant="secondary"
+                                      className="text-[9px] px-1.5 py-0 h-4 font-medium"
+                                    >
+                                      {role.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                           <Button

@@ -9,6 +9,7 @@ import {
   BookOpen,
   Calendar,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   Clock,
   FilePlus,
@@ -388,6 +389,7 @@ function StatCard({ stat, canAccess }: { stat: DashboardOverviewCard; canAccess:
   const isDown = stat.changeDirection === "down";
   const TrendIcon = isDown ? TrendingDown : TrendingUp;
   const href = CARD_ROUTES[stat.key];
+  const assignedCount = stat.assignedCount ?? 0;
 
   const card = (
     <Card className={cn(
@@ -444,6 +446,15 @@ function StatCard({ stat, canAccess }: { stat: DashboardOverviewCard; canAccess:
             </span>
           </div>
         </div>
+        {assignedCount > 0 && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/30">
+            <ClipboardCheck className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+              {assignedCount} need your action
+            </span>
+            <ChevronRight className="ml-auto h-3.5 w-3.5 text-amber-400" />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -474,6 +485,8 @@ function ResubmittedSplitCard({
   const drIsDown = draftCard.changeDirection === "down";
   const CNTrendIcon = cnIsDown ? TrendingDown : TrendingUp;
   const DRTrendIcon = drIsDown ? TrendingDown : TrendingUp;
+  const cnAssigned = conceptNoteCard.assignedCount ?? 0;
+  const drAssigned = draftCard.assignedCount ?? 0;
 
   return (
     <Card className="h-full border border-primary/10 shadow-sm">
@@ -506,6 +519,14 @@ function ResubmittedSplitCard({
                     <span>{cnIsDown ? "-" : "+"}{Math.abs(conceptNoteCard.changePercent)}%</span>
                   </span>
                 </div>
+                {cnAssigned > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800 dark:bg-amber-950/30">
+                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      {cnAssigned} need action
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="rounded-xl p-2.5 bg-rose-500/10 dark:bg-rose-500/20 shrink-0">
                 <FilePlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
@@ -529,6 +550,14 @@ function ResubmittedSplitCard({
                     <span>{cnIsDown ? "-" : "+"}{Math.abs(conceptNoteCard.changePercent)}%</span>
                   </span>
                 </div>
+                {cnAssigned > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800 dark:bg-amber-950/30">
+                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      {cnAssigned} need action
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="rounded-xl p-2.5 bg-rose-500/10 dark:bg-rose-500/20 shrink-0">
                 <FilePlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
@@ -560,6 +589,14 @@ function ResubmittedSplitCard({
                     <span>{drIsDown ? "-" : "+"}{Math.abs(draftCard.changePercent)}%</span>
                   </span>
                 </div>
+                {drAssigned > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800 dark:bg-amber-950/30">
+                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      {drAssigned} need action
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="rounded-xl p-2.5 bg-orange-500/10 dark:bg-orange-500/20 shrink-0">
                 <FileText className="h-5 w-5 text-orange-500 dark:text-orange-400" />
@@ -583,6 +620,14 @@ function ResubmittedSplitCard({
                     <span>{drIsDown ? "-" : "+"}{Math.abs(draftCard.changePercent)}%</span>
                   </span>
                 </div>
+                {drAssigned > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800 dark:bg-amber-950/30">
+                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      {drAssigned} need action
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="rounded-xl p-2.5 bg-orange-500/10 dark:bg-orange-500/20 shrink-0">
                 <FileText className="h-5 w-5 text-orange-500 dark:text-orange-400" />
