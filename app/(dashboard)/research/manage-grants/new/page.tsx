@@ -196,16 +196,12 @@ export default function NewGrantPage() {
   // Progress Calculation
   const progress = useMemo(() => {
     let score = 0;
-    const totalWeight = 9;
+    const totalWeight = 5;
 
     if (title.trim().length > 3) score += 1;
     if (hasMeaningfulContent(description)) score += 1;
     if (hasMeaningfulContent(eligibilityCriteria)) score += 1;
-    if (selectedTypes.length > 0) score += 1;
-    if (thumbnail) score += 1;
-    if (banner) score += 1;
-    if (openDate) score += 1;
-    if (closeDate) score += 1;
+    if (thumbnail && banner) score += 1;
     if (totalPercentage === 100) score += 1;
 
     return Math.round((score / totalWeight) * 100);
@@ -213,11 +209,8 @@ export default function NewGrantPage() {
     title,
     description,
     eligibilityCriteria,
-    selectedTypes,
     thumbnail,
     banner,
-    openDate,
-    closeDate,
     totalPercentage,
   ]);
 

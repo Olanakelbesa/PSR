@@ -36,6 +36,7 @@ import { PageContainer } from "@/components/layout";
 import Image from "next/image";
 import { useGrantCalls } from "@/lib/queries/grant-calls";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { cn } from "@/lib/utils";
 import type { GrantCall } from "@/types/grant-call";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
@@ -73,8 +74,7 @@ function isCallOpen(call: GrantCall) {
 }
 
 function formatBudget(budget: GrantCall["budget"]) {
-  if (budget === null || budget === undefined || budget === "")
-    return "Not specified";
+  if (budget === null || budget === undefined || budget === "") return "";
   const numericBudget = typeof budget === "string" ? Number(budget) : budget;
   if (Number.isNaN(numericBudget)) return String(budget);
   return `ETB ${numericBudget.toLocaleString()}`;
@@ -151,10 +151,12 @@ function CallCard({ call }: { call: GrantCall }) {
                 : "Deadline not set"}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>{formatBudget(call.budget)}</span>
-          </div>
+          {formatBudget(call.budget) && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{formatBudget(call.budget)}</span>
+            </div>
+          )}
         </div>
 
         {isOpen && daysRemaining > 0 && deadline && (
@@ -286,7 +288,14 @@ export default function CallsForProposalsPage() {
   const closedCalls =
     meta?.statistics?.closedCalls ??
     Math.max((meta?.total ?? calls.length) - openCalls, 0);
+  const draftCalls = calls.filter(
+    (c) => (c.status ?? "").toLowerCase() === "draft",
+  ).length;
   const filteredCalls = calls;
+
+  const applyStatsFilter = (filter: string) => {
+    setStatusFilter((current) => (current === filter ? "all" : filter));
+  };
 
   const currentYears = useMemo(() => {
     return Array.from(
@@ -328,58 +337,84 @@ export default function CallsForProposalsPage() {
     >
       <div className="space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Calls</p>
-                <div className="text-2xl font-bold h-8 flex items-center mt-1">
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-12" />
-                  ) : (
-                    meta?.total ?? calls.length
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-green-500/10">
-                <Clock className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Open Calls</p>
-                <div className="text-2xl font-bold h-8 flex items-center mt-1">
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-12" />
-                  ) : (
-                    openCalls
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-muted">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Closed Calls</p>
-                <div className="text-2xl font-bold h-8 flex items-center mt-1">
-                  {isLoading ? (
-                    <Skeleton className="h-7 w-12" />
-                  ) : (
-                    closedCalls
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              key: "all",
+              label: "Total Calls",
+              value: meta?.total ?? calls.length,
+              color: "text-primary",
+              bg: "bg-primary/10",
+              border: "border-primary/20",
+              activeRing: "ring-primary/50 border-primary/40",
+            },
+            {
+              key: "open",
+              label: "Open Calls",
+              value: openCalls,
+              color: "text-green-600",
+              bg: "bg-green-50",
+              border: "border-green-200",
+              activeRing: "ring-green-500/60 border-green-300",
+            },
+            {
+              key: "closed",
+              label: "Closed Calls",
+              value: closedCalls,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              border: "border-amber-200",
+              activeRing: "ring-amber-500/60 border-amber-300",
+            },
+            {
+              key: "draft",
+              label: "Draft Calls",
+              value: draftCalls,
+              color: "text-muted-foreground",
+              bg: "bg-muted",
+              border: "border-border",
+              activeRing: "ring-muted-foreground/50 border-muted-foreground/30",
+            },
+          ].map((stat) => {
+            const isActive = statusFilter === stat.key;
+            return (
+              <Card
+                key={stat.key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyStatsFilter(stat.key)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    applyStatsFilter(stat.key);
+                  }
+                }}
+                className={cn(
+                  "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                  stat.border,
+                  isActive && cn("ring-2 shadow-md", stat.activeRing),
+                )}
+              >
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className={cn("shrink-0 rounded-full p-3", stat.bg)}>
+                    <FileText className={cn("h-5 w-5", stat.color)} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black">
+                      {isLoading ? (
+                        <Skeleton className="h-8 w-12" />
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {stat.label}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Filters */}

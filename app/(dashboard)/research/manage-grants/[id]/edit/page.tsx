@@ -141,7 +141,6 @@ export default function EditCallPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("<p></p>");
   const [eligibilityCriteria, setEligibilityCriteria] = useState("<p></p>");
-  const [budget, setBudget] = useState<string>("");
   const [status, setStatus] = useState("draft");
   const [openDate, setOpenDate] = useState("");
   const [closeDate, setCloseDate] = useState("");
@@ -189,7 +188,6 @@ export default function EditCallPage() {
       setTitle(call.title ?? "");
       setDescription(call.description ?? "<p></p>");
       setEligibilityCriteria(call.eligibilityCriteria ?? "<p></p>");
-      setBudget(call.budget ? String(Math.round(Number(call.budget))) : "");
       setStatus(call.status ?? "draft");
       setOpenDate(call.openDate ?? "");
       setCloseDate(call.closeDate ?? "");
@@ -267,16 +265,12 @@ export default function EditCallPage() {
   // Progress Calculation
   const progress = useMemo(() => {
     let score = 0;
-    const totalWeight = 9;
+    const totalWeight = 5;
 
     if (title.trim().length > 3) score += 1;
     if (hasMeaningfulContent(description)) score += 1;
     if (hasMeaningfulContent(eligibilityCriteria)) score += 1;
-    if (selectedTypes.length > 0) score += 1;
-    if (thumbnail || thumbnailPreview) score += 1;
-    if (banner || bannerPreview) score += 1;
-    if (openDate) score += 1;
-    if (closeDate) score += 1;
+    if ((thumbnail || thumbnailPreview) && (banner || bannerPreview)) score += 1;
     if (totalPercentage === 100) score += 1;
 
     return Math.round((score / totalWeight) * 100);
@@ -284,13 +278,10 @@ export default function EditCallPage() {
     title,
     description,
     eligibilityCriteria,
-    selectedTypes,
     thumbnail,
     thumbnailPreview,
     banner,
     bannerPreview,
-    openDate,
-    closeDate,
     totalPercentage,
   ]);
 
@@ -346,7 +337,6 @@ export default function EditCallPage() {
         installment_number: idx + 1,
         percentage: it.percentage,
       })),
-      budget: budget ? Number(budget) : null,
     };
 
     if (thumbnail instanceof File) {
@@ -516,7 +506,6 @@ export default function EditCallPage() {
     hasMeaningfulContent(description) &&
     openDate.trim().length > 0 &&
     closeDate.trim().length > 0 &&
-    budget.trim().length > 0 &&
     totalPercentage === 100;
 
   useEffect(() => {
@@ -544,7 +533,6 @@ export default function EditCallPage() {
     title,
     description,
     eligibilityCriteria,
-    budget,
     status,
     openDate,
     closeDate,
@@ -755,24 +743,6 @@ export default function EditCallPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="budget" className="text-sm font-semibold">
-                  Budget (ETB) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="budget"
-                  placeholder="e.g. 10000000"
-                  className="h-11"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  type="number"
-                />
-                {errors?.error?.details?.budget && (
-                  <p className="text-xs text-destructive mt-1">
-                    {(errors.error.details.budget as string[]).join(" ")}
-                  </p>
-                )}
-              </div>
             </CardContent>
           </Card>
 

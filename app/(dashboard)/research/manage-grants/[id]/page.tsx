@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Calendar, ArrowLeft, FileText, ChevronLeft, Edit } from "lucide-react";
+import { Calendar, FileText, ChevronLeft, Edit } from "lucide-react";
 import { format } from "date-fns";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,22 +44,6 @@ function isCallOpen(call: GrantCall) {
   return true;
 }
 
-function formatBudget(budget: GrantCall["budget"]) {
-  if (budget === null || budget === undefined || budget === "")
-    return "Not specified";
-  const numericBudget = typeof budget === "string" ? Number(budget) : budget;
-  if (Number.isNaN(numericBudget)) return String(budget);
-  return `ETB ${numericBudget.toLocaleString()}`;
-}
-
-function BooleanBadge({ value }: { value?: boolean }) {
-  return (
-    <Badge variant={value ? "default" : "secondary"}>
-      {value ? "Yes" : "No"}
-    </Badge>
-  );
-}
-
 export default function CallDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -80,7 +64,7 @@ export default function CallDetailPage() {
       <div className="space-y-6">
         <Link href="/research/manage-grants">
           <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ChevronLeft className="mr-2 h-4 w-4" />
             Back to Grant Calls
           </Button>
         </Link>
@@ -100,20 +84,20 @@ export default function CallDetailPage() {
   return (
     <div className="space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Link
                 href="/research/manage-grants"
-                className="text-foreground hover:text-foreground/50 active:bg-accent/15 focus-visible:ring-accent/30 p-2 rounded-sm"
+                className="text-foreground hover:text-foreground/50 active:bg-accent/15 focus-visible:ring-accent/30 p-2 rounded-sm shrink-0"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
               </Link>
-              <h1 className="text-3xl font-bold tracking-tight wrap-break-word">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight wrap-break-word">
                 {call.title}
               </h1>
             </div>
-            <div className="flex flex-wrap items-center gap-4 mt-2 ml-12">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 ml-0 sm:ml-10">
               <Badge variant={isOpen ? "default" : "secondary"}>
                 {(call.status ?? "Unknown").charAt(0).toUpperCase() +
                   (call.status ?? "Unknown").slice(1)}
@@ -132,6 +116,7 @@ export default function CallDetailPage() {
           </div>
           <Button
             size="lg"
+            className="self-start"
             onClick={() => {
               router.push(`/research/manage-grants/${call.id}/edit`);
             }}
@@ -140,7 +125,7 @@ export default function CallDetailPage() {
             Edit
           </Button>
         </div>
-        <div className="relative w-full h-56 rounded-lg overflow-hidden my-4 bg-muted">
+        <div className="relative w-full h-48 sm:h-56 lg:h-64 rounded-lg overflow-hidden my-4 bg-muted">
           <Image
             src={resolveFileUrl(call.bannerImage || call.thumbnailImage) ?? "/grant-banner.png"}
             alt={call.title}
@@ -244,96 +229,6 @@ export default function CallDetailPage() {
                   </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {call.settings ? (
-                <>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      Peer review required
-                    </span>
-                    <BooleanBadge value={call.settings.requirePeerReview} />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      Committee review required
-                    </span>
-                    <BooleanBadge
-                      value={call.settings.requireCommitteeReview}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      First-level screening check
-                    </span>
-                    <BooleanBadge
-                      value={call.settings.firstLevelScreeningResultCheck}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-muted-foreground">
-                      Review result check
-                    </span>
-                    <BooleanBadge value={call.settings.reviewResultCheck} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Allowed submission offices
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {call.settings.allowedSubmissionOffices.length > 0 ? (
-                        call.settings.allowedSubmissionOffices.map(
-                          (officeId) => (
-                            <Badge key={String(officeId)} variant="outline">
-                              Office {officeId}
-                            </Badge>
-                          ),
-                        )
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          None configured
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2 border-t pt-4">
-                    <div>
-                      <p className="text-sm font-medium">Reviewee Start Date</p>
-                      <p className="text-xs text-muted-foreground">
-                        {call.settings.revieweeStartDate
-                          ? format(
-                              new Date(call.settings.revieweeStartDate),
-                              "MMMM d, yyyy",
-                            )
-                          : "Not specified"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">
-                        Reviewee Closing Date
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {call.settings.revieweeClosingDate
-                          ? format(
-                              new Date(call.settings.revieweeClosingDate),
-                              "MMMM d, yyyy",
-                            )
-                          : "Not specified"}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No settings configured.
-                </p>
-              )}
             </CardContent>
           </Card>
 

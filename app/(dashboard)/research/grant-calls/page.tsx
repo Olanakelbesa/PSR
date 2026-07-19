@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -33,6 +34,7 @@ import {
 import { PageContainer } from "@/components/layout";
 import { useGrantCalls } from "@/lib/queries/grant-calls";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { cn } from "@/lib/utils";
 import type { GrantCall } from "@/types/grant-call";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
@@ -71,7 +73,7 @@ function isCallOpen(call: GrantCall) {
 
 function formatBudget(budget: GrantCall["budget"]) {
   if (budget === null || budget === undefined || budget === "")
-    return "Not specified";
+    return "";
   const numericBudget = typeof budget === "string" ? Number(budget) : budget;
   if (Number.isNaN(numericBudget)) return String(budget);
   return `ETB ${numericBudget.toLocaleString()}`;
@@ -148,10 +150,12 @@ function CallCard({ call }: { call: GrantCall }) {
                 : "Deadline not set"}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>{formatBudget(call.budget)}</span>
-          </div>
+          {formatBudget(call.budget) && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{formatBudget(call.budget)}</span>
+            </div>
+          )}
         </div>
 
         {isOpen && daysRemaining > 0 && deadline && (
@@ -193,15 +197,63 @@ function CallCard({ call }: { call: GrantCall }) {
   );
 }
 
+type StatsFilter = "all" | "open" | "closed" | "draft" | "closing_soon";
+
 export default function CallsForProposalsPage() {
   const { data, isLoading, isError } = useGrantCalls({ limit: 100 });
+  const [statsFilter, setStatsFilter] = useState<StatsFilter>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const calls: GrantCall[] = data?.data ?? [];
 
+  const applyStatsFilter = (filter: StatsFilter) => {
+    setStatsFilter((current) => (current === filter ? "all" : filter));
+  };
+
+  const isCallClosingSoon = (call: GrantCall) => {
+    if (!isCallOpen(call) || !call.closeDate) return false;
+    const deadline = parseISO(call.closeDate);
+    const now = new Date();
+    const daysRemaining = Math.ceil(
+      (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    return daysRemaining <= 7 && daysRemaining > 0;
+  };
+
+  const stats = useMemo(() => {
+    const allCalls = calls;
+    return {
+      total: allCalls.length,
+      open: allCalls.filter(isCallOpen).length,
+      closed: allCalls.filter((c) => {
+        const s = (c.status ?? "").toLowerCase();
+        return s === "closed";
+      }).length,
+      draft: allCalls.filter((c) => (c.status ?? "").toLowerCase() === "draft").length,
+      closingSoon: allCalls.filter(isCallClosingSoon).length,
+    };
+  }, [calls]);
+
   const filteredCalls = useMemo<GrantCall[]>(() => {
     return calls.filter((call) => {
+      if (statsFilter !== "all") {
+        switch (statsFilter) {
+          case "open":
+            if (!isCallOpen(call)) return false;
+            break;
+          case "closed":
+            if ((call.status ?? "").toLowerCase() !== "closed") return false;
+            break;
+          case "draft":
+            if ((call.status ?? "").toLowerCase() !== "draft") return false;
+            break;
+          case "closing_soon":
+            if (!isCallClosingSoon(call)) return false;
+            break;
+        }
+      }
+
       if (
         statusFilter !== "all" &&
         (call.status ?? "").toLowerCase() !== statusFilter
@@ -226,10 +278,7 @@ export default function CallsForProposalsPage() {
 
       return searchableText.includes(query);
     });
-  }, [calls, searchQuery, statusFilter]);
-
-  const openCalls = calls.filter(isCallOpen).length;
-  const closedCalls = calls.length - openCalls;
+  }, [calls, searchQuery, statusFilter, statsFilter]);
 
   const availableStatuses = useMemo<string[]>(() => {
     const values = new Set<string>();
@@ -266,46 +315,93 @@ export default function CallsForProposalsPage() {
       description="Browse and apply to available research funding opportunities"
     >
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-primary/10">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Calls</p>
-                <p className="text-2xl font-bold">
-                  {isLoading ? "-" : calls.length}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-green-500/10">
-                <Clock className="h-5 w-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Open Calls</p>
-                <p className="text-2xl font-bold">
-                  {isLoading ? "-" : openCalls}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-full bg-muted">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Closed Calls</p>
-                <p className="text-2xl font-bold">
-                  {isLoading ? "-" : closedCalls}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            {
+              key: "all" as const,
+              label: "Total Calls",
+              value: stats.total,
+              color: "text-primary",
+              bg: "bg-primary/10",
+              border: "border-primary/20",
+              activeRing: "ring-primary/50 border-primary/40",
+            },
+            {
+              key: "open" as const,
+              label: "Open Calls",
+              value: stats.open,
+              color: "text-green-600",
+              bg: "bg-green-50",
+              border: "border-green-200",
+              activeRing: "ring-green-500/60 border-green-300",
+            },
+            {
+              key: "closed" as const,
+              label: "Closed Calls",
+              value: stats.closed,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              border: "border-amber-200",
+              activeRing: "ring-amber-500/60 border-amber-300",
+            },
+            {
+              key: "draft" as const,
+              label: "Draft Calls",
+              value: stats.draft,
+              color: "text-muted-foreground",
+              bg: "bg-muted",
+              border: "border-border",
+              activeRing: "ring-muted-foreground/50 border-muted-foreground/30",
+            },
+            {
+              key: "closing_soon" as const,
+              label: "Closing Soon",
+              value: stats.closingSoon,
+              color: "text-orange-600",
+              bg: "bg-orange-50",
+              border: "border-orange-200",
+              activeRing: "ring-orange-500/60 border-orange-300",
+            },
+          ].map((stat) => {
+            const isActive = statsFilter === stat.key;
+            return (
+              <Card
+                key={stat.key}
+                role="button"
+                tabIndex={0}
+                onClick={() => applyStatsFilter(stat.key)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    applyStatsFilter(stat.key);
+                  }
+                }}
+                className={cn(
+                  "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                  stat.border,
+                  isActive && cn("ring-2 shadow-md", stat.activeRing),
+                )}
+              >
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className={cn("shrink-0 rounded-full p-3", stat.bg)}>
+                    <FileText className={cn("h-5 w-5", stat.color)} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black">
+                      {isLoading ? (
+                        <Skeleton className="h-8 w-12" />
+                      ) : (
+                        stat.value
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {stat.label}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
