@@ -1,27 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Users,
   ArrowLeft,
   Search,
   Check,
-  Info,
   Shield,
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
-  Briefcase,
-  GraduationCap,
+  UserCheck,
+  Info,
   X,
-  Building2,
-  UserCog,
+  ShieldCheck,
 } from "lucide-react";
 
-import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,520 +26,197 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
+import { PageContainer } from "@/components/layout";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { useUserSelector } from "@/lib/queries/users";
 import {
   assignReviewers,
   getAssignedReviewers,
-  getReviewerSelector,
   getScreeningById,
-  type ReviewerSelectorFilters,
   type Screening,
 } from "@/api/services";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
-const PAGE_LIMIT = 5;
-const SEARCH_DEBOUNCE_MS = 500;
+const PAGE_SIZE = 6;
 
-interface Reviewer {
+interface LocalReviewer {
   id: number;
   fullName: string;
   email: string;
-  middleName?: string;
   photoUrl?: string;
   organization?: string;
-  organizationType?: string;
   unit?: string;
   title?: string;
 }
 
-interface PaginationMeta {
-  page: number;
-  total: number;
-  totalPages: number;
-  limit: number;
-}
+function formatApiError(error: any, fallback: string) {
+  const apiError =
+    error?.response?.data?.error ??
+    error?.response?.data?.message ??
+    error?.response?.data ??
+    error?.errors;
 
-interface ReviewerCardProps {
-  reviewer: Reviewer;
-  isSelected: boolean;
-  onToggle: (reviewerId: number) => void;
-}
+  if (apiError?.details) {
+    const detailMessages = Object.entries(apiError.details)
+      .map(([field, messages]) => {
+        const formattedField = field
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (v) => v.toUpperCase());
+        const messageText = Array.isArray(messages)
+          ? messages.join(", ")
+          : String(messages);
+        return `${formattedField}: ${messageText}`;
+      })
+      .join("\n");
+    if (detailMessages) return detailMessages;
+  }
 
-function ReviewerCard({ reviewer, isSelected, onToggle }: ReviewerCardProps) {
-  const initials =
-    reviewer.fullName
-      .split(" ")
-      .filter(Boolean)
-      .map((name) => name[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "RV";
+  if (
+    Array.isArray(apiError?.non_field_errors) &&
+    apiError.non_field_errors.length > 0
+  ) {
+    return apiError.non_field_errors.join("\n");
+  }
 
-  return (
-    <div
-      className={cn(
-        "relative rounded-xl border p-4 transition-all duration-200 cursor-pointer",
-        "hover:bg-muted/40 hover:shadow-sm",
-        isSelected
-          ? "border-primary/60 bg-primary/5 shadow-sm ring-1 ring-primary/20"
-          : "border-border bg-card",
-      )}
-      onClick={() => onToggle(reviewer.id)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onToggle(reviewer.id);
-        }
-      }}
-      aria-pressed={isSelected}
-    >
-      <div
-        className={cn(
-          "absolute left-0 top-0 h-full w-1 rounded-l-xl transition-colors",
-          isSelected ? "bg-primary" : "bg-transparent",
-        )}
-      />
-
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <Avatar
-            className={cn(
-              "h-11 w-11 border transition-all",
-              isSelected ? "border-primary/50" : "border-border",
-            )}
-          >
-            <AvatarImage src={resolveFileUrl(reviewer.photoUrl) ?? undefined} alt={reviewer.fullName} />
-            <AvatarFallback
-              className={cn(
-                "text-xs font-bold",
-                isSelected
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-sm text-foreground truncate">
-                <span className="truncate">{reviewer.title || ""} </span>
-                {reviewer.fullName}
-              </p>
-              {isSelected && (
-                <Badge className="h-5 text-[10px] bg-primary text-primary-foreground border-none">
-                  <Check className="h-3 w-3 mr-1" />
-                  Selected
-                </Badge>
-              )}
-            </div>
-
-            <p className="text-xs text-muted-foreground truncate mt-0.5">
-              {reviewer.email || "No email"}
-            </p>
-          </div>
-        </div>
-
-        <Button
-          variant={isSelected ? "default" : "outline"}
-          size="sm"
-          className={cn(
-            "w-34 h-8 text-xs transition-all duration-200",
-            isSelected && "bg-primary hover:bg-primary/90",
-          )}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggle(reviewer.id);
-          }}
-        >
-          {isSelected ? (
-            <>
-              <Check className="mr-1.5 h-3.5 w-3.5" />
-              Check Assigned
-            </>
-          ) : (
-            <>
-              <Shield className="mr-1.5 h-3.5 w-3.5" />
-              Assign Reviewer
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div className="mt-3 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1">
-          <Building2 className="h-3 w-3" />
-          {reviewer.organization || "No organization"}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1">
-          <Briefcase className="h-3 w-3" />
-          {reviewer.unit || "No unit"}
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1">
-          <UserCog className="h-3 w-3" />
-          {reviewer.organizationType || "Organization"}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-interface SelectedReviewerCardProps {
-  reviewer: Reviewer;
-  onRemove: (reviewerId: number) => void;
-}
-
-function SelectedReviewerCard({
-  reviewer,
-  onRemove,
-}: SelectedReviewerCardProps) {
-  const initials =
-    reviewer.fullName
-      .split(" ")
-      .filter(Boolean)
-      .map((name) => name[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "RV";
+  if (typeof apiError === "string" && apiError.trim()) return apiError;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-2.5 shadow-xs">
-      <Avatar className="h-8 w-8 border border-border">
-        <AvatarImage src={resolveFileUrl(reviewer.photoUrl) ?? undefined} alt={reviewer.fullName} />
-        <AvatarFallback className="text-[10px] font-bold bg-muted text-muted-foreground">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
-
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-foreground truncate">
-          {reviewer.fullName}
-        </p>
-        <p className="text-[10px] text-muted-foreground truncate">
-          {reviewer.email || ""}
-        </p>
-      </div>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-        onClick={() => onRemove(reviewer.id)}
-        aria-label={`Remove ${reviewer.fullName}`}
-      >
-        <X className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
-}
-
-interface AssignmentStatsProps {
-  assignedCount: number;
-  availableCount: number;
-}
-
-function AssignmentStats({
-  assignedCount,
-  availableCount,
-}: AssignmentStatsProps) {
-  const policyState =
-    assignedCount === 0
-      ? {
-          icon: AlertCircle,
-          className:
-            "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300",
-          title: "No reviewers selected",
-          description: "Select at least one reviewer to continue.",
-        }
-      : assignedCount === 1
-        ? {
-            icon: Info,
-            className:
-              "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-300",
-            title: "Recommendation",
-            description: "Standard policy recommends 2 reviewers.",
-          }
-        : {
-            icon: Check,
-            className:
-              "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300",
-            title: "Policy satisfied",
-            description: "You have selected the recommended reviewer count.",
-          };
-
-  const StatusIcon = policyState.icon;
-
-  return (
-    <>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-border bg-background p-2.5">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Assigned
-          </p>
-          <p className="text-base font-bold text-foreground">{assignedCount}</p>
-          <p className="text-[10px] text-muted-foreground">reviewers</p>
-        </div>
-        <div className="rounded-lg border border-border bg-background p-2.5">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Available
-          </p>
-          <p className="text-base font-bold text-foreground">
-            {availableCount}
-          </p>
-          <p className="text-[10px] text-muted-foreground">in directory</p>
-        </div>
-      </div>
-
-      <div className={cn("rounded-lg border p-2.5", policyState.className)}>
-        <div className="flex items-start gap-2">
-          <StatusIcon className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-[11px] font-semibold">{policyState.title}</p>
-            <p className="text-[10px] mt-0.5">{policyState.description}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border bg-muted/20 p-2.5 flex items-start gap-2">
-        <ShieldCheck className="size-4 text-primary shrink-0 mt-0.5" />
-        <div>
-          <p className="text-[11px] font-semibold text-foreground">
-            Standard recommendation
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Standard: 2 reviewers for institutional screening quality control.
-          </p>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function ReviewerSkeleton() {
-  return (
-    <div className="space-y-3 p-4">
-      {Array.from({ length: PAGE_LIMIT }).map((_, index) => (
-        <div
-          key={index}
-          className="rounded-xl border border-border p-4 space-y-3"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1">
-              <Skeleton className="h-11 w-11 rounded-full" />
-              <div className="space-y-2 flex-1">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-56" />
-              </div>
-            </div>
-            <Skeleton className="h-8 w-32" />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-6 w-28" />
-            <Skeleton className="h-6 w-24" />
-          </div>
-        </div>
-      ))}
-    </div>
+    error?.response?.data?.detail ||
+    error?.message ||
+    (error?.message && error.message !== "[object Object]"
+      ? error.message
+      : fallback)
   );
 }
 
 export default function AssignReviewersDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
   const router = useRouter();
-
-  const screeningId = Array.isArray(id) ? id[0] : String(id || "");
+  const screeningId = Array.isArray(params.id)
+    ? params.id[0]
+    : String(params.id || "");
 
   const [screening, setScreening] = useState<Screening | null>(null);
-  const [reviewers, setReviewers] = useState<Reviewer[]>([]);
-  const [reviewerLookup, setReviewerLookup] = useState<
-    Record<number, Reviewer>
-  >({});
-  const [assignedReviewers, setAssignedReviewers] = useState<Reviewer[]>([]);
-  const [selectedReviewerIds, setSelectedReviewerIds] = useState<number[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta>({
-    page: 1,
-    total: 0,
-    totalPages: 1,
-    limit: PAGE_LIMIT,
-  });
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [reviewersLoading, setReviewersLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const searchSeq = useRef(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(search.trim());
-    }, SEARCH_DEBOUNCE_MS);
+  const { data: rawUsers, isLoading: isLoadingUsers } = useUserSelector();
+  const users = rawUsers || [];
 
-    return () => clearTimeout(timeout);
-  }, [search]);
+  const mapUserToSelector = useCallback(
+    (item: any): LocalReviewer => {
+      const fallbackName = [
+        item?.firstName,
+        item?.middleName,
+        item?.lastName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
 
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch]);
-
-  const mapReviewer = useCallback((item: any): Reviewer => {
-    const fallbackName = [
-      item?.firstName ?? item?.first_name,
-      item?.middleName ?? item?.middle_name,
-      item?.lastName ?? item?.last_name,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-
-    return {
-      id: Number(item.id),
-      fullName:
-        item.fullName || item.full_name || fallbackName || "Unnamed Reviewer",
-      email: item.email || "",
-      middleName: item.middleName ?? item.middle_name ?? undefined,
-      photoUrl: item.photoUrl || undefined,
-      organization:
-        item.organization?.name || item.organization_name || "No organization",
-      organizationType:
-        item.organizationType?.name ||
-        item.organization_type?.name ||
-        "No organization type",
-      unit: item.unit?.name || item.unit_name || "No unit",
-      title: item.title?.name || item.title_name || "",
-    };
-  }, []);
-
-  const loadReviewers = useCallback(
-    async (targetPage: number, searchTerm: string) => {
-      const seq = ++searchSeq.current;
-      setReviewersLoading(true);
-      try {
-        const params: ReviewerSelectorFilters = {
-          page: targetPage,
-          limit: PAGE_LIMIT,
-          search: searchTerm || undefined,
-        };
-
-        const response = await getReviewerSelector(params);
-        if (seq !== searchSeq.current) return;
-
-        const mapped = (response.data || []).map(mapReviewer);
-
-        setReviewers(mapped);
-        setReviewerLookup((previous) => {
-          const next = { ...previous };
-          mapped.forEach((reviewer) => {
-            next[reviewer.id] = reviewer;
-          });
-          return next;
-        });
-        setMeta({
-          page: response.meta?.page ?? targetPage,
-          total: response.meta?.total ?? mapped.length,
-          totalPages: Math.max(response.meta?.totalPages ?? 1, 1),
-          limit: response.meta?.limit ?? PAGE_LIMIT,
-        });
-      } catch (error) {
-        console.error("Failed to load reviewers:", error);
-        toast.error("Failed to load reviewer directory");
-      } finally {
-        setReviewersLoading(false);
-      }
+      return {
+        id: Number(item.id),
+        fullName:
+          item.fullName ||
+          item.full_name ||
+          fallbackName ||
+          "Unnamed Reviewer",
+        email: item.email || "",
+        photoUrl: item.photoUrl || undefined,
+        organization:
+          item.organization?.name || item.organization_name || "",
+        unit: item.unit?.name || item.unit_name || "",
+        title: item.title?.name || item.title_name || "",
+      };
     },
-    [mapReviewer],
+    [],
   );
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
     if (!screeningId) {
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    try {
-      // Load screening (proposal) details
-      const screeningRes = await getScreeningById(screeningId);
-      setScreening(screeningRes);
+    let isMounted = true;
 
-      // Load assigned reviewers for this screening
-      const assignedRes = await getAssignedReviewers(screeningId);
-      const assigned = (assignedRes.reviewers || []).map(mapReviewer);
-      setAssignedReviewers(assigned);
-      setSelectedReviewerIds(assigned.map((r) => Number(r.id)));
+    (async () => {
+      try {
+        const [screeningRes, assignedRes] = await Promise.all([
+          getScreeningById(screeningId),
+          getAssignedReviewers(screeningId),
+        ]);
 
-      // Populate reviewer lookup for fast access
-      setReviewerLookup((prev) => {
-        const next = { ...prev };
-        assigned.forEach((rev) => {
-          next[rev.id] = rev;
-        });
-        return next;
-      });
-    } catch (error) {
-      console.error("Failed to load assignment data:", error);
-      toast.error("Failed to load assignment data");
-    } finally {
-      setLoading(false);
-    }
-  }, [screeningId, mapReviewer]);
+        if (!isMounted) return;
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+        setScreening(screeningRes);
 
-  useEffect(() => {
-    if (screeningId && !loading) {
-      loadReviewers(page, debouncedSearch);
-    }
-  }, [debouncedSearch, loadReviewers, loading, page, screeningId]);
-
-  const toggleReviewer = useCallback((reviewerId: number) => {
-    setSelectedReviewerIds((previous) => {
-      if (previous.includes(reviewerId)) {
-        return previous.filter((idValue) => idValue !== reviewerId);
+        const assignedIds = (assignedRes.reviewers || []).map(
+          (r: any) => Number(r.id),
+        );
+        setSelectedIds(assignedIds);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Failed to load assignment data:", error);
+        toast.error("Failed to load assignment data");
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      return [...previous, reviewerId];
-    });
-  }, []);
+    })();
 
-  const selectedReviewerMap = useMemo(
-    () =>
-      new Map(
-        [...assignedReviewers, ...Object.values(reviewerLookup)].map(
-          (reviewer) => [reviewer.id, reviewer],
-        ),
-      ),
-    [assignedReviewers, reviewerLookup],
+    return () => {
+      isMounted = false;
+    };
+  }, [screeningId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const filteredUsers = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return users.filter((u: any) => {
+      const fullName =
+        u.fullName ||
+        `${u.firstName || ""} ${u.middleName || ""} ${u.lastName || ""}`;
+      return (
+        fullName.toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.unit?.name || "").toLowerCase().includes(q) ||
+        (u.organization?.name || "").toLowerCase().includes(q)
+      );
+    });
+  }, [users, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
   );
 
-  const selectedReviewers = useMemo(() => {
-    return selectedReviewerIds.map((reviewerId) => {
-      const reviewer = selectedReviewerMap.get(reviewerId);
-      if (reviewer) {
-        return reviewer;
-      }
+  const toggleAssignment = useCallback((userId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+  }, []);
 
-      return {
-        id: reviewerId,
-        fullName: `Reviewer #${reviewerId}`,
-        email: "",
-        organization: "No organization",
-        unit: "No unit",
-        title: "Reviewer",
-      } satisfies Reviewer;
-    });
-  }, [selectedReviewerIds, selectedReviewerMap]);
+  const selectedUsers = useMemo(() => {
+    return users
+      .filter((u: any) => selectedIds.includes(u.id))
+      .map(mapUserToSelector);
+  }, [users, selectedIds, mapUserToSelector]);
 
-  const assignedCount = selectedReviewerIds.length;
+  const assignedCount = selectedIds.length;
 
   const handleSubmitAssignment = useCallback(async () => {
     if (assignedCount === 0) {
@@ -557,55 +229,55 @@ export default function AssignReviewersDetailPage() {
       return;
     }
 
+    setSubmitError(null);
     setSubmitting(true);
     try {
       await assignReviewers(
         screeningId,
-        selectedReviewerIds.map((value) => Number(value)),
+        selectedIds.map((v) => Number(v)),
       );
-      toast.success("Reviewers assigned successfully");
+      toast.success(
+        `Successfully assigned ${assignedCount} reviewer(s). They have been notified.`,
+      );
       router.push("/research/proposals/assign-reviewers");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to assign reviewers");
+      const message = formatApiError(
+        error,
+        "Failed to save assignments. Please try again.",
+      );
+      setSubmitError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
-  }, [assignedCount, router, screeningId, selectedReviewerIds]);
+  }, [assignedCount, router, screeningId, selectedIds]);
 
-  if (loading) {
+  const isLoadingPage = loading || isLoadingUsers;
+
+  if (isLoadingPage) {
     return (
       <PageContainer title="Loading Reviewer Pool...">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          <div className="lg:col-span-3 space-y-6">
-            <Card className="border border-border shadow-sm">
-              <CardContent className="p-4 space-y-3">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-6 w-2/3" />
-                <Skeleton className="h-4 w-1/2" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-6 w-20" />
-                  <Skeleton className="h-6 w-28" />
-                  <Skeleton className="h-6 w-24" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border shadow-sm overflow-hidden">
-              <CardContent className="p-0">
-                <ReviewerSkeleton />
-              </CardContent>
-            </Card>
+        <div className="rounded-xl border p-6 space-y-6 bg-card">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-6 w-[250px] bg-muted animate-pulse rounded" />
+              <div className="h-4 w-[350px] bg-muted animate-pulse rounded" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-9 w-[100px] bg-muted animate-pulse rounded" />
+              <div className="h-9 w-[150px] bg-muted animate-pulse rounded" />
+            </div>
           </div>
-
-          <div className="space-y-6">
-            <Card className="border border-border shadow-sm">
-              <CardContent className="p-4 space-y-3">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 lg:grid-cols-4">
+            <div className="lg:col-span-3 space-y-4">
+              {[...Array(PAGE_SIZE)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-16 w-full bg-muted animate-pulse rounded-lg"
+                />
+              ))}
+            </div>
+            <div className="h-48 w-full bg-muted animate-pulse rounded-lg" />
           </div>
         </div>
       </PageContainer>
@@ -618,27 +290,41 @@ export default function AssignReviewersDetailPage() {
         title="Proposal Not Found"
         description="The requested proposal could not be found."
       >
-        <Button onClick={() => router.back()}>Go Back</Button>
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-bold text-amber-900">
+                Screening Not Found
+              </h3>
+              <p className="text-sm text-amber-800">
+                The screening details could not be loaded. Please try again.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+            >
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
       </PageContainer>
     );
   }
 
   const proposal = screening.proposal as any;
-  const proposalReference = proposal.referenceNumber || `PRP-${proposal.id}`;
-  const proposalTitle = proposal.title || "Untitled Proposal";
-  const proposalAbstract =
-    proposal.shortAbstract ||
-    "No abstract provided for this proposal submission.";
-  const proposalArea = proposal.thematicAreas?.[0]?.name || "Unspecified Area";
-  const proposalOwner =
-    [proposal.createdBy?.firstName, proposal.createdBy?.lastName]
-      .filter(Boolean)
-      .join(" ") ||
-    proposal.createdBy?.email ||
-    "—";
+  const proposalTitle = proposal?.title || "Untitled Proposal";
 
-  const startIndex = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1;
-  const endIndex = Math.min(meta.page * meta.limit, meta.total);
+  const startIndex =
+    filteredUsers.length === 0
+      ? 0
+      : (currentPage - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(
+    currentPage * PAGE_SIZE,
+    filteredUsers.length,
+  );
 
   return (
     <PageContainer
@@ -648,134 +334,273 @@ export default function AssignReviewersDetailPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-            className="shadow-sm"
+            asChild
+            className="shadow-sm border-primary/20 hover:bg-primary/5"
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Cancel
+            <Link href="/research/proposals/assign-reviewers">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Cancel
+            </Link>
+          </Button>
+          <Button
+            onClick={handleSubmitAssignment}
+            disabled={submitting || assignedCount === 0}
+            className="bg-primary hover:bg-primary/90 font-semibold"
+          >
+            <Shield className="mr-2 h-4 w-4" />
+            {submitting ? "Saving..." : "Save Assignments"}
           </Button>
         </div>
       }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Main Content Area */}
+      {submitError && (
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-semibold">Unable to save assignments</p>
+              <p className="whitespace-pre-line">{submitError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-4 items-start">
+        {/* ── Reviewer Pool ──────────────────────────────────────────────── */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Proposal Context Summary */}
+          {/* Proposal Context */}
           <Card className="border-none shadow-sm bg-linear-to-r from-primary/5 to-muted/30">
             <CardContent className="p-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="font-bold text-xl leading-tight text-foreground">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-xl leading-tight text-foreground truncate">
                     {proposalTitle}
                   </h3>
+                  {proposal?.referenceNumber && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Reference: {proposal.referenceNumber}
+                    </p>
+                  )}
                 </div>
-
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 text-xs gap-1 shrink-0"
                   asChild
                 >
-                  <Link href={`/research/proposals/${String(proposal.id)}`}>
+                  <Link
+                    href={`/research/proposals/assign-reviewers/${screeningId}`}
+                  >
                     <Info className="size-3" />
-                    Full Proposal
+                    View Screening Details
                   </Link>
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Reviewer Pool */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
+          {/* Expert Pool */}
+          <Card className="shadow-sm border-primary/10">
             <CardHeader className="bg-muted/30 border-b pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg">Reviewer Pool</CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardDescription>
                     Select subject matter experts to evaluate this research
                     proposal.
                   </CardDescription>
                 </div>
-                <div className="relative w-full sm:w-72">
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Search reviewers"
-                    className="pl-9 h-9 text-sm"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search by name, email, or unit..."
+                    className="pl-9 h-9 border-primary/10 focus-visible:ring-primary"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
               </div>
             </CardHeader>
-
             <CardContent className="p-0">
-              {reviewersLoading ? (
-                <ReviewerSkeleton />
-              ) : reviewers.length === 0 ? (
-                <div className="p-12 text-center text-sm">
-                  <p className="font-medium text-foreground">
-                    No reviewers found
-                  </p>
-                  <p className="text-muted-foreground text-xs mt-1">
-                    {debouncedSearch
-                      ? "No reviewers match your criteria"
-                      : "Reviewer directory is currently empty."}
-                  </p>
+              {filteredUsers.length === 0 ? (
+                <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
+                  <AlertCircle className="h-8 w-8 text-muted-foreground/60" />
+                  <span>No reviewers match your search criteria.</span>
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3 p-4 min-h-87.5">
-                    {reviewers.map((reviewer) => (
-                      <ReviewerCard
-                        key={reviewer.id}
-                        reviewer={reviewer}
-                        isSelected={selectedReviewerIds.includes(reviewer.id)}
-                        onToggle={toggleReviewer}
-                      />
-                    ))}
+                  <div className="divide-y min-h-[280px]">
+                    {paginatedUsers.map((user: any) => {
+                      const isSelected = selectedIds.includes(user.id);
+                      const mapped = mapUserToSelector(user);
+                      return (
+                        <div
+                          key={user.id}
+                          className={cn(
+                            "flex items-center justify-between p-4 hover:bg-muted/20 transition-colors cursor-pointer",
+                            isSelected &&
+                              "bg-primary/5 hover:bg-primary/10",
+                          )}
+                          onClick={() => toggleAssignment(user.id)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <Avatar
+                              className={cn(
+                                "h-10 w-10 border-2 transition-all",
+                                isSelected
+                                  ? "border-primary shadow-sm"
+                                  : "border-transparent",
+                              )}
+                            >
+                              <AvatarImage
+                                src={
+                                  resolveFileUrl(mapped.photoUrl) ??
+                                  undefined
+                                }
+                              />
+                              <AvatarFallback
+                                className={cn(
+                                  "text-xs font-bold transition-all",
+                                  isSelected
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-primary/10 text-primary",
+                                )}
+                              >
+                                {mapped.fullName
+                                  .split(" ")
+                                  .filter(Boolean)
+                                  .map((n: string) => n[0])
+                                  .join("")
+                                  .slice(0, 2)
+                                  .toUpperCase() || "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-semibold text-sm text-foreground truncate">
+                                {mapped.fullName}
+                              </span>
+                              <span className="text-xs text-muted-foreground truncate">
+                                {mapped.email}
+                              </span>
+                              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                {mapped.organization && (
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+                                    {mapped.organization}
+                                  </span>
+                                )}
+                                {mapped.unit && (
+                                  <span className="text-[10px] font-medium text-muted-foreground">
+                                    {mapped.unit}
+                                  </span>
+                                )}
+                              </div>
+                              {user.roles &&
+                                user.roles.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {user.roles.map((role: any) => (
+                                      <Badge
+                                        key={role.id}
+                                        variant="secondary"
+                                        className="text-[9px] px-1.5 py-0 h-4 font-medium"
+                                      >
+                                        {role.name}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                            </div>
+                          </div>
+                          <Button
+                            variant={
+                              isSelected ? "default" : "outline"
+                            }
+                            size="sm"
+                            className={cn(
+                              "w-28 font-medium transition-all",
+                              isSelected
+                                ? "bg-primary hover:bg-primary/90"
+                                : "border-primary/20 hover:bg-primary/5 text-primary",
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAssignment(user.id);
+                            }}
+                          >
+                            {isSelected ? (
+                              <>
+                                <Check className="mr-2 h-4 w-4" />{" "}
+                                Assigned
+                              </>
+                            ) : (
+                              "Assign"
+                            )}
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* Pagination */}
-                  {meta.totalPages > 1 && (
+                  {totalPages > 1 && (
                     <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Showing{" "}
-                        <span className="font-medium">{startIndex}</span> to{" "}
-                        <span className="font-medium">{endIndex}</span> of{" "}
-                        <span className="font-medium">{meta.total}</span>{" "}
+                        <span className="font-medium">{startIndex}</span>{" "}
+                        to{" "}
+                        <span className="font-medium">{endIndex}</span>{" "}
+                        of{" "}
+                        <span className="font-medium">
+                          {filteredUsers.length}
+                        </span>{" "}
                         experts
                       </p>
                       <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
                           onClick={() =>
-                            setPage((previous) => Math.max(1, previous - 1))
+                            setCurrentPage((p) =>
+                              Math.max(1, p - 1),
+                            )
                           }
-                          disabled={meta.page <= 1 || reviewersLoading}
+                          disabled={currentPage === 1}
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
-
-                        <span className="text-[10px] text-muted-foreground px-2">
-                          Page {meta.page} of {meta.totalPages}
-                        </span>
-
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((page) => (
+                          <Button
+                            key={page}
+                            variant={
+                              currentPage === page
+                                ? "default"
+                                : "ghost"
+                            }
+                            size="sm"
+                            className={cn(
+                              "h-8 w-8 p-0 text-xs font-semibold",
+                              currentPage === page
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-primary/5 text-primary",
+                            )}
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        ))}
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
                           onClick={() =>
-                            setPage((previous) =>
-                              Math.min(meta.totalPages, previous + 1),
+                            setCurrentPage((p) =>
+                              Math.min(totalPages, p + 1),
                             )
                           }
-                          disabled={
-                            meta.page >= meta.totalPages || reviewersLoading
-                          }
+                          disabled={currentPage === totalPages}
                         >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
@@ -788,42 +613,70 @@ export default function AssignReviewersDetailPage() {
           </Card>
         </div>
 
-        {/* Sidebar Summary */}
-        <div className="lg:sticky lg:top-20 space-y-6">
-          <Card className="shadow-sm border-primary/20 bg-primary/5 overflow-hidden">
-            <CardHeader className="pb-3 border-b border-primary/10 bg-primary/10">
-              <CardTitle className="text-sm font-bold text-primary flex items-center justify-between">
-                Selected Reviewers
-                <Badge className="bg-primary hover:bg-primary h-5 min-w-5 flex items-center justify-center p-0">
+        {/* ── Sidebar ──────────────────────────────────────────────────── */}
+        <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
+          {/* Assignment Summary */}
+          <Card className="shadow-sm border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3 border-b border-primary/10">
+              <CardTitle className="text-base text-primary flex items-center justify-between">
+                Assignment Summary
+                <Badge className="bg-primary hover:bg-primary">
                   {assignedCount}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
-              <div className="space-y-2 max-h-75 overflow-y-auto pr-1">
-                {selectedReviewers.length === 0 ? (
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You have selected{" "}
+                <strong>{assignedCount} reviewer(s)</strong> to evaluate
+                this proposal.
+              </p>
+              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                {selectedUsers.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
                     Select reviewers from the directory
                   </div>
                 ) : (
-                  selectedReviewers.map((reviewer) => (
-                    <SelectedReviewerCard
-                      key={reviewer.id}
-                      reviewer={reviewer}
-                      onRemove={toggleReviewer}
-                    />
+                  selectedUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center gap-2 text-sm bg-background p-2 rounded border border-primary/10 shadow-sm"
+                    >
+                      <UserCheck className="h-4 w-4 text-green-600 shrink-0" />
+                      <span className="truncate font-medium text-foreground flex-1">
+                        {user.fullName}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => toggleAssignment(user.id)}
+                        aria-label={`Remove ${user.fullName}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   ))
                 )}
               </div>
+
+              {assignedCount === 0 && (
+                <div className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded border border-amber-100 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <span>
+                    Select at least one reviewer to continue.
+                  </span>
+                </div>
+              )}
+
               <Button
                 onClick={handleSubmitAssignment}
                 disabled={submitting || assignedCount === 0}
-                size="sm"
                 className="bg-primary hover:bg-primary/90 shadow-sm w-full"
               >
                 {submitting ? (
                   <>
-                    <Spinner className="mr-2 h-4 w-4" />
+                    <div className="mr-2 h-4 w-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -833,6 +686,24 @@ export default function AssignReviewersDetailPage() {
                   </>
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Policy Info */}
+          <Card className="shadow-sm border-muted">
+            <CardContent className="pt-4 text-xs text-muted-foreground space-y-1.5">
+              <p className="font-medium text-foreground text-sm flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Standard recommendation
+              </p>
+              <p>
+                Standard policy recommends 2 reviewers for research proposal
+                evaluation quality control.
+              </p>
+              <p>
+                Selected reviewers will be notified and given access to
+                conduct their technical review.
+              </p>
             </CardContent>
           </Card>
         </div>

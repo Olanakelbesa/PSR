@@ -13,11 +13,9 @@ import {
   Clock,
   BarChart3,
   Users,
-  Wallet,
   ClipboardList,
   ChevronRight,
   CalendarClock,
-  BadgeCheck,
   Paperclip,
 } from "lucide-react";
 
@@ -119,6 +117,14 @@ export default function TechnicalReviewDetailPage() {
       "—"
     : "—";
   const responses = review?.responses || [];
+  const maxPossiblePoints = responses.reduce(
+    (sum, r) => sum + (r.question?.maxPoints ?? 0),
+    0,
+  );
+  const scorePercent =
+    maxPossiblePoints > 0
+      ? Math.round(((review?.totalScore ?? 0) / maxPossiblePoints) * 100)
+      : 0;
   const thematicAreaLabel =
     THEMATIC_AREAS.find(
       (area) => area.value === proposal?.thematicAreas?.[0]?.name,
@@ -186,12 +192,6 @@ export default function TechnicalReviewDetailPage() {
                 Review Overview
               </TabsTrigger>
               <TabsTrigger
-                value="screening"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Screening Decision
-              </TabsTrigger>
-              <TabsTrigger
                 value="responses"
                 className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
               >
@@ -225,7 +225,17 @@ export default function TechnicalReviewDetailPage() {
                         <p className="text-[10px] tracking-widest text-muted-foreground mb-1">
                           Total Score
                         </p>
-                        <p className="text-sm font-bold">{review.totalScore}</p>
+                        <p className={cn(
+                          "text-sm font-bold",
+                          scorePercent >= 70 ? "text-green-600" : scorePercent >= 50 ? "text-amber-600" : "text-rose-600",
+                        )}>
+                          {scorePercent}%
+                          {maxPossiblePoints > 0 && (
+                            <span className="text-xs font-medium text-muted-foreground ml-1">
+                              ({review.totalScore}/{maxPossiblePoints})
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div>
                         <p className="text-[10px] tracking-widest text-muted-foreground mb-1">
@@ -270,65 +280,6 @@ export default function TechnicalReviewDetailPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="screening" className="pt-6 space-y-6">
-              <Card className="shadow-sm border-primary/5">
-                <CardHeader className="bg-muted/30 border-b pb-4">
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">
-                      Screening Decision
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Screening ID
-                      </p>
-                      <p className="text-sm font-bold text-foreground">
-                        {review.screening.id}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="text-sm text-muted-foreground">
-                        Submitted Date
-                      </p>
-                      <p className="text-sm font-bold text-foreground">
-                        {formatDateTime(submittedAt)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Organization
-                      </p>
-                      <p className="text-sm font-bold text-foreground">
-                        {organizationName}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Unit
-                      </p>
-                      <p className="text-sm font-bold text-foreground">
-                        {unitName}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-dashed bg-muted/30 p-5">
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-                      Decision Remarks
-                    </p>
-                    <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">
-                      {review.screening.decisionRemarks ||
-                        "No screening remarks provided."}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             <TabsContent value="responses" className="pt-6 space-y-6">
               <Card className="shadow-sm border-primary/5">
                 <CardHeader className="bg-muted/30 border-b pb-4">
@@ -347,31 +298,45 @@ export default function TechnicalReviewDetailPage() {
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
                   {responses.length > 0 ? (
-                    responses.map((response) => (
-                      <div
-                        key={response.id}
-                        className="rounded-xl border border-border bg-card p-4 space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <p className="text-sm font-semibold text-foreground">
-                            {response.question?.text ||
-                              `Question ${response.question_id ?? response.id}`}
-                          </p>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] uppercase font-bold"
-                          >
-                            {response.points_earned} /{" "}
-                            {response.question?.maxPoints ?? 0}
-                          </Badge>
-                        </div>
+                    responses.map((response) => {
+                      const maxPts = response.question?.maxPoints ?? 0;
+                      const earned = response.points_earned;
+                      const responsePercent = maxPts > 0 ? Math.round((earned / maxPts) * 100) : 0;
+                      return (
+                        <div
+                          key={response.id}
+                          className="rounded-xl border border-border bg-card p-4 space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="text-sm font-semibold text-foreground">
+                              {response.question?.text ||
+                                `Question ${response.question_id ?? response.id}`}
+                            </p>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] uppercase font-bold",
+                                responsePercent >= 70
+                                  ? "bg-green-100 text-green-700 border-green-200"
+                                  : responsePercent >= 50
+                                    ? "bg-amber-50 text-amber-600 border-amber-200"
+                                    : "bg-rose-50 text-rose-600 border-rose-200",
+                              )}
+                            >
+                              {responsePercent}%
+                              <span className="font-normal text-muted-foreground ml-1">
+                                ({earned}/{maxPts})
+                              </span>
+                            </Badge>
+                          </div>
                         {response.question?.category?.name && (
                           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                             {response.question.category.name}
                           </p>
                         )}
                       </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
                       <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
@@ -429,10 +394,29 @@ export default function TechnicalReviewDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Total Score</span>
-                <span className="text-sm font-bold text-foreground">
-                  {review.totalScore}
+                <span className={cn(
+                  "text-sm font-bold",
+                  scorePercent >= 70 ? "text-green-600" : scorePercent >= 50 ? "text-amber-600" : "text-rose-600",
+                )}>
+                  {scorePercent}%
                 </span>
               </div>
+              {maxPossiblePoints > 0 && (
+                <div className="space-y-1">
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-700",
+                        scorePercent >= 70 ? "bg-green-500" : scorePercent >= 50 ? "bg-amber-400" : "bg-rose-500",
+                      )}
+                      style={{ width: `${Math.min(scorePercent, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-right">
+                    {review.totalScore} / {maxPossiblePoints} pts
+                  </p>
+                </div>
+              )}
               <div className="pt-4 border-t">
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <CalendarClock className="h-4 w-4" />

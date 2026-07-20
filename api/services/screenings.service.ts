@@ -29,6 +29,32 @@ const ScreeningAssignedReviewerSchema = z
   })
   .passthrough();
 
+const ScreeningTechnicalReviewResponseSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(Number),
+    question: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(Number),
+        text: z.string().optional().default(""),
+        maxPoints: z
+          .union([z.string(), z.number()])
+          .transform(Number),
+        category: z
+          .object({
+            id: z.union([z.string(), z.number()]).transform(Number),
+            name: z.string().optional().default(""),
+          })
+          .nullable()
+          .optional(),
+      })
+      .nullable()
+      .optional(),
+    pointsEarned: z
+      .union([z.string(), z.number()])
+      .transform(Number),
+  })
+  .passthrough();
+
 const ScreeningTechnicalReviewSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(Number),
   reviewer: z
@@ -43,6 +69,11 @@ const ScreeningTechnicalReviewSchema = z.object({
   comments: z.string().nullable().optional(),
   totalScore: z.number().nullable().optional(),
   attachment: z.string().nullable().optional(),
+  hasResponses: z.boolean().optional().default(false),
+  responses: z
+    .array(ScreeningTechnicalReviewResponseSchema)
+    .optional()
+    .default([]),
   createdAt: z.string().nullable().optional(),
 });
 
@@ -168,6 +199,9 @@ const ScreeningSchema = z
       .array(ScreeningAssignedReviewerSchema)
       .optional()
       .default([]),
+    reviewsCompletedCount: z.number().optional().default(0),
+    averageScorePercentage: z.number().nullable().optional().default(null),
+    maxPossiblePoints: z.number().optional().default(0),
     createdAt: z.string().nullable().optional(),
     updatedAt: z.string().nullable().optional(),
   })
@@ -257,6 +291,9 @@ export type ApprovedPendingFundingScreening = z.infer<
 >;
 
 export type ScreeningProposalDetail = z.infer<typeof ScreeningProposalSchema>;
+export type ScreeningTechnicalReviewResponse = z.infer<
+  typeof ScreeningTechnicalReviewResponseSchema
+>;
 export type ScreeningTechnicalReview = z.infer<
   typeof ScreeningTechnicalReviewSchema
 >;

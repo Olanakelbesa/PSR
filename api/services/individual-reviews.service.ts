@@ -162,6 +162,7 @@ export type IndividualReviewDetail = z.infer<
 >;
 
 export interface IndividualReviewFilters {
+  all?: string;
   limit?: number;
   ordering?: string;
   page?: number;

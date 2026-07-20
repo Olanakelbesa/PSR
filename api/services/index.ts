@@ -33,6 +33,7 @@ export type {
   ScreeningAssignedReviewer,
   ScreeningProposalDetail,
   ScreeningTechnicalReview,
+  ScreeningTechnicalReviewResponse,
 } from "./screenings.service";
 export type { ScreeningStatus as ScreeningWorkflowStatus } from "./screenings.service";
 export type { ScreeningStatus as ProposalScreeningStatus } from "./proposals.service";
