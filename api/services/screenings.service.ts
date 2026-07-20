@@ -222,7 +222,8 @@ const ScreeningsListSchema = z.object({
 
 const ApprovedPendingFundingPrincipalInvestigatorSchema = z.object({
   firstName: z.string().optional().default(""),
-  email: z.string().email().optional().default(""),
+  lastName: z.string().optional().default(""),
+  email: z.string().optional().default(""),
   phone: z.string().optional().default(""),
 });
 
@@ -236,6 +237,15 @@ const ApprovedPendingFundingAttachmentSchema = z.object({
   ),
 });
 
+const FundingRecommendationSchema = z.object({
+  id: z.number(),
+  amount: z.number().nullable().optional(),
+  amountInWords: z.string().nullable().optional(),
+  hasEthicalClearanceApproval: z.boolean().nullable().optional(),
+  comments: z.string().nullable().optional(),
+  recommendedAt: z.string().nullable().optional(),
+});
+
 const ApprovedPendingFundingSchema = z
   .object({
     id: z.string(),
@@ -244,6 +254,10 @@ const ApprovedPendingFundingSchema = z
     institution: z.string().optional().default(""),
     researchArea: z.string().optional().default(""),
     abstract: z.string().optional().default(""),
+    background: z.string().optional().default(""),
+    objectives: z.string().optional().default(""),
+    methodology: z.string().optional().default(""),
+    ethicalConsiderations: z.string().optional().default(""),
     principalInvestigator: ApprovedPendingFundingPrincipalInvestigatorSchema,
     coInvestigators: z
       .array(z.record(z.string(), z.unknown()))
@@ -262,26 +276,31 @@ const ApprovedPendingFundingSchema = z
     reviewStatus: z
       .object({
         technicalReview: z.string().optional().default(""),
+        ethicsReview: z.string().nullable().optional().default(null),
         financialReview: z.string().optional().default(""),
       })
       .optional()
-      .default({ technicalReview: "", financialReview: "" }),
+      .default({ technicalReview: "", ethicsReview: null, financialReview: "" }),
     fundingStatus: z
       .object({
         state: z.string().optional().default(""),
         decision: z.string().optional().default(""),
+        approvedAmount: z.number().nullable().optional().default(null),
         remark: z.string().optional().default(""),
         id: z.number().optional(),
         needIrbEthicalClearance: z.boolean().optional().default(false),
-        recommendations: z.array(z.unknown()).optional().default([]),
+        recommendations: z.array(FundingRecommendationSchema).optional().default([]),
+        ethicalClearanceStatus: z.string().nullable().optional().default(null),
       })
       .optional()
       .default({
         state: "",
         decision: "",
+        approvedAmount: null,
         remark: "",
         needIrbEthicalClearance: false,
         recommendations: [],
+        ethicalClearanceStatus: null,
       }),
   })
   .passthrough();

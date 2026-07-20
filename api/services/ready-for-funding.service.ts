@@ -13,6 +13,7 @@ export interface ReadyForFundingItem {
   proposalTitle: string;
   referenceNumber: string;
   proposalType: string;
+  call: string | null;
   organization: string;
   unit: string;
   thematicAreas: string[];
@@ -67,6 +68,7 @@ function transformApiResponse(data: any): ReadyForFundingItem {
   const proposalTitle = data.proposal_title ?? data.proposalTitle ?? "Untitled Proposal";
   const referenceNumber = data.reference_number ?? data.referenceNumber ?? "";
   const proposalType = data.proposal_type ?? data.proposalType ?? "";
+  const call = data.call ?? null;
   const organization = data.organization ?? data.organizationName ?? "";
   const unit = data.unit ?? data.unitName ?? "";
   const thematicAreas = data.thematic_areas ?? data.thematicAreas ?? [];
@@ -96,6 +98,7 @@ function transformApiResponse(data: any): ReadyForFundingItem {
     proposalTitle,
     referenceNumber,
     proposalType,
+    call,
     organization,
     unit,
     thematicAreas,
@@ -150,6 +153,7 @@ export const readyForFundingService = {
     organization?: number;
     unit?: number;
     proposal_type?: number;
+    call?: number | string;
     has_funding_decision?: boolean;
     funding_decision_status?: "pending" | "approved" | "rejected" | "deferred";
     min_score?: number;
