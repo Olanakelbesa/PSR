@@ -197,6 +197,12 @@ const buildProposalFormData = (values: ProposalFormInput): FormData => {
       String(parseInt(String(values.proposalType), 10)),
     );
   }
+  if (values.subProposalTypeId) {
+    formData.append(
+      "sub_proposal_type",
+      String(parseInt(String(values.subProposalTypeId), 10)),
+    );
+  }
   if (values.grantCallId) {
     formData.append("call", String(parseInt(String(values.grantCallId), 10)));
   }
@@ -569,6 +575,14 @@ const buildModifiedProposalFormData = (
         : "",
     );
   }
+  if (values.subProposalTypeId !== undefined) {
+    formData.append(
+      "sub_proposal_type",
+      values.subProposalTypeId
+        ? String(parseInt(String(values.subProposalTypeId), 10))
+        : "",
+    );
+  }
   if (values.grantCallId !== undefined) {
     formData.append(
       "call",
@@ -689,6 +703,7 @@ export function ProposalWizard({
     return proposalId && proposalId !== "undefined" ? proposalId : "";
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<"draft" | "submitted" | null>(null);
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "typing" | "saving" | "saved" | "failed"
   >("idle");
@@ -1088,15 +1103,21 @@ export function ProposalWizard({
               : proposal.proposal_type
                 ? String(proposal.proposal_type)
                 : "",
-        subProposalTypeId: proposal.subProposalTypeId
-          ? String(proposal.subProposalTypeId)
-          : proposal.grant_call?.sub_call_type?.id
-            ? String(proposal.grant_call.sub_call_type.id)
-            : proposal.subcall && typeof proposal.subcall === "object"
-              ? String((proposal.subcall as any)?.id ?? "")
-              : proposal.subcall
-                ? String(proposal.subcall)
-                : "",
+        subProposalTypeId: proposal.subProposalType?.id
+          ? String(proposal.subProposalType.id)
+          : proposal.subProposalType && typeof proposal.subProposalType !== "object"
+            ? String(proposal.subProposalType)
+            : proposal.subProposalTypeId
+              ? String(proposal.subProposalTypeId)
+              : proposal.sub_proposal_type && typeof proposal.sub_proposal_type !== "object"
+                ? String(proposal.sub_proposal_type)
+                : proposal.grant_call?.sub_call_type?.id
+                  ? String(proposal.grant_call.sub_call_type.id)
+                  : proposal.subcall && typeof proposal.subcall === "object"
+                    ? String((proposal.subcall as any)?.id ?? "")
+                    : proposal.subcall
+                      ? String(proposal.subcall)
+                      : "",
         startDate: proposal.startDate
           ? new Date(proposal.startDate)
           : proposal.start_date
@@ -1194,18 +1215,15 @@ export function ProposalWizard({
         proposal.teamMembers || proposal.team_members || [];
       if (Array.isArray(rawTeamMembers) && rawTeamMembers.length > 0) {
         const internalMembers = rawTeamMembers
-          .filter((tm: any) => tm.member_type === "internal")
+          .filter((tm: any) => (tm.memberType || tm.member_type) === "internal")
           .map((tm: any) => ({
             backendId: tm.id,
-            userId: tm.internal_member_user_id
-              ? String(tm.internal_member_user_id)
-              : tm.member_details?.id
-                ? String(tm.member_details.id)
-                : tm.member && typeof tm.member === "object"
-                  ? String(tm.member.id)
-                  : tm.member
-                    ? String(tm.member)
-                    : "",
+            userId:
+              tm.member && typeof tm.member === "object"
+                ? String(tm.member.id)
+                : tm.member
+                  ? String(tm.member)
+                  : "",
             role:
               tm.role && typeof tm.role === "object"
                 ? String(tm.role.id)
@@ -1215,7 +1233,7 @@ export function ProposalWizard({
           }));
 
         const externalMembers = rawTeamMembers
-          .filter((tm: any) => tm.member_type === "external")
+          .filter((tm: any) => (tm.memberType || tm.member_type) === "external")
           .map((tm: any) => ({
             backendId: tm.id,
             role:
@@ -1486,6 +1504,7 @@ export function ProposalWizard({
     status: "draft" | "submitted" = "submitted",
   ) => {
     try {
+      setSubmittingAction(status);
       setIsSaving(true);
 
       if (saveStatusTimeoutRef.current) {
@@ -1635,6 +1654,7 @@ export function ProposalWizard({
         toast.error("Failed to submit proposal. Please try again.");
       }
     } finally {
+      setSubmittingAction(null);
       setIsSaving(false);
     }
   };
@@ -1762,12 +1782,22 @@ export function ProposalWizard({
                               : undefined;
 
                         const subcall =
-                          existingProposal.subcall &&
-                          typeof existingProposal.subcall === "object"
-                            ? (existingProposal.subcall as any)
-                            : existingProposal.subcall
-                              ? { id: existingProposal.subcall, name: "" }
-                              : undefined;
+                          existingProposal.subProposalType &&
+                          typeof existingProposal.subProposalType === "object"
+                            ? (existingProposal.subProposalType as any)
+                            : existingProposal.subProposalType
+                              ? { id: existingProposal.subProposalType, name: String(existingProposal.subProposalType) }
+                              : existingProposal.sub_proposal_type &&
+                                  typeof existingProposal.sub_proposal_type === "object"
+                                ? (existingProposal.sub_proposal_type as any)
+                                : existingProposal.sub_proposal_type
+                                  ? { id: existingProposal.sub_proposal_type, name: String(existingProposal.sub_proposal_type) }
+                                  : existingProposal.subcall &&
+                                      typeof existingProposal.subcall === "object"
+                                    ? (existingProposal.subcall as any)
+                                    : existingProposal.subcall
+                                      ? { id: existingProposal.subcall, name: String(existingProposal.subcall) }
+                                      : undefined;
 
                         return {
                           grant_call: grantCall,
@@ -1794,6 +1824,7 @@ export function ProposalWizard({
                         )();
                       }}
                       isSubmitting={isSubmitting}
+                      submittingAction={submittingAction}
                       onPrevious={handlePrevious}
                       isEditMode={!!proposalId}
                       isDraft={isDraftProposal}

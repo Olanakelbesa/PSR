@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 interface SignaturePadProps {
   onSave: (file: File) => void;
@@ -20,13 +19,42 @@ export default function SignaturePad({
 }: SignaturePadProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(10);
+
+  const autoSave = useCallback(() => {
+    if (!sigCanvasRef.current || sigCanvasRef.current.isEmpty()) return;
+
+    const canvas = sigCanvasRef.current.getTrimmedCanvas();
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+
+      const file = new File([blob], "signature.png", {
+        type: "image/png",
+      });
+
+      onSave(file);
+    }, "image/png");
+  }, [onSave]);
+
+  const handleStrokeEnd = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      autoSave();
+    }, 800);
+  }, [autoSave]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const updateWidth = () => {
       if (!wrapperRef.current) return;
 
-      // Preserve the drawing when the canvas resizes.
       const currentDataUrl =
         sigCanvasRef.current && !sigCanvasRef.current.isEmpty()
           ? sigCanvasRef.current.getTrimmedCanvas().toDataURL("image/png")
@@ -96,29 +124,6 @@ export default function SignaturePad({
     onClear?.();
   };
 
-  const handleSave = () => {
-    if (!sigCanvasRef.current || sigCanvasRef.current.isEmpty()) {
-      toast.error("Please provide a signature");
-      return;
-    }
-
-    const canvas = sigCanvasRef.current.getTrimmedCanvas();
-
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        toast.error("Unable to save signature");
-        return;
-      }
-
-      const file = new File([blob], "signature.png", {
-        type: "image/png",
-      });
-
-      onSave(file);
-      toast.success("Signature saved");
-    }, "image/png");
-  };
-
   return (
     <div className="space-y-3">
       <div
@@ -128,6 +133,7 @@ export default function SignaturePad({
         <SignatureCanvas
           ref={sigCanvasRef}
           penColor="black"
+          onEnd={handleStrokeEnd}
           canvasProps={{
             width: canvasWidth,
             height: 220,
@@ -144,10 +150,6 @@ export default function SignaturePad({
           disabled={disabled}
         >
           Clear
-        </Button>
-
-        <Button type="button" onClick={handleSave} disabled={disabled}>
-          Save Signature
         </Button>
       </div>
     </div>

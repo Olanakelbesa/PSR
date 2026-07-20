@@ -325,10 +325,10 @@ export function InternalMembersSection({
               </div>
               <div className="flex-1">
                 <CardTitle className="text-lg sm:text-xl font-semibold">
-                  Internal Members
+                  Members
                 </CardTitle>
                 <CardDescription className="mt-1 text-sm">
-                  Add internal team members to your proposal
+                  Add team members to your proposal
                 </CardDescription>
               </div>
             </div>

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StyledDatePicker } from "@/components/ui/date-picker";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -475,11 +476,10 @@ export default function EditRepositoryEntryPage() {
               ].map((item) => (
                 <div key={item.id} className="space-y-2">
                   <Label htmlFor={item.id}>{item.label}</Label>
-                  <Input
-                    id={item.id}
-                    type="date"
-                    value={(form as any)[item.field]}
-                    onChange={(e) => set(item.field, e.target.value)}
+                  <StyledDatePicker
+                    selected={(form as any)[item.field] ? new Date((form as any)[item.field] + "T00:00:00") : null}
+                    onChange={(date) => set(item.field, date ? date.toISOString().split("T")[0] : "")}
+                    placeholder="Select date"
                   />
                 </div>
               ))}

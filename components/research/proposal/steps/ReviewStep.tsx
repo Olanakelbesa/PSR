@@ -13,7 +13,6 @@ import { useProposalTemplateSections } from "@/lib/queries/proposal-template-sec
 import { useGrantCall } from "@/lib/queries/grant-calls";
 import { useProposalType } from "@/lib/queries/proposal-type";
 import { useSubCallType } from "@/lib/queries/subcalltype";
-import { useOfficeLevel } from "@/lib/queries/office-level";
 import { useOffice } from "@/lib/queries/office";
 import { useThematicArea } from "@/lib/queries/thematic-area";
 import { useInternalUsers } from "@/lib/queries/internal-users";
@@ -46,6 +45,7 @@ const formatCurrency = (amount: number | undefined | null): string => {
 interface ProposalReviewStepProps {
   onSubmit: (status: "draft" | "submitted") => void;
   isSubmitting?: boolean;
+  submittingAction?: "draft" | "submitted" | null;
   onPrevious: () => void;
   isEditMode?: boolean;
   isDraft?: boolean;
@@ -102,6 +102,7 @@ type ProposalTemplateSection = {
 export function ProposalReviewStep({
   onSubmit,
   isSubmitting = false,
+  submittingAction = null,
   onPrevious,
   isEditMode = false,
   isDraft = false,
@@ -134,13 +135,8 @@ export function ProposalReviewStep({
   );
   const selectedSubCallType = subCallTypeData;
 
-  const { data: officeLevelData } = useOfficeLevel(
-    values.submissionLevel || "",
-  );
-  const selectedOfficeLevel = officeLevelData;
-
-  const { data: officeData } = useOffice(values.officeToSubmit || "");
-  const selectedOffice = officeData;
+  const { data: receivingOfficeData } = useOffice(values.receivingOffice || "");
+  const selectedReceivingOffice = receivingOfficeData;
 
   const { data: thematicAreaData } = useThematicArea(values.thematicArea || "");
   const selectedThematicArea = thematicAreaData;
@@ -300,18 +296,10 @@ export function ProposalReviewStep({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
-                Submission Level
+                Submitted To
               </label>
               <p className="text-sm">
-                {selectedOfficeLevel?.name || "Not provided"}
-              </p>
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">
-                Office to Submit
-              </label>
-              <p className="text-sm">
-                {selectedOffice?.name || "Not provided"}
+                {selectedReceivingOffice?.name || "Not provided"}
               </p>
             </div>
             <div>
@@ -342,7 +330,7 @@ export function ProposalReviewStep({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Internal Members Column */}
             <div>
-              <h4 className="text-sm font-semibold mb-3">Internal Members</h4>
+              <h4 className="text-sm font-semibold mb-3">Members</h4>
               {teamMembers.length > 0 ? (
                 <ul className="space-y-2">
                   {teamMembers.map((member, index) => (
@@ -357,7 +345,7 @@ export function ProposalReviewStep({
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No internal members added
+                  No members added
                 </p>
               )}
             </div>
@@ -629,7 +617,7 @@ export function ProposalReviewStep({
           type="button"
           variant="outline"
           onClick={onPrevious}
-          disabled={isSubmitting}
+          disabled={submittingAction !== null}
         >
           Previous
         </Button>
@@ -639,21 +627,21 @@ export function ProposalReviewStep({
               type="button"
               variant="outline"
               onClick={(e) => handleSubmit(e, "draft")}
-              disabled={isSubmitting}
+              disabled={submittingAction !== null}
               size="lg"
               className="min-w-37.5"
             >
-              {isSubmitting ? <span>Saving...</span> : <span>Save as Draft</span>}
+              {submittingAction === "draft" ? <span>Saving...</span> : <span>Save as Draft</span>}
             </Button>
           )}
           <Button
             type="button"
             onClick={(e) => handleSubmit(e, "submitted")}
-            disabled={isSubmitting}
+            disabled={submittingAction !== null}
             size="lg"
             className="min-w-37.5"
           >
-            {isSubmitting ? (
+            {submittingAction === "submitted" ? (
               <>
                 <span className="mr-2">
                   {isResubmitMode

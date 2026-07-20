@@ -213,7 +213,7 @@ export function SubmissionInformationSection() {
             name="receivingOffice"
             render={({ field, fieldState }) => (
               <FormItem>
-                <FormLabel>Receiving Office *</FormLabel>
+                <FormLabel>Submitted To *</FormLabel>
                 <FormControl>
                   <SearchableSelect
                     key="receiving-office"
@@ -222,7 +222,7 @@ export function SubmissionInformationSection() {
                     useQueryHook={useReceivingOfficeOptions}
                     getOptionValue={(office: any) => String(office.id)}
                     getOptionLabel={(office: any) => office.name}
-                    placeholder="Select Receiving Office"
+                    placeholder="Select Submitted To"
                     searchPlaceholder="Search offices..."
                     emptyMessage="No research offices found"
                     className={cn(
