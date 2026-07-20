@@ -148,7 +148,7 @@ export function ProposalReviewStep({
   const { data: allUsersData } = useInternalUsers({ limit: 200 });
   const { data: allRolesData } = useTeamMemberRoles({ limit: 100 });
 
-  const users = (allUsersData ?? []) as Array<{
+  const users = (allUsersData?.users ?? []) as Array<{
     id: string | number;
     fullName?: string;
   }>;

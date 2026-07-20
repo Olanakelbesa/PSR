@@ -83,6 +83,7 @@ function buildDefaultValuesFromSections(
     thematicArea: "",
     thematicAreas: [],
     teamMembers: [],
+    stakeholders: [],
     hasStakeholder: false,
     organizationName: "",
     stakeholderName: "",
@@ -1213,8 +1214,12 @@ export function ProposalWizard({
       // Map team members
       const rawTeamMembers =
         proposal.teamMembers || proposal.team_members || [];
-      if (Array.isArray(rawTeamMembers) && rawTeamMembers.length > 0) {
-        const internalMembers = rawTeamMembers
+
+      let internalMembers: any[] = [];
+      let externalMembers: any[] = [];
+
+      if (Array.isArray(rawTeamMembers)) {
+        internalMembers = rawTeamMembers
           .filter((tm: any) => (tm.memberType || tm.member_type) === "internal")
           .map((tm: any) => ({
             backendId: tm.id,
@@ -1223,7 +1228,15 @@ export function ProposalWizard({
                 ? String(tm.member.id)
                 : tm.member
                   ? String(tm.member)
-                  : "",
+                  : tm.internal_member_user_id
+                    ? String(tm.internal_member_user_id)
+                    : tm.member_details && typeof tm.member_details === "object"
+                      ? String(tm.member_details.id)
+                      : tm.user && typeof tm.user === "object"
+                        ? String(tm.user.id)
+                        : tm.user
+                          ? String(tm.user)
+                          : "",
             role:
               tm.role && typeof tm.role === "object"
                 ? String(tm.role.id)
@@ -1232,7 +1245,7 @@ export function ProposalWizard({
                   : "",
           }));
 
-        const externalMembers = rawTeamMembers
+        externalMembers = rawTeamMembers
           .filter((tm: any) => (tm.memberType || tm.member_type) === "external")
           .map((tm: any) => ({
             backendId: tm.id,
@@ -1248,10 +1261,10 @@ export function ProposalWizard({
             phoneNumber: tm.phone_number || tm.phoneNumber || "",
             email: tm.email || "",
           }));
-
-        formData.teamMembers = internalMembers;
-        formData.stakeholders = externalMembers;
       }
+
+      formData.teamMembers = internalMembers;
+      formData.stakeholders = externalMembers;
 
       // Map files
       if (proposal.files && proposal.files.length > 0) {

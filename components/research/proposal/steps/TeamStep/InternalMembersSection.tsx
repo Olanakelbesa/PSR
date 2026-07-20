@@ -217,6 +217,8 @@ function TeamMemberUserIdField({
               value={field.value || ""}
               onValueChange={field.onChange}
               useQueryHook={useInternalUsersForSelect}
+              extractData={(data) => data?.users ?? []}
+              extractCount={(data) => data?.totalCount ?? 0}
               additionalOptions={additionalOptions}
               selectedLabel={selectedLabel}
               getOptionValue={(user) => String(user.id)}
@@ -236,7 +238,7 @@ function TeamMemberUserIdField({
                 fieldState.error &&
                   "border-destructive focus:border-destructive focus:ring-destructive",
               )}
-              limit={100}
+              limit={500}
             />
           </FormControl>
           <FormMessage />

@@ -43,14 +43,19 @@ export function useInternalUsers(params?: {
   ordering?: string;
   organization?: string | number;
   unit?: string | number;
+  id?: string | number;
 }) {
   return useQuery({
     queryKey: ["internal-users", params ?? {}],
     queryFn: async () => {
+      const { limit: pageSize, ...restParams } = params || {};
+      const queryParams: Record<string, any> = { ...restParams };
+      if (pageSize !== undefined) queryParams.page_size = pageSize;
       const { data } = await apiClient.get(API_ENDPOINTS.USERS.SELECTOR, {
-        params,
+        params: queryParams,
       });
-      return extractList(data).map(normalizeInternalUser);
+      const users = extractList(data).map(normalizeInternalUser);
+      return { users, totalCount: data?.meta?.total ?? users.length };
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -61,9 +66,8 @@ export function useInternalUserById(id: string | number | null) {
     queryKey: ["internal-user", id],
     queryFn: async () => {
       if (!id) return undefined;
-      // Fetch by ID directly from selector API — avoids admin permission restrictions
       const { data } = await apiClient.get(API_ENDPOINTS.USERS.SELECTOR, {
-        params: { id },
+        params: { id, page_size: 1 },
       });
       const list = extractList(data);
       if (list.length === 0) return undefined;

@@ -258,6 +258,17 @@ const ProposalsListSchema = z.object({
       limit: z.number(),
       total: z.number(),
       totalPages: z.number(),
+      statistics: z
+        .object({
+          totalProposals: z.number(),
+          approved: z.number(),
+          underReview: z.number(),
+          drafts: z.number(),
+          submitted: z.number(),
+          resubmitted: z.number(),
+          revisionRequested: z.number(),
+        })
+        .optional(),
     })
     .optional(),
   pagination: z
@@ -307,6 +318,7 @@ export interface ProposalFilters {
   limit?: number;
   search?: string;
   status?: ProposalStatus;
+  queue?: string;
   ordering?: string;
   Organization?: number;
   Unit?: number;
