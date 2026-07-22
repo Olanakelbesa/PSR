@@ -2,15 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  Calendar,
-  DollarSign,
-  ArrowUpRight,
-  Search,
-  FileText,
-  Clock,
-  ShieldAlert,
-} from "lucide-react";
+import { format } from "date-fns";
+import { Calendar, ArrowUpRight, Search, Clock, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,24 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGrantCalls } from "@/lib/queries/grant-calls";
 import type { GrantCall } from "@/types/grant-call";
-
-function formatBudget(budget?: number | string | null) {
-  if (budget === null || budget === undefined || budget === "")
-    return "Budget available";
-
-  const amount = Number(budget);
-  if (Number.isNaN(amount)) return String(budget);
-
-  if (amount >= 1_000_000) {
-    return `$${(amount / 1_000_000).toFixed(amount % 1_000_000 === 0 ? 0 : 1)}M`;
-  }
-
-  if (amount >= 1_000) {
-    return `$${(amount / 1_000).toFixed(amount % 1_000 === 0 ? 0 : 1)}k`;
-  }
-
-  return `$${amount.toLocaleString()}`;
-}
 
 function getCallStatus(call: GrantCall) {
   const status = (call.status ?? "").toLowerCase();
@@ -56,6 +31,10 @@ function getCallStatus(call: GrantCall) {
   return status === "published" || status === "open"
     ? "open"
     : status || "open";
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").trim();
 }
 
 export default function CallsPage() {
@@ -97,7 +76,7 @@ export default function CallsPage() {
     switch (status) {
       case "open":
         return (
-          <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1">
+          <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse inline-block" />
             Open
           </Badge>
@@ -135,7 +114,7 @@ export default function CallsPage() {
           </div>
 
           {/* Filters & Search */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pb-6 border-b border-white/5 mb-8">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pb-6 border-b border-border mb-8">
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: "All Calls", value: "all" },
@@ -149,7 +128,7 @@ export default function CallsPage() {
                     statusFilter === filter.value ? "default" : "outline"
                   }
                   onClick={() => setStatusFilter(filter.value)}
-                  className="rounded-full h-9 px-5 text-xs font-bold border-white/5 transition-all duration-300"
+                  className="rounded-full h-9 px-5 text-xs font-bold transition-all duration-300"
                 >
                   {filter.label}
                 </Button>
@@ -163,7 +142,7 @@ export default function CallsPage() {
                 placeholder="Search grant calls..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-10 bg-muted/30 border-white/5 focus-visible:ring-primary rounded-xl"
+                className="pl-9 h-10 rounded-xl"
               />
             </div>
           </div>
@@ -177,7 +156,7 @@ export default function CallsPage() {
               </p>
             </div>
           ) : isError ? (
-            <div className="py-24 text-center border border-white/5 rounded-2xl bg-slate-900/10">
+            <div className="py-24 text-center border border-border rounded-2xl bg-muted/30">
               <ShieldAlert className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-55" />
               <h3 className="text-lg font-bold text-foreground mb-1">
                 Unable to load calls
@@ -190,99 +169,94 @@ export default function CallsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <AnimatePresence mode="popLayout">
-                {filteredCalls.map((call) => (
-                  <motion.div
-                    key={call.id}
-                    layout
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Card className="border border-white/5 backdrop-blur-md hover:border-primary/20 transition-all duration-300 rounded-2xl overflow-hidden h-full flex flex-col justify-between">
-                      <CardContent className="p-6 flex flex-col justify-between h-full space-y-6">
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between gap-4">
-                            {getStatusBadge(getCallStatus(call))}
-                            <span className="text-[10px] font-bold text-muted-foreground font-mono uppercase tracking-wider">
-                              ID: {call.id}
-                            </span>
-                          </div>
+                {filteredCalls.map((call) => {
+                  return (
+                    <motion.div
+                      key={call.id}
+                      layout
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Card className="border border-border hover:border-primary/20 hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden h-full flex flex-col justify-between">
+                        <CardContent className="p-6 flex flex-col justify-between h-full space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                              {getStatusBadge(getCallStatus(call))}
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                {call.currentYear ?? ""}
+                              </span>
+                            </div>
 
-                          <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-foreground leading-snug hover:text-primary transition-colors">
-                              <Link href={`/calls/${call.id}`}>
-                                {call.title}
-                              </Link>
-                            </h3>
-                            <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                              {call.shortDescription ??
-                                call.description ??
-                                "Open research funding opportunity."}
-                            </p>
-                          </div>
+                            <div className="space-y-2">
+                              <h3 className="text-xl font-bold text-foreground leading-snug hover:text-primary transition-colors">
+                                <Link href={`/calls/${call.id}`}>
+                                  {call.title}
+                                </Link>
+                              </h3>
+                              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                                {stripHtml(
+                                  call.shortDescription ??
+                                    call.description ??
+                                    "Open research funding opportunity.",
+                                )}
+                              </p>
+                            </div>
 
-                          {/* Priority Areas */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {(call.proposalTypes ?? []).length > 0 ? (
-                              call.proposalTypes!.map((area, idx) => (
+                            <div className="flex flex-wrap gap-1.5">
+                              {(call.proposalTypes ?? []).length > 0 ? (
+                                call.proposalTypes!.map((type) => (
+                                  <Badge
+                                    key={type.id}
+                                    variant="secondary"
+                                    className="bg-primary/5 text-primary border border-primary/20 text-[9px] font-bold px-2 py-0.5 rounded-full"
+                                  >
+                                    {type.name}
+                                  </Badge>
+                                ))
+                              ) : (
                                 <Badge
-                                  key={idx}
                                   variant="secondary"
-                                  className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5"
+                                  className="bg-primary/5 text-primary border border-primary/20 text-[9px] font-bold px-2 py-0.5 rounded-full"
                                 >
-                                  {area.name}
+                                  General Research
                                 </Badge>
-                              ))
-                            ) : (
-                              <Badge
-                                variant="secondary"
-                                className="bg-white/[0.03] text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded border border-white/5"
-                              >
-                                General Research
-                              </Badge>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Metadata & Actions */}
-                        <div className="pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-4">
-                          <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
+                          {/* Footer */}
+                          <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                               <Calendar className="w-3.5 h-3.5 text-primary" />
                               <span>
                                 {call.closeDate
-                                  ? new Date(
-                                      call.closeDate,
-                                    ).toLocaleDateString()
+                                  ? `Closes ${format(new Date(call.closeDate), "MMM d, yyyy")}`
                                   : "Open until filled"}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="w-3.5 h-3.5 text-primary" />
-                              <span>{formatBudget(call.budget)}</span>
-                            </div>
-                          </div>
 
-                          <Button
-                            variant="ghost"
-                            asChild
-                            className="rounded-xl h-9 px-4 border border-white/5 text-xs font-bold hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                          >
-                            <Link href={`/calls/${call.id}`}>
-                              Apply
-                              <ArrowUpRight className="w-3.5 h-3.5 ml-1.5" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                            <Button
+                              variant="ghost"
+                              asChild
+                              className="rounded-xl h-9 px-4 text-xs font-bold hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+                            >
+                              <Link href={`/calls/${call.id}`}>
+                                View Details
+                                <ArrowUpRight className="w-3.5 h-3.5 ml-1.5" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
 
               {!isLoading && filteredCalls.length === 0 && (
-                <div className="col-span-2 py-24 text-center border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
+                <div className="col-span-2 py-24 text-center border border-dashed border-border rounded-2xl bg-muted/30">
                   <ShieldAlert className="w-10 h-10 text-muted-foreground mx-auto mb-4 opacity-55" />
                   <h3 className="text-lg font-bold text-foreground mb-1">
                     No Active Calls
@@ -297,7 +271,7 @@ export default function CallsPage() {
                       setSearchQuery("");
                       setStatusFilter("all");
                     }}
-                    className="mt-4 border-white/5 hover:bg-muted"
+                    className="mt-4"
                   >
                     Reset Filters
                   </Button>

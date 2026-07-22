@@ -11,14 +11,15 @@
 // For permission checks, use useCurrentUser() or usePermission() instead.
 
 import { useSession, signOut as nextSignOut } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { tokenStorage } from "@/api/client";
-import { queryClient } from "@/lib/query-client";
 import type { UserRole } from "@/lib/types";
 
 export function useAuth() {
   const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   const isLoading = status === "loading";
@@ -51,7 +52,7 @@ export function useAuth() {
     await nextSignOut({ redirect: false });
     router.push("/login");
     router.refresh();
-  }, [router]);
+  }, [queryClient, router]);
 
   const hasTokenError = session?.error === "RefreshTokenError";
 

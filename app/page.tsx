@@ -72,10 +72,12 @@ function RevealOnScroll({
   className?: string;
   delay?: number;
 }) {
-  const [ref, setRef] = useState<HTMLDivElement | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -85,17 +87,13 @@ function RevealOnScroll({
       },
       { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
     );
-
-    if (ref) observer.observe(ref);
-
-    return () => {
-      if (ref) observer.unobserve(ref);
-    };
-  }, [ref]);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div
-      ref={setRef}
+      ref={ref}
       className={cn(
         "transition-all duration-700 ease-out transform",
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8",
@@ -587,7 +585,7 @@ export default function LandingPage() {
                       <div className="group h-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500">
                         <div className="h-40 relative overflow-hidden">
                           <Image
-                            src={theme.image}
+                            src={resolveFileUrl(call.thumbnailImage) ?? resolveFileUrl(call.bannerImage) ?? theme.image}
                             alt={call.title}
                             fill
                             className="object-cover transition-transform duration-700 group-hover:scale-110"
@@ -617,26 +615,15 @@ export default function LandingPage() {
                           <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
                             {call.title}
                           </h3>
-                          <p className="text-muted-foreground text-sm leading-relaxed flex-1 line-clamp-4">
-                            {call.description}
-                          </p>
+                          <p
+                            className="text-muted-foreground text-sm leading-relaxed flex-1 line-clamp-4"
+                            dangerouslySetInnerHTML={{ __html: call.description ?? "" }}
+                          />
 
                           <div className="mt-2 space-y-2 text-xs text-muted-foreground">
                             <div className="flex items-center justify-between gap-3">
                               <span className="font-semibold text-foreground">Deadline</span>
-                              <span>{call.submissionDeadline ? new Date(call.submissionDeadline).toLocaleDateString() : "Soon"}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-semibold text-foreground">Funding</span>
-                              <span>
-                                {call.budgetRange ? `$${(call.budgetRange.max / 1000).toFixed(0)}k max` : "Available"}
-                              </span>
-                            </div>
-                            <div className="flex items-start justify-between gap-3">
-                              <span className="font-semibold text-foreground">Priority</span>
-                              <span className="text-right line-clamp-2">
-                                {call.priorityAreas?.slice(0, 2).join(", ") || "Grant opportunity"}
-                              </span>
+                              <span>{call.closeDate ? new Date(call.closeDate).toLocaleDateString() : "Soon"}</span>
                             </div>
                           </div>
 

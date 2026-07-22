@@ -150,6 +150,7 @@ export default function CallDetailPage() {
                     call.shortDescription ||
                     "No description provided."
                   }
+                  showFullContent
                 />
               </div>
             </CardContent>
@@ -167,6 +168,7 @@ export default function CallDetailPage() {
                 <div className="text-sm leading-relaxed text-muted-foreground">
                   <HtmlContentRenderer
                     content={call.eligibilityCriteria || "Not specified."}
+                    showFullContent
                   />
                 </div>
               </div>
