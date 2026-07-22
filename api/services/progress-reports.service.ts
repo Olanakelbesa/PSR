@@ -92,6 +92,7 @@ export interface ListResponse<T> {
     limit: number;
     total: number;
     totalPages: number;
+    statistics?: Record<string, number>;
   };
 }
 
@@ -185,6 +186,7 @@ function unwrapListResponse<T>(payload: any): ListResponse<T> {
       limit: Number(metaSource?.limit ?? 10),
       total: Number(metaSource?.total ?? payload?.count ?? data.length),
       totalPages: Number(metaSource?.totalPages ?? 0),
+      statistics: metaSource?.statistics ?? undefined,
     },
   };
 }

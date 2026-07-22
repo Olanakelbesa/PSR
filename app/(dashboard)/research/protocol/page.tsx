@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  BarChart3,
   CalendarDays,
   ExternalLink,
-  FileCheck2,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -18,7 +18,7 @@ import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +52,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { protocolUploadSchema } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
-import type { ProtocolRecord } from "@/types/protocol";
+import type { ProtocolRecord, ProtocolStatistics } from "@/types/protocol";
 import { toast } from "sonner";
 
 type ProposalOption = {
@@ -165,6 +165,9 @@ export default function ProtocolPage() {
   const [modalMode, setModalMode] = useState<"create" | "update">("create");
   const [searchInput, setSearchInput] = useState("");
   const [proposalFilter, setProposalFilter] = useState(ALL_VALUE);
+  const [hasProtocolFileFilter, setHasProtocolFileFilter] = useState<boolean | undefined>(undefined);
+  const [hasOtherDocFilter, setHasOtherDocFilter] = useState<boolean | undefined>(undefined);
+  const [serverStats, setServerStats] = useState<ProtocolStatistics | undefined>(undefined);
   const [selectedProposalId, setSelectedProposalId] = useState("");
   const [selectedProtocol, setSelectedProtocol] =
     useState<ProtocolRecord | null>(null);
@@ -186,9 +189,14 @@ export default function ProtocolPage() {
         search: debouncedSearch.trim() || undefined,
         proposal:
           proposalFilter !== ALL_VALUE ? Number(proposalFilter) : undefined,
+        hasProtocolFile: hasProtocolFileFilter,
+        hasOtherDocument: hasOtherDocFilter,
         ordering: "-created_at",
       });
       setRows(response.data ?? []);
+      if (response.meta?.statistics) {
+        setServerStats(response.meta.statistics);
+      }
     } catch (error) {
       console.error("Failed to load protocols:", error);
       setRows([]);
@@ -196,7 +204,7 @@ export default function ProtocolPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, proposalFilter]);
+  }, [debouncedSearch, proposalFilter, hasProtocolFileFilter, hasOtherDocFilter]);
 
   useEffect(() => {
     loadProtocols();
@@ -252,27 +260,57 @@ export default function ProtocolPage() {
     loadProposalOptions();
   }, []);
 
-  const stats = useMemo(
+  const toggleProtocolFileFilter = useCallback(() => {
+    setHasProtocolFileFilter((current) => (current === true ? undefined : true));
+  }, []);
+
+  const toggleOtherDocFilter = useCallback(() => {
+    setHasOtherDocFilter((current) => (current === true ? undefined : true));
+  }, []);
+
+  const statCards = useMemo(
     () => [
       {
+        key: "total",
         label: "Total Submissions",
-        value: rows.length,
-        icon: FileCheck2,
+        value: serverStats?.total ?? 0,
+        icon: BarChart3,
+        color: "text-primary",
+        bg: "bg-primary/10",
+        border: "border-primary/20",
+        activeRing: "ring-primary/50 border-primary/40",
+        sub: "All protocol submissions",
+        active: false,
+        onClick: () => {},
       },
       {
+        key: "protocol_file",
         label: "With Protocol File",
-        value: rows.filter((row) => row.protocolFile || row.protocol_file)
-          .length,
+        value: serverStats?.withProtocolFile ?? 0,
         icon: FileText,
+        color: "text-emerald-600",
+        bg: "bg-emerald-50",
+        border: "border-emerald-200",
+        activeRing: "ring-emerald-500/60 border-emerald-300",
+        sub: "Protocols with uploaded file",
+        active: hasProtocolFileFilter === true,
+        onClick: toggleProtocolFileFilter,
       },
       {
+        key: "other_doc",
         label: "With Other Document",
-        value: rows.filter((row) => row.otherDocument || row.other_document)
-          .length,
+        value: serverStats?.withOtherDocument ?? 0,
         icon: Upload,
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+        activeRing: "ring-blue-500/60 border-blue-300",
+        sub: "Protocols with supporting doc",
+        active: hasOtherDocFilter === true,
+        onClick: toggleOtherDocFilter,
       },
     ],
-    [rows],
+    [serverStats, hasProtocolFileFilter, hasOtherDocFilter, toggleProtocolFileFilter, toggleOtherDocFilter],
   );
 
   const resetUploadForm = () => {
@@ -526,28 +564,50 @@ export default function ProtocolPage() {
       }
     >
       <div className="space-y-8">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading
             ? Array.from({ length: 3 }).map((_, index) => (
                 <Card key={index} className="border-none shadow-sm">
-                  <CardHeader className="pb-2">
-                    <Skeleton className="h-4 w-24" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-12" />
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <Skeleton className="h-11 w-11 rounded-xl" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-7 w-16" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
                   </CardContent>
                 </Card>
               ))
-            : stats.map((stat) => (
-                <Card key={stat.label} className="border-none shadow-sm">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      {stat.label}
-                    </CardTitle>
-                    <stat.icon className="h-4 w-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-black">{stat.value}</div>
+            : statCards.map((stat) => (
+                <Card
+                  key={stat.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={stat.onClick}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      stat.onClick();
+                    }
+                  }}
+                  className={cn(
+                    "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                    stat.border,
+                    stat.active && cn("ring-2 shadow-md", stat.activeRing),
+                  )}
+                >
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                      <stat.icon className={cn("h-5 w-5", stat.color)} />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-black">{stat.value}</div>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {stat.label}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                        {stat.sub}
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               ))}

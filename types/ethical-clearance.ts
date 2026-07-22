@@ -24,7 +24,8 @@ export interface IRBClearanceDocument {
 
 export interface IRBClearanceReview {
   id: number;
-  reviewer: string;
+  reviewer: number;
+  reviewerName: string;
   decision: "approved" | "rejected";
   comments: string;
   reviewedAt: string | null;
@@ -77,7 +78,7 @@ export interface EthicalClearance {
 
 export interface EthicalClearanceStatistics {
   total: number;
-  byStatus: Record<IRBClearanceStatus, number>;
+  byStatus: Record<string, number>;
 }
 
 export interface EthicalClearanceResponse {

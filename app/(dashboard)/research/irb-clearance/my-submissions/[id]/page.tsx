@@ -421,7 +421,7 @@ export default function SubmissionDetailPage() {
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold">
-                        {review.reviewer}
+                        {review.reviewerName}
                       </p>
                       <Badge
                         className={cn(

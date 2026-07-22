@@ -19,6 +19,12 @@ export interface ProtocolRecord {
   updated_at?: string;
 }
 
+export interface ProtocolStatistics {
+  total: number;
+  withProtocolFile: number;
+  withOtherDocument: number;
+}
+
 export interface ProtocolListResponse {
   success: boolean;
   data: ProtocolRecord[];
@@ -27,6 +33,7 @@ export interface ProtocolListResponse {
     limit: number;
     total: number;
     total_pages: number;
+    statistics?: ProtocolStatistics;
   };
 }
 
@@ -41,5 +48,7 @@ export interface ProtocolFilters {
   limit?: number;
   search?: string;
   proposal?: number;
+  hasProtocolFile?: boolean;
+  hasOtherDocument?: boolean;
   ordering?: string;
 }

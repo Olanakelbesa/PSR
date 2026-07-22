@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
+  BarChart3,
   CheckCircle2,
   Clock,
   Eye,
-  FileText,
   MoreHorizontal,
   ShieldCheck,
   XCircle,
@@ -21,8 +21,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -46,6 +44,8 @@ import { useEthicalClearances } from "@/lib/queries/ethical-clearance";
 import type { EthicalClearance, IRBClearanceStatus } from "@/types/ethical-clearance";
 
 const ALL_VALUE = "all";
+
+type StatFilter = "all" | "pending_submission" | "pending_review" | "rejected";
 
 const statusConfig: Record<
   IRBClearanceStatus,
@@ -103,9 +103,13 @@ function mapRow(item: EthicalClearance): Row {
 export default function MySubmissionsPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState(ALL_VALUE);
+  const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_VALUE);
 
   const debouncedSearch = useDebounce(search, 350);
+
+  const applyStatusFilter = useCallback((filter: StatFilter) => {
+    setStatusFilter((current) => (current === filter ? "all" : filter));
+  }, []);
 
   const filters = useMemo(
     () => ({
@@ -263,7 +267,7 @@ export default function MySubmissionsPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="h-9"
             />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatFilter)}>
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
@@ -292,43 +296,55 @@ export default function MySubmissionsPage() {
     </div>
   );
 
-  const statsDisplay = isLoading
-    ? [
-        { label: "Total", value: 0, icon: FileText, color: "text-primary", bg: "bg-primary/10" },
-        { label: "Pending Submission", value: 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
-        { label: "Pending Review", value: 0, icon: ShieldCheck, color: "text-blue-600", bg: "bg-blue-100" },
-        { label: "Rejected", value: 0, icon: XCircle, color: "text-rose-600", bg: "bg-rose-100" },
-      ]
-    : [
-        {
-          label: "Total",
-          value: stats?.total ?? 0,
-          icon: FileText,
-          color: "text-primary",
-          bg: "bg-primary/10",
-        },
-        {
-          label: "Pending Submission",
-          value: stats?.byStatus?.pending_submission ?? 0,
-          icon: Clock,
-          color: "text-amber-600",
-          bg: "bg-amber-100",
-        },
-        {
-          label: "Pending Review",
-          value: stats?.byStatus?.pending_review ?? 0,
-          icon: ShieldCheck,
-          color: "text-blue-600",
-          bg: "bg-blue-100",
-        },
-        {
-          label: "Rejected",
-          value: stats?.byStatus?.rejected ?? 0,
-          icon: XCircle,
-          color: "text-rose-600",
-          bg: "bg-rose-100",
-        },
-      ];
+  const statCards = useMemo(
+    () => [
+      {
+        key: "all" as StatFilter,
+        label: "Total Submissions",
+        value: stats?.total ?? 0,
+        icon: BarChart3,
+        color: "text-primary",
+        bg: "bg-primary/10",
+        border: "border-primary/20",
+        activeRing: "ring-primary/50 border-primary/40",
+        sub: "Your total IRB submissions",
+      },
+      {
+        key: "pending_submission" as StatFilter,
+        label: "Pending Submission",
+        value: stats?.byStatus?.pendingSubmission ?? 0,
+        icon: Clock,
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Drafts not yet submitted",
+      },
+      {
+        key: "pending_review" as StatFilter,
+        label: "Pending Review",
+        value: stats?.byStatus?.pendingReview ?? 0,
+        icon: ShieldCheck,
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+        activeRing: "ring-blue-500/60 border-blue-300",
+        sub: "Awaiting IRB committee review",
+      },
+      {
+        key: "rejected" as StatFilter,
+        label: "Rejected",
+        value: stats?.byStatus?.rejected ?? 0,
+        icon: XCircle,
+        color: "text-rose-600",
+        bg: "bg-rose-50",
+        border: "border-rose-200",
+        activeRing: "ring-rose-500/60 border-rose-300",
+        sub: "Requires resubmission",
+      },
+    ],
+    [stats],
+  );
 
   return (
     <PageContainer
@@ -336,7 +352,7 @@ export default function MySubmissionsPage() {
       description="Track and manage your IRB clearance submissions."
     >
       <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i}>
@@ -349,28 +365,43 @@ export default function MySubmissionsPage() {
                   </CardContent>
                 </Card>
               ))
-            : statsDisplay.map((stat) => (
-                <Card
-                  key={stat.label}
-                  className="group relative overflow-hidden border-none shadow-md transition-all hover:shadow-lg"
-                >
-                  <div
+            : statCards.map((stat) => {
+                const isActive = statusFilter === stat.key;
+                return (
+                  <Card
+                    key={stat.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => applyStatusFilter(stat.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        applyStatusFilter(stat.key);
+                      }
+                    }}
                     className={cn(
-                      "absolute inset-y-0 left-0 w-1",
-                      stat.bg,
+                      "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                      stat.border,
+                      isActive && cn("ring-2 shadow-md", stat.activeRing),
                     )}
-                  />
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      {stat.label}
-                    </CardTitle>
-                    <stat.icon className={cn("h-4 w-4", stat.color)} />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-black">{stat.value}</div>
-                  </CardContent>
-                </Card>
-              ))}
+                  >
+                    <CardContent className="flex items-center gap-4 p-5">
+                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                        <stat.icon className={cn("h-5 w-5", stat.color)} />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black">{stat.value}</div>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {stat.label}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                          {stat.sub}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
         </div>
 
         {error ? (

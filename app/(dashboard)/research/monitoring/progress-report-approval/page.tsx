@@ -1,19 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, RefreshCw, Search } from "lucide-react";
+import {
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  Eye,
+  XCircle,
+} from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProgressReports } from "@/hooks";
 import { useRouter } from "next/navigation";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { cn } from "@/lib/utils";
 
 const statusLabels = {
   pending: "Pending",
@@ -27,40 +33,84 @@ const statusClasses = {
   rejected: "bg-rose-50 text-rose-700 border-rose-200",
 } as const;
 
+type StatFilter = "all" | "pending" | "approved" | "rejected";
+
+const ALL_VALUE = "all";
+
 export default function ProgressReportApprovalListPage() {
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_VALUE);
   const router = useRouter();
+
+  const applyStatusFilter = useCallback((filter: StatFilter) => {
+    setStatusFilter((current) => (current === filter ? ALL_VALUE : filter));
+  }, []);
 
   const queryParams = useMemo(
     () => ({
-      page,
-      limit: 10,
+      page: 1,
+      limit: 100,
       search: search || undefined,
+      status: statusFilter !== ALL_VALUE ? statusFilter : undefined,
     }),
-    [page, search],
+    [search, statusFilter],
   );
 
-  const { data, isLoading, refetch } = useProgressReports(queryParams);
+  const { data, isLoading } = useProgressReports(queryParams);
   const reports = data?.data ?? [];
-  const meta = data?.meta ?? { page: 1, limit: 10, total: 0, totalPages: 0 };
+  const stats = (data?.meta as Record<string, unknown>)?.statistics as
+    | { total: number; pending: number; approved: number; rejected: number }
+    | undefined;
 
-  const stats = [
-    { label: "Total", value: meta.total },
-    {
-      label: "Pending",
-      value: reports.filter((report) => report.status === "pending").length,
-    },
-    {
-      label: "Approved",
-      value: reports.filter((report) => report.status === "approved").length,
-    },
-    {
-      label: "Rejected",
-      value: reports.filter((report) => report.status === "rejected").length,
-    },
-  ];
+  const statCards = useMemo(
+    () => [
+      {
+        key: "all" as StatFilter,
+        label: "Total Reports",
+        value: stats?.total ?? 0,
+        icon: BarChart3,
+        color: "text-primary",
+        bg: "bg-primary/10",
+        border: "border-primary/20",
+        activeRing: "ring-primary/50 border-primary/40",
+        sub: "All progress reports",
+      },
+      {
+        key: "pending" as StatFilter,
+        label: "Pending",
+        value: stats?.pending ?? 0,
+        icon: Clock,
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Awaiting review decision",
+      },
+      {
+        key: "approved" as StatFilter,
+        label: "Approved",
+        value: stats?.approved ?? 0,
+        icon: CheckCircle2,
+        color: "text-emerald-600",
+        bg: "bg-emerald-50",
+        border: "border-emerald-200",
+        activeRing: "ring-emerald-500/60 border-emerald-300",
+        sub: "Reports approved",
+      },
+      {
+        key: "rejected" as StatFilter,
+        label: "Rejected",
+        value: stats?.rejected ?? 0,
+        icon: XCircle,
+        color: "text-rose-600",
+        bg: "bg-rose-50",
+        border: "border-rose-200",
+        activeRing: "ring-rose-500/60 border-rose-300",
+        sub: "Reports rejected",
+      },
+    ],
+    [stats],
+  );
 
   const columns = [
     {
@@ -170,34 +220,73 @@ export default function ProgressReportApprovalListPage() {
   return (
     <PageContainer
       title="Proposal Progress Reports"
-      description="Review the proposal progress reports returned by the backend and open the related report details."
+      description="Review progress reports and approve or reject them."
     >
       <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, index) => (
                 <Card key={index} className="border-none shadow-sm">
-                  <CardHeader className="pb-2">
-                    <Skeleton className="h-4 w-20" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-12" />
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <Skeleton className="h-11 w-11 rounded-xl" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-7 w-16" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
                   </CardContent>
                 </Card>
               ))
-            : stats.map((item) => (
-                <Card key={item.label} className="border-none shadow-sm">
-                  <CardHeader className="pb-1">
-                    <CardTitle className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                      {item.label}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-black">{item.value}</div>
-                  </CardContent>
-                </Card>
-              ))}
+            : statCards.map((stat) => {
+                const isActive = statusFilter === stat.key;
+                return (
+                  <Card
+                    key={stat.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => applyStatusFilter(stat.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        applyStatusFilter(stat.key);
+                      }
+                    }}
+                    className={cn(
+                      "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                      stat.border,
+                      isActive && cn("ring-2 shadow-md", stat.activeRing),
+                    )}
+                  >
+                    <CardContent className="flex items-center gap-4 p-5">
+                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                        <stat.icon className={cn("h-5 w-5", stat.color)} />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black">{stat.value}</div>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {stat.label}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                          {stat.sub}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
         </div>
+
+        {statusFilter !== ALL_VALUE && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStatusFilter(ALL_VALUE)}
+              className="h-7 text-xs"
+            >
+              Clear filter
+            </Button>
+          </div>
+        )}
 
         <DataTable
           columns={columns}

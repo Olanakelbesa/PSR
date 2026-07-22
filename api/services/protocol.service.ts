@@ -8,13 +8,15 @@ import type {
 } from "@/types/protocol";
 
 function cleanParams(filters: ProtocolFilters) {
-  return Object.fromEntries(
-    Object.entries(filters).filter(([, value]) => {
-      if (value === undefined || value === null) return false;
-      if (typeof value === "string") return value.trim().length > 0;
-      return true;
-    }),
-  );
+  const mapped: Record<string, unknown> = {};
+  if (filters.page !== undefined) mapped.page = filters.page;
+  if (filters.limit !== undefined) mapped.limit = filters.limit;
+  if (filters.search) mapped.search = filters.search;
+  if (filters.proposal !== undefined) mapped.proposal = filters.proposal;
+  if (filters.hasProtocolFile !== undefined) mapped.has_protocol_file = filters.hasProtocolFile;
+  if (filters.hasOtherDocument !== undefined) mapped.has_other_document = filters.hasOtherDocument;
+  if (filters.ordering) mapped.ordering = filters.ordering;
+  return mapped;
 }
 
 function normalizeProtocol(item: Record<string, unknown>): ProtocolRecord {
