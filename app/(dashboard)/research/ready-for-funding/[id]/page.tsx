@@ -1156,7 +1156,7 @@ export default function ReadyForFundingDetailPage() {
                 Funding Decision
               </DialogTitle>
               <DialogDescription className="pt-2 text-foreground/80 leading-relaxed space-y-1">
-                <p>
+                <span className="block">
                   {fundingDecision === "approved" &&
                     "This proposal is approved for funding and will proceed to award generation."}
                   {fundingDecision === "deferred" &&
@@ -1165,10 +1165,10 @@ export default function ReadyForFundingDetailPage() {
                     "This proposal is rejected. The submitter will be notified of the decision."}
                   {!fundingDecision &&
                     "Select a decision below to record the committee's funding determination."}
-                </p>
-                <p className="text-xs text-muted-foreground font-medium truncate">
+                </span>
+                <span className="block text-xs text-muted-foreground font-medium truncate">
                   Proposal: {screening.title}
-                </p>
+                </span>
               </DialogDescription>
             </DialogHeader>
           </div>

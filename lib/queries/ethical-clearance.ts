@@ -3,11 +3,20 @@ import { toast } from "sonner";
 import {
   createEthicalClearanceReview,
   updateEthicalClearanceReview,
+  submitIRBClearance,
+  resubmitIRBClearance,
+  updateDraftIRBClearance,
+  reviewIRBClearance,
+  getIRBClearanceTypes,
   EthicalClearanceFilters,
   getEthicalClearance,
   getEthicalClearances,
 } from "@/api/services/ethical-clearance.service";
-import { EthicalClearanceCreateInput } from "@/types/ethical-clearance";
+import type {
+  EthicalClearanceCreateInput,
+  IRBClearanceSubmitInput,
+  IRBClearanceReviewInput,
+} from "@/types/ethical-clearance";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -19,18 +28,16 @@ function getErrorMessage(error: unknown) {
   ) {
     return (error as { message: string }).message;
   }
-
-  return "Failed to save ethical clearance decision.";
+  return "An unexpected error occurred.";
 }
 
 export function useCreateEthicalClearance() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (payload: EthicalClearanceCreateInput) =>
       createEthicalClearanceReview(payload),
     onSuccess: () => {
-      toast.success("Ethical clearance saved successfully.");
+      toast.success("IRB clearance created successfully.");
       queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
       queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
     },
@@ -42,12 +49,78 @@ export function useCreateEthicalClearance() {
 
 export function useUpdateEthicalClearance() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: EthicalClearanceCreateInput }) =>
+    mutationFn: ({ id, payload }: { id: number; payload: Partial<EthicalClearanceCreateInput> }) =>
       updateEthicalClearanceReview(id, payload),
     onSuccess: () => {
-      toast.success("Ethical clearance updated successfully.");
+      toast.success("IRB clearance updated successfully.");
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useSubmitIRBClearance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: IRBClearanceSubmitInput }) =>
+      submitIRBClearance(id, payload),
+    onSuccess: () => {
+      toast.success("IRB clearance submitted successfully.");
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useResubmitIRBClearance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: IRBClearanceSubmitInput }) =>
+      resubmitIRBClearance(id, payload),
+    onSuccess: () => {
+      toast.success("IRB clearance resubmitted successfully.");
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useUpdateDraftIRBClearance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: IRBClearanceSubmitInput }) =>
+      updateDraftIRBClearance(id, payload),
+    onSuccess: () => {
+      toast.success("Draft saved successfully.");
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
+      queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useReviewIRBClearance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: IRBClearanceReviewInput }) =>
+      reviewIRBClearance(id, payload),
+    onSuccess: (data) => {
+      const msg = data.status === "approved"
+        ? "IRB clearance approved successfully."
+        : "IRB clearance rejected.";
+      toast.success(msg);
       queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
       queryClient.invalidateQueries({ queryKey: ["ethical-clearance"] });
     },
@@ -69,5 +142,12 @@ export function useEthicalClearances(filters: EthicalClearanceFilters = {}) {
   return useQuery({
     queryKey: ["ethical-clearances", filters],
     queryFn: () => getEthicalClearances(filters),
+  });
+}
+
+export function useIRBClearanceTypes() {
+  return useQuery({
+    queryKey: ["irb-clearance-types"],
+    queryFn: () => getIRBClearanceTypes(),
   });
 }

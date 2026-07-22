@@ -147,8 +147,7 @@ function TeamMemberUserIdField({
       | undefined;
     const hasRequiredData =
       Boolean(normalizedProposalId) &&
-      Boolean(watchedMember?.userId) &&
-      Boolean(watchedMember?.role);
+      Boolean(watchedMember?.userId);
 
     if (!hasRequiredData) {
       lastSavedRef.current = serializedMember;

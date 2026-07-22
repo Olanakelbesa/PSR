@@ -13,6 +13,7 @@ interface WordViewerProps {
   url: string;
   title?: string;
   className?: string;
+  hideHeader?: boolean;
 }
 
 const MAMMOTH_STYLE_MAP = [
@@ -38,6 +39,7 @@ export function WordViewer({
   url,
   title = "Document",
   className,
+  hideHeader = false,
 }: WordViewerProps) {
   const [html, setHtml] = useState<string | null>(null);
   const [pages, setPages] = useState<string[]>([]);
@@ -157,27 +159,29 @@ export function WordViewer({
     <div
       className={`flex h-full w-full flex-col overflow-hidden bg-background ${className ?? ""}`}
     >
-      <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-foreground">
-            {title}
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {pages.length > 0
-              ? `Page ${activePage} of ${pages.length}`
-              : "Word layout preview"}
-          </p>
+      {!hideHeader && (
+        <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-foreground">
+              {title}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {pages.length > 0
+                ? `Page ${activePage} of ${pages.length}`
+                : "Word layout preview"}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            className="h-8"
+          >
+            <Download className="mr-2 h-3.5 w-3.5 text-primary" />
+            Download
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleDownload}
-          className="h-8"
-        >
-          <Download className="mr-2 h-3.5 w-3.5 text-primary" />
-          Download
-        </Button>
-      </div>
+      )}
 
       <div ref={canvasRef} className="word-viewer-canvas">
         {pages.length > 0 ? (

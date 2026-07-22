@@ -20,6 +20,7 @@ export const SUPPORTED_RESOURCE_TYPES = [
   "committee",
   "document",
   "report",
+  "irb_clearance",
 ] as const;
 
 export type SupportedResourceType = (typeof SUPPORTED_RESOURCE_TYPES)[number];
@@ -36,6 +37,11 @@ const EVENT_ROUTES: Record<string, (resourceId: number) => string> = {
   SCREENING_REVIEW_ASSIGNED: (id) =>
     `/research/proposals/technical-reviews/${id}/review`,
   SCREENING_READY_FOR_FUNDING: (id) => `/research/ready-for-funding/${id}`,
+  IRB_CLEARANCE_SUBMITTED: (id) => `/research/irb-clearance/my-submissions/${id}`,
+  IRB_CLEARANCE_REVIEW_ASSIGNED: (id) => `/research/irb-clearance/reviews/${id}`,
+  IRB_CLEARANCE_APPROVED: (id) => `/research/irb-clearance/reviews/${id}`,
+  IRB_CLEARANCE_REJECTED: (id) => `/research/irb-clearance/my-submissions/${id}`,
+  IRB_CLEARANCE_RESUBMITTED: (id) => `/research/irb-clearance/my-submissions/${id}`,
 };
 
 /** Infer resource type from eventType when legacy rows omit resourceType. */
@@ -105,6 +111,9 @@ export function getNotificationRoute(notification: Notification): string | null 
 
     case "review":
       return `/research/proposals/technical-reviews/${resourceId}`;
+
+    case "irb_clearance":
+      return `/research/irb-clearance/my-submissions/${resourceId}`;
 
     case "user":
       return `/settings/profile`;

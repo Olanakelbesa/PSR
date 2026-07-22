@@ -73,6 +73,8 @@ export const PERMISSIONS = {
   RESEARCH_VIEW_INDIVIDUAL_REVIEW: "research_review.view_individualreview",
   RESEARCH_VIEW_READY_FOR_FUNDING: "research_review.view_readyforfunding",
   RESEARCH_VIEW_ETHICAL_CLEARANCE: "research_review.view_ethicalclearance",
+  RESEARCH_CHANGE_ETHICAL_CLEARANCE: "research_review.change_ethicalclearance",
+  RESEARCH_ADD_ETHICAL_CLEARANCE: "research_review.add_ethicalclearance",
   RESEARCH_VIEW_FUNDING_RECOMMENDATION:
     "research_review.view_fundingrecommendation",
   RESEARCH_VIEW_MINUTES: "research_review.view_minutes",

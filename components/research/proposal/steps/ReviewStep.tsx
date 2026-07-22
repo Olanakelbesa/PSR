@@ -204,6 +204,14 @@ export function ProposalReviewStep({
     // For submitted status, validate form before submitting
     // For draft status, skip validation
     if (status === "submitted") {
+      const hasSignature =
+        values.signature instanceof File ||
+        (typeof values.signature === "string" && values.signature.length > 0) ||
+        (isSavedSignatureValue(values.signature) && Boolean((values.signature as SavedSignatureValue).file));
+      if (!hasSignature) {
+        toast.error("A digital signature is required before submitting. Please draw your signature in the Review step.");
+        return;
+      }
       const isValid = await form.trigger();
       if (!isValid) {
         console.error("Form validation failed", form.formState.errors);

@@ -54,18 +54,26 @@ type ProposalCreatedBy = {
 
 type ProposalTeamMember = {
   id: number;
-  memberType: "internal" | "external" | string;
+  memberType?: string | null;
+  member_type?: string | null;
   userType?: string | null;
+  user_type?: string | null;
   organizationName?: string | null;
+  organization_name?: string | null;
   stakeholderName?: string | null;
+  stakeholder_name?: string | null;
   position?: string | null;
   phoneNumber?: string | null;
+  phone_number?: string | null;
   email?: string | null;
   member?: number | null;
   memberName?: string | null;
+  member_name?: string | null;
   memberEmail?: string | null;
+  member_email?: string | null;
   role?: number | null;
   roleName?: string | null;
+  role_name?: string | null;
 };
 
 type ProposalTechnicalReview = {
@@ -323,10 +331,10 @@ export default function ProposalDetailPage() {
   const isEditable = isDraft || isProtocolStage;
   const teamMembers = proposal?.teamMembers ?? [];
   const internalTeam = teamMembers.filter(
-    (member) => member.memberType === "internal",
+    (member) => (member.memberType ?? member.member_type) === "internal",
   );
   const externalTeam = teamMembers.filter(
-    (member) => member.memberType === "external",
+    (member) => (member.memberType ?? member.member_type) === "external",
   );
   const reviewHistoryObject =
     proposal && isReviewHistoryObject(proposal.reviewHistory)
@@ -574,17 +582,17 @@ export default function ProposalDetailPage() {
                                     <Avatar className="h-10 w-10 mt-0.5">
                                       <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-bold">
                                         {getInitials(
-                                          member.memberName?.split(" ")[0],
-                                          member.memberName?.split(" ")[1],
+                                          (member.memberName ?? member.member_name)?.split(" ")[0],
+                                          (member.memberName ?? member.member_name)?.split(" ")[1],
                                         )}
                                       </AvatarFallback>
                                     </Avatar>
                                     <div>
                                       <p className="text-sm font-semibold">
-                                        {member.memberName || "Unnamed member"}
+                                        {member.memberName || member.member_name || "Unnamed member"}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
-                                        {member.roleName ||
+                                        {member.roleName || member.role_name ||
                                           `Role ${member.role ?? "N/A"}`}
                                       </p>
                                     </div>
@@ -593,23 +601,23 @@ export default function ProposalDetailPage() {
                                     variant="secondary"
                                     className="capitalize text-[10px]"
                                   >
-                                    {member.memberType}
+                                    {member.memberType ?? member.member_type}
                                   </Badge>
                                 </div>
                                 <div className="mt-3 ml-13 grid gap-2 text-sm sm:grid-cols-2">
-                                  {member.memberEmail && (
+                                  {(member.memberEmail || member.member_email) && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                       <Mail className="h-3.5 w-3.5 shrink-0" />
                                       <span className="break-all text-xs">
-                                        {member.memberEmail}
+                                        {member.memberEmail || member.member_email}
                                       </span>
                                     </div>
                                   )}
-                                  {member.phoneNumber && (
+                                  {(member.phoneNumber || member.phone_number) && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                       <Phone className="h-3.5 w-3.5 shrink-0" />
                                       <span className="text-xs">
-                                        {member.phoneNumber}
+                                        {member.phoneNumber || member.phone_number}
                                       </span>
                                     </div>
                                   )}
@@ -637,18 +645,18 @@ export default function ProposalDetailPage() {
                                     <Avatar className="h-10 w-10 mt-0.5">
                                       <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-bold">
                                         {getInitials(
-                                          member.stakeholderName?.split(" ")[0],
-                                          member.stakeholderName?.split(" ")[1],
+                                          (member.stakeholderName ?? member.stakeholder_name)?.split(" ")[0],
+                                          (member.stakeholderName ?? member.stakeholder_name)?.split(" ")[1],
                                         )}
                                       </AvatarFallback>
                                     </Avatar>
                                     <div>
                                       <p className="text-sm font-semibold">
-                                        {member.stakeholderName ||
+                                        {member.stakeholderName || member.stakeholder_name ||
                                           "Unnamed stakeholder"}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
-                                        {member.roleName ||
+                                        {member.roleName || member.role_name ||
                                           `Role ${member.role ?? "N/A"}`}
                                       </p>
                                     </div>
@@ -657,7 +665,7 @@ export default function ProposalDetailPage() {
                                     variant="secondary"
                                     className="capitalize text-[10px]"
                                   >
-                                    {member.memberType}
+                                    {member.memberType ?? member.member_type}
                                   </Badge>
                                 </div>
                                 <div className="mt-3 ml-13 grid gap-2 text-sm sm:grid-cols-2">
@@ -669,19 +677,19 @@ export default function ProposalDetailPage() {
                                       </span>
                                     </div>
                                   )}
-                                  {member.phoneNumber && (
+                                  {(member.phoneNumber || member.phone_number) && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                       <Phone className="h-3.5 w-3.5 shrink-0" />
                                       <span className="text-xs">
-                                        {member.phoneNumber}
+                                        {member.phoneNumber || member.phone_number}
                                       </span>
                                     </div>
                                   )}
-                                  {member.organizationName && (
+                                  {(member.organizationName || member.organization_name) && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                       <Building2 className="h-3.5 w-3.5 shrink-0" />
                                       <span className="text-xs">
-                                        {member.organizationName}
+                                        {member.organizationName || member.organization_name}
                                       </span>
                                     </div>
                                   )}

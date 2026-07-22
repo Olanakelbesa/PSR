@@ -849,10 +849,14 @@ export function ProposalWizard({
       : [];
 
     let hasError = false;
+    let lastErrorMsg = "";
 
     for (let index = 0; index < internalMembers.length; index += 1) {
       const member = internalMembers[index] as any;
-      if (!member?.userId || !member?.role) continue;
+      if (!member?.userId) continue;
+
+      const userId = Number(member.userId);
+      if (!Number.isFinite(userId)) continue;
 
       try {
         const result = await upsertProposalTeamMember({
@@ -860,8 +864,8 @@ export function ProposalWizard({
           backendId: member?.backendId ?? null,
           memberType: "internal",
           payload: {
-            member: Number(member.userId),
-            role: Number(member.role),
+            member: userId,
+            role: member?.role ? Number(member.role) : null,
           },
         });
 
@@ -875,9 +879,16 @@ export function ProposalWizard({
             shouldValidate: false,
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         hasError = true;
-        console.error("Failed to sync internal team member", error);
+        const errMsg = extractFullErrorMessage(error);
+        const errStatus = error?.status ?? error?.response?.status ?? "unknown";
+        lastErrorMsg = errMsg;
+        console.error(
+          `[TeamSync] Internal member #${index + 1} failed [${errStatus}]:`,
+          errMsg,
+          error?.errors ?? error,
+        );
       }
     }
 
@@ -917,14 +928,26 @@ export function ProposalWizard({
             shouldValidate: false,
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         hasError = true;
-        console.error("Failed to sync external stakeholder", error);
+        const errMsg = extractFullErrorMessage(error);
+        const errStatus = error?.status ?? error?.response?.status ?? "unknown";
+        lastErrorMsg = errMsg;
+        console.error(
+          `[TeamSync] External stakeholder #${index + 1} failed [${errStatus}]:`,
+          errMsg,
+          error?.errors ?? error,
+        );
       }
     }
 
     if (!hasError) {
       syncedProposalTeamMembersRef.current = savedProposalId;
+    } else {
+      toast.warning("Some team members could not be saved.", {
+        description:
+          lastErrorMsg || "Please review your team list and try again.",
+      });
     }
   };
 
@@ -1438,24 +1461,25 @@ export function ProposalWizard({
           "title",
           "grantCallId",
           "proposalType",
-          "subProposalTypeId",
           "startDate",
           "endDate",
           "submissionLevel",
           "officeToSubmit",
           "receivingOffice",
           "thematicAreas",
-          "subThematicArea",
         ];
         break;
       case 2:
-        fieldsToValidate = ["teamMembers", "stakeholders"];
+        fieldsToValidate = [];
         break;
       case 3:
-        fieldsToValidate = ["abstract", "keywords", "submissionType"];
-        const technicalProposal = form.getValues("technicalProposal");
-        if (technicalProposal instanceof File) {
-          fieldsToValidate.push("technicalProposal");
+        fieldsToValidate = ["abstract"];
+        {
+          const technicalProposal = form.getValues("technicalProposal");
+          if (!technicalProposal) {
+            toast.error("Please upload your complete proposal document (PDF, max 10MB).");
+            return;
+          }
         }
         break;
       case 4:
@@ -1467,13 +1491,16 @@ export function ProposalWizard({
         break;
     }
 
-    const isValid = await form.trigger(fieldsToValidate);
-    if (isValid) {
-      if (currentStep < 5) {
-        setCurrentStep(currentStep + 1);
+    if (fieldsToValidate.length > 0) {
+      const isValid = await form.trigger(fieldsToValidate);
+      if (!isValid) {
+        toast.error("Please fill in all required fields correctly.");
+        return;
       }
-    } else {
-      toast.error("Please fill in all required fields correctly.");
+    }
+
+    if (currentStep < 5) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
@@ -1648,7 +1675,8 @@ export function ProposalWizard({
         }, 500);
       }, 1000);
     } catch (error: any) {
-      console.error("Proposal submission error:", error);
+      const errMsg = extractFullErrorMessage(error);
+      console.error("Proposal submission error:", errMsg, error);
       setSaveStatus("failed");
       
       // Extract error details for form field errors

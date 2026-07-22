@@ -1,57 +1,95 @@
+export type IRBClearanceStatus =
+  | "pending_submission"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "resubmitted";
+
+export interface IRBClearanceType {
+  id: number;
+  name: string;
+  description: string;
+  isActive: boolean;
+}
+
+export interface IRBClearanceDocument {
+  id: number;
+  fileUrl: string | null;
+  originalFilename: string;
+  documentType: "clearance" | "supporting";
+  fileSize: number;
+  uploadedBy: string | null;
+  uploadedAt: string | null;
+}
+
+export interface IRBClearanceReview {
+  id: number;
+  reviewer: string;
+  decision: "approved" | "rejected";
+  comments: string;
+  reviewedAt: string | null;
+}
+
 export interface EthicalClearance {
   id: number;
   proposal: number;
   proposalId?: number;
-  proposal_id?: number;
-
   proposalReadyForFundingId?: number;
-  proposal_ready_for_funding_id?: number;
 
   screeningId?: number | null;
-  screening_id?: number | null;
-
   referenceNumber?: string | null;
-  reference_number?: string | null;
+  reference?: string | null;
 
   proposalTitle?: string | null;
-  proposal_title?: string | null;
-
   proposalShortAbstract?: string | null;
-  proposal_short_abstract?: string | null;
-
   proposalInstitution?: string | null;
-  proposal_institution?: string | null;
 
-  pi?: any;
+  pi?: {
+    id: number;
+    fullName: string;
+    email: string;
+  };
 
-  needIrbEthicalClearance?: boolean;
-  need_irb_ethical_clearance: boolean;
+  submittedBy?: {
+    id: number;
+    fullName: string;
+    email: string;
+  } | null;
 
-  requestFile?: string;
-  request_file?: string;
+  needIrbEthicalClearance: boolean;
 
-  clearanceType?: string | null;
-  clearance_type?: string | null;
-
+  clearanceTypeId?: number | null;
+  clearanceTypeName?: string | null;
   clearanceFile?: string | null;
-  clearance_file?: string | null;
 
-  status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "additional_info_required";
-
-  applicationDate?: string;
-  application_date: string;
-
+  submissionNotes?: string;
+  status: IRBClearanceStatus;
+  applicationDate: string;
   approvalDate?: string | null;
-  approval_date?: string | null;
+  lastReviewedAt?: string | null;
+
+  supportingDocuments?: IRBClearanceDocument[];
+  reviews?: IRBClearanceReview[];
+  files?: {
+    clearanceFile: string | null;
+  };
+}
+
+export interface EthicalClearanceStatistics {
+  total: number;
+  byStatus: Record<IRBClearanceStatus, number>;
 }
 
 export interface EthicalClearanceResponse {
   success: boolean;
   data: EthicalClearance[];
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    statistics: EthicalClearanceStatistics;
+  };
 }
 
 export interface EthicalClearanceDetailResponse {
@@ -61,10 +99,23 @@ export interface EthicalClearanceDetailResponse {
 
 export interface EthicalClearanceCreateInput {
   proposal: number;
-  request_file?: File;
-  clearance_type: string;
-  application_date: string;
-  clearance_file?: File;
-  status?: EthicalClearance["status"];
-  approval_date?: string;
+  clearanceType?: number | null;
+  clearanceFile?: File;
+  submissionNotes?: string;
+  status?: IRBClearanceStatus;
+  applicationDate?: string;
+  approvalDate?: string;
+}
+
+export interface IRBClearanceSubmitInput {
+  clearanceTypeId?: number | null;
+  submissionNotes?: string;
+  clearanceFile?: File;
+  supportingDocuments?: File[];
+  removedDocumentIds?: number[];
+}
+
+export interface IRBClearanceReviewInput {
+  decision: "approved" | "rejected";
+  comments?: string;
 }

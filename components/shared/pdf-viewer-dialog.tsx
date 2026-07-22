@@ -100,7 +100,7 @@ export function PdfViewerDialog({
               onError={handleIframeError}
             />
           ) : (
-            <WordViewer url={url} title={title} className="h-full" />
+            <WordViewer url={url} title={title} className="h-full" hideHeader />
           )}
         </div>
       </DialogContent>

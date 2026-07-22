@@ -1,4 +1,3 @@
-import { z } from "zod";
 import apiClient from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
 import type {
@@ -6,15 +5,20 @@ import type {
   EthicalClearanceCreateInput,
   EthicalClearanceDetailResponse,
   EthicalClearanceResponse,
+  IRBClearanceStatus,
+  IRBClearanceSubmitInput,
+  IRBClearanceReviewInput,
+  IRBClearanceType,
 } from "@/types/ethical-clearance";
 
 export interface EthicalClearanceFilters {
   proposal?: number | string;
-  status?: EthicalClearance["status"];
+  status?: IRBClearanceStatus;
   search?: string;
   ordering?: string;
-  clearance_type?: string;
-  need_irb_ethical_clearance?: boolean;
+  clearanceType?: number;
+  needIrbEthicalClearance?: boolean;
+  mine?: boolean;
 }
 
 function cleanParams(filters: EthicalClearanceFilters) {
@@ -31,7 +35,6 @@ function unwrapData<T>(payload: unknown): T {
   if (payload && typeof payload === "object" && "data" in payload) {
     return (payload as { data: T }).data;
   }
-
   return payload as T;
 }
 
@@ -41,120 +44,183 @@ export async function getEthicalClearances(
   const { data } = await apiClient.get(API_ENDPOINTS.ETHICAL_CLEARANCES.LIST, {
     params: cleanParams(filters),
   });
-
-  const response = unwrapData<EthicalClearanceResponse | EthicalClearance[]>(
-    data,
-  );
+  const raw = data as Record<string, unknown>;
+  const response = raw.data as unknown;
 
   if (Array.isArray(response)) {
-    return { success: true, data: response };
+    return {
+      success: true,
+      data: response,
+      meta: (raw.meta as EthicalClearanceResponse["meta"]) ?? undefined,
+    };
   }
-
+  const nested = response as EthicalClearanceResponse;
   return {
-    success: response.success ?? true,
-    data: response.data ?? [],
+    success: nested.success ?? true,
+    data: nested.data ?? [],
+    meta: (raw.meta as EthicalClearanceResponse["meta"]) ?? undefined,
   };
 }
 
-export async function getEthicalClearance(
-  id: number,
-): Promise<EthicalClearance> {
+export async function getEthicalClearance(id: number): Promise<EthicalClearance> {
   const { data } = await apiClient.get(API_ENDPOINTS.ETHICAL_CLEARANCES.DETAIL(id));
-  const response = unwrapData<
-    EthicalClearance | EthicalClearanceDetailResponse
-  >(data);
-
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
   if (response && typeof response === "object" && "id" in response) {
     return response as EthicalClearance;
   }
-
   return (response as EthicalClearanceDetailResponse).data;
 }
 
 export async function createEthicalClearanceReview(
   input: EthicalClearanceCreateInput,
 ): Promise<EthicalClearance> {
-  const formData = new FormData();
-
-  formData.append("proposal", input.proposal.toString());
-
-  if (input.request_file) {
-    formData.append("request_file", input.request_file);
-  }
-
-  formData.append("clearance_type", input.clearance_type);
-  formData.append("application_date", input.application_date);
-
-  if (input.status) {
-    formData.append("status", input.status);
-  }
-
-  if (input.clearance_file) {
-    formData.append("clearance_file", input.clearance_file);
-  }
-
-  if (input.approval_date) {
-    formData.append("approval_date", input.approval_date);
-  }
-
-  const { data } = await apiClient.post(API_ENDPOINTS.ETHICAL_CLEARANCES.CREATE, formData);
-  const response = unwrapData<
-    EthicalClearance | EthicalClearanceDetailResponse
-  >(data);
-
+  const { data } = await apiClient.post(API_ENDPOINTS.ETHICAL_CLEARANCES.CREATE, input);
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
   if (response && typeof response === "object" && "id" in response) {
     return response as EthicalClearance;
   }
-
   return (response as EthicalClearanceDetailResponse).data;
 }
 
 export async function updateEthicalClearanceReview(
   id: number,
-  input: EthicalClearanceCreateInput,
+  input: Partial<EthicalClearanceCreateInput>,
 ): Promise<EthicalClearance> {
-  const formData = new FormData();
-
-  if (input.proposal !== undefined && input.proposal !== null) {
-    formData.append("proposal", input.proposal.toString());
-  }
-
-  if (input.request_file) {
-    formData.append("request_file", input.request_file);
-  }
-
-  if (input.clearance_type) {
-    formData.append("clearance_type", input.clearance_type);
-  }
-
-  if (input.application_date) {
-    formData.append("application_date", input.application_date);
-  }
-
-  if (input.status) {
-    formData.append("status", input.status);
-  }
-
-  if (input.clearance_file) {
-    formData.append("clearance_file", input.clearance_file);
-  }
-
-  if (input.approval_date) {
-    formData.append("approval_date", input.approval_date);
-  }
-
   const { data } = await apiClient.patch(
     API_ENDPOINTS.ETHICAL_CLEARANCES.UPDATE(id),
-    formData,
+    input,
   );
-
-  const response = unwrapData<
-    EthicalClearance | EthicalClearanceDetailResponse
-  >(data);
-
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
   if (response && typeof response === "object" && "id" in response) {
     return response as EthicalClearance;
   }
-
   return (response as EthicalClearanceDetailResponse).data;
+}
+
+export async function submitIRBClearance(
+  id: number,
+  input: IRBClearanceSubmitInput,
+): Promise<EthicalClearance> {
+  const formData = new FormData();
+  if (input.clearanceTypeId !== undefined && input.clearanceTypeId !== null) {
+    formData.append("clearance_type_id", input.clearanceTypeId.toString());
+  }
+  if (input.submissionNotes) {
+    formData.append("submission_notes", input.submissionNotes);
+  }
+  if (input.clearanceFile) {
+    formData.append("clearance_file", input.clearanceFile);
+  }
+  if (input.supportingDocuments && input.supportingDocuments.length > 0) {
+    for (const file of input.supportingDocuments) {
+      formData.append("supporting_documents", file);
+    }
+  }
+  if (input.removedDocumentIds && input.removedDocumentIds.length > 0) {
+    for (const docId of input.removedDocumentIds) {
+      formData.append("removed_document_ids", docId.toString());
+    }
+  }
+  const { data } = await apiClient.post(
+    API_ENDPOINTS.ETHICAL_CLEARANCES.SUBMIT(id),
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
+  if (response && typeof response === "object" && "id" in response) {
+    return response as EthicalClearance;
+  }
+  return (response as EthicalClearanceDetailResponse).data;
+}
+
+export async function resubmitIRBClearance(
+  id: number,
+  input: IRBClearanceSubmitInput,
+): Promise<EthicalClearance> {
+  const formData = new FormData();
+  if (input.clearanceTypeId !== undefined && input.clearanceTypeId !== null) {
+    formData.append("clearance_type_id", input.clearanceTypeId.toString());
+  }
+  if (input.submissionNotes) {
+    formData.append("submission_notes", input.submissionNotes);
+  }
+  if (input.clearanceFile) {
+    formData.append("clearance_file", input.clearanceFile);
+  }
+  if (input.supportingDocuments && input.supportingDocuments.length > 0) {
+    for (const file of input.supportingDocuments) {
+      formData.append("supporting_documents", file);
+    }
+  }
+  if (input.removedDocumentIds && input.removedDocumentIds.length > 0) {
+    for (const docId of input.removedDocumentIds) {
+      formData.append("removed_document_ids", docId.toString());
+    }
+  }
+  const { data } = await apiClient.post(
+    API_ENDPOINTS.ETHICAL_CLEARANCES.RESUBMIT(id),
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
+  if (response && typeof response === "object" && "id" in response) {
+    return response as EthicalClearance;
+  }
+  return (response as EthicalClearanceDetailResponse).data;
+}
+
+export async function updateDraftIRBClearance(
+  id: number,
+  input: IRBClearanceSubmitInput,
+): Promise<EthicalClearance> {
+  const formData = new FormData();
+  if (input.clearanceTypeId !== undefined && input.clearanceTypeId !== null) {
+    formData.append("clearance_type_id", input.clearanceTypeId.toString());
+  }
+  if (input.submissionNotes !== undefined) {
+    formData.append("submission_notes", input.submissionNotes);
+  }
+  if (input.clearanceFile) {
+    formData.append("clearance_file", input.clearanceFile);
+  }
+  if (input.supportingDocuments && input.supportingDocuments.length > 0) {
+    for (const file of input.supportingDocuments) {
+      formData.append("supporting_documents", file);
+    }
+  }
+  if (input.removedDocumentIds && input.removedDocumentIds.length > 0) {
+    for (const docId of input.removedDocumentIds) {
+      formData.append("removed_document_ids", docId.toString());
+    }
+  }
+  const { data } = await apiClient.post(
+    API_ENDPOINTS.ETHICAL_CLEARANCES.UPDATE_DRAFT(id),
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
+  if (response && typeof response === "object" && "id" in response) {
+    return response as EthicalClearance;
+  }
+  return (response as EthicalClearanceDetailResponse).data;
+}
+
+export async function reviewIRBClearance(
+  id: number,
+  input: IRBClearanceReviewInput,
+): Promise<EthicalClearance> {
+  const { data } = await apiClient.post(
+    API_ENDPOINTS.ETHICAL_CLEARANCES.REVIEW(id),
+    input,
+  );
+  const response = unwrapData<EthicalClearance | EthicalClearanceDetailResponse>(data);
+  if (response && typeof response === "object" && "id" in response) {
+    return response as EthicalClearance;
+  }
+  return (response as EthicalClearanceDetailResponse).data;
+}
+
+export async function getIRBClearanceTypes(): Promise<IRBClearanceType[]> {
+  const { data } = await apiClient.get(API_ENDPOINTS.IRB_CLEARANCE_TYPES.LIST);
+  return unwrapData<IRBClearanceType[]>(data);
 }

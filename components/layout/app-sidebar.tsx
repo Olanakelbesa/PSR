@@ -202,10 +202,22 @@ const navigationGroups: NavGroup[] = [
         permissions: [PERMISSIONS.RESEARCH_VIEW_READY_FOR_FUNDING],
       },
       {
-        label: "IRB",
-        href: "/research/ethical-clearance",
+        label: "IRB Clearance",
         icon: FileCheck2,
         permissions: [PERMISSIONS.RESEARCH_VIEW_ETHICAL_CLEARANCE],
+        subItems: [
+          {
+            label: "My Submissions",
+            href: "/research/irb-clearance/my-submissions",
+            icon: Dot,
+          },
+          {
+            label: "IRB Reviews",
+            href: "/research/irb-clearance/reviews",
+            icon: Dot,
+            permissions: [PERMISSIONS.RESEARCH_VIEW_ETHICAL_CLEARANCE],
+          },
+        ],
       },
       {
         label: "Protocol",

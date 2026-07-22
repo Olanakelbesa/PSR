@@ -360,6 +360,18 @@ export const API_ENDPOINTS = {
     DETAIL: (id: number) => `/v1/ethical-clearances/${id}/`,
     CREATE: "/v1/ethical-clearances/",
     UPDATE: (id: number) => `/v1/ethical-clearances/${id}/`,
+    SUBMIT: (id: number) => `/v1/ethical-clearances/${id}/submit/`,
+    RESUBMIT: (id: number) => `/v1/ethical-clearances/${id}/resubmit/`,
+    UPDATE_DRAFT: (id: number) => `/v1/ethical-clearances/${id}/update-draft/`,
+    REVIEW: (id: number) => `/v1/ethical-clearances/${id}/review/`,
+    STATISTICS: "/v1/ethical-clearances/statistics/",
+  },
+
+  IRB_CLEARANCE_TYPES: {
+    LIST: "/v1/irb-clearance-types/",
+    DETAIL: (id: number) => `/v1/irb-clearance-types/${id}/`,
+    CREATE: "/v1/irb-clearance-types/",
+    UPDATE: (id: number) => `/v1/irb-clearance-types/${id}/`,
   },
 
   PROTOCOLS: {
