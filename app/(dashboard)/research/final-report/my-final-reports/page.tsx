@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, RefreshCw, Calendar, Wallet, CheckCircle2, ArrowRight, Search } from "lucide-react";
+import {
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { useProgressReports, useDebounce } from "@/hooks";
+import { cn } from "@/lib/utils";
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -29,31 +35,96 @@ function formatCurrency(value?: string | number | null) {
   return `ETB ${Number.isFinite(amount) ? amount.toLocaleString() : "0"}`;
 }
 
+type StatFilter = "all" | "pending" | "approved" | "rejected";
+
+const ALL_VALUE = "all";
+
 export default function MyFinalReportsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_VALUE);
   const debouncedSearch = useDebounce(search, 300);
   const router = useRouter();
 
-  // Reset page when search term changes
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, statusFilter]);
 
-  // Fetch only approved progress reports
+  const applyStatusFilter = useCallback((filter: StatFilter) => {
+    setStatusFilter((current) => (current === filter ? ALL_VALUE : filter));
+  }, []);
+
   const queryParams = useMemo(
     () => ({
       page,
       limit: 10,
-      status: "approved",
+      status: statusFilter !== ALL_VALUE ? statusFilter : undefined,
       search: debouncedSearch.trim() || undefined,
     }),
-    [page, debouncedSearch]
+    [page, debouncedSearch, statusFilter],
   );
 
   const { data, isLoading, refetch, isFetching } = useProgressReports(queryParams);
   const reports = data?.data ?? [];
   const meta = data?.meta ?? { page: 1, limit: 10, total: 0, totalPages: 1 };
+  const statistics = (data?.meta as Record<string, unknown>)?.statistics as
+    | { total: number; pending: number; approved: number; rejected: number }
+    | undefined;
+
+  const statCards = useMemo(
+    () => [
+      {
+        key: "all" as StatFilter,
+        label: "Total",
+        value: statistics?.total ?? meta.total ?? 0,
+        icon: BarChart3,
+        color: "text-primary",
+        bg: "bg-primary/10",
+        border: "border-primary/20",
+        activeRing: "ring-primary/50 border-primary/40",
+        sub: "All progress reports",
+      },
+      {
+        key: "approved" as StatFilter,
+        label: "Approved",
+        value: statistics?.approved ?? 0,
+        icon: CheckCircle2,
+        color: "text-emerald-600",
+        bg: "bg-emerald-50",
+        border: "border-emerald-200",
+        activeRing: "ring-emerald-500/60 border-emerald-300",
+        sub: "Approved reports",
+      },
+      {
+        key: "pending" as StatFilter,
+        label: "Pending",
+        value: statistics?.pending ?? 0,
+        icon: Clock,
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Awaiting review",
+      },
+      {
+        key: "rejected" as StatFilter,
+        label: "Rejected",
+        value: statistics?.rejected ?? 0,
+        icon: XCircle,
+        color: "text-rose-600",
+        bg: "bg-rose-50",
+        border: "border-rose-200",
+        activeRing: "ring-rose-500/60 border-rose-300",
+        sub: "Rejected reports",
+      },
+    ],
+    [statistics, meta.total],
+  );
+
+  const expenditureTotal = reports.reduce(
+    (sum, item) => sum + Number(item.amount_used || 0),
+    0,
+  );
 
   const columns = [
     {
@@ -114,12 +185,22 @@ export default function MyFinalReportsPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: () => (
-        <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 shadow-none capitalize">
-          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-          Approved
-        </Badge>
-      ),
+      cell: ({ row }: any) => {
+        const status = row.original.status;
+        const statusClasses: Record<string, string> = {
+          approved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+          pending: "border-amber-200 bg-amber-50 text-amber-700",
+          rejected: "border-rose-200 bg-rose-50 text-rose-700",
+        };
+        return (
+          <Badge
+            variant="outline"
+            className={cn("capitalize", statusClasses[status] ?? "border-slate-200 bg-slate-50 text-slate-700")}
+          >
+            {status ?? "Unknown"}
+          </Badge>
+        );
+      },
     },
     {
       id: "actions",
@@ -133,81 +214,116 @@ export default function MyFinalReportsPage() {
           }}
         >
           Details
-          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
         </Button>
       ),
-    },
-  ];
-
-  const stats = [
-    {
-      title: "Approved Progress Reports",
-      value: meta.total,
-      caption: "Ready for final reports",
-      icon: CheckCircle2,
-      accent: { iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-    },
-    {
-      title: "Total Expenditures",
-      value: formatCurrency(
-        reports.reduce((sum, item) => sum + Number(item.amount_used || 0), 0)
-      ),
-      caption: "Spent across approved reports",
-      icon: Wallet,
-      accent: { iconBg: "bg-primary/10", iconColor: "text-primary" },
     },
   ];
 
   return (
     <PageContainer
       title="My Final Reports"
-      description="View and manage approved progress reports to initiate final report submissions."
+      description="View and manage progress reports to initiate final report submissions."
     >
       <div className="space-y-6">
         {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-full rounded-xl" />
-            <Skeleton className="h-16 w-full rounded-xl" />
-            <Skeleton className="h-16 w-full rounded-xl" />
-            <Skeleton className="h-16 w-full rounded-xl" />
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index} className="border-none shadow-sm">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-16" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            data={reports}
-            onRowClick={(row) =>
-              router.push(`/research/final-report/my-final-reports/${row.id}`)
-            }
-            emptyMessage="No approved progress reports found"
-            emptyDescription={search ? "No matching results found for your search query." : "There are no progress reports currently marked as approved."}
-            toolbar={
-              <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-1 flex-wrap items-center gap-2">
-                    <div className="relative w-full max-w-md">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by report name or project title..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 bg-muted/20 border-muted-foreground/20 focus-visible:ring-primary/20 h-10"
-                      />
-                    </div>
-                  </div>
-                  {search && (
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setSearch("")} 
-                      className="text-xs text-muted-foreground hover:text-foreground h-10 px-3"
-                    >
-                      Clear
-                    </Button>
-                  )}
+          <>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {statCards.map((stat) => {
+                const isActive = statusFilter === stat.key;
+                return (
+                  <Card
+                    key={stat.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => applyStatusFilter(stat.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        applyStatusFilter(stat.key);
+                      }
+                    }}
+                    className={cn(
+                      "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                      stat.border,
+                      isActive && cn("ring-2 shadow-md", stat.activeRing),
+                    )}
+                  >
+                    <CardContent className="flex items-center gap-4 p-5">
+                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                        <stat.icon className={cn("h-5 w-5", stat.color)} />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black">{stat.value}</div>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {stat.label}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                          {stat.sub}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <Card className="border-primary/10 bg-primary/5">
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className="shrink-0 rounded-xl bg-primary/10 p-3">
+                  <Wallet className="h-5 w-5 text-primary" />
                 </div>
+                <div>
+                  <div className="text-2xl font-black">{formatCurrency(expenditureTotal)}</div>
+                  <p className="text-xs font-medium text-muted-foreground">Total Expenditures</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                    Spent across filtered reports
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {statusFilter !== ALL_VALUE && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStatusFilter(ALL_VALUE)}
+                  className="h-7 text-xs"
+                >
+                  Clear filter
+                </Button>
               </div>
-            }
-          />
+            )}
+          </>
         )}
+
+        <DataTable
+          columns={columns}
+          data={reports}
+          onRowClick={(row) =>
+            router.push(`/research/final-report/my-final-reports/${row.id}`)
+          }
+          emptyMessage="No progress reports found"
+          emptyDescription={
+            search
+              ? "No matching results found for your search query."
+              : "There are no progress reports currently available."
+          }
+        />
       </div>
     </PageContainer>
   );

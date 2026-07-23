@@ -31,6 +31,7 @@ export interface ApiListResponse<T> {
     limit: number;
     total: number;
     totalPages: number;
+    statistics?: Record<string, number>;
   };
 }
 
@@ -88,6 +89,7 @@ function normalizeList<T>(payload: unknown): ApiListResponse<T> {
               objectPayload.results.length,
           ),
           totalPages: Number(objectPayload.meta?.totalPages ?? 0),
+          statistics: objectPayload.meta?.statistics,
         },
       };
     }

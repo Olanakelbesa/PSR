@@ -7,14 +7,17 @@ import { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowRight,
   ArrowUpDown,
-  BookOpen,
+  BarChart3,
   CalendarDays,
+  CheckCircle2,
+  Clock,
   Download,
-  Hash,
+  FileText,
   Loader2,
   Pencil,
+  PenLine,
   Tag,
-  UserRound,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,12 +26,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import {
-  useDataCenters,
   useFinalSubmissions,
-  useOutputTypes,
-  useReadyForFinalSubmissionFundingRecommendations,
   useRecordFinalSubmissionDownload,
 } from "@/hooks";
 import type {
@@ -37,7 +38,6 @@ import type {
   FinalSubmissionStatus,
 } from "@/types/final-submission";
 import { canEditFinalSubmission } from "@/types/final-submission";
-import type { FundingRecommendation } from "@/types/funding-recommendation";
 import {
   downloadRemoteFile,
   extractFileName,
@@ -67,19 +67,6 @@ function formatDate(value?: string | null) {
   });
 }
 
-type ResearchRecord = FinalSubmission & {
-  searchText: string;
-  output_type_name?: string;
-  data_center_name?: string;
-  fundedproposal_title?: string;
-};
-
-function formatRecommendationLabel(item: FundingRecommendation) {
-  const reference = item.reference_number || `FR-${item.id}`;
-  const title = item.proposal_title || "Untitled proposal";
-  return `${reference} · ${title}`;
-}
-
 function getPrimaryDownloadFile(item: FinalSubmission): {
   path: string;
   fileType: FinalSubmissionDownloadFileType;
@@ -99,78 +86,125 @@ function getPrimaryDownloadFile(item: FinalSubmission): {
   return null;
 }
 
+const ALL_VALUE = "all";
+
+type StatFilter = "all" | "draft" | "submitted" | "under_review" | "revision_requested" | "approved" | "rejected";
+
 export default function ResearchRepositoryPage() {
   const router = useRouter();
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_VALUE);
 
-  const { data, isLoading: isFinalSubmissionsLoading } = useFinalSubmissions({
+  const applyStatusFilter = useCallback((filter: StatFilter) => {
+    setStatusFilter((current) => (current === filter ? ALL_VALUE : filter));
+  }, []);
+
+  const { data, isLoading } = useFinalSubmissions({
     page: 1,
     limit: 100,
     ordering: "-submission_date",
+    ...(statusFilter !== ALL_VALUE ? { status: statusFilter } : {}),
   });
 
   const recordDownload = useRecordFinalSubmissionDownload();
 
-  const { data: fundingRecommendationsData, isLoading: isFundingLoading } =
-    useReadyForFinalSubmissionFundingRecommendations({
-      page: 1,
-      limit: 100,
-      ordering: "-recommended_at",
-    });
+  const statistics = (data?.meta as Record<string, unknown>)?.statistics as
+    | {
+        total: number;
+        draft: number;
+        submitted: number;
+        underReview: number;
+        revisionRequested: number;
+        approved: number;
+        rejected: number;
+      }
+    | undefined;
 
-  const { data: outputTypesData, isLoading: isOutputTypesLoading } =
-    useOutputTypes({ page: 1, limit: 100, ordering: "name" });
-
-  const { data: dataCentersData, isLoading: isDataCentersLoading } =
-    useDataCenters({ page: 1, limit: 100, ordering: "name" });
-
-  const isLoading =
-    isFinalSubmissionsLoading ||
-    isFundingLoading ||
-    isOutputTypesLoading ||
-    isDataCentersLoading;
-
-  const fundingRecommendationMap = new Map(
-    (fundingRecommendationsData?.data ?? []).map((item) => [item.id, item]),
+  const statCards = useMemo(
+    () => [
+      {
+        key: "all" as StatFilter,
+        label: "Total",
+        value: statistics?.total ?? 0,
+        icon: BarChart3,
+        color: "text-primary",
+        bg: "bg-primary/10",
+        border: "border-primary/20",
+        activeRing: "ring-primary/50 border-primary/40",
+        sub: "All submissions",
+      },
+      {
+        key: "draft" as StatFilter,
+        label: "Draft",
+        value: statistics?.draft ?? 0,
+        icon: FileText,
+        color: "text-slate-600",
+        bg: "bg-slate-100",
+        border: "border-slate-200",
+        activeRing: "ring-slate-500/60 border-slate-300",
+        sub: "Not yet submitted",
+      },
+      {
+        key: "submitted" as StatFilter,
+        label: "Submitted",
+        value: statistics?.submitted ?? 0,
+        icon: FileText,
+        color: "text-sky-600",
+        bg: "bg-sky-50",
+        border: "border-sky-200",
+        activeRing: "ring-sky-500/60 border-sky-300",
+        sub: "Awaiting review",
+      },
+      {
+        key: "under_review" as StatFilter,
+        label: "Under Review",
+        value: statistics?.underReview ?? 0,
+        icon: Clock,
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+        activeRing: "ring-blue-500/60 border-blue-300",
+        sub: "Being evaluated",
+      },
+      {
+        key: "revision_requested" as StatFilter,
+        label: "Revision Requested",
+        value: statistics?.revisionRequested ?? 0,
+        icon: PenLine,
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Needs changes",
+      },
+      {
+        key: "approved" as StatFilter,
+        label: "Approved",
+        value: statistics?.approved ?? 0,
+        icon: CheckCircle2,
+        color: "text-emerald-600",
+        bg: "bg-emerald-50",
+        border: "border-emerald-200",
+        activeRing: "ring-emerald-500/60 border-emerald-300",
+        sub: "Published submissions",
+      },
+      {
+        key: "rejected" as StatFilter,
+        label: "Rejected",
+        value: statistics?.rejected ?? 0,
+        icon: XCircle,
+        color: "text-rose-600",
+        bg: "bg-rose-50",
+        border: "border-rose-200",
+        activeRing: "ring-rose-500/60 border-rose-300",
+        sub: "Rejected submissions",
+      },
+    ],
+    [statistics],
   );
-  const outputTypeMap = new Map(
-    (outputTypesData?.data ?? []).map((item) => [item.id, item]),
-  );
-  const dataCenterMap = new Map(
-    (dataCentersData?.data ?? []).map((item) => [item.id, item]),
-  );
-
-  const finalSubmissions: ResearchRecord[] = (data?.data ?? []).map((item) => {
-    const fundedProposal = fundingRecommendationMap.get(item.fundedproposal);
-    const outputType = outputTypeMap.get(item.output_type);
-    const dataCenter = item.data_center
-      ? dataCenterMap.get(item.data_center)
-      : undefined;
-
-    return {
-      ...item,
-      searchText: [
-        item.title,
-        item.submitted_by_name,
-        item.ndmc_submission_reference,
-        item.status,
-        fundedProposal?.proposal_title,
-        outputType?.name,
-        dataCenter?.name,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase(),
-      fundedproposal_title: fundedProposal
-        ? formatRecommendationLabel(fundedProposal)
-        : undefined,
-      output_type_name: outputType?.name,
-      data_center_name: dataCenter?.name,
-    };
-  });
 
   const handleDownload = useCallback(
-    async (item: ResearchRecord, event?: React.MouseEvent) => {
+    async (item: FinalSubmission, event?: React.MouseEvent) => {
       event?.stopPropagation();
 
       const primaryFile = getPrimaryDownloadFile(item);
@@ -207,7 +241,7 @@ export default function ResearchRepositoryPage() {
     [recordDownload],
   );
 
-  const repositoryColumns: ColumnDef<ResearchRecord>[] = useMemo(
+  const columns: ColumnDef<FinalSubmission>[] = useMemo(
     () => [
       {
         id: "searchText",
@@ -216,9 +250,10 @@ export default function ResearchRepositoryPage() {
             item.title,
             item.submitted_by_name,
             item.ndmc_submission_reference,
-            item.fundedproposal_title,
-            item.output_type_name,
-            item.data_center_name,
+            item.fundedproposal_detail?.reference_number,
+            item.fundedproposal_detail?.title,
+            item.output_type_detail?.name,
+            item.data_center_detail?.name,
             item.status,
           ]
             .join(" ")
@@ -231,70 +266,74 @@ export default function ResearchRepositoryPage() {
         header: "Submission",
         cell: ({ row }) => {
           const item = row.original;
+          const ref =
+            item.fundedproposal_detail?.reference_number ||
+            item.ndmc_submission_reference ||
+            `FS-${item.id}`;
 
           return (
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/10 bg-primary/5 text-primary shadow-sm">
-                <BookOpen className="h-5 w-5" />
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-primary/70">
+                <Tag className="h-3 w-3 shrink-0" />
+                <span className="truncate">{ref}</span>
               </div>
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-primary/70">
-                  <Tag className="h-3 w-3" />
-                  {item.ndmc_submission_reference || `FS-${item.id}`}
-                </div>
-                <div>
-                  <p className="line-clamp-2 text-sm font-bold leading-snug text-slate-900">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {item.submitted_by_name || "Submitted by PSR user"}
-                  </p>
-                </div>
-              </div>
+              <p className="line-clamp-2 text-sm font-bold leading-snug text-slate-900">
+                {item.title}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {item.submitted_by_name || "Submitted by PSR user"}
+              </p>
             </div>
           );
         },
       },
       {
-        accessorKey: "fundedproposal_title",
+        accessorKey: "fundedproposal_detail",
         header: "Funded Proposal",
         cell: ({ row }) => {
-          const item = row.original;
+          const detail = row.original.fundedproposal_detail;
+          if (!detail) {
+            return (
+              <span className="text-xs text-muted-foreground">
+                Funding proposal #{row.original.fundedproposal}
+              </span>
+            );
+          }
 
           return (
-            <div className="space-y-1">
-              <p className="max-w-[260px] line-clamp-2 text-sm font-semibold text-slate-700">
-                {item.fundedproposal_title ||
-                  `Funding proposal #${item.fundedproposal}`}
+            <div className="max-w-[260px] space-y-0.5">
+              <p className="line-clamp-2 text-sm font-semibold text-slate-700">
+                {detail.title || "Untitled proposal"}
               </p>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <UserRound className="h-3.5 w-3.5" />
-                {item.submitted_by_name || "Unknown submitter"}
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {detail.reference_number || `FR-${detail.funding_recommendation_id}`}
+              </p>
             </div>
           );
         },
       },
       {
-        accessorKey: "output_type_name",
+        accessorKey: "output_type_detail",
         header: "Output Type",
-        cell: ({ row }) => (
-          <Badge
-            variant="secondary"
-            className="border-none bg-slate-100 text-[10px] font-bold uppercase tracking-wide text-slate-600"
-          >
-            {row.original.output_type_name ||
-              `Output #${row.original.output_type}`}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          const name = row.original.output_type_detail?.name;
+          return (
+            <Badge
+              variant="secondary"
+              className="border-none bg-slate-100 text-[10px] font-bold uppercase tracking-wide text-slate-600"
+            >
+              {name || `Output #${row.original.output_type}`}
+            </Badge>
+          );
+        },
       },
       {
-        accessorKey: "data_center_name",
-        header: "Data Center",
+        accessorKey: "data_center_detail",
+        header: "Data Center & Version",
         cell: ({ row }) => (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <p className="text-sm font-medium text-slate-700">
-              {row.original.data_center_name ||
+              {row.original.data_center_detail?.name ||
                 `Center #${row.original.data_center || "-"}`}
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -308,34 +347,27 @@ export default function ResearchRepositoryPage() {
         header: "Status",
         filterFn: "equalsString",
         cell: ({ row }) => (
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              className={
-                row.original.status === "approved"
-                  ? "border-emerald-200 bg-emerald-50 text-[10px] font-bold uppercase tracking-wide text-emerald-700"
-                  : row.original.status === "rejected"
-                    ? "border-rose-200 bg-rose-50 text-[10px] font-bold uppercase tracking-wide text-rose-700"
-                    : "border-amber-200 bg-amber-50 text-[10px] font-bold uppercase tracking-wide text-amber-700"
-              }
-            >
-              {statusLabels[row.original.status]}
-            </Badge>
-          </div>
+          <Badge
+            className={cn(
+              "text-[10px] font-bold uppercase tracking-wide",
+              row.original.status === "approved"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : row.original.status === "rejected"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-amber-200 bg-amber-50 text-amber-700",
+            )}
+          >
+            {statusLabels[row.original.status]}
+          </Badge>
         ),
       },
       {
         accessorKey: "submission_date",
         header: "Submitted",
         cell: ({ row }) => (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-              {formatDate(row.original.submission_date)}
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Hash className="h-3.5 w-3.5" />
-              {row.original.id}
-            </div>
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            {formatDate(row.original.submission_date)}
           </div>
         ),
       },
@@ -409,11 +441,6 @@ export default function ResearchRepositoryPage() {
     [downloadingId, handleDownload],
   );
 
-  const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({
-    value,
-    label,
-  }));
-
   return (
     <PageContainer
       title="Research Repository"
@@ -429,42 +456,99 @@ export default function ResearchRepositoryPage() {
     >
       <div className="space-y-6">
         {isLoading ? (
-          <Card className="overflow-hidden rounded-3xl border border-muted-foreground/10 bg-white p-5 shadow-sm">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
+          <>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Card key={index} className="border-none shadow-sm">
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <Skeleton className="h-11 w-11 rounded-xl" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-7 w-16" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Card className="overflow-hidden rounded-3xl border border-muted-foreground/10 bg-white p-5 shadow-sm">
+              <div className="space-y-4">
                 <Skeleton className="h-10 w-[320px] rounded-xl" />
-                <div className="flex gap-2">
-                  <Skeleton className="h-10 w-[110px] rounded-xl" />
-                  <Skeleton className="h-10 w-[140px] rounded-xl" />
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, index) => (
+                    <Skeleton key={index} className="h-16 w-full rounded-2xl" />
+                  ))}
                 </div>
               </div>
-              <div className="space-y-3">
-                {[...Array(5)].map((_, index) => (
-                  <Skeleton key={index} className="h-16 w-full rounded-2xl" />
-                ))}
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </>
         ) : (
-          <DataTable
-            columns={repositoryColumns}
-            data={finalSubmissions}
-            onRowClick={(item) => router.push(`/research/repository/${item.id}`)}
-            searchKey="searchText"
-            searchPlaceholder="Search submissions by title, reference, submitter, or status..."
-            filterOptions={[
-              {
-                key: "status",
-                label: "Status",
-                options: statusOptions,
-              },
-            ]}
-            initialColumnVisibility={{
-              searchText: false,
-            }}
-            emptyMessage="No Research Found"
-            emptyDescription="Try adjusting your search or status filter."
-          />
+          <>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {statCards.map((stat) => {
+                const isActive = statusFilter === stat.key;
+                return (
+                  <Card
+                    key={stat.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => applyStatusFilter(stat.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        applyStatusFilter(stat.key);
+                      }
+                    }}
+                    className={cn(
+                      "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                      stat.border,
+                      isActive && cn("ring-2 shadow-md", stat.activeRing),
+                    )}
+                  >
+                    <CardContent className="flex items-center gap-4 p-5">
+                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                        <stat.icon className={cn("h-5 w-5", stat.color)} />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black">{stat.value}</div>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {stat.label}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                          {stat.sub}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {statusFilter !== ALL_VALUE && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStatusFilter(ALL_VALUE)}
+                  className="h-7 text-xs"
+                >
+                  Clear filter
+                </Button>
+              </div>
+            )}
+
+            <DataTable
+              columns={columns}
+              data={data?.data ?? []}
+              onRowClick={(item) => router.push(`/research/repository/${item.id}`)}
+              searchKey="searchText"
+              searchPlaceholder="Search submissions by title, reference, submitter, or status..."
+              initialColumnVisibility={{
+                searchText: false,
+              }}
+              emptyMessage="No Research Found"
+              emptyDescription="Try adjusting your search or status filter."
+            />
+          </>
         )}
       </div>
     </PageContainer>
