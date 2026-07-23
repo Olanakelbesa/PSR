@@ -232,8 +232,6 @@ export default function FundingRecommendationsPage() {
     useState(ALL_FILTER_VALUE);
   const [selectedIrbFilter, setSelectedIrbFilter] = useState(ALL_FILTER_VALUE);
   const [selectedScoreBand, setSelectedScoreBand] = useState(ALL_FILTER_VALUE);
-  const [selectedFundingDecisionStatus, setSelectedFundingDecisionStatus] =
-    useState(ALL_FILTER_VALUE);
   const [selectedEthicalClearance, setSelectedEthicalClearance] =
     useState(ALL_FILTER_VALUE);
 
@@ -251,19 +249,27 @@ export default function FundingRecommendationsPage() {
           : undefined,
       has_funding_decision: true,
       funding_decision_status: "approved" as const,
+      has_funding_recommendation:
+        selectedPipelineStage === "funded"
+          ? true
+          : selectedPipelineStage === "pending"
+            ? false
+            : undefined,
+      need_irb_ethical_clearance:
+        selectedIrbFilter === "required"
+          ? true
+          : selectedIrbFilter === "not_required"
+            ? false
+            : undefined,
       ordering: "-average_score_percentage",
     }),
-    [selectedCall, selectedProposalType],
+    [selectedCall, selectedProposalType, selectedPipelineStage, selectedIrbFilter],
   );
 
   const recommendationFilters = useMemo(
     () => ({
       page: 1,
       limit: 100,
-      funding_decision_status:
-        selectedFundingDecisionStatus !== ALL_FILTER_VALUE
-          ? selectedFundingDecisionStatus
-          : undefined,
       has_ethical_clearance_approval:
         selectedEthicalClearance === "approved"
           ? true
@@ -272,7 +278,7 @@ export default function FundingRecommendationsPage() {
             : undefined,
       ordering: "-recommended_at",
     }),
-    [selectedFundingDecisionStatus, selectedEthicalClearance],
+    [selectedEthicalClearance],
   );
 
   const {
@@ -428,20 +434,6 @@ export default function FundingRecommendationsPage() {
       };
     });
 
-    if (selectedPipelineStage !== ALL_FILTER_VALUE) {
-      rows = rows.filter((row) => row.stage === selectedPipelineStage);
-    }
-
-    if (selectedIrbFilter !== ALL_FILTER_VALUE) {
-      rows = rows.filter((row) => {
-        if (selectedIrbFilter === "required") return row.needIrbEthicalClearance;
-        if (selectedIrbFilter === "not_required") {
-          return !row.needIrbEthicalClearance;
-        }
-        return true;
-      });
-    }
-
     if (selectedScoreBand !== ALL_FILTER_VALUE) {
       const threshold = Number(selectedScoreBand);
       if (Number.isFinite(threshold)) {
@@ -457,10 +449,14 @@ export default function FundingRecommendationsPage() {
   }, [
     rankedCandidates,
     recommendationByDecisionId,
-    selectedIrbFilter,
-    selectedPipelineStage,
     selectedScoreBand,
   ]);
+
+  const pendingCount = useMemo(
+    () =>
+      pipelineRows.filter((row) => row.stage === "pending").length,
+    [pipelineRows],
+  );
 
   const totalAwarded = useMemo(
     () =>
@@ -493,7 +489,6 @@ export default function FundingRecommendationsPage() {
     setSelectedPipelineStage(ALL_FILTER_VALUE);
     setSelectedIrbFilter(ALL_FILTER_VALUE);
     setSelectedScoreBand(ALL_FILTER_VALUE);
-    setSelectedFundingDecisionStatus(ALL_FILTER_VALUE);
     setSelectedEthicalClearance(ALL_FILTER_VALUE);
   }, []);
 
@@ -518,8 +513,24 @@ export default function FundingRecommendationsPage() {
         selectedPipelineStage !== ALL_FILTER_VALUE ||
         selectedIrbFilter !== ALL_FILTER_VALUE ||
         selectedScoreBand !== ALL_FILTER_VALUE ||
-        selectedFundingDecisionStatus !== ALL_FILTER_VALUE ||
         selectedEthicalClearance !== ALL_FILTER_VALUE,
+    },
+    {
+      title: "Pending Recommendations",
+      value: pendingCount,
+      caption: "Awaiting funding recommendation",
+      icon: Clock,
+      accent: {
+        iconBg: "bg-amber-50",
+        iconColor: "text-amber-700",
+        border: "border-amber-200",
+        activeRing: "ring-amber-500/60 border-amber-300",
+      },
+      onClick: () => {
+        clearAllFilters();
+        setSelectedPipelineStage("pending");
+      },
+      isActive: selectedPipelineStage === "pending",
     },
     {
       title: "Total Requested",
@@ -546,9 +557,9 @@ export default function FundingRecommendationsPage() {
       },
       onClick: () => {
         clearAllFilters();
-        setSelectedFundingDecisionStatus("approved");
+        setSelectedPipelineStage("funded");
       },
-      isActive: selectedFundingDecisionStatus === "approved",
+      isActive: selectedPipelineStage === "funded",
     },
     {
       title: "Ethics Cleared",
@@ -600,18 +611,16 @@ export default function FundingRecommendationsPage() {
         })),
       },
       {
-        key: "funding-status",
-        label: "Funding status",
-        value: selectedFundingDecisionStatus,
-        onValueChange: setSelectedFundingDecisionStatus,
-        placeholder: "Filter by funding status",
+        key: "pipeline-stage",
+        label: "Pipeline stage",
+        value: selectedPipelineStage,
+        onValueChange: setSelectedPipelineStage,
+        placeholder: "Filter by pipeline stage",
         allValue: ALL_FILTER_VALUE,
-        allLabel: "All Status",
+        allLabel: "All Stages",
         options: [
-          { value: "approved", label: "Approved" },
-          { value: "pending", label: "Pending" },
-          { value: "rejected", label: "Rejected" },
-          { value: "deferred", label: "Deferred" },
+          { value: "pending", label: "Pending Recommendation" },
+          { value: "funded", label: "Funded / Recommended" },
         ],
       },
       {
@@ -633,7 +642,7 @@ export default function FundingRecommendationsPage() {
       proposalTypeOptions,
       selectedCall,
       selectedEthicalClearance,
-      selectedFundingDecisionStatus,
+      selectedPipelineStage,
       selectedProposalType,
     ],
   );
@@ -838,9 +847,9 @@ export default function FundingRecommendationsPage() {
       }
     >
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {isLoading
-            ? Array.from({ length: 4 }).map((_, index) => (
+            ? Array.from({ length: 5 }).map((_, index) => (
               <Skeleton key={index} className="h-[7.5rem] rounded-xl" />
             ))
             : stats.map((stat) => <StatCard key={stat.title} {...stat} />)}

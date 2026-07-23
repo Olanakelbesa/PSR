@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   MoreHorizontal,
@@ -14,6 +15,8 @@ import {
   ArrowUpDown,
   BarChart3,
   CheckCircle2,
+  AlertCircle,
+  RefreshCcw,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -107,8 +110,6 @@ export default function ReadyForFundingPage() {
   const router = useRouter();
 
   // --- Filter state ---
-  const [rows, setRows] = useState<ReadyForFundingItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [organization, setOrganization] = useState(ALL_VALUE);
   const [unit, setUnit] = useState(ALL_VALUE);
@@ -121,15 +122,6 @@ export default function ReadyForFundingPage() {
   const [ordering, setOrdering] = useState("-id");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
-  const [statistics, setStatistics] = useState({
-    totalProposals: 0,
-    pendingDecisions: 0,
-    decisionsCreated: 0,
-    totalRequested: 0,
-    totalFundedAmount: 0,
-    averageScore: 0,
-    averageScorePercentage: 0,
-  });
 
   // --- Debounced search ---
   const debouncedSearch = useDebounce(search, 350);
@@ -166,7 +158,7 @@ export default function ReadyForFundingPage() {
 
     // Status card filter takes priority over manual decision filter
     if (statusFilter === "pending") {
-      params.funding_decision_status = "pending";
+      params.has_funding_decision = false;
     } else if (statusFilter === "decided") {
       params.has_funding_decision = true;
     } else {
@@ -193,40 +185,26 @@ export default function ReadyForFundingPage() {
     statusFilter,
   ]);
 
-  // --- Fetch data ---
-  useEffect(() => {
-    let cancelled = false;
+  // --- Fetch data via react-query ---
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["ready-for-funding", queryParams],
+    queryFn: () => readyForFundingService.list(queryParams as any),
+  });
 
-    async function load() {
-      setIsLoading(true);
-      try {
-        const res = await readyForFundingService.list(queryParams as any);
-        if (cancelled) return;
-
-        setRows(res.data ?? []);
-        setStatistics(
-          res.meta?.statistics ?? {
-            totalProposals: res.data?.length ?? 0,
-            pendingDecisions: 0,
-            decisionsCreated: 0,
-            totalRequested: 0,
-            totalFundedAmount: 0,
-            averageScore: 0,
-            averageScorePercentage: 0,
-          },
-        );
-      } catch (err) {
-        if (cancelled) return;
-        console.error("Failed to load ready-for-funding:", err);
-        setRows([]);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [queryParams]);
+  const rows = useMemo(() => data?.data ?? [], [data?.data]);
+  const statistics = useMemo(
+    () =>
+      data?.meta?.statistics ?? {
+        totalProposals: 0,
+        pendingDecisions: 0,
+        decisionsCreated: 0,
+        totalRequested: 0,
+        totalFundedAmount: 0,
+        averageScore: 0,
+        averageScorePercentage: 0,
+      },
+    [data?.meta?.statistics],
+  );
 
   // --- Stat card click handler ---
   const applyStatusFilter = useCallback((filter: StatusFilter) => {
@@ -815,8 +793,27 @@ export default function ReadyForFundingPage() {
               })}
         </div>
 
-        {/* Table */}
-        {isLoading && rows.length === 0 ? (
+        {/* Error state */}
+        {isError ? (
+          <Card className="border-rose-200 bg-rose-50/40 shadow-sm">
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-14 text-center">
+              <div className="rounded-full bg-rose-100 p-4 text-rose-600">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-semibold">Unable to load ready-for-funding data</p>
+                <p className="text-sm text-muted-foreground">
+                  Check the backend connection and try again.
+                </p>
+              </div>
+              <Button onClick={() => void refetch()}>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : /* Table */
+        isLoading && rows.length === 0 ? (
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <Skeleton className="h-10 w-full max-w-md" />
             <div className="space-y-3">
