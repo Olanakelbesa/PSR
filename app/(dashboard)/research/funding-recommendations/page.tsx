@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -164,6 +164,8 @@ function StatusBadge({
 type StatAccent = {
   iconBg: string;
   iconColor: string;
+  border: string;
+  activeRing: string;
 };
 
 function StatCard({
@@ -172,35 +174,45 @@ function StatCard({
   caption,
   icon: Icon,
   accent,
+  onClick,
+  isActive,
 }: {
   title: string;
   value: string | number;
   caption: string;
   icon: typeof FileText;
   accent: StatAccent;
+  onClick?: () => void;
+  isActive?: boolean;
 }) {
   const displayValue =
     typeof value === "number" ? value.toLocaleString() : value;
 
   return (
-    <Card className="h-full border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md">
-      <CardContent className="py-5">
-        <div className="flex items-center gap-2">
-
-          <div
-            className={cn("inline-flex rounded-xl p-2.5", accent.iconBg)}
-            aria-hidden
-          >
-            <Icon className={cn("h-5 w-5", accent.iconColor)} />
-          </div>
-          <p className="text-xs font-medium text-muted-foreground">{title}</p>
+    <Card
+      className={cn(
+        "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+        accent.border,
+        isActive && cn("ring-2 shadow-md", accent.activeRing),
+      )}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
+    >
+      <CardContent className="flex items-center gap-4 p-5">
+        <div className={cn("shrink-0 rounded-xl p-3", accent.iconBg)}>
+          <Icon className={cn("h-5 w-5", accent.iconColor)} />
         </div>
-        <div className="mt-4 space-y-1">
-
-          <p className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
-            {displayValue}
-          </p>
-          <p className="text-xs leading-relaxed text-muted-foreground">
+        <div>
+          <div className="text-2xl font-black">{displayValue}</div>
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground/80">
             {caption}
           </p>
         </div>
@@ -475,6 +487,16 @@ export default function FundingRecommendationsPage() {
     [recommendations, recommendationData?.meta?.statistics],
   );
 
+  const clearAllFilters = useCallback(() => {
+    setSelectedCall(ALL_FILTER_VALUE);
+    setSelectedProposalType(ALL_FILTER_VALUE);
+    setSelectedPipelineStage(ALL_FILTER_VALUE);
+    setSelectedIrbFilter(ALL_FILTER_VALUE);
+    setSelectedScoreBand(ALL_FILTER_VALUE);
+    setSelectedFundingDecisionStatus(ALL_FILTER_VALUE);
+    setSelectedEthicalClearance(ALL_FILTER_VALUE);
+  }, []);
+
   const stats = [
     {
       title: "Total Recommendations",
@@ -483,21 +505,50 @@ export default function FundingRecommendationsPage() {
         recommendations.length,
       caption: "Submitted funding records",
       icon: BadgeCheck,
-      accent: { iconBg: "bg-primary/10", iconColor: "text-primary" },
+      accent: {
+        iconBg: "bg-primary/10",
+        iconColor: "text-primary",
+        border: "border-primary/20",
+        activeRing: "ring-primary/50 border-primary/40",
+      },
+      onClick: clearAllFilters,
+      isActive:
+        selectedCall !== ALL_FILTER_VALUE ||
+        selectedProposalType !== ALL_FILTER_VALUE ||
+        selectedPipelineStage !== ALL_FILTER_VALUE ||
+        selectedIrbFilter !== ALL_FILTER_VALUE ||
+        selectedScoreBand !== ALL_FILTER_VALUE ||
+        selectedFundingDecisionStatus !== ALL_FILTER_VALUE ||
+        selectedEthicalClearance !== ALL_FILTER_VALUE,
     },
     {
       title: "Total Requested",
       value: formatCurrency(totalRequested),
       caption: "Budget requested across recommendations",
       icon: FileText,
-      accent: { iconBg: "bg-slate-100", iconColor: "text-slate-700" },
+      accent: {
+        iconBg: "bg-slate-100",
+        iconColor: "text-slate-700",
+        border: "border-slate-200",
+        activeRing: "ring-slate-500/50 border-slate-300",
+      },
     },
     {
       title: "Total Awarded",
       value: formatCurrency(totalAwarded),
       caption: "Across submitted recommendations",
       icon: Banknote,
-      accent: { iconBg: "bg-emerald-50", iconColor: "text-emerald-700" },
+      accent: {
+        iconBg: "bg-emerald-50",
+        iconColor: "text-emerald-700",
+        border: "border-emerald-200",
+        activeRing: "ring-emerald-500/60 border-emerald-300",
+      },
+      onClick: () => {
+        clearAllFilters();
+        setSelectedFundingDecisionStatus("approved");
+      },
+      isActive: selectedFundingDecisionStatus === "approved",
     },
     {
       title: "Ethics Cleared",
@@ -506,7 +557,17 @@ export default function FundingRecommendationsPage() {
         recommendations.filter((item) => item.hasEthicalClearanceApproval || item.has_ethical_clearance_approval).length,
       caption: "Marked with clearance approval",
       icon: ShieldCheck,
-      accent: { iconBg: "bg-blue-50", iconColor: "text-blue-700" },
+      accent: {
+        iconBg: "bg-blue-50",
+        iconColor: "text-blue-700",
+        border: "border-blue-200",
+        activeRing: "ring-blue-500/60 border-blue-300",
+      },
+      onClick: () => {
+        clearAllFilters();
+        setSelectedEthicalClearance("approved");
+      },
+      isActive: selectedEthicalClearance === "approved",
     },
   ];
 
