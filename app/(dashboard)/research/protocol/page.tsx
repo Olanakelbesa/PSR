@@ -7,6 +7,7 @@ import {
   BarChart3,
   CalendarDays,
   ExternalLink,
+  Eye,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -16,6 +17,7 @@ import {
 
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -173,6 +175,10 @@ export default function ProtocolPage() {
     useState<ProtocolRecord | null>(null);
   const [protocolFile, setProtocolFile] = useState<File | null>(null);
   const [otherDocument, setOtherDocument] = useState<File | null>(null);
+  const [viewerDocument, setViewerDocument] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
   const [formErrors, setFormErrors] = useState<{
     proposalId?: string;
     protocolFile?: string;
@@ -410,11 +416,15 @@ export default function ProtocolPage() {
       accessorKey: "reference_number",
       header: "Reference",
       cell: ({ row }) => (
-        <span className="font-bold text-primary">
+        <Link
+          href={`/research/protocol/${row.original.id}`}
+          className="font-bold text-primary hover:underline"
+          onClick={(event) => event.stopPropagation()}
+        >
           {row.original.referenceNumber ||
             row.original.reference_number ||
             `#${row.original.proposal}`}
-        </span>
+        </Link>
       ),
     },
     {
@@ -440,17 +450,19 @@ export default function ProtocolPage() {
         const url = resolveFileUrl(
           row.original.protocolFile || row.original.protocol_file,
         );
+        const title = `${row.original.referenceNumber || row.original.reference_number || `#${row.original.proposal}`} — Protocol File`;
         return url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(event) => event.stopPropagation()}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setViewerDocument({ url, title });
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline focus:outline-none"
           >
+            <Eye className="h-3.5 w-3.5" />
             View
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          </button>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         );
@@ -463,17 +475,19 @@ export default function ProtocolPage() {
         const url = resolveFileUrl(
           row.original.otherDocument || row.original.other_document,
         );
+        const title = `${row.original.referenceNumber || row.original.reference_number || `#${row.original.proposal}`} — Other Document`;
         return url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(event) => event.stopPropagation()}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setViewerDocument({ url, title });
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline focus:outline-none"
           >
+            <Eye className="h-3.5 w-3.5" />
             View
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          </button>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         );
@@ -522,6 +536,12 @@ export default function ProtocolPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
+                <Link href={`/research/protocol/${row.original.id}`}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View protocol details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link
                   href={`/research/proposals/my-proposals/${row.original.proposal}/edit`}
                 >
@@ -532,17 +552,29 @@ export default function ProtocolPage() {
                 Update protocol document
               </DropdownMenuItem>
               {protocolUrl ? (
-                <DropdownMenuItem asChild>
-                  <a href={protocolUrl} target="_blank" rel="noreferrer">
-                    Open protocol file
-                  </a>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    setViewerDocument({
+                      url: protocolUrl,
+                      title: `${row.original.referenceNumber || row.original.reference_number || `#${row.original.proposal}`} — Protocol File`,
+                    })
+                  }
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview protocol file
                 </DropdownMenuItem>
               ) : null}
               {otherUrl ? (
-                <DropdownMenuItem asChild>
-                  <a href={otherUrl} target="_blank" rel="noreferrer">
-                    Open other document
-                  </a>
+                <DropdownMenuItem
+                  onSelect={() =>
+                    setViewerDocument({
+                      url: otherUrl,
+                      title: `${row.original.referenceNumber || row.original.reference_number || `#${row.original.proposal}`} — Other Document`,
+                    })
+                  }
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview other document
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
@@ -789,6 +821,13 @@ export default function ProtocolPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PdfViewerDialog
+        isOpen={!!viewerDocument}
+        onOpenChange={(open) => !open && setViewerDocument(null)}
+        url={viewerDocument?.url ?? ""}
+        title={viewerDocument?.title ?? "Document"}
+      />
     </PageContainer>
   );
 }
