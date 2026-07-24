@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
@@ -45,6 +45,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -100,7 +102,7 @@ export default function LoginPage() {
       queryClient.clear();
       // Keep spinner alive — router.replace doesn't return a Promise in App Router,
       // so the spinner must stay visible until this component unmounts on navigation.
-      router.replace("/dashboard");
+      router.replace(redirectTo || "/dashboard");
       router.refresh();
     } catch {
       await ensureMinDelay(startTime);

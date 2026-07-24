@@ -213,12 +213,14 @@ export default function CallsForProposalsPage() {
 
   const isCallClosingSoon = (call: GrantCall) => {
     if (!isCallOpen(call) || !call.closeDate) return false;
-    const deadline = parseISO(call.closeDate);
-    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const closeDate = parseISO(call.closeDate);
+    closeDate.setHours(23, 59, 59, 999);
     const daysRemaining = Math.ceil(
-      (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      (closeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
-    return daysRemaining <= 7 && daysRemaining > 0;
+    return daysRemaining <= 14 && daysRemaining >= 0;
   };
 
   const stats = useMemo(() => {

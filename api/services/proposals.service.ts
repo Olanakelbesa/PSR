@@ -85,7 +85,7 @@ export const ProposalSchema = z
     researchArea: z.string().optional(),
     createdAt: z.string().optional(),
     updatedAt: z.string().optional(),
-    submittedAt: z.string().optional(),
+    submittedAt: z.string().optional().nullable(),
   })
   .passthrough();
 
@@ -98,7 +98,7 @@ const ManagedProposalUserSchema = z.object({
 
 const ManagedProposalQueueItemSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
-  referenceNumber: z.string(),
+  referenceNumber: z.string().optional().nullable(),
   title: z.string(),
   shortAbstract: z.string().optional().default(""),
   thematicAreas: z
@@ -139,7 +139,7 @@ const ManagedProposalQueueItemSchema = z.object({
     })
     .optional()
     .nullable(),
-  submittedAt: z.string().optional(),
+  submittedAt: z.string().optional().nullable(),
   proposalType: z
     .object({
       id: z.union([z.string(), z.number()]).transform(String),

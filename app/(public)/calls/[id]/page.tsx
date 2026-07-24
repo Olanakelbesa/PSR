@@ -4,13 +4,14 @@ import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Calendar, ArrowLeft, ShieldAlert } from "lucide-react";
+import { Calendar, ArrowLeft, ShieldAlert, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useGrantCall } from "@/lib/queries/grant-calls";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
+import { useSession } from "next-auth/react";
 
 function isCallOpen(call: { status?: string; openDate?: string | null; closeDate?: string | null }) {
   const status = (call.status ?? "").toLowerCase();
@@ -46,6 +47,9 @@ export default function CallDetailPage({
   const { id } = use(params);
 
   const { data: call, isLoading, isError } = useGrantCall(id);
+  const { status } = useSession();
+  const authLoading = status === "loading";
+  const isAuthenticated = status === "authenticated";
 
   if (isLoading) {
     return (
@@ -232,13 +236,28 @@ export default function CallDetailPage({
         <div className="flex flex-wrap gap-4 items-center justify-between p-6 rounded-2xl border border-border bg-card">
           <div>
             <h4 className="text-base font-bold text-foreground">Ready to Submit a Proposal?</h4>
-            <p className="text-xs text-muted-foreground mt-0.5">Please sign in to register research proposals.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isAuthenticated
+                ? "Start a new proposal for this grant call."
+                : "Please sign in to register research proposals."}
+            </p>
           </div>
           <div className="flex gap-3">
             {isOpen ? (
-              <Button size="lg" asChild className="rounded-xl font-bold shadow-lg shadow-primary/20">
-                <Link href={`/login?redirect=/calls/${call.id}`}>Login to Apply</Link>
-              </Button>
+              authLoading ? (
+                <Button size="lg" disabled className="rounded-xl font-bold">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading…
+                </Button>
+              ) : isAuthenticated ? (
+                <Button size="lg" asChild className="rounded-xl font-bold shadow-lg shadow-primary/20">
+                  <Link href={`/research/proposals/my-proposals/new?callId=${call.id}`}>Submit Proposal</Link>
+                </Button>
+              ) : (
+                <Button size="lg" asChild className="rounded-xl font-bold shadow-lg shadow-primary/20">
+                  <Link href={`/login?redirect=${encodeURIComponent(`/research/proposals/my-proposals/new?callId=${call.id}`)}`}>Login to Apply</Link>
+                </Button>
+              )
             ) : (
               <Button size="lg" disabled className="rounded-xl font-bold">
                 Call Closed

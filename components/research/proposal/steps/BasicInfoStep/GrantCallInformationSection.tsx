@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, useEffect } from "react";
+import React, { useMemo, useCallback } from "react";
 import { useFormContext } from "react-hook-form";
 import {
   FormField,
@@ -24,7 +24,6 @@ import { useProposalOptions } from "@/lib/queries/proposal-options";
 import { useProposalTypesForSelect } from "@/lib/queries/proposal-type";
 import type { GrantCall } from "@/types/grant-call";
 import type { ProposalOption } from "@/lib/queries/proposal-options";
-import { useSearchParams } from "next/navigation";
 
 export interface InitialGrantCallInfo {
   grant_call?: GrantCall | null;
@@ -44,16 +43,13 @@ export function GrantCallInformationSection({
   const grantCallId = form.watch("grantCallId");
   const proposalTypeId = form.watch("proposalType");
 
-  const searchParams = useSearchParams();
-  const callId = searchParams.get("callId");
-
   const { data: proposalOptionsData, isLoading } = useProposalOptions(
     grantCallId,
     proposalTypeId,
   );
 
   const { data: currentGrantCall } = useGrantCall(
-    grantCallId && !callId ? String(grantCallId) : "",
+    grantCallId ? String(grantCallId) : "",
   );
 
   const grantCallAdditionalOptions = useMemo(() => {
@@ -117,21 +113,7 @@ export function GrantCallInformationSection({
   );
 
   /* ------------------------------------------------------------------
-   * 3️⃣ Set grant call from URL (once)
-   * ------------------------------------------------------------------ */
-
-  useEffect(() => {
-    if (!callId) return;
-
-    if (!form.getValues("grantCallId")) {
-      form.setValue("grantCallId", callId);
-      form.setValue("proposalType", "");
-      form.setValue("subProposalTypeId", "");
-    }
-  }, [callId, form]);
-
-  /* ------------------------------------------------------------------
-   * 4️⃣ Handlers (stable)
+   * Handlers (stable)
    * ------------------------------------------------------------------ */
 
   const handleGrantCallChange = useCallback(

@@ -25,13 +25,14 @@ import { cn } from "@/lib/utils";
 import { useThematicAreas } from "@/lib/queries/thematic-area";
 import { useSubThematicAreas } from "@/lib/queries/sub-thematic-area";
 import { useProposalResponse } from "@/lib/queries/proposals";
-import { useSearchParams } from "next/navigation";
 import type { Theme, SubThematicArea } from "@/types/thematic-area";
 
-export function ProjectInformationSection() {
+interface ProjectInformationSectionProps {
+  proposalId?: string;
+}
+
+export function ProjectInformationSection({ proposalId }: ProjectInformationSectionProps = {}) {
   const form = useFormContext<ProposalFormInput>();
-  const searchParams = useSearchParams();
-  const proposalId = searchParams.get("edit");
 
   // Fetch full proposal response if in edit mode (to get thematic area name from response)
   const { data: proposalResponse } = useProposalResponse(proposalId || "");

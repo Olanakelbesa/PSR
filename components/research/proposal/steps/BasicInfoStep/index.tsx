@@ -11,10 +11,12 @@ import { ProjectInformationSection } from "./ProjectInformationSection";
 export interface ProposalBasicInfoStepProps {
   /** When editing, pass grant_call from GET /api/proposal/{id}/ so Proposal Type and Sub Type populate */
   initialGrantCallInfo?: InitialGrantCallInfo | null;
+  proposalId?: string;
 }
 
 export function ProposalBasicInfoStep({
   initialGrantCallInfo,
+  proposalId,
 }: ProposalBasicInfoStepProps = {}) {
   return (
     <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
@@ -22,7 +24,7 @@ export function ProposalBasicInfoStep({
       <ProposalDetailsSection />
       <ProjectDurationSection />
       <SubmissionInformationSection />
-      <ProjectInformationSection />
+      <ProjectInformationSection proposalId={proposalId} />
     </div>
   );
 }

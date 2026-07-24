@@ -1802,6 +1802,7 @@ export function ProposalWizard({
                 <CardContent className="space-y-6">
                   {currentStep === 1 && (
                     <ProposalBasicInfoStep
+                      proposalId={queryProposalId}
                       initialGrantCallInfo={(():
                         | InitialGrantCallInfo
                         | undefined => {

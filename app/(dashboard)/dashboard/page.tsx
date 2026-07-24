@@ -20,10 +20,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -1007,10 +1007,16 @@ function ResearchTrendChart({
         ) : (
           <div className="min-h-[280px] flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
+              <AreaChart
                 data={trends}
                 margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
               >
+                <defs>
+                  <linearGradient id="researchTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563eb" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -1038,12 +1044,13 @@ function ResearchTrendChart({
                     fontWeight: 600,
                   }}
                 />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="count"
                   name="Submissions"
                   stroke="#2563eb"
-                  strokeWidth={4}
+                  strokeWidth={3}
+                  fill="url(#researchTrendGradient)"
                   dot={{
                     fill: "white",
                     stroke: "#2563eb",
@@ -1052,7 +1059,7 @@ function ResearchTrendChart({
                   }}
                   activeDot={{ r: 6, strokeWidth: 0, fill: "#2563eb" }}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
