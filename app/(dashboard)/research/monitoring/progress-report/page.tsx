@@ -6,6 +6,11 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  PlayCircle,
+  Search,
+  PlusCircle,
+  ArrowRight,
+  FileText,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -14,6 +19,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   useProjectTracking,
   useReadyForTracking,
@@ -30,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/dist/client/components/navigation";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const statusLabels = {
   on_progress: "On Progress",
@@ -43,7 +51,7 @@ const statusClasses = {
   terminated: "bg-rose-50 text-rose-700 border-rose-200",
 } as const;
 
-type StatFilter = "all" | "on_progress" | "completed" | "terminated";
+type StatFilter = "all" | "on_progress" | "completed" | "terminated" | "ready_for_tracking";
 
 const ALL_VALUE = "all";
 
@@ -51,6 +59,8 @@ export default function ProgressReportListPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_VALUE);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isReadyDialogOpen, setIsReadyDialogOpen] = useState(false);
+  const [readySearchQuery, setReadySearchQuery] = useState("");
   const [formValues, setFormValues] = useState({ proposal: "" });
 
   const router = useRouter();
@@ -59,6 +69,10 @@ export default function ProgressReportListPage() {
   const createMutation = useCreateProjectTracking();
 
   const applyStatusFilter = useCallback((filter: StatFilter) => {
+    if (filter === "ready_for_tracking") {
+      setIsReadyDialogOpen(true);
+      return;
+    }
     setStatusFilter((current) => (current === filter ? ALL_VALUE : filter));
   }, []);
 
@@ -67,7 +81,7 @@ export default function ProgressReportListPage() {
       page: 1,
       limit: 100,
       search: search || undefined,
-      status: statusFilter !== ALL_VALUE ? statusFilter : undefined,
+      status: statusFilter !== ALL_VALUE && statusFilter !== "ready_for_tracking" ? statusFilter : undefined,
     }),
     [search, statusFilter],
   );
@@ -77,6 +91,32 @@ export default function ProgressReportListPage() {
   const stats = (data?.meta as Record<string, unknown>)?.statistics as
     | { total: number; onProgress: number; completed: number; terminated: number }
     | undefined;
+
+  const filteredReadyProjects = useMemo(() => {
+    if (!readyProjects) return [];
+    const query = readySearchQuery.trim().toLowerCase();
+    if (!query) return readyProjects;
+    return readyProjects.filter((proj: any) => {
+      const ref = (proj.referenceNumber || proj.reference_number || "").toLowerCase();
+      const title = (proj.proposalTitle || proj.proposal_title || "").toLowerCase();
+      const pi = (proj.piName || proj.pi_name || "").toLowerCase();
+      return ref.includes(query) || title.includes(query) || pi.includes(query);
+    });
+  }, [readyProjects, readySearchQuery]);
+
+  const handleStartTracking = (proposalId: number | string) => {
+    createMutation.mutate(
+      { proposal: Number(proposalId) },
+      {
+        onSuccess: () => {
+          setIsReadyDialogOpen(false);
+          setIsDialogOpen(false);
+          setFormValues({ proposal: "" });
+          toast.success("Project tracking initialized successfully.");
+        },
+      },
+    );
+  };
 
   const statCards = useMemo(
     () => [
@@ -90,6 +130,17 @@ export default function ProgressReportListPage() {
         border: "border-primary/20",
         activeRing: "ring-primary/50 border-primary/40",
         sub: "All tracking records",
+      },
+      {
+        key: "ready_for_tracking" as StatFilter,
+        label: "Ready for Tracking",
+        value: readyProjects?.length ?? 0,
+        icon: PlayCircle,
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Funded proposals to track",
       },
       {
         key: "on_progress" as StatFilter,
@@ -125,7 +176,7 @@ export default function ProgressReportListPage() {
         sub: "Terminated early",
       },
     ],
-    [stats],
+    [stats, readyProjects],
   );
 
   const columns = [
@@ -229,54 +280,146 @@ export default function ProgressReportListPage() {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
+              if (!formValues.proposal) {
+                toast.error("Please select a proposal.");
+                return;
+              }
               createMutation.mutate(
                 { proposal: Number(formValues.proposal) },
                 {
                   onSuccess: () => {
                     setIsDialogOpen(false);
                     setFormValues({ proposal: "" });
+                    toast.success("Project tracking initialized successfully.");
                   },
                 },
               );
             }}
           >
             <div>
-              <label className="block text-sm font-medium mb-1">Proposal</label>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2"
+              <label className="block text-sm font-medium mb-1.5">Proposal</label>
+              <SearchableSelect
                 value={formValues.proposal}
-                onChange={(e) =>
-                  setFormValues({ ...formValues, proposal: e.target.value })
+                onValueChange={(val) => setFormValues({ ...formValues, proposal: val })}
+                placeholder="Search and select proposal..."
+                searchPlaceholder="Search by proposal title or reference number..."
+                additionalOptions={readyProjects ?? []}
+                getOptionValue={(proj: any) => String(proj.id)}
+                getOptionLabel={(proj: any) => {
+                  const ref = proj.referenceNumber || proj.reference_number || `#${proj.id}`;
+                  const title = proj.proposalTitle || proj.proposal_title || "Untitled proposal";
+                  return `${ref} · ${title}`;
+                }}
+                selectedLabel={
+                  readyProjects
+                    ? (() => {
+                        const sel = readyProjects.find((p: any) => String(p.id) === formValues.proposal);
+                        if (!sel) return undefined;
+                        const ref = sel.referenceNumber || sel.reference_number || `#${sel.id}`;
+                        const title = sel.proposalTitle || sel.proposal_title || "Untitled proposal";
+                        return `${ref} · ${title}`;
+                      })()
+                    : undefined
                 }
-                required
-              >
-                <option value="">Select proposal</option>
-                {readyProjects?.map((proj: any) => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.referenceNumber || proj.reference_number || proj.id}{" "}
-                    {proj.proposalTitle || proj.proposal_title
-                      ? `(${proj.proposalTitle || proj.proposal_title})`
-                      : ""}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
-            <DialogFooter>
+            <DialogFooter className="pt-2">
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button type="submit" disabled={createMutation.isPending}>
-                Submit
+              <Button type="submit" disabled={createMutation.isPending || !formValues.proposal}>
+                {createMutation.isPending ? "Creating..." : "Submit"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
+      {/* Ready for Project Tracking Dialog */}
+      <Dialog open={isReadyDialogOpen} onOpenChange={setIsReadyDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <PlayCircle className="h-5 w-5" />
+              <DialogTitle>Proposals Ready for Project Tracking</DialogTitle>
+            </div>
+            <DialogDescription>
+              Funded proposals eligible to create a project tracking record.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative my-2">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search ready proposals by title, ref #, or PI..."
+              value={readySearchQuery}
+              onChange={(e) => setReadySearchQuery(e.target.value)}
+              className="pl-9 h-10"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3 max-h-[50vh]">
+            {filteredReadyProjects.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
+                <FileText className="mx-auto h-8 w-8 opacity-40 mb-2" />
+                <p className="text-sm font-medium">No proposals ready for project tracking</p>
+                <p className="text-xs text-muted-foreground">
+                  {readySearchQuery.trim()
+                    ? "No proposals match your search query."
+                    : "Proposals must complete funding decisions before tracking."}
+                </p>
+              </div>
+            ) : (
+              filteredReadyProjects.map((proj: any) => {
+                const ref = proj.referenceNumber || proj.reference_number || `#${proj.id}`;
+                const title = proj.proposalTitle || proj.proposal_title || "Untitled Proposal";
+                const pi = proj.piName || proj.pi_name;
+
+                return (
+                  <div
+                    key={proj.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border bg-card hover:border-amber-300 hover:shadow-sm transition-all"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs bg-amber-50 text-amber-800 border-amber-200">
+                          {ref}
+                        </Badge>
+                        {pi && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            PI: {pi}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-semibold text-sm line-clamp-1">{title}</h4>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 shadow-xs"
+                      disabled={createMutation.isPending}
+                      onClick={() => handleStartTracking(proj.id)}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      Track Now
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <DialogFooter className="mt-3 border-t pt-3">
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-6">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
           {isLoading
-            ? Array.from({ length: 4 }).map((_, index) => (
+            ? Array.from({ length: 5 }).map((_, index) => (
                 <Card key={index} className="border-none shadow-sm">
                   <CardContent className="flex items-center gap-4 p-5">
                     <Skeleton className="h-11 w-11 rounded-xl" />

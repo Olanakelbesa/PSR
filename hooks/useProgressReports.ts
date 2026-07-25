@@ -106,6 +106,9 @@ export function useCreateProgressReportApproval() {
       queryClient.invalidateQueries({
         queryKey: progressReportApprovalKeys.all,
       });
+      queryClient.invalidateQueries({
+        queryKey: progressReportKeys.all,
+      });
     },
   });
 }

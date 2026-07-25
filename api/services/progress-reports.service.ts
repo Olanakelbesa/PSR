@@ -255,6 +255,7 @@ export const progressReportsService = {
 
     // Normalize possible camelCase payload keys to the UI expected shape
     const normalized = list.data.map((item: any) => ({
+      ...item,
       id: item.id ?? item.pk,
       // Keep numeric project_tracking id for form submissions, also expose title
       project_tracking:
@@ -287,9 +288,10 @@ export const progressReportsService = {
       general_status:
         item.general_status ??
         item.generalStatus ??
-        item.generalStatus ??
         undefined,
       projectTracking: item.projectTracking ?? null,
+      latest_approval: item.latest_approval ?? item.latestApproval ?? null,
+      approvals: item.approvals ?? [],
     }));
 
     return {
@@ -308,6 +310,7 @@ export const progressReportsService = {
     const payload = unwrapDetailResponse<any>(data);
 
     return {
+      ...payload,
       id: payload.id ?? payload.pk,
       project_tracking:
         Number(
@@ -343,9 +346,10 @@ export const progressReportsService = {
       general_status:
         payload.general_status ??
         payload.generalStatus ??
-        payload.generalStatus ??
         undefined,
       projectTracking: payload.projectTracking ?? null,
+      latest_approval: payload.latest_approval ?? payload.latestApproval ?? null,
+      approvals: payload.approvals ?? [],
     } as any;
   },
 

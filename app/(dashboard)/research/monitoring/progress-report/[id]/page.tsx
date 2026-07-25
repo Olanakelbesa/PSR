@@ -2,23 +2,29 @@
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   CheckCircle2,
   FileText,
   Paperclip,
-  Send,
   Upload,
   Calendar,
   Wallet,
   Activity,
-  Briefcase,
   User,
   Hash,
   AlertCircle,
+  AlertTriangle,
   Clock,
   ShieldCheck,
-  Building,
+  ShieldAlert,
+  Building2,
+  Mail,
+  PlusCircle,
+  ExternalLink,
+  PieChart,
+  Layers,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -62,7 +68,7 @@ function formatDate(value?: string | null) {
   if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
-    month: "long",
+    month: "short",
     year: "numeric",
   }).format(date);
 }
@@ -73,32 +79,30 @@ function statusConfig(status: string) {
     case "completed":
       return {
         label: "Approved",
-        color:
-          "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
+        color: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
         icon: CheckCircle2,
       };
     case "rejected":
     case "cancelled":
+    case "terminated":
       return {
-        label: "Rejected",
-        color:
-          "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800",
+        label: "Terminated / Rejected",
+        color: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
         icon: AlertCircle,
       };
     case "on_progress":
+    case "active":
       return {
-        label: "In Progress",
-        color:
-          "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+        label: "On Progress",
+        color: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800",
         icon: Activity,
       };
     default:
       return {
         label: status
-          ? status.charAt(0).toUpperCase() + status.slice(1)
+          ? status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
           : "Pending",
-        color:
-          "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
+        color: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
         icon: Clock,
       };
   }
@@ -115,8 +119,8 @@ export default function ProjectTrackingDetailPage() {
   const {
     data: projectTracking,
     isLoading: isProjectLoading,
-    refetch: refetchProject,
   } = useProjectTrackingById(projectTrackingId);
+
   const {
     data: progressReportsList,
     isLoading: isReportsLoading,
@@ -125,7 +129,7 @@ export default function ProjectTrackingDetailPage() {
 
   const progressReports = progressReportsList?.data || [];
 
-  // Calculate stats
+  // Calculate financial metrics
   const totalAmountUsed = useMemo(() => {
     return progressReports.reduce(
       (acc, report) => acc + Number(report.amount_used || 0),
@@ -133,47 +137,49 @@ export default function ProjectTrackingDetailPage() {
     );
   }, [progressReports]);
 
-  const totalAward = Number(projectTracking?.totalAwardAmount || 0);
-  const remainingAmount = Math.max(0, totalAward - totalAmountUsed);
-  const progressPercentage =
-    totalAward > 0
-      ? Math.min(100, Math.round((totalAmountUsed / totalAward) * 100))
-      : 0;
+  const rawTotalAward =
+    projectTracking?.totalAwardAmount ??
+    projectTracking?.proposal?.totalAwardAmount;
+  const totalAward = Number(rawTotalAward || 0);
+
+  const budgetDifference = totalAward - totalAmountUsed;
+  const isOverBudget = totalAward > 0 && totalAmountUsed > totalAward;
+  const overBudgetAmount = Math.abs(budgetDifference);
+
+  const remainingAmount = Math.max(0, budgetDifference);
+  const rawPercentage = totalAward > 0 ? Math.round((totalAmountUsed / totalAward) * 100) : 0;
+  const progressPercentage = Math.min(100, rawPercentage);
 
   const createProgressReport = useCreateProgressReport();
 
   const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
-
   const [progressReportName, setProgressReportName] = useState("");
   const [progressActivities, setProgressActivities] = useState("");
   const [progressAmountUsed, setProgressAmountUsed] = useState("");
   const [progressStartDate, setProgressStartDate] = useState("");
   const [progressEndDate, setProgressEndDate] = useState("");
-  const [progressAttachment, setProgressAttachment] = useState<File | null>(
-    null,
-  );
-  const [progressStatus, setProgressStatus] = useState<ReportStatus>("pending");
+  const [progressAttachment, setProgressAttachment] = useState<File | null>(null);
 
   async function submitProgressReport() {
     if (!projectTracking) {
       toast.error("Project tracking details are still loading.");
       return;
     }
-    if (!progressReportName || !progressActivities) {
-      toast.error("Report name and activities are required.");
+    if (!progressReportName.trim() || !progressActivities.trim()) {
+      toast.error("Report title and main activities are required.");
       return;
     }
 
     try {
       await createProgressReport.mutateAsync({
         project_tracking: projectTracking.id,
-        report_name: progressReportName,
-        main_activities_achieved: progressActivities,
+        report_name: progressReportName.trim(),
+        main_activities_achieved: progressActivities.trim(),
         attachment: progressAttachment,
         amount_used: progressAmountUsed,
-        start_date: progressStartDate,
-        end_date: progressEndDate,
-        status: progressStatus,
+        start_date: progressStartDate || undefined,
+        end_date: progressEndDate || undefined,
+        status: "pending",
       });
 
       toast.success("Progress report submitted successfully.");
@@ -184,25 +190,24 @@ export default function ProjectTrackingDetailPage() {
       setProgressStartDate("");
       setProgressEndDate("");
       setProgressAttachment(null);
-      setProgressStatus("pending");
       await refetchReports();
     } catch (error) {
-      toast.error("Progress report submission failed.");
+      toast.error("Failed to submit progress report.");
     }
   }
 
   if (isProjectLoading) {
     return (
-      <PageContainer title="Loading Workspace...">
-        <div className="space-y-6">
-          <Skeleton className="h-[120px] w-full rounded-xl" />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Skeleton className="h-32 rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
+      <PageContainer title="Loading Project Tracking Workspace...">
+        <div className="space-y-6 max-w-7xl mx-auto">
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Skeleton className="h-28 rounded-xl" />
+            <Skeleton className="h-28 rounded-xl" />
+            <Skeleton className="h-28 rounded-xl" />
+            <Skeleton className="h-28 rounded-xl" />
           </div>
-          <Skeleton className="h-[400px] w-full rounded-xl" />
+          <Skeleton className="h-[400px] w-full rounded-2xl" />
         </div>
       </PageContainer>
     );
@@ -210,16 +215,15 @@ export default function ProjectTrackingDetailPage() {
 
   if (!projectTracking) {
     return (
-      <PageContainer title="Tracking Details Not Found">
-        <div className="flex flex-col items-center justify-center space-y-4 rounded-xl border border-dashed p-12 text-center bg-card">
-          <AlertCircle className="h-10 w-10 text-muted-foreground" />
+      <PageContainer title="Tracking Record Not Found">
+        <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed p-12 text-center bg-card max-w-xl mx-auto my-12">
+          <div className="p-4 bg-amber-50 text-amber-600 rounded-full">
+            <AlertCircle className="h-10 w-10" />
+          </div>
           <div className="space-y-1">
-            <h3 className="font-semibold text-lg">
-              Project Tracking Unavailable
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              The project tracking record could not be loaded. It might have
-              been deleted or you lack permissions.
+            <h3 className="font-bold text-lg">Project Tracking Unavailable</h3>
+            <p className="text-sm text-muted-foreground">
+              The project tracking record could not be found or you do not have permission to view it.
             </p>
           </div>
           <Button
@@ -228,7 +232,7 @@ export default function ProjectTrackingDetailPage() {
             className="mt-4"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Return to Directory
+            Return to Project Directory
           </Button>
         </div>
       </PageContainer>
@@ -236,116 +240,158 @@ export default function ProjectTrackingDetailPage() {
   }
 
   const projStatus = statusConfig(projectTracking.status);
+  const generalStatusInfo = statusConfig(projectTracking.generalStatus || "pending");
+
+  const proposalObj = projectTracking.proposal;
+  const referenceNumber =
+    projectTracking.referenceNumber ||
+    proposalObj?.referenceNumber ||
+    `#${projectTracking.id}`;
+  const proposalTitle =
+    projectTracking.proposalTitle ||
+    proposalObj?.title ||
+    "Untitled Proposal";
+  const piInfo = projectTracking.pi || proposalObj?.pi;
+  const hasEthicalClearance =
+    proposalObj?.hasEthicalClearanceApproval ?? false;
 
   return (
-    <div className="space-y-6 p-6 pb-16 w-full mx-auto">
-      {/* Page Header Area */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                router.push("/research/monitoring/progress-report")
-              }
-              className="-ml-2 shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4" />
+    <PageContainer
+      title={proposalTitle}
+      description={`Project Tracking Workspace · Ref #${referenceNumber}`}
+      actions={
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/research/monitoring/progress-report")}
+          >
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+            Directory
+          </Button>
+          {proposalObj?.proposalId && (
+            <Button variant="outline" size="sm" asChild className="hidden sm:flex">
+              <Link href={`/research/proposals/my-proposals/${proposalObj.proposalId}`}>
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                View Proposal
+              </Link>
             </Button>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              {projectTracking.proposalTitle || "Untitled Project"}
-            </h1>
+          )}
+          <Button
+            size="sm"
+            onClick={() => setIsProgressDialogOpen(true)}
+            className="shadow-xs bg-primary hover:bg-primary/90"
+          >
+            <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+            Submit Report
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Status Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border bg-card shadow-xs">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <Badge variant="outline" className="font-mono text-xs bg-muted/50">
+              <Hash className="mr-1 h-3 w-3 opacity-60" />
+              {referenceNumber}
+            </Badge>
+            {piInfo && (
+              <div className="flex items-center gap-1.5 font-medium text-foreground">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>PI: {piInfo.fullName}</span>
+                {piInfo.email && (
+                  <span className="text-muted-foreground font-normal">
+                    ({piInfo.email})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground pl-11">
-            <div className="flex items-center gap-1.5 font-medium">
-              <Hash className="h-3.5 w-3.5" />
-              {projectTracking.referenceNumber || "No Reference"}
-            </div>
-            <Separator orientation="vertical" className="h-4" />
-            <div className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" />
-              {projectTracking.pi?.fullName || "Unassigned"}
-            </div>
-            <Separator orientation="vertical" className="h-4" />
-            <Badge
-              variant="outline"
-              className={cn(
-                "px-2 py-0.5 font-medium rounded-full",
-                projStatus.color,
-              )}
-            >
+
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", projStatus.color)}>
               <projStatus.icon className="mr-1.5 h-3 w-3" />
-              {projStatus.label}
+              Tracking: {projStatus.label}
+            </Badge>
+            <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", generalStatusInfo.color)}>
+              <Clock className="mr-1.5 h-3 w-3" />
+              General: {generalStatusInfo.label}
             </Badge>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            onClick={() => setIsProgressDialogOpen(true)}
-            className="shadow-sm"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Add Progress
-          </Button>
+      {/* Overbudget Warning Banner */}
+      {isOverBudget && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-rose-200 bg-rose-50/80 dark:bg-rose-950/40 dark:border-rose-900 text-rose-900 dark:text-rose-200 shadow-xs">
+          <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+          <div className="flex-1 text-xs space-y-0.5">
+            <span className="font-bold text-sm block text-rose-700 dark:text-rose-300">
+              Budget Allocation Exceeded
+            </span>
+            <p>
+              Total progress expenditures (<span className="font-bold font-mono">ETB {totalAmountUsed.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>) exceed the allocated award budget (<span className="font-bold font-mono">ETB {totalAward.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>) by <span className="font-extrabold font-mono text-rose-700 dark:text-rose-300">ETB {overBudgetAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> ({rawPercentage - 100}% overrun).
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* KPI Stats Row */}
+      {/* KPI Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm border-muted/60">
+        <Card className="shadow-xs border bg-card">
           <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
               <Wallet className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Total Award
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Total Award Amount
               </p>
-              <h3 className="text-2xl font-bold tracking-tight">
-                ETB {totalAward.toLocaleString()}
+              <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">
+                ETB {totalAward > 0 ? totalAward.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
               </h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-muted/60">
+        <Card className="shadow-xs border bg-card">
           <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
               <Activity className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Amount Used
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Total Amount Used
               </p>
-              <h3 className="text-2xl font-bold tracking-tight">
-                ETB {totalAmountUsed.toLocaleString()}
+              <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">
+                ETB {totalAmountUsed.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </h3>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-muted/60">
+        <Card className={cn("shadow-xs border bg-card", isOverBudget && "border-rose-200 bg-rose-50/20")}>
           <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
-              <Building className="h-5 w-5" />
+            <div className={cn("p-3 rounded-xl border", isOverBudget ? "bg-rose-100 text-rose-600 border-rose-200" : "bg-emerald-50 text-emerald-600 border-emerald-100")}>
+              {isOverBudget ? <AlertTriangle className="h-5 w-5" /> : <PieChart className="h-5 w-5" />}
             </div>
             <div className="w-full">
               <div className="flex justify-between items-center mb-1">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Remaining
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  {isOverBudget ? "Budget Overrun" : "Remaining Balance"}
                 </p>
-                <span className="text-xs font-semibold text-emerald-600">
-                  {100 - progressPercentage}%
+                <span className={cn("text-xs font-bold", isOverBudget ? "text-rose-600" : "text-emerald-600")}>
+                  {isOverBudget ? `${rawPercentage}% Used` : `${100 - progressPercentage}%`}
                 </span>
               </div>
-              <h3 className="text-2xl font-bold tracking-tight">
-                ETB {remainingAmount.toLocaleString()}
+              <h3 className={cn("text-xl font-bold tracking-tight", isOverBudget ? "text-rose-700 dark:text-rose-400" : "text-foreground")}>
+                {isOverBudget
+                  ? `-ETB ${overBudgetAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                  : `ETB ${remainingAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
               </h3>
-              <div className="mt-2 h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+              <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  className={cn("h-full rounded-full transition-all duration-500", isOverBudget ? "bg-rose-500" : "bg-emerald-500")}
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>
@@ -353,117 +399,107 @@ export default function ProjectTrackingDetailPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-muted/60">
+        <Card className="shadow-xs border bg-card">
           <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
               <FileText className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Reports Logged
               </p>
-              <h3 className="text-2xl font-bold tracking-tight">
-                {progressReports.length}
+              <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">
+                {progressReports.length} {progressReports.length === 1 ? "Report" : "Reports"}
               </h3>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="mb-4 h-12 p-1 bg-muted/40 w-full sm:w-auto overflow-x-auto justify-start inline-flex">
+        <TabsList className="mb-4 h-11 p-1 bg-muted/40 w-full sm:w-auto overflow-x-auto justify-start inline-flex rounded-xl">
           <TabsTrigger
             value="overview"
-            className="h-10 px-5 rounded-md text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="h-9 px-4 rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
           >
-            Overview
+            Overview & Specifications
           </TabsTrigger>
           <TabsTrigger
             value="progress-reports"
-            className="h-10 px-5 rounded-md text-sm font-medium data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            className="h-9 px-4 rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
           >
             Progress Reports
             <Badge
               variant="secondary"
-              className="ml-2 bg-muted-foreground/15 hover:bg-muted-foreground/15 rounded-full px-2 py-0 text-xs"
+              className="ml-2 bg-primary/10 text-primary hover:bg-primary/15 rounded-full px-2 py-0 text-[11px]"
             >
               {progressReports.length}
             </Badge>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          value="overview"
-          className="mt-0 focus-visible:outline-none focus-visible:ring-0"
-        >
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <Card className="shadow-sm border-muted/60">
+        <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="shadow-xs border lg:col-span-2">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
                   Project Specifications
                 </CardTitle>
                 <CardDescription>
-                  General details and approval status for this project tracking
-                  record.
+                  Operational tracking metrics and compliance approvals.
                 </CardDescription>
               </CardHeader>
               <Separator />
               <CardContent className="p-0">
-                <dl className="grid sm:grid-cols-2 text-sm">
-                  <div className="p-5 border-b border-border/40">
-                    <dt className="text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5" /> Proposal ID
+                <dl className="grid sm:grid-cols-2 text-sm divide-y sm:divide-y-0 sm:divide-x border-b">
+                  <div className="p-5 space-y-1">
+                    <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Hash className="h-3.5 w-3.5 text-muted-foreground" /> Reference Number
                     </dt>
-                    <dd className="font-semibold text-foreground">
-                      {projectTracking.proposal?.proposalId || "Not Linked"}
+                    <dd className="font-semibold text-foreground font-mono text-sm">
+                      {referenceNumber}
                     </dd>
                   </div>
-                  <div className="p-5 border-b sm:border-r border-border/40">
-                    <dt className="text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Ethical Clearance
-                    </dt>
-                    <dd className="font-semibold flex items-center gap-1.5">
-                      {projectTracking.proposal?.hasEthicalClearanceApproval ? (
-                        <>
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />{" "}
-                          Approved
-                        </>
+                  <div className="p-5 space-y-1">
+                    <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      {hasEthicalClearance ? (
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                       ) : (
-                        <>
-                          <AlertCircle className="h-4 w-4 text-amber-500" />{" "}
-                          Pending / Not Approved
-                        </>
+                        <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
                       )}
-                    </dd>
-                  </div>
-                  <div className="p-5 border-b border-border/40">
-                    <dt className="text-muted-foreground font-medium mb-1 flex items-center gap-1.5">
-                      <Activity className="h-3.5 w-3.5" /> General Status
+                      Ethical Clearance
                     </dt>
-                    <dd className="font-semibold text-foreground capitalize">
-                      {projectTracking.generalStatus || "Pending"}
+                    <dd className="font-semibold flex items-center gap-1.5 text-sm">
+                      {hasEthicalClearance ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <CheckCircle2 className="mr-1 h-3 w-3" /> IRB Approved
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                          <AlertCircle className="mr-1 h-3 w-3" /> Not Required / Pending
+                        </Badge>
+                      )}
                     </dd>
                   </div>
                 </dl>
 
-                <div className="border-t p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold">
-                        Need to submit a report?
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Ensure you attach all necessary documents and itemized
-                        expenditures.
+                <div className="p-6 bg-muted/20">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-semibold">Ready to log project progress?</h4>
+                      <p className="text-xs text-muted-foreground">
+                        File milestones, activities achieved, and attach supporting budget receipts.
                       </p>
                     </div>
                     <Button
-                      className="shrink-0 shadow-sm"
+                      size="sm"
+                      className="shrink-0 shadow-xs"
                       onClick={() => setIsProgressDialogOpen(true)}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Submit Progress Report
+                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                      Submit Report
                     </Button>
                   </div>
                 </div>
@@ -471,32 +507,33 @@ export default function ProjectTrackingDetailPage() {
             </Card>
 
             <div className="space-y-6">
-              <Card className="shadow-sm border-muted/60">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-base flex items-center gap-2">
+              <Card className="shadow-xs border">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <User className="h-4 w-4 text-primary" />
                     Principal Investigator
                   </CardTitle>
                 </CardHeader>
                 <Separator />
                 <CardContent className="pt-4">
-                  {projectTracking.pi ? (
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner">
-                        {projectTracking.pi.fullName.charAt(0).toUpperCase()}
+                  {piInfo ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-11 w-11 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-inner shrink-0">
+                        {piInfo.fullName?.charAt(0).toUpperCase() || "P"}
                       </div>
-                      <div>
-                        <p className="font-medium text-sm leading-none">
-                          {projectTracking.pi.fullName}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {projectTracking.pi.email}
-                        </p>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm truncate">{piInfo.fullName}</p>
+                        {piInfo.email && (
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            {piInfo.email}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground italic">
-                      No PI assigned to this project.
+                    <p className="text-xs text-muted-foreground italic">
+                      No PI details available.
                     </p>
                   )}
                 </CardContent>
@@ -505,54 +542,48 @@ export default function ProjectTrackingDetailPage() {
           </div>
         </TabsContent>
 
-        <TabsContent
-          value="progress-reports"
-          className="mt-0 focus-visible:outline-none focus-visible:ring-0"
-        >
-          <Card className="shadow-sm border-muted/60">
+        <TabsContent value="progress-reports" className="mt-0 focus-visible:outline-none">
+          <Card className="shadow-xs border">
             <CardHeader className="border-b bg-muted/20 px-6 py-4 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-lg">Progress Timeline</CardTitle>
-                <CardDescription>
-                  All submitted reports for this project tracking.
+                <CardTitle className="text-base font-bold">Progress Timeline & Reports</CardTitle>
+                <CardDescription className="text-xs">
+                  All progress report submissions logged under this project.
                 </CardDescription>
               </div>
               <Button
                 size="sm"
                 onClick={() => setIsProgressDialogOpen(true)}
-                className="hidden sm:flex"
+                className="gap-1.5"
               >
-                <Upload className="mr-2 h-4 w-4" />
+                <PlusCircle className="h-3.5 w-3.5" />
                 New Report
               </Button>
             </CardHeader>
             <CardContent className="p-0">
               {isReportsLoading ? (
                 <div className="p-6 space-y-4">
-                  {[1, 2, 3].map((i) => (
+                  {[1, 2].map((i) => (
                     <div key={i} className="flex gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+                      <Skeleton className="h-10 w-10 rounded-full shrink-0" />
                       <div className="space-y-2 w-full">
-                        <Skeleton className="h-5 w-1/3" />
-                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-4 w-1/3" />
+                        <Skeleton className="h-3 w-2/3" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : progressReports.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                    <FileText className="h-8 w-8 text-muted-foreground/60" />
+                  <div className="h-14 w-14 bg-muted rounded-full flex items-center justify-center mb-3">
+                    <FileText className="h-7 w-7 text-muted-foreground/60" />
                   </div>
-                  <h3 className="font-semibold text-lg">
-                    No Progress Reports Yet
-                  </h3>
-                  <p className="text-sm text-muted-foreground max-w-[300px] mt-1 mb-6">
-                    There are no reports filed under this tracking ID. Start by
-                    submitting the first progress update.
+                  <h3 className="font-semibold text-base">No Progress Reports Yet</h3>
+                  <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-5">
+                    No progress reports have been filed under this tracking ID. Click below to file the first report.
                   </p>
-                  <Button onClick={() => setIsProgressDialogOpen(true)}>
-                    <Upload className="mr-2 h-4 w-4" />
+                  <Button size="sm" onClick={() => setIsProgressDialogOpen(true)}>
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
                     Submit First Report
                   </Button>
                 </div>
@@ -565,66 +596,56 @@ export default function ProjectTrackingDetailPage() {
                         key={report.id}
                         className="p-6 hover:bg-muted/10 transition-colors flex flex-col sm:flex-row gap-5"
                       >
-                        <div className="flex flex-col items-center sm:w-16 shrink-0 pt-1">
+                        <div className="flex flex-col items-center sm:w-12 shrink-0 pt-1">
                           <div
                             className={cn(
-                              "h-10 w-10 rounded-full flex items-center justify-center shadow-sm",
-                              rStatus.color
-                                .replace("text-", "text-")
-                                .split(" ")[0],
+                              "h-9 w-9 rounded-full flex items-center justify-center shadow-xs border",
+                              rStatus.color,
                             )}
                           >
-                            <rStatus.icon className="h-5 w-5" />
+                            <rStatus.icon className="h-4 w-4" />
                           </div>
                           {index !== progressReports.length - 1 && (
-                            <div className="h-full w-px bg-border my-2 hidden sm:block" />
+                            <div className="h-full w-px bg-border/60 my-2 hidden sm:block" />
                           )}
                         </div>
 
                         <div className="flex-1 space-y-3">
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div>
-                              <h4 className="text-base font-semibold leading-none">
-                                {report.report_name ||
-                                  `Progress Update #${report.id}`}
+                              <h4 className="text-base font-semibold">
+                                {report.report_name || `Progress Report #${report.id}`}
                               </h4>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-2">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
                                 <Calendar className="h-3.5 w-3.5" />
                                 Submitted on {formatDate(report.submitted_at)}
                               </p>
                             </div>
                             <Badge
                               variant="outline"
-                              className={cn(
-                                "px-2.5 py-0.5 whitespace-nowrap",
-                                rStatus.color,
-                              )}
+                              className={cn("px-2.5 py-0.5 whitespace-nowrap text-xs font-medium", rStatus.color)}
                             >
                               {rStatus.label}
                             </Badge>
                           </div>
 
-                          <div className="text-sm text-foreground/80 leading-relaxed bg-muted/30 p-4 rounded-lg border border-border/40">
-                            <span className="font-medium text-foreground block mb-1 text-xs uppercase tracking-wider">
-                              Main Activities
+                          <div className="text-xs text-foreground/80 leading-relaxed bg-muted/30 p-4 rounded-xl border border-border/40">
+                            <span className="font-semibold text-foreground block mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+                              Main Activities Achieved
                             </span>
-                            {report.main_activities_achieved ||
-                              "No activities described."}
+                            {report.main_activities_achieved || "No activities described."}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-3 pt-2">
-                            <div className="flex items-center gap-1.5 text-sm font-medium bg-secondary/50 px-2.5 py-1 rounded-md">
-                              <Wallet className="h-4 w-4 text-muted-foreground" />
-                              ETB{" "}
-                              {Number(report.amount_used || 0).toLocaleString()}{" "}
-                              Used
+                          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                            <div className="flex items-center gap-1.5 font-medium bg-muted px-2.5 py-1 rounded-lg">
+                              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                              ETB {Number(report.amount_used || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} Used
                             </div>
 
                             {(report.start_date || report.end_date) && (
-                              <div className="flex items-center gap-1.5 text-sm bg-secondary/50 px-2.5 py-1 rounded-md text-muted-foreground">
-                                <Clock className="h-4 w-4" />
-                                {formatDate(report.start_date)} -{" "}
-                                {formatDate(report.end_date)}
+                              <div className="flex items-center gap-1.5 bg-muted/60 px-2.5 py-1 rounded-lg text-muted-foreground">
+                                <Clock className="h-3.5 w-3.5" />
+                                {formatDate(report.start_date)} - {formatDate(report.end_date)}
                               </div>
                             )}
 
@@ -657,139 +678,156 @@ export default function ProjectTrackingDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialogs */}
+      {/* Submit Progress Report Dialog */}
       <Dialog
         open={isProgressDialogOpen}
         onOpenChange={setIsProgressDialogOpen}
       >
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
-          <div className="px-6 py-4 border-b bg-muted/20">
-            <DialogHeader>
-              <DialogTitle className="text-xl">
-                Submit Progress Report
-              </DialogTitle>
-              <DialogDescription>
-                Fill out the form below to log a new milestone or activity for
-                this project.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Upload className="h-5 w-5 text-primary" />
+              Submit Progress Report
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Log progress milestones, activities achieved, and budget used for this project.
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="px-6 py-6 space-y-6">
-            <div className="grid gap-2">
-              <Label
-                htmlFor="progress-report-name"
-                className="text-sm font-medium"
-              >
-                Report Title <span className="text-destructive">*</span>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="progress-report-name" className="text-xs font-semibold">
+                Report Title <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="progress-report-name"
-                placeholder="e.g. Q1 Milestone Complete"
+                placeholder="e.g. Q1 Progress & Milestone Update"
                 value={progressReportName}
                 onChange={(event) => setProgressReportName(event.target.value)}
-                className="h-11"
+                className="h-10 text-sm"
               />
             </div>
-            <div className="grid gap-2">
-              <Label
-                htmlFor="progress-activities"
-                className="text-sm font-medium"
-              >
-                Main Activities Achieved{" "}
-                <span className="text-destructive">*</span>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="progress-activities" className="text-xs font-semibold">
+                Main Activities Achieved <span className="text-rose-500">*</span>
               </Label>
               <Textarea
                 id="progress-activities"
-                placeholder="Describe the tasks completed..."
+                placeholder="Describe key research tasks completed..."
                 value={progressActivities}
                 onChange={(event) => setProgressActivities(event.target.value)}
-                className="min-h-[120px] resize-y"
+                className="min-h-[100px] text-sm resize-y"
               />
             </div>
 
-            <div className=" gap-6 p-4 rounded-xl border bg-muted/10">
-              <div className="grid gap-2">
-                <Label htmlFor="progress-amount">Amount Used (ETB)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                    ETB
-                  </span>
-                  <Input
-                    id="progress-amount"
-                    type="number"
-                    min="0"
-                    placeholder="0.00"
-                    className="pl-10 h-10"
-                    value={progressAmountUsed}
-                    onChange={(event) =>
-                      setProgressAmountUsed(event.target.value)
-                    }
-                  />
-                </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="progress-amount" className="text-xs font-semibold">
+                Amount Used (ETB)
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono">
+                  ETB
+                </span>
+                <Input
+                  id="progress-amount"
+                  type="number"
+                  min="0"
+                  placeholder="0.00"
+                  className="pl-12 h-10 text-sm font-mono"
+                  value={progressAmountUsed}
+                  onChange={(event) => setProgressAmountUsed(event.target.value)}
+                />
               </div>
+
+              {(() => {
+                const inputAmt = Number(progressAmountUsed || 0);
+                if (inputAmt <= 0) return null;
+                const projectedTotal = totalAmountUsed + inputAmt;
+                const projectedOverrun = projectedTotal - totalAward;
+                if (totalAward > 0 && projectedTotal > totalAward) {
+                  return (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50/90 text-amber-900 text-xs mt-1.5">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                      <span>
+                        This report brings total expenditure to <strong className="font-mono">ETB {projectedTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>, exceeding the award budget by <strong className="font-mono text-rose-700">ETB {projectedOverrun.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>.
+                      </span>
+                    </div>
+                  );
+                }
+                return (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Projected total after this report: <span className="font-mono font-medium">ETB {projectedTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> (Remaining: <span className="font-mono font-medium">ETB {Math.max(0, totalAward - projectedTotal).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>).
+                  </p>
+                );
+              })()}
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="progress-start-date">Start Date</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="progress-start-date" className="text-xs font-semibold">
+                  Start Date
+                </Label>
                 <Input
                   id="progress-start-date"
                   type="date"
-                  className="h-10 text-muted-foreground"
+                  className="h-10 text-xs"
                   value={progressStartDate}
                   onChange={(event) => setProgressStartDate(event.target.value)}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="progress-end-date">End Date</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="progress-end-date" className="text-xs font-semibold">
+                  End Date
+                </Label>
                 <Input
                   id="progress-end-date"
                   type="date"
-                  className="h-10 text-muted-foreground"
+                  className="h-10 text-xs"
                   value={progressEndDate}
                   onChange={(event) => setProgressEndDate(event.target.value)}
                 />
               </div>
             </div>
 
-            <div className="grid gap-2 pt-2">
-              <Label htmlFor="progress-attachment">Supporting Document</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="progress-attachment"
-                  type="file"
-                  className="file:bg-transparent file:text-foreground file:font-medium h-10 cursor-pointer"
-                  onChange={(event) =>
-                    setProgressAttachment(event.target.files?.[0] || null)
-                  }
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Attach receipts, detailed logs, or PDF summaries.
+            <div className="space-y-1.5">
+              <Label htmlFor="progress-attachment" className="text-xs font-semibold">
+                Supporting Attachment
+              </Label>
+              <Input
+                id="progress-attachment"
+                type="file"
+                className="file:bg-transparent file:text-foreground file:font-medium h-10 text-xs cursor-pointer"
+                onChange={(event) =>
+                  setProgressAttachment(event.target.files?.[0] || null)
+                }
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Upload receipts, progress summaries, or PDF reports.
               </p>
             </div>
           </div>
 
-          <DialogFooter className="px-6 py-4 border-t bg-muted/20">
+          <DialogFooter className="pt-3 border-t">
             <Button
-              variant="ghost"
+              variant="outline"
+              size="sm"
               onClick={() => setIsProgressDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
+              size="sm"
               onClick={submitProgressReport}
               disabled={createProgressReport.isPending}
-              className="shadow-sm"
+              className="shadow-xs"
             >
-              {createProgressReport.isPending
-                ? "Submitting..."
-                : "Submit Report"}
+              {createProgressReport.isPending ? "Submitting..." : "Submit Report"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  </PageContainer>
   );
 }

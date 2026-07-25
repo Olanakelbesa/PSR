@@ -10,10 +10,13 @@ import {
   ExternalLink,
   Eye,
   FileText,
+  FolderPlus,
   Loader2,
   MoreHorizontal,
   Paperclip,
+  PlusCircle,
   RefreshCw,
+  Search,
   Trash2,
   Undo2,
   Upload,
@@ -396,6 +399,19 @@ export default function ProtocolPage() {
     loadProposalOptions();
   }, []);
 
+  const [isReadyForProtocolOpen, setIsReadyForProtocolOpen] = useState(false);
+  const [readyProtocolSearchQuery, setReadyProtocolSearchQuery] = useState("");
+
+  const filteredReadyProposals = useMemo(() => {
+    const query = readyProtocolSearchQuery.trim().toLowerCase();
+    if (!query) return proposals;
+    return proposals.filter((p) => {
+      const ref = (p.referenceNumber || `#${p.id}`).toLowerCase();
+      const title = (p.title || "").toLowerCase();
+      return ref.includes(query) || title.includes(query);
+    });
+  }, [proposals, readyProtocolSearchQuery]);
+
   const toggleProtocolFileFilter = useCallback(() => {
     setHasProtocolFileFilter((current) => (current === true ? undefined : true));
   }, []);
@@ -418,6 +434,19 @@ export default function ProtocolPage() {
         sub: "All protocol submissions",
         active: false,
         onClick: () => { },
+      },
+      {
+        key: "ready_for_protocol",
+        label: "Ready for Protocol",
+        value: proposals.length,
+        icon: FolderPlus,
+        color: "text-indigo-600",
+        bg: "bg-indigo-50",
+        border: "border-indigo-200",
+        activeRing: "ring-indigo-500/60 border-indigo-300",
+        sub: "Proposals awaiting protocol",
+        active: isReadyForProtocolOpen,
+        onClick: () => setIsReadyForProtocolOpen(true),
       },
       {
         key: "protocol_file",
@@ -446,7 +475,7 @@ export default function ProtocolPage() {
         onClick: toggleOtherDocFilter,
       },
     ],
-    [serverStats, hasProtocolFileFilter, hasOtherDocFilter, toggleProtocolFileFilter, toggleOtherDocFilter],
+    [serverStats, proposals.length, isReadyForProtocolOpen, hasProtocolFileFilter, hasOtherDocFilter, toggleProtocolFileFilter, toggleOtherDocFilter],
   );
 
   const resetUploadForm = () => {
@@ -731,10 +760,92 @@ export default function ProtocolPage() {
         </Button>
       }
     >
+      {/* Ready for Protocol Submission Dialog */}
+      <Dialog open={isReadyForProtocolOpen} onOpenChange={setIsReadyForProtocolOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-indigo-600">
+              <FolderPlus className="h-5 w-5" />
+              <DialogTitle>Proposals Ready for Protocol Submission</DialogTitle>
+            </div>
+            <DialogDescription>
+              Proposals in protocol stage awaiting study protocol and supporting document uploads.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative my-2">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search ready proposals by title or reference number..."
+              value={readyProtocolSearchQuery}
+              onChange={(e) => setReadyProtocolSearchQuery(e.target.value)}
+              className="pl-9 h-10"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3 max-h-[50vh]">
+            {filteredReadyProposals.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-xl border border-dashed">
+                <FileText className="mx-auto h-8 w-8 opacity-40 mb-2" />
+                <p className="text-sm font-medium">No proposals ready for protocol submission</p>
+                <p className="text-xs text-muted-foreground">
+                  {readyProtocolSearchQuery.trim()
+                    ? "No proposals match your search query."
+                    : "Proposals must reach the protocol stage before uploading protocols."}
+                </p>
+              </div>
+            ) : (
+              filteredReadyProposals.map((proj) => {
+                const ref = proj.referenceNumber || `#${proj.id}`;
+                const title = proj.title || "Untitled Proposal";
+
+                return (
+                  <div
+                    key={proj.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border bg-card hover:border-indigo-300 hover:shadow-sm transition-all"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs bg-indigo-50 text-indigo-800 border-indigo-200">
+                          {ref}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-700">
+                          Protocol Stage
+                        </Badge>
+                      </div>
+                      <h4 className="font-semibold text-sm line-clamp-1">{title}</h4>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 gap-1.5 shadow-xs"
+                      onClick={() => {
+                        setSelectedProposalId(String(proj.id));
+                        setIsReadyForProtocolOpen(false);
+                        openUploadModal();
+                        setSelectedProposalId(String(proj.id));
+                      }}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Submit Protocol
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <DialogFooter className="mt-3 border-t pt-3">
+            <Button variant="outline" onClick={() => setIsReadyForProtocolOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-8">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
-            ? Array.from({ length: 3 }).map((_, index) => (
+            ? Array.from({ length: 4 }).map((_, index) => (
               <Card key={index} className="border-none shadow-sm">
                 <CardContent className="flex items-center gap-4 p-5">
                   <Skeleton className="h-11 w-11 rounded-xl" />

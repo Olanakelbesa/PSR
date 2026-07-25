@@ -79,11 +79,13 @@ function createRowNumberColumn<TData>(
     enableHiding: false,
     size: 56,
     cell: ({ row, table }) => {
-      const { pageIndex, pageSize } = table.getState().pagination;
+      const rows = table.getPrePaginationRowModel().rows;
+      const flatIndex = rows.findIndex((r) => r.id === row.id);
+      const serialNumber = flatIndex !== -1 ? flatIndex + 1 : row.index + 1;
 
       return (
         <span className="text-sm font-medium tabular-nums text-muted-foreground">
-          {pageIndex * pageSize + row.index + 1}
+          {serialNumber}
         </span>
       );
     },
