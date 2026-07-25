@@ -64,6 +64,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -379,19 +380,16 @@ export default function UsersManagementPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={organizationFilter} onValueChange={setOrganizationFilter}>
-                  <SelectTrigger className="w-full sm:w-52">
-                    <SelectValue placeholder="Organization" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All organizations</SelectItem>
-                    {organizations.map((org) => (
-                      <SelectItem key={org.id} value={String(org.id)}>
-                        {org.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={organizationFilter}
+                  onValueChange={setOrganizationFilter}
+                  placeholder="All organizations"
+                  searchPlaceholder="Filter organization..."
+                  additionalOptions={[{ id: "all", name: "All organizations" }, ...organizations]}
+                  getOptionValue={(org) => String(org.id)}
+                  getOptionLabel={(org) => org.name}
+                  triggerClassName="w-full sm:w-52 h-10"
+                />
                 <Select value={ordering} onValueChange={setOrdering}>
                   <SelectTrigger className="w-full sm:w-48">
                     <ArrowUpDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" />

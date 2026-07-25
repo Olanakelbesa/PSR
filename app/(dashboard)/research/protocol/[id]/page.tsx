@@ -13,6 +13,9 @@ import {
   FileText,
   Loader2,
   RefreshCcw,
+  RefreshCw,
+  Trash2,
+  Undo2,
   Upload,
   User as UserIcon,
   AlertCircle,
@@ -41,14 +44,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PdfViewer, PdfViewerDialog, WordViewer } from "@/components/shared";
-import { protocolService, getProposalById } from "@/api/services";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
+import { protocolService } from "@/api/services/protocol.service";
+import { getProposalById } from "@/api/services/proposals.service";
+import type { ProtocolRecord } from "@/types/protocol";
+import type { ProposalDetail as Proposal } from "@/types/proposal";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
-import type { ProtocolRecord } from "@/types/protocol";
-import type { Proposal } from "@/types/proposal";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 function formatDate(dateString?: string) {
   if (!dateString) return "—";
@@ -69,6 +75,10 @@ function FilePicker({
   accept,
   file,
   onChange,
+  existingFileUrl,
+  removeExisting,
+  onToggleRemoveExisting,
+  onPreviewExisting,
   error,
   required,
 }: {
@@ -77,60 +87,174 @@ function FilePicker({
   accept?: string;
   file: File | null;
   onChange: (file: File | null) => void;
+  existingFileUrl?: string | null;
+  removeExisting?: boolean;
+  onToggleRemoveExisting?: () => void;
+  onPreviewExisting?: (url: string) => void;
   error?: string;
   required?: boolean;
 }) {
+  const [isReplacing, setIsReplacing] = useState(false);
+  const fileNameFromUrl = existingFileUrl
+    ? existingFileUrl.split("/").pop() || "Uploaded Document"
+    : null;
+
   return (
     <div className="space-y-2">
-      <Label htmlFor={id} className="text-sm font-semibold">
-        {label} {required ? <span className="text-rose-500">*</span> : null}
-      </Label>
-      <div
-        className={cn(
-          "relative flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-4 transition-colors hover:bg-muted/40",
-          error && "border-rose-500 bg-rose-50/20",
+      <div className="flex items-center justify-between">
+        <Label htmlFor={id} className="text-sm font-semibold">
+          {label} {required ? <span className="text-rose-500">*</span> : null}
+        </Label>
+        {existingFileUrl && !isReplacing && !file && !removeExisting && (
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+            Currently Attached
+          </span>
         )}
-      >
-        {file ? (
-          <div className="flex w-full items-center justify-between gap-3">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <FileText className="h-5 w-5 shrink-0 text-primary" />
-              <span className="truncate text-sm font-medium">{file.name}</span>
-            </div>
+      </div>
+
+      {removeExisting ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 text-xs text-rose-800">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>Existing document will be removed upon saving.</span>
+          </div>
+          {onToggleRemoveExisting && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              onClick={() => onChange(null)}
-              className="text-xs text-rose-600 hover:text-rose-700"
+              className="h-7 text-xs border-rose-200 bg-background hover:bg-rose-100"
+              onClick={onToggleRemoveExisting}
             >
-              Remove
+              <Undo2 className="mr-1 h-3.5 w-3.5" />
+              Undo Delete
             </Button>
+          )}
+        </div>
+      ) : existingFileUrl && !isReplacing && !file ? (
+        <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/30 p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {fileNameFromUrl}
+                </p>
+                <p className="text-xs text-muted-foreground">Previously uploaded document</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {onPreviewExisting && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs bg-background"
+                  onClick={() => onPreviewExisting(existingFileUrl)}
+                >
+                  <Eye className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                  Preview
+                </Button>
+              )}
+              <a
+                href={existingFileUrl}
+                download
+                className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </a>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                onClick={() => setIsReplacing(true)}
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                Replace
+              </Button>
+              {onToggleRemoveExisting && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  onClick={onToggleRemoveExisting}
+                  title="Remove document"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        ) : (
-          <label
-            htmlFor={id}
-            className="flex cursor-pointer flex-col items-center gap-1.5 py-2 text-center"
-          >
-            <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm font-medium">Choose file</span>
-            <span className="text-xs text-muted-foreground">
-              PDF, DOC, DOCX, or XLSX
-            </span>
-          </label>
-        )}
-        <Input
-          id={id}
-          type="file"
-          accept={accept}
-          className="hidden"
-          onChange={(event) => {
-            const nextFile = event.target.files?.[0] ?? null;
-            onChange(nextFile);
-            event.target.value = "";
-          }}
-        />
-      </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "relative flex flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-4 transition-colors hover:bg-muted/40",
+            error && "border-rose-500 bg-rose-50/20",
+          )}
+        >
+          {file ? (
+            <div className="flex w-full items-center justify-between gap-3">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <FileText className="h-5 w-5 shrink-0 text-primary" />
+                <span className="truncate text-sm font-medium">{file.name}</span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  onChange(null);
+                  if (existingFileUrl) setIsReplacing(false);
+                }}
+                className="text-xs text-rose-600 hover:text-rose-700"
+              >
+                Remove
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2 text-center w-full">
+              {isReplacing && (
+                <div className="flex items-center justify-between text-xs pb-1">
+                  <span className="font-medium text-amber-700">Select new file to replace current document</span>
+                  <button
+                    type="button"
+                    className="text-[11px] text-muted-foreground hover:underline"
+                    onClick={() => setIsReplacing(false)}
+                  >
+                    Cancel replacement
+                  </button>
+                </div>
+              )}
+              <label
+                htmlFor={id}
+                className="flex cursor-pointer flex-col items-center gap-1.5 py-2 text-center"
+              >
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Choose file to upload</span>
+                <span className="text-xs text-muted-foreground">
+                  PDF, DOC, DOCX, XLS, XLSX, or ZIP
+                </span>
+              </label>
+            </div>
+          )}
+          <Input
+            id={id}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={(event) => {
+              const nextFile = event.target.files?.[0] ?? null;
+              onChange(nextFile);
+              event.target.value = "";
+            }}
+          />
+        </div>
+      )}
       {error ? <p className="text-xs text-rose-600">{error}</p> : null}
     </div>
   );
@@ -201,6 +325,8 @@ export default function ProtocolDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [protocolFile, setProtocolFile] = useState<File | null>(null);
   const [otherDocument, setOtherDocument] = useState<File | null>(null);
+  const [removeProtocolFile, setRemoveProtocolFile] = useState(false);
+  const [removeOtherDocument, setRemoveOtherDocument] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Modal dialog preview state
@@ -228,10 +354,20 @@ export default function ProtocolDetailPage() {
           // Ignore proposal detail load error — basic info comes with protocol record
         }
       }
-    } catch (err) {
-      console.error("Failed to load protocol detail:", err);
+    } catch (err: unknown) {
+      const axiosErr = err as {
+        message?: string;
+        response?: { data?: { message?: string; detail?: string } };
+      };
+      const errorMessage =
+        axiosErr.response?.data?.message ||
+        axiosErr.response?.data?.detail ||
+        axiosErr.message ||
+        "Failed to load protocol submission";
+
+      console.error("Failed to load protocol detail:", errorMessage, err);
       setIsError(true);
-      toast.error("Failed to load protocol submission");
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -244,8 +380,8 @@ export default function ProtocolDetailPage() {
   const handleUpdateSubmit = async () => {
     if (!protocol) return;
 
-    if (!protocolFile && !otherDocument) {
-      setFormError("Please select at least one file to update.");
+    if (!protocolFile && !otherDocument && !removeProtocolFile && !removeOtherDocument) {
+      setFormError("Please select a new file to upload or choose a file to delete.");
       return;
     }
 
@@ -256,6 +392,8 @@ export default function ProtocolDetailPage() {
       const updated = await protocolService.update(protocol.id, {
         protocol_file: protocolFile ?? undefined,
         other_document: otherDocument ?? undefined,
+        remove_protocol_file: removeProtocolFile,
+        remove_other_document: removeOtherDocument,
       });
 
       setProtocol(updated);
@@ -263,6 +401,8 @@ export default function ProtocolDetailPage() {
       setIsUpdateModalOpen(false);
       setProtocolFile(null);
       setOtherDocument(null);
+      setRemoveProtocolFile(false);
+      setRemoveOtherDocument(false);
     } catch (err) {
       console.error("Failed to update protocol:", err);
       toast.error("Failed to update protocol files.");
@@ -579,18 +719,26 @@ export default function ProtocolDetailPage() {
           <div className="space-y-4 py-2">
             <FilePicker
               id="detail-protocol-file"
-              label="Replace Protocol File"
+              label="Protocol File"
               accept=".pdf,.doc,.docx,.xls,.xlsx"
               file={protocolFile}
               onChange={setProtocolFile}
+              existingFileUrl={protocolUrl}
+              removeExisting={removeProtocolFile}
+              onToggleRemoveExisting={() => setRemoveProtocolFile((curr) => !curr)}
+              onPreviewExisting={(url) => setDialogDoc({ url, title: `${displayRef} — Protocol File` })}
             />
 
             <FilePicker
               id="detail-other-document"
-              label="Replace Other Document"
+              label="Other Supporting Document"
               accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
               file={otherDocument}
               onChange={setOtherDocument}
+              existingFileUrl={otherUrl}
+              removeExisting={removeOtherDocument}
+              onToggleRemoveExisting={() => setRemoveOtherDocument((curr) => !curr)}
+              onPreviewExisting={(url) => setDialogDoc({ url, title: `${displayRef} — Other Document` })}
             />
 
             {formError ? (

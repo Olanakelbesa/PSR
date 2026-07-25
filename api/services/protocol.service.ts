@@ -130,9 +130,17 @@ export async function createProtocol(
   return normalizeProtocol(payload as Record<string, unknown>);
 }
 
+export interface ProtocolUpdateInput {
+  proposal?: number;
+  protocol_file?: File | null;
+  other_document?: File | null;
+  remove_protocol_file?: boolean;
+  remove_other_document?: boolean;
+}
+
 export async function updateProtocol(
   id: number,
-  input: Partial<ProtocolCreateInput>,
+  input: ProtocolUpdateInput,
 ): Promise<ProtocolRecord> {
   const formData = new FormData();
 
@@ -144,6 +152,12 @@ export async function updateProtocol(
   }
   if (input.other_document) {
     formData.append("other_document", input.other_document);
+  }
+  if (input.remove_protocol_file) {
+    formData.append("remove_protocol_file", "true");
+  }
+  if (input.remove_other_document) {
+    formData.append("remove_other_document", "true");
   }
 
   const { data } = await apiClient.patch(

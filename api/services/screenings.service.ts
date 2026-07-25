@@ -470,15 +470,22 @@ export interface ReviewHistoryEvent {
 }
 
 export interface ReviewHistory {
-  review_timeline: ReviewHistoryEvent[];
+  reviewTimeline?: ReviewHistoryEvent[];
+  review_timeline?: ReviewHistoryEvent[];
 }
 
 export async function getReviewHistory(
   screeningId: string | number,
-): Promise<ReviewHistory> {
+): Promise<ReviewHistoryEvent[]> {
   const res = await apiClient.get(
     API_ENDPOINTS.SCREENINGS.REVIEW_HISTORY(screeningId),
   );
 
-  return res.data?.data ?? res.data;
+  const payload = res.data?.data ?? res.data;
+  if (Array.isArray(payload)) {
+    return payload as ReviewHistoryEvent[];
+  }
+
+  const events = payload?.reviewTimeline ?? payload?.review_timeline ?? [];
+  return Array.isArray(events) ? events : [];
 }

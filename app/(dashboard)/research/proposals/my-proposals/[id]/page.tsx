@@ -13,6 +13,7 @@ import {
   Edit,
   ExternalLink,
   FileText,
+  History,
   Layers,
   Mail,
   MapPin,
@@ -22,6 +23,10 @@ import {
 } from "lucide-react";
 
 import { proposalsApi } from "@/api/client";
+import {
+  getReviewHistory,
+  type ReviewHistoryEvent,
+} from "@/api/services/screenings.service";
 import { PageContainer } from "@/components/layout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -274,6 +279,7 @@ export default function ProposalDetailPage() {
   }, [params.id]);
 
   const [proposal, setProposal] = useState<ProposalDetail | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<ReviewHistoryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -295,6 +301,16 @@ export default function ProposalDetailPage() {
           const proposalData = response.data as ProposalDetail;
           setProposal(proposalData);
           setHasError(false);
+
+          // Fetch full audit trail timeline
+          try {
+            const events = await getReviewHistory(proposalId);
+            if (isMounted && Array.isArray(events)) {
+              setTimelineEvents(events);
+            }
+          } catch {
+            // Non-critical background load
+          }
         } else {
           setProposal(null);
           setHasError(true);
@@ -516,7 +532,7 @@ export default function ProposalDetailPage() {
 
               {/* Tabs */}
               <Tabs defaultValue="overview">
-                <TabsList className="h-10 bg-muted/60 rounded-lg p-1 w-full">
+                <TabsList className="h-10 bg-muted/60 rounded-lg p-1 w-full grid grid-cols-4">
                   <TabsTrigger value="overview" className="text-xs">
                     <FileText className="mr-1.5 h-3.5 w-3.5" />
                     Overview
@@ -528,6 +544,10 @@ export default function ProposalDetailPage() {
                   <TabsTrigger value="reviews" className="text-xs">
                     <Clock className="mr-1.5 h-3.5 w-3.5" />
                     Reviews ({reviewHistoryEvents.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="timeline" className="text-xs">
+                    <History className="mr-1.5 h-3.5 w-3.5" />
+                    Audit Trail ({timelineEvents.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -745,56 +765,67 @@ export default function ProposalDetailPage() {
                       ) : null}
                       {reviewHistoryEvents.length ? (
                         <div className="space-y-0">
-                          {reviewHistoryEvents.map((review, idx) => (
-                            <div key={review.id || idx} className="flex gap-4">
-                              <div className="flex flex-col items-center">
-                                <div
-                                  className={cn(
-                                    "w-3 h-3 rounded-full mt-1.5",
-                                    review.recommendation?.includes("approved")
-                                      ? "bg-emerald-500"
-                                      : review.recommendation?.includes(
-                                            "rejected",
-                                          )
-                                        ? "bg-rose-500"
-                                        : "bg-primary",
+                          {reviewHistoryEvents.map((review, idx) => {
+                            const reviewerName =
+                              (review as any).reviewer?.fullName ||
+                              review.reviewer?.name ||
+                              (review as any).reviewer?.email ||
+                              null;
+                            const totalScore = (review as any).totalScore;
+                            const itemTitle =
+                              review.recommendation?.replace(/_/g, " ") ||
+                              (totalScore !== undefined && totalScore !== null
+                                ? `Technical Review (Score: ${totalScore} pts)`
+                                : reviewerName
+                                ? `Technical Review by ${reviewerName}`
+                                : "Technical Review");
+
+                            return (
+                              <div key={review.id || idx} className="flex gap-4">
+                                <div className="flex flex-col items-center">
+                                  <div
+                                    className={cn(
+                                      "w-3 h-3 rounded-full mt-1.5",
+                                      review.recommendation?.includes("approved")
+                                        ? "bg-emerald-500"
+                                        : review.recommendation?.includes(
+                                              "rejected",
+                                            )
+                                          ? "bg-rose-500"
+                                          : "bg-primary",
+                                    )}
+                                  />
+                                  {idx < reviewHistoryEvents.length - 1 && (
+                                    <div className="w-0.5 flex-1 bg-border mt-2" />
                                   )}
-                                />
-                                {idx < reviewHistoryEvents.length - 1 && (
-                                  <div className="w-0.5 flex-1 bg-border mt-2" />
-                                )}
-                              </div>
-                              <div className="flex-1 pb-6">
-                                <div className="rounded-xl border bg-card p-4">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-semibold text-sm text-foreground capitalize">
-                                        {review.recommendation?.replace(
-                                          /_/g,
-                                          " ",
-                                        ) ||
-                                          review.comments?.split("\n")[0] ||
-                                          "Event"}
-                                      </p>
-                                      {review.reviewer?.name && (
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                          by {review.reviewer.name}
+                                </div>
+                                <div className="flex-1 pb-6">
+                                  <div className="rounded-xl border bg-card p-4">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-sm text-foreground capitalize">
+                                          {itemTitle}
                                         </p>
-                                      )}
-                                      {review.comments && (
-                                        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                                          {review.comments}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                                      {formatDate(review.createdAt)}
+                                        {reviewerName && review.recommendation && (
+                                          <p className="text-xs text-muted-foreground mt-0.5">
+                                            by {reviewerName}
+                                          </p>
+                                        )}
+                                        {review.comments && (
+                                          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                                            {review.comments}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                                        {formatDate(review.createdAt)}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
@@ -810,6 +841,92 @@ export default function ProposalDetailPage() {
                       <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
                       <p className="mt-2 text-sm text-muted-foreground">
                         No review history available yet.
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="timeline" className="mt-6">
+                  {timelineEvents.length ? (
+                    <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+                      {timelineEvents.map((event, idx) => {
+                        const statusLower = (event.status || "").toLowerCase();
+                        const isSuccess =
+                          statusLower.includes("approved") ||
+                          statusLower.includes("completed") ||
+                          statusLower.includes("submitted") ||
+                          statusLower.includes("recommendation_made");
+                        const isDanger = statusLower.includes("rejected");
+                        const isWarning =
+                          statusLower.includes("under_review") ||
+                          statusLower.includes("pending") ||
+                          statusLower.includes("resubmitted");
+
+                        return (
+                          <div
+                            key={idx}
+                            className="relative flex items-start gap-4 group"
+                          >
+                            <div
+                              className={cn(
+                                "absolute -left-6 top-1 flex h-5 w-5 items-center justify-center rounded-full border bg-background text-xs shadow-xs transition-transform group-hover:scale-110",
+                                isSuccess
+                                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                  : isDanger
+                                    ? "border-rose-500 bg-rose-50 text-rose-700"
+                                    : isWarning
+                                      ? "border-amber-500 bg-amber-50 text-amber-700"
+                                      : "border-primary bg-primary/10 text-primary",
+                              )}
+                            >
+                              {isSuccess ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : isDanger ? (
+                                <AlertCircle className="h-3 w-3" />
+                              ) : (
+                                <Clock className="h-3 w-3" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 rounded-xl border bg-card p-4 shadow-xs">
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div>
+                                  <h4 className="text-sm font-bold text-foreground">
+                                    {event.action}
+                                  </h4>
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "mt-1 text-[10px] font-bold uppercase shadow-none",
+                                      isSuccess
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                        : isDanger
+                                          ? "border-rose-200 bg-rose-50 text-rose-700"
+                                          : "border-amber-200 bg-amber-50 text-amber-700",
+                                    )}
+                                  >
+                                    {event.status.replace(/_/g, " ")}
+                                  </Badge>
+                                </div>
+                                <span className="text-xs text-muted-foreground font-mono">
+                                  {formatDateTime(event.timestamp)}
+                                </span>
+                              </div>
+                              {event.comment && (
+                                <div className="mt-3 rounded-lg border bg-muted/30 p-2.5 text-xs text-muted-foreground italic">
+                                  &ldquo;{event.comment}&rdquo;
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
+                      <History className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No audit trail timeline events recorded yet.
                       </p>
                     </div>
                   )}

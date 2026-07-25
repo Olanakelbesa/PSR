@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -431,28 +432,16 @@ export default function IRBSubmissionPage() {
             <CardContent className="pt-5 space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="clearanceType">Clearance Type</Label>
-                <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
-                  <SelectTrigger
-                    id="clearanceType"
-                    className="h-11 shadow-sm focus:ring-primary/20"
-                  >
-                    <SelectValue placeholder="Select clearance type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clearanceTypes.map((ct) => (
-                      <SelectItem key={ct.id} value={ct.id.toString()}>
-                        <div>
-                          <p className="font-medium">{ct.name}</p>
-                          {ct.description && (
-                            <p className="text-xs text-muted-foreground">
-                              {ct.description}
-                            </p>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={selectedTypeId}
+                  onValueChange={setSelectedTypeId}
+                  placeholder="Select clearance type..."
+                  searchPlaceholder="Search clearance type by name or description..."
+                  additionalOptions={clearanceTypes}
+                  getOptionValue={(ct) => String(ct.id)}
+                  getOptionLabel={(ct) => ct.name}
+                  selectedLabel={clearanceTypes.find((ct) => String(ct.id) === selectedTypeId)?.name}
+                />
               </div>
             </CardContent>
           </Card>

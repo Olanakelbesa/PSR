@@ -6,11 +6,16 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   BarChart3,
   CalendarDays,
+  Download,
   ExternalLink,
   Eye,
   FileText,
   Loader2,
   MoreHorizontal,
+  Paperclip,
+  RefreshCw,
+  Trash2,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
@@ -38,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +90,10 @@ function FilePicker({
   accept,
   file,
   onChange,
+  existingFileUrl,
+  removeExisting,
+  onToggleRemoveExisting,
+  onPreviewExisting,
   error,
 }: {
   id: string;
@@ -92,66 +102,180 @@ function FilePicker({
   accept?: string;
   file: File | null;
   onChange: (file: File | null) => void;
+  existingFileUrl?: string | null;
+  removeExisting?: boolean;
+  onToggleRemoveExisting?: () => void;
+  onPreviewExisting?: (url: string) => void;
   error?: string;
 }) {
+  const [isReplacing, setIsReplacing] = useState(false);
+  const fileNameFromUrl = existingFileUrl
+    ? existingFileUrl.split("/").pop() || "Uploaded Document"
+    : null;
+
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>
-        {label} {required ? <span className="text-rose-500">*</span> : null}
-      </Label>
-      <div
-        className={cn(
-          "rounded-xl border border-dashed p-4 transition-colors",
-          error
-            ? "border-rose-500 bg-rose-50/30"
-            : "border-muted-foreground/25",
+      <div className="flex items-center justify-between">
+        <Label htmlFor={id}>
+          {label} {required ? <span className="text-rose-500">*</span> : null}
+        </Label>
+        {existingFileUrl && !isReplacing && !file && !removeExisting && (
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+            Currently Attached
+          </span>
         )}
-      >
-        {file ? (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <FileText className="h-4 w-4 shrink-0 text-primary" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-            </div>
+      </div>
+
+      {removeExisting ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 text-xs text-rose-800">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>Existing document will be removed upon saving.</span>
+          </div>
+          {onToggleRemoveExisting && (
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={() => onChange(null)}
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-rose-200 bg-background hover:bg-rose-100"
+              onClick={onToggleRemoveExisting}
             >
-              <X className="h-4 w-4" />
+              <Undo2 className="mr-1 h-3.5 w-3.5" />
+              Undo Delete
             </Button>
+          )}
+        </div>
+      ) : existingFileUrl && !isReplacing && !file ? (
+        <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/30 p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {fileNameFromUrl}
+                </p>
+                <p className="text-xs text-muted-foreground">Previously uploaded document</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {onPreviewExisting && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs bg-background"
+                  onClick={() => onPreviewExisting(existingFileUrl)}
+                >
+                  <Eye className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                  Preview
+                </Button>
+              )}
+              <a
+                href={existingFileUrl}
+                download
+                className="inline-flex h-8 items-center justify-center rounded-md border bg-background px-2.5 text-xs font-medium hover:bg-accent"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </a>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                onClick={() => setIsReplacing(true)}
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                Replace
+              </Button>
+              {onToggleRemoveExisting && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                  onClick={onToggleRemoveExisting}
+                  title="Remove document"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        ) : (
-          <label
-            htmlFor={id}
-            className="flex cursor-pointer flex-col items-center gap-2 py-2 text-center"
-          >
-            <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm font-medium">Choose file</span>
-            <span className="text-xs text-muted-foreground">
-              PDF, DOC, DOCX, or XLSX
-            </span>
-          </label>
-        )}
-        <Input
-          id={id}
-          type="file"
-          accept={accept}
-          className="hidden"
-          onChange={(event) => {
-            const nextFile = event.target.files?.[0] ?? null;
-            onChange(nextFile);
-            event.target.value = "";
-          }}
-        />
-      </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "rounded-xl border border-dashed p-4 transition-colors",
+            error
+              ? "border-rose-500 bg-rose-50/30"
+              : "border-muted-foreground/25",
+          )}
+        >
+          {file ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB · Selected for upload
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => {
+                  onChange(null);
+                  if (existingFileUrl) setIsReplacing(false);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {isReplacing && (
+                <div className="flex items-center justify-between text-xs pb-1">
+                  <span className="font-medium text-amber-700">Select new file to replace current document</span>
+                  <button
+                    type="button"
+                    className="text-[11px] text-muted-foreground hover:underline"
+                    onClick={() => setIsReplacing(false)}
+                  >
+                    Cancel replacement
+                  </button>
+                </div>
+              )}
+              <label
+                htmlFor={id}
+                className="flex cursor-pointer flex-col items-center gap-2 py-2 text-center"
+              >
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Choose file to upload</span>
+                <span className="text-xs text-muted-foreground">
+                  PDF, DOC, DOCX, XLS, XLSX, or ZIP
+                </span>
+              </label>
+            </div>
+          )}
+          <Input
+            id={id}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={(event) => {
+              const nextFile = event.target.files?.[0] ?? null;
+              onChange(nextFile);
+              event.target.value = "";
+            }}
+          />
+        </div>
+      )}
       {error ? <p className="text-xs text-rose-600">{error}</p> : null}
     </div>
   );
@@ -170,11 +294,17 @@ export default function ProtocolPage() {
   const [hasProtocolFileFilter, setHasProtocolFileFilter] = useState<boolean | undefined>(undefined);
   const [hasOtherDocFilter, setHasOtherDocFilter] = useState<boolean | undefined>(undefined);
   const [serverStats, setServerStats] = useState<ProtocolStatistics | undefined>(undefined);
-  const [selectedProposalId, setSelectedProposalId] = useState("");
   const [selectedProtocol, setSelectedProtocol] =
     useState<ProtocolRecord | null>(null);
+  const [selectedProposalId, setSelectedProposalId] = useState("");
+  const selectedProposal = useMemo(
+    () => proposals.find((p) => String(p.id) === selectedProposalId),
+    [proposals, selectedProposalId],
+  );
   const [protocolFile, setProtocolFile] = useState<File | null>(null);
   const [otherDocument, setOtherDocument] = useState<File | null>(null);
+  const [removeProtocolFile, setRemoveProtocolFile] = useState(false);
+  const [removeOtherDocument, setRemoveOtherDocument] = useState(false);
   const [viewerDocument, setViewerDocument] = useState<{
     url: string;
     title: string;
@@ -287,7 +417,7 @@ export default function ProtocolPage() {
         activeRing: "ring-primary/50 border-primary/40",
         sub: "All protocol submissions",
         active: false,
-        onClick: () => {},
+        onClick: () => { },
       },
       {
         key: "protocol_file",
@@ -325,6 +455,8 @@ export default function ProtocolPage() {
     setSelectedProposalId("");
     setProtocolFile(null);
     setOtherDocument(null);
+    setRemoveProtocolFile(false);
+    setRemoveOtherDocument(false);
     setFormErrors({});
   };
 
@@ -340,6 +472,8 @@ export default function ProtocolPage() {
     setSelectedProposalId(String(protocol.proposal));
     setProtocolFile(null);
     setOtherDocument(null);
+    setRemoveProtocolFile(false);
+    setRemoveOtherDocument(false);
     setFormErrors({});
     setIsUploadModalOpen(true);
   };
@@ -354,17 +488,19 @@ export default function ProtocolPage() {
           return;
         }
 
-        if (!protocolFile && !otherDocument) {
+        if (!protocolFile && !otherDocument && !removeProtocolFile && !removeOtherDocument) {
           setFormErrors({
-            protocolFile: "Choose at least one file to update.",
+            protocolFile: "Select a new file or delete an existing file to update.",
           });
-          toast.error("Choose at least one file to update.");
+          toast.error("Make a change (replace or delete a file) before updating.");
           return;
         }
 
         await protocolService.update(selectedProtocol.id, {
           protocol_file: protocolFile ?? undefined,
           other_document: otherDocument ?? undefined,
+          remove_protocol_file: removeProtocolFile,
+          remove_other_document: removeOtherDocument,
         });
 
         toast.success("Protocol updated successfully");
@@ -542,13 +678,13 @@ export default function ProtocolPage() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link
-                  href={`/research/proposals/my-proposals/${row.original.proposal}/edit`}
-                >
-                  Edit proposal details
+                <Link href={`/research/proposals/my-proposals/${row.original.proposal}`}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  View proposal details
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => openUpdateModal(row.original)}>
+                <Upload className="mr-2 h-4 w-4" />
                 Update protocol document
               </DropdownMenuItem>
               {protocolUrl ? (
@@ -599,50 +735,50 @@ export default function ProtocolPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {isLoading
             ? Array.from({ length: 3 }).map((_, index) => (
-                <Card key={index} className="border-none shadow-sm">
-                  <CardContent className="flex items-center gap-4 p-5">
-                    <Skeleton className="h-11 w-11 rounded-xl" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-7 w-16" />
-                      <Skeleton className="h-3 w-28" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              <Card key={index} className="border-none shadow-sm">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-16" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
             : statCards.map((stat) => (
-                <Card
-                  key={stat.key}
-                  role="button"
-                  tabIndex={0}
-                  onClick={stat.onClick}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      stat.onClick();
-                    }
-                  }}
-                  className={cn(
-                    "cursor-pointer border shadow-sm transition-all hover:shadow-md",
-                    stat.border,
-                    stat.active && cn("ring-2 shadow-md", stat.activeRing),
-                  )}
-                >
-                  <CardContent className="flex items-center gap-4 p-5">
-                    <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
-                      <stat.icon className={cn("h-5 w-5", stat.color)} />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-black">{stat.value}</div>
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {stat.label}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground/80">
-                        {stat.sub}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <Card
+                key={stat.key}
+                role="button"
+                tabIndex={0}
+                onClick={stat.onClick}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    stat.onClick();
+                  }
+                }}
+                className={cn(
+                  "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                  stat.border,
+                  stat.active && cn("ring-2 shadow-md", stat.activeRing),
+                )}
+              >
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                    <stat.icon className={cn("h-5 w-5", stat.color)} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black">{stat.value}</div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {stat.label}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                      {stat.sub}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
         </div>
 
         {isLoading ? (
@@ -711,7 +847,7 @@ export default function ProtocolPage() {
                       : "Selected protocol record"}
                   </div>
                 ) : (
-                  <Select
+                  <SearchableSelect<ProposalOption>
                     value={selectedProposalId}
                     onValueChange={(value) => {
                       setSelectedProposalId(value);
@@ -722,27 +858,25 @@ export default function ProtocolPage() {
                         }));
                       }
                     }}
+                    placeholder={
+                      isLoadingProposals
+                        ? "Loading proposals..."
+                        : "Select a protocol-stage proposal"
+                    }
+                    searchPlaceholder="Search proposal by title or reference number..."
+                    emptyMessage="No eligible protocol-stage proposals found"
+                    noResultsMessage="No proposals match your search query"
+                    selectedLabel={
+                      selectedProposal
+                        ? `${selectedProposal.referenceNumber} · ${selectedProposal.title}`
+                        : undefined
+                    }
+                    additionalOptions={proposals}
+                    getOptionValue={(item) => item.id}
+                    getOptionLabel={(item) => `${item.referenceNumber} · ${item.title}`}
                     disabled={isLoadingProposals}
-                  >
-                    <SelectTrigger
-                      className={cn(formErrors.proposalId && "border-rose-500")}
-                    >
-                      <SelectValue
-                        placeholder={
-                          isLoadingProposals
-                            ? "Loading proposals..."
-                            : "Select a protocol-stage proposal"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {proposals.map((proposal) => (
-                        <SelectItem key={proposal.id} value={proposal.id}>
-                          {proposal.referenceNumber} · {proposal.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    error={!!formErrors.proposalId}
+                  />
                 )}
                 {formErrors.proposalId ? (
                   <p className="text-xs text-rose-600">
@@ -751,48 +885,77 @@ export default function ProtocolPage() {
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     {modalMode === "update"
-                      ? "Use this to replace the current protocol files after editing the proposal details."
+                      ? "Use this to upload or replace protocol documents for this proposal."
                       : "Only proposals in the protocol stage are shown here."}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-1">
-              <FilePicker
-                id="modal-protocol-file"
-                label={
-                  modalMode === "update"
-                    ? "Replace Protocol File"
-                    : "Protocol File"
-                }
-                required={modalMode === "create"}
-                accept=".pdf,.doc,.docx,.xls,.xlsx"
-                file={protocolFile}
-                onChange={(file) => {
-                  setProtocolFile(file);
-                  if (formErrors.protocolFile) {
-                    setFormErrors((current) => ({
-                      ...current,
-                      protocolFile: undefined,
-                    }));
-                  }
-                }}
-                error={formErrors.protocolFile}
-              />
+            {(() => {
+              const existingProtocolUrl = resolveFileUrl(
+                selectedProtocol?.protocolFile || selectedProtocol?.protocol_file,
+              );
+              const existingOtherUrl = resolveFileUrl(
+                selectedProtocol?.otherDocument || selectedProtocol?.other_document,
+              );
 
-              <FilePicker
-                id="modal-other-document"
-                label={
-                  modalMode === "update"
-                    ? "Replace Other Document"
-                    : "Other Document"
-                }
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
-                file={otherDocument}
-                onChange={setOtherDocument}
-              />
-            </div>
+              return (
+                <div className="grid gap-6 sm:grid-cols-1">
+                  <FilePicker
+                    id="modal-protocol-file"
+                    label={
+                      modalMode === "update"
+                        ? "Protocol File"
+                        : "Protocol File"
+                    }
+                    required={modalMode === "create"}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                    file={protocolFile}
+                    onChange={(file) => {
+                      setProtocolFile(file);
+                      if (formErrors.protocolFile) {
+                        setFormErrors((current) => ({
+                          ...current,
+                          protocolFile: undefined,
+                        }));
+                      }
+                    }}
+                    existingFileUrl={modalMode === "update" ? existingProtocolUrl : null}
+                    removeExisting={removeProtocolFile}
+                    onToggleRemoveExisting={() => setRemoveProtocolFile((curr) => !curr)}
+                    onPreviewExisting={(url) =>
+                      setViewerDocument({
+                        url,
+                        title: `${selectedProtocol?.referenceNumber || selectedProtocol?.reference_number || "Protocol"} — Protocol File`,
+                      })
+                    }
+                    error={formErrors.protocolFile}
+                  />
+
+                  <FilePicker
+                    id="modal-other-document"
+                    label={
+                      modalMode === "update"
+                        ? "Other Supporting Document"
+                        : "Other Document"
+                    }
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
+                    file={otherDocument}
+                    onChange={setOtherDocument}
+                    existingFileUrl={modalMode === "update" ? existingOtherUrl : null}
+                    removeExisting={removeOtherDocument}
+                    onToggleRemoveExisting={() => setRemoveOtherDocument((curr) => !curr)}
+                    onPreviewExisting={(url) =>
+                      setViewerDocument({
+                        url,
+                        title: `${selectedProtocol?.referenceNumber || selectedProtocol?.reference_number || "Protocol"} — Other Document`,
+                      })
+                    }
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           <DialogFooter className="gap-2">

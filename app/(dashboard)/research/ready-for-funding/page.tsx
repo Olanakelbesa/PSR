@@ -45,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -617,33 +618,27 @@ export default function ReadyForFundingPage() {
             </AccordionTrigger>
             <AccordionContent className="pb-0 pt-3">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Select value={organization} onValueChange={setOrganization}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Organization" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>All organizations</SelectItem>
-                    {organizations.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={organization}
+                  onValueChange={setOrganization}
+                  placeholder="All organizations"
+                  searchPlaceholder="Filter organization..."
+                  additionalOptions={[{ id: ALL_VALUE, name: "All organizations" }, ...organizations]}
+                  getOptionValue={(item) => String(item.id)}
+                  getOptionLabel={(item) => item.name}
+                  triggerClassName="h-9 text-xs"
+                />
 
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>All units</SelectItem>
-                    {units.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={unit}
+                  onValueChange={setUnit}
+                  placeholder="All units"
+                  searchPlaceholder="Filter research unit..."
+                  additionalOptions={[{ id: ALL_VALUE, name: "All units" }, ...units]}
+                  getOptionValue={(item) => String(item.id)}
+                  getOptionLabel={(item) => item.name}
+                  triggerClassName="h-9 text-xs"
+                />
 
                 <Select value={proposalType} onValueChange={setProposalType}>
                   <SelectTrigger className="h-9">
@@ -659,19 +654,16 @@ export default function ReadyForFundingPage() {
                   </SelectContent>
                 </Select>
 
-                <Select value={grantCall} onValueChange={setGrantCall}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Grant Call" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_VALUE}>All grant calls</SelectItem>
-                    {grantCalls.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={grantCall}
+                  onValueChange={setGrantCall}
+                  placeholder="All grant calls"
+                  searchPlaceholder="Filter grant call..."
+                  additionalOptions={[{ id: ALL_VALUE, title: "All grant calls" }, ...grantCalls]}
+                  getOptionValue={(item) => String(item.id)}
+                  getOptionLabel={(item) => item.title}
+                  triggerClassName="h-9 text-xs"
+                />
 
                 <Select value={hasFundingDecision} onValueChange={setHasFundingDecision}>
                   <SelectTrigger className="h-9">
