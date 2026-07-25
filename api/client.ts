@@ -128,10 +128,63 @@ function processQueue(error: ApiError | null, token: string | null) {
   failedQueue = [];
 }
 
-// ─── Request Interceptor: inject Bearer token ────────────────────────────────
+// ─── Helper: JWT Expiration Checker ───────────────────────────────────────────
+function isTokenExpired(token: string, skewSeconds = 60): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    if (typeof payload.exp !== "number") return false;
+    return Date.now() >= payload.exp * 1000 - skewSeconds * 1000;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Request Interceptor: inject Bearer token & proactive refresh ─────────────
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = tokenStorage.get();
+  async (config: InternalAxiosRequestConfig) => {
+    let token = tokenStorage.get();
+    const isRefreshEndpoint = config.url?.includes(API_ENDPOINTS.AUTH.REFRESH);
+
+    if (token && !isRefreshEndpoint && isTokenExpired(token, 60)) {
+      if (isRefreshing) {
+        try {
+          token = await new Promise<string>((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          });
+        } catch {
+          token = tokenStorage.get();
+        }
+      } else {
+        isRefreshing = true;
+        const refreshToken = tokenStorage.getRefresh();
+        if (refreshToken) {
+          try {
+            const { data } = await axios.post(
+              `/bff${API_ENDPOINTS.AUTH.REFRESH}`,
+              { refresh: refreshToken },
+            );
+            const newToken: string = data.access ?? data.accessToken ?? data.token;
+            const newRefresh: string = data.refresh ?? data.refreshToken ?? refreshToken;
+            tokenStorage.set(newToken);
+            tokenStorage.setRefresh(newRefresh);
+            apiClient.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+            processQueue(null, newToken);
+            token = newToken;
+          } catch (err: any) {
+            tokenStorage.clear();
+            processQueue(err, null);
+            token = null;
+          } finally {
+            isRefreshing = false;
+          }
+        }
+      }
+    }
+
     const headers = config.headers as InternalAxiosRequestConfig["headers"] & {
       Authorization?: string;
       authorization?: string;

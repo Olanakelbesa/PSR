@@ -76,6 +76,7 @@ type PipelineRow = {
   amountLabel: "Requested" | "Awarded";
   averageScorePercentage: number | null;
   needIrbEthicalClearance: boolean;
+  isEthicsCleared: boolean;
   ethicalClearanceStatus: string | null;
   recommendedAt: string | null;
   recommendationId: string | null;
@@ -249,36 +250,19 @@ export default function FundingRecommendationsPage() {
           : undefined,
       has_funding_decision: true,
       funding_decision_status: "approved" as const,
-      has_funding_recommendation:
-        selectedPipelineStage === "funded"
-          ? true
-          : selectedPipelineStage === "pending"
-            ? false
-            : undefined,
-      need_irb_ethical_clearance:
-        selectedIrbFilter === "required"
-          ? true
-          : selectedIrbFilter === "not_required"
-            ? false
-            : undefined,
+      only_irb_approved: true,
       ordering: "-average_score_percentage",
     }),
-    [selectedCall, selectedProposalType, selectedPipelineStage, selectedIrbFilter],
+    [selectedCall, selectedProposalType],
   );
 
   const recommendationFilters = useMemo(
     () => ({
       page: 1,
       limit: 100,
-      has_ethical_clearance_approval:
-        selectedEthicalClearance === "approved"
-          ? true
-          : selectedEthicalClearance === "not_approved"
-            ? false
-            : undefined,
       ordering: "-recommended_at",
     }),
-    [selectedEthicalClearance],
+    [],
   );
 
   const {
@@ -303,7 +287,34 @@ export default function FundingRecommendationsPage() {
 
   const candidates = useMemo(
     () =>
-      (candidateData?.data ?? []).filter((item) => item.fundingDecisionId),
+      (candidateData?.data ?? []).filter((item) => {
+        if (!item.fundingDecisionId) return false;
+
+        const raw = item as unknown as Record<string, unknown>;
+        const needIrb = Boolean(
+          raw.needIrbEthicalClearance ?? raw.need_irb_ethical_clearance,
+        );
+        const rawEthicalStatus = String(
+          raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
+        );
+
+        const rawFundingRecs = (
+          raw.funding_recommendations ?? raw.fundingRecommendations ?? []
+        ) as Array<Record<string, unknown>>;
+        const recsCount = Number(
+          raw.fundingRecommendationsCount ??
+          raw.funding_recommendations_count ??
+          rawFundingRecs.length,
+        );
+        const isFunded = recsCount > 0;
+
+        // Pending candidates that require IRB must be IRB approved to appear
+        if (needIrb && !isFunded && rawEthicalStatus !== "approved") {
+          return false;
+        }
+
+        return true;
+      }),
     [candidateData?.data],
   );
 
@@ -327,8 +338,8 @@ export default function FundingRecommendationsPage() {
     return map;
   }, [recommendations]);
 
-  const pipelineRows = useMemo(() => {
-    let rows: PipelineRow[] = rankedCandidates.map((item) => {
+  const allPipelineRows = useMemo(() => {
+    return rankedCandidates.map((item) => {
       const raw = item as unknown as Record<string, unknown>;
       const pi =
         (raw.principalInvestigator as FundingRecommendationPi | string | null) ??
@@ -388,9 +399,33 @@ export default function FundingRecommendationsPage() {
         normalizeAmount(recommendation?.budgetRequested);
       const awardedAmount = normalizeAmount(recommendation?.totalAwardAmount ?? recommendation?.total_award_amount);
 
+      const needIrbEthicalClearance = Boolean(
+        raw.needIrbEthicalClearance ?? raw.need_irb_ethical_clearance,
+      );
+
+      const rawEthicalStatus = String(
+        raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
+      ) || null;
+
+      const hasRecommendationEthicsApproval = Boolean(
+        recommendation?.hasEthicalClearanceApproval ??
+        recommendation?.has_ethical_clearance_approval,
+      );
+
+      const isEthicsCleared =
+        !needIrbEthicalClearance ||
+        hasRecommendationEthicsApproval ||
+        rawEthicalStatus === "approved";
+
+      const ethicalClearanceStatus = !needIrbEthicalClearance
+        ? "not_required"
+        : isEthicsCleared
+          ? "approved"
+          : rawEthicalStatus || "pending_submission";
+
       return {
         id: `pipeline-${String(raw.screeningId ?? raw.screening_id ?? item.rank)}`,
-        stage: isFunded ? "funded" : "pending",
+        stage: isFunded ? ("funded" as const) : ("pending" as const),
         rank: item.rank,
         reference:
           String(raw.referenceNumber ?? raw.reference_number ?? "") ||
@@ -408,22 +443,11 @@ export default function FundingRecommendationsPage() {
         amount: isFunded
           ? awardedAmount ?? requestedAmount
           : requestedAmount,
-        amountLabel: isFunded ? "Awarded" : "Requested",
+        amountLabel: isFunded ? ("Awarded" as const) : ("Requested" as const),
         averageScorePercentage: normalizedScore,
-        needIrbEthicalClearance: Boolean(
-          raw.needIrbEthicalClearance ?? raw.need_irb_ethical_clearance,
-        ),
-        ethicalClearanceStatus: isFunded
-          ? (recommendation?.hasEthicalClearanceApproval ?? recommendation?.has_ethical_clearance_approval)
-            ? "approved"
-            : String(
-              raw.ethicalClearanceStatus ??
-              raw.ethical_clearance_status ??
-              "pending",
-            )
-          : String(
-            raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
-          ) || null,
+        needIrbEthicalClearance,
+        isEthicsCleared,
+        ethicalClearanceStatus,
         recommendedAt:
           (recommendation?.recommendedAt as string | null) ??
           (recommendation?.recommended_at as string | null) ??
@@ -433,6 +457,30 @@ export default function FundingRecommendationsPage() {
         navigationId,
       };
     });
+  }, [rankedCandidates, recommendationByDecisionId]);
+
+  const pipelineRows = useMemo(() => {
+    let rows = allPipelineRows;
+
+    if (selectedPipelineStage !== ALL_FILTER_VALUE) {
+      rows = rows.filter((row) => row.stage === selectedPipelineStage);
+    }
+
+    if (selectedEthicalClearance !== ALL_FILTER_VALUE) {
+      if (selectedEthicalClearance === "approved") {
+        rows = rows.filter((row) => row.isEthicsCleared);
+      } else if (selectedEthicalClearance === "not_approved") {
+        rows = rows.filter((row) => !row.isEthicsCleared);
+      }
+    }
+
+    if (selectedIrbFilter !== ALL_FILTER_VALUE) {
+      if (selectedIrbFilter === "required") {
+        rows = rows.filter((row) => row.needIrbEthicalClearance);
+      } else if (selectedIrbFilter === "not_required") {
+        rows = rows.filter((row) => !row.needIrbEthicalClearance);
+      }
+    }
 
     if (selectedScoreBand !== ALL_FILTER_VALUE) {
       const threshold = Number(selectedScoreBand);
@@ -447,40 +495,46 @@ export default function FundingRecommendationsPage() {
 
     return rows;
   }, [
-    rankedCandidates,
-    recommendationByDecisionId,
+    allPipelineRows,
+    selectedPipelineStage,
+    selectedEthicalClearance,
+    selectedIrbFilter,
     selectedScoreBand,
   ]);
 
   const pendingCount = useMemo(
-    () =>
-      pipelineRows.filter((row) => row.stage === "pending").length,
-    [pipelineRows],
+    () => allPipelineRows.filter((row) => row.stage === "pending").length,
+    [allPipelineRows],
+  );
+
+  const ethicsClearedCount = useMemo(
+    () => allPipelineRows.filter((row) => row.isEthicsCleared).length,
+    [allPipelineRows],
   );
 
   const totalAwarded = useMemo(
     () =>
-      Number(
-        recommendationData?.meta?.statistics?.totalAwarded ??
-        recommendations.reduce(
-          (sum, item) => sum + Number(item.totalAwardAmount || item.total_award_amount || 0),
-          0,
-        ),
+      recommendationData?.meta?.statistics?.totalAwarded ??
+      recommendations.reduce(
+        (sum, item) =>
+          sum + Number(item.totalAwardAmount || item.total_award_amount || 0),
+        0,
       ),
     [recommendations, recommendationData?.meta?.statistics],
   );
 
   const totalRequested = useMemo(
     () =>
-      Number(
-        recommendationData?.meta?.statistics?.totalRequested ??
-        recommendations.reduce(
-          (sum, item) =>
-            sum + Number(item.budgetRequested ?? item.budget_requested ?? 0),
-          0,
-        ),
-      ),
-    [recommendations, recommendationData?.meta?.statistics],
+      allPipelineRows.reduce(
+        (sum, row) => sum + Number(row.requestedAmount || 0),
+        0,
+      ) || Number(recommendationData?.meta?.statistics?.totalRequested ?? 0),
+    [allPipelineRows, recommendationData?.meta?.statistics],
+  );
+
+  const totalRecommendationsCount = useMemo(
+    () => allPipelineRows.length,
+    [allPipelineRows],
   );
 
   const clearAllFilters = useCallback(() => {
@@ -495,10 +549,8 @@ export default function FundingRecommendationsPage() {
   const stats = [
     {
       title: "Total Recommendations",
-      value:
-        recommendationData?.meta?.statistics?.recommendationsCount ??
-        recommendations.length,
-      caption: "Submitted funding records",
+      value: totalRecommendationsCount,
+      caption: "Proposals in funding pipeline",
       icon: BadgeCheck,
       accent: {
         iconBg: "bg-primary/10",
@@ -563,9 +615,7 @@ export default function FundingRecommendationsPage() {
     },
     {
       title: "Ethics Cleared",
-      value:
-        recommendationData?.meta?.statistics?.ethicalClearanceApprovedCount ??
-        recommendations.filter((item) => item.hasEthicalClearanceApproval || item.has_ethical_clearance_approval).length,
+      value: ethicsClearedCount,
       caption: "Marked with clearance approval",
       icon: ShieldCheck,
       accent: {

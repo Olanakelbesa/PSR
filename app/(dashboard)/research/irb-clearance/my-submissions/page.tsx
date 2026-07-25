@@ -247,7 +247,7 @@ export default function MySubmissionsPage() {
                 <Upload className="mr-2 h-4 w-4" />
                 {row.original.status === "rejected"
                   ? "Resubmit Application"
-                  : "Edit Draft"}
+                  : "Edit & Submit Application"}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

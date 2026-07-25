@@ -204,7 +204,6 @@ const navigationGroups: NavGroup[] = [
       {
         label: "IRB Clearance",
         icon: FileCheck2,
-        permissions: [PERMISSIONS.RESEARCH_VIEW_ETHICAL_CLEARANCE],
         subItems: [
           {
             label: "My Submissions",
@@ -381,14 +380,13 @@ export function AppSidebar() {
 
   const hasAccess = useCallback(
     (requiredPermissions?: PermissionValue[]) => {
-      if (!user) return false;
-
-      if (requiredPermissions && requiredPermissions.length > 0) {
-        if (permissionsLoading) return false;
-        return hasAny(requiredPermissions);
+      if (!requiredPermissions || requiredPermissions.length === 0) {
+        return true;
       }
 
-      return true;
+      if (!user || permissionsLoading) return false;
+
+      return hasAny(requiredPermissions);
     },
     [hasAny, permissionsLoading, user],
   );

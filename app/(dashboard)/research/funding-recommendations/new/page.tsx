@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -159,12 +159,18 @@ function formatCurrency(value?: string | number | null) {
 
 export default function NewFundingRecommendationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const proposalParam =
+    searchParams.get("proposal") ||
+    searchParams.get("proposal_id") ||
+    searchParams.get("funding_decision_id");
 
   // Load candidate proposals with approved funding decisions that await a recommendation
   const { data: candidatesData, isLoading: isCandidatesLoading } =
     useFundingRecommendationCandidates({
       has_funding_decision: true,
       has_funding_recommendation: false,
+      eligible_for_recommendation: true,
       proposal_workflow_state: "funding_recommendation",
     });
 
@@ -185,6 +191,23 @@ export default function NewFundingRecommendationPage() {
       comments: "",
     },
   });
+
+  // Auto pre-select proposal when navigating with query parameter ?proposal=...
+  useEffect(() => {
+    if (!proposalParam || !candidates.length) return;
+    if (form.getValues("proposal")) return;
+
+    const match = candidates.find(
+      (c) =>
+        String(c.fundingDecisionId) === proposalParam ||
+        String(c.proposalId) === proposalParam ||
+        String(c.screeningId) === proposalParam,
+    );
+
+    if (match && match.fundingDecisionId) {
+      form.setValue("proposal", String(match.fundingDecisionId));
+    }
+  }, [proposalParam, candidates, form]);
 
   const selectedProposalId = form.watch("proposal");
   const currentAmount = form.watch("total_award_amount");
@@ -217,11 +240,36 @@ export default function NewFundingRecommendationPage() {
         }
       }
 
-      // Auto pre-populate ethical clearance if already approved
-      const isEthicalApproved = candidate.ethicalClearanceStatus === "approved";
+      // Auto pre-populate ethical clearance approval:
+      // True if IRB is not required, OR if IRB is required and status is 'approved'
+      const needsIrb = Boolean(
+        candidate.needIrbEthicalClearance ??
+        candidate.need_irb_ethical_clearance ??
+        false
+      );
+      const ethicalStatus = String(
+        candidate.ethicalClearanceStatus ??
+        candidate.ethical_clearance_status ??
+        ""
+      ).toLowerCase();
+
+      const isEthicalApproved = !needsIrb || ethicalStatus === "approved";
       form.setValue("has_ethical_clearance_approval", isEthicalApproved);
     }
   }, [selectedProposalId, candidates, form]);
+
+  // Automatically generate amount in words in real-time as the user types
+  useEffect(() => {
+    if (currentAmount === "" || currentAmount === undefined) {
+      form.setValue("amount_english_in_words", "");
+      return;
+    }
+
+    const numVal = Number(currentAmount);
+    if (!isNaN(numVal) && numVal > 0) {
+      form.setValue("amount_english_in_words", numberToEnglishWords(numVal));
+    }
+  }, [currentAmount, form]);
 
   // Handle manual/auto updating of amount in words
   const handleAutoFillWords = () => {
@@ -369,26 +417,55 @@ export default function NewFundingRecommendationPage() {
                   <FormField
                     control={form.control}
                     name="has_ethical_clearance_approval"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col justify-end p-2 border rounded-xl bg-slate-50 border-muted">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <FormLabel className="font-bold text-xs uppercase tracking-wider text-foreground/80">
-                              Ethics Approval
-                            </FormLabel>
-                            <p className="text-[11px] text-muted-foreground">
-                              Ethical clearance is approved
-                            </p>
+                    render={({ field }) => {
+                      const needsIrb = Boolean(
+                        selectedCandidate?.needIrbEthicalClearance ??
+                        selectedCandidate?.need_irb_ethical_clearance ??
+                        false
+                      );
+                      const ethicalStatus = String(
+                        selectedCandidate?.ethicalClearanceStatus ??
+                        selectedCandidate?.ethical_clearance_status ??
+                        ""
+                      ).toLowerCase();
+
+                      return (
+                        <FormItem className="flex flex-col justify-end p-3 border rounded-xl bg-slate-50/80 border-muted">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <FormLabel className="font-bold text-xs uppercase tracking-wider text-foreground/80 flex items-center gap-1.5">
+                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                                Ethics Approval Status
+                              </FormLabel>
+                              <p className="text-[11px] text-muted-foreground">
+                                {!selectedCandidate ? (
+                                  "Select a proposal to check IRB status"
+                                ) : !needsIrb ? (
+                                  <span className="text-emerald-700 font-semibold">
+                                    IRB Clearance Not Required
+                                  </span>
+                                ) : ethicalStatus === "approved" ? (
+                                  <span className="text-emerald-700 font-semibold">
+                                    IRB Clearance Approved
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-700 font-semibold">
+                                    IRB Clearance Pending / Required
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                disabled={true}
+                                className="data-[state=checked]:bg-emerald-600 opacity-90 cursor-not-allowed"
+                              />
+                            </FormControl>
                           </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </div>
-                      </FormItem>
-                    )}
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
 

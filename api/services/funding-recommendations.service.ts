@@ -38,6 +38,7 @@ export interface FundingRecommendationCandidateFilters {
   has_funding_recommendation?: boolean;
   need_irb_ethical_clearance?: boolean;
   ethical_clearance_status?: string;
+  eligible_for_recommendation?: boolean;
   proposal_workflow_state?: string;
   ordering?: string;
 }

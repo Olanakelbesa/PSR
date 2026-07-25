@@ -264,6 +264,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh: token.backendRefreshToken }),
+          signal: AbortSignal.timeout(5000),
         });
 
         if (!res.ok) {

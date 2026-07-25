@@ -300,7 +300,7 @@ export default function ProposalsPage() {
     useState<ManageQueueFilter>(initialQueue);
 
   const { data, isLoading, isError, refetch, isFetching } = useProposals({
-    limit: 100,
+    limit: 20,
     ...(queueFilter !== "all" ? { queue: queueFilter } : {}),
   });
 

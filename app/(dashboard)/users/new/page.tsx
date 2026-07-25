@@ -43,7 +43,7 @@ export default function NewUserPage() {
       firstName: '',
       lastName: '',
       phone: '',
-      role: 'researcher',
+      role: 'user',
       institution: '',
       department: '',
       position: '',

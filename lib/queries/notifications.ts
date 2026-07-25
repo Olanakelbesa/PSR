@@ -93,13 +93,13 @@ export function normalizeNotification(
       undefined,
     resourceId: (() => {
       const raw = notification.resource_id ?? notification.resourceId ?? null;
-      if (raw === null || raw === undefined || raw === "") return null;
+      if (raw === null || raw === undefined || String(raw).trim() === "") return null;
       const parsed = Number(raw);
       return Number.isFinite(parsed) ? parsed : null;
     })(),
     objectId: (() => {
       const raw = notification.object_id ?? notification.objectId ?? null;
-      if (raw === null || raw === undefined || raw === "") return null;
+      if (raw === null || raw === undefined || String(raw).trim() === "") return null;
       const parsed = Number(raw);
       return Number.isFinite(parsed) ? parsed : null;
     })(),
