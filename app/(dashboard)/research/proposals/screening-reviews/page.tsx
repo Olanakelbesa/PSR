@@ -15,11 +15,24 @@ import {
   Inbox,
   RefreshCw,
   Calendar,
+  Building2,
+  Copy,
+  Check,
+  Mail,
+  User,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import {
   getManagedProposals,
   type ProposalStatus,
@@ -37,7 +51,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 import {
   Empty,
   EmptyContent,
@@ -147,6 +160,16 @@ const statusConfig: Record<
   },
 };
 
+// ── Team Member type ──────────────────────────────────────────────────────────
+export interface NormalizedTeamMember {
+  id: string;
+  name: string;
+  role: string;
+  email?: string;
+  organization?: string;
+  avatarUrl?: string;
+}
+
 // ── Proposal row type ──────────────────────────────────────────────────────────
 type ProposalRow = Omit<ManagedProposalQueueItem, "status"> & {
   status: ProposalStatus;
@@ -156,7 +179,147 @@ type ProposalRow = Omit<ManagedProposalQueueItem, "status"> & {
   createdByName: string;
   thematicAreaLabel: string;
   shortAbstractText: string;
+  team: NormalizedTeamMember[];
+  totalTeamCount: number;
 };
+
+// ── Helper Component: Copyable Reference Number ────────────────────────────────
+function ReferenceCell({ refNum, id }: { refNum: string; id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success(`Reference ${refNum} copied to clipboard!`);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/60 hover:bg-muted text-[11px] font-mono text-muted-foreground border border-border/50 cursor-pointer group/ref transition-colors shrink-0"
+      onClick={handleCopy}
+      title="Click to copy reference number"
+    >
+      <span className="font-semibold text-foreground/80">{refNum}</span>
+      {copied ? (
+        <Check className="h-3 w-3 text-green-600 shrink-0" />
+      ) : (
+        <Copy className="h-3 w-3 text-muted-foreground/70 group-hover/ref:text-primary shrink-0" />
+      )}
+    </div>
+  );
+}
+
+// ── Helper Component: Team Avatars & Info Tooltip ──────────────────────────────
+function TeamCell({ team }: { team: NormalizedTeamMember[] }) {
+  const displayMembers = team.slice(0, 3);
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const avatarStyles = [
+    "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+    "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+    "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+    "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
+  ];
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex -space-x-2 overflow-hidden py-1">
+        {displayMembers.map((member, idx) => {
+          const colorStyle = avatarStyles[idx % avatarStyles.length];
+          const initials = getInitials(member.name);
+          const resolvedAvatar = member.avatarUrl
+            ? (resolveFileUrl(member.avatarUrl) ?? member.avatarUrl)
+            : undefined;
+
+          return (
+            <TooltipProvider key={member.id || idx}>
+              <Tooltip delayDuration={150}>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-7 w-7 border-2 border-background ring-1 ring-border shrink-0 shadow-xs cursor-pointer hover:z-10 transition-transform hover:scale-110">
+                    {resolvedAvatar ? (
+                      <AvatarImage src={resolvedAvatar} alt={member.name} />
+                    ) : null}
+                    <AvatarFallback
+                      className={cn(
+                        "text-[10px] font-bold flex items-center justify-center size-full",
+                        colorStyle
+                      )}
+                    >
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  className="p-3.5 max-w-[270px] z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl"
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10 shrink-0 border-2 border-border/60 shadow-sm">
+                      {resolvedAvatar ? (
+                        <AvatarImage src={resolvedAvatar} alt={member.name} />
+                      ) : null}
+                      <AvatarFallback
+                        className={cn(
+                          "text-xs font-bold flex items-center justify-center size-full",
+                          colorStyle
+                        )}
+                      >
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="font-bold text-xs text-foreground truncate">
+                        {member.name}
+                      </p>
+                      {member.role && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] py-0.5 px-2 font-medium bg-primary/10 text-primary border-0 block w-fit truncate"
+                        >
+                          {member.role}
+                        </Badge>
+                      )}
+                      {member.email && (
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-1 truncate">
+                          <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+                          <span className="truncate">{member.email}</span>
+                        </p>
+                      )}
+                      {member.organization && (
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 truncate">
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+                          <span className="truncate">{member.organization}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })}
+      </div>
+      <Badge
+        variant="secondary"
+        className="text-[11px] font-medium px-2 py-0.5 whitespace-nowrap"
+      >
+        {team.length} {team.length === 1 ? "member" : "members"}
+      </Badge>
+    </div>
+  );
+}
 
 // ── Columns ────────────────────────────────────────────────────────────────────
 const columns: ColumnDef<ProposalRow>[] = [
@@ -164,28 +327,39 @@ const columns: ColumnDef<ProposalRow>[] = [
     accessorKey: "referenceNumber",
     header: "Reference #",
     cell: ({ row }) => (
-      <Link
-        href={`/research/proposals/screening-reviews/${row.original.id}`}
-        className="font-bold text-primary hover:underline"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {row.original.referenceNumber}
-      </Link>
+      <ReferenceCell
+        refNum={String(row.original.referenceNumber || row.original.id || "")}
+        id={String(row.original.id)}
+      />
     ),
   },
   {
     accessorKey: "title",
     header: "Proposal Title",
     cell: ({ row }) => (
-      <div className="max-w-[250px] min-w-[130px]">
-        <p className="font-semibold text-sm line-clamp-1 whitespace-normal break-words">
-          {row.original.title}
-        </p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-[10px] text-muted-foreground whitespace-pre-line break-word line-clamp-2">
-            <HtmlContentRenderer content={row.original.shortAbstract} />
-          </span>
-        </div>
+      <div className="max-w-[320px] min-w-[160px] py-1">
+        <Link
+          href={`/research/proposals/screening-reviews/${row.original.id}`}
+          className="font-semibold text-sm line-clamp-2 text-foreground hover:text-primary transition-colors block leading-snug"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {String(row.original.title || "")}
+        </Link>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "organizationName",
+    header: "Organization",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1.5 max-w-[180px]">
+        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span
+          className="text-xs font-medium text-foreground truncate"
+          title={row.original.organizationName}
+        >
+          {row.original.organizationName}
+        </span>
       </div>
     ),
   },
@@ -199,13 +373,9 @@ const columns: ColumnDef<ProposalRow>[] = [
     ),
   },
   {
-    accessorKey: "receivingOffice",
-    header: "Submitting Office",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground whitespace-pre-line break-word">
-        {row.original.officeName}
-      </span>
-    ),
+    accessorKey: "team",
+    header: "Team",
+    cell: ({ row }) => <TeamCell team={row.original.team} />,
   },
   {
     accessorKey: "status",
@@ -228,20 +398,23 @@ const columns: ColumnDef<ProposalRow>[] = [
   {
     accessorKey: "submittedAt",
     header: "Submitted Date",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-1.5 text-muted-foreground/80">
-        <Calendar className="h-3 w-3" />
-        <span className="text-xs font-medium">
-          {row.original.submittedAt
-            ? new Date(row.original.submittedAt).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : "Pending"}
-        </span>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const dateVal = row.original.submittedAt;
+      return (
+        <div className="flex items-center gap-1.5 text-muted-foreground/80">
+          <Calendar className="h-3 w-3" />
+          <span className="text-xs font-medium">
+            {dateVal && typeof dateVal === "string"
+              ? new Date(dateVal).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : "Pending"}
+          </span>
+        </div>
+      );
+    },
   },
   {
     id: "actions",
@@ -310,24 +483,154 @@ export default function ScreeningReviewsPage() {
 
   const mapToProposalRow = (
     proposal: ManagedProposalQueueItem,
-  ): ProposalRow => ({
-    ...proposal,
-    organizationName: proposal.Organization?.name || "—",
-    unitName: proposal.Unit?.name || "—",
-    officeName: proposal.receivingOffice?.name || "—",
-    createdByName: proposal.createdBy
-      ? [proposal.createdBy.firstName, proposal.createdBy.lastName]
-          .filter(Boolean)
-          .join(" ") ||
-        proposal.createdBy.email ||
-        "—"
-      : "—",
-    thematicAreaLabel: proposal.thematicAreas?.[0]?.name || "—",
-    shortAbstractText: proposal.shortAbstract
-      .replace(/<[^>]*>/g, "")
-      .replace(/\s+/g, " ")
-      .trim(),
-  });
+  ): ProposalRow => {
+    const teamList: NormalizedTeamMember[] = [];
+    const seenEmails = new Set<string>();
+
+    // 1. Add createdBy / Submitter
+    if (proposal.createdBy) {
+      const creator = proposal.createdBy as any;
+      const name =
+        [creator.firstName || creator.first_name, creator.lastName || creator.last_name].filter(Boolean).join(" ") ||
+        creator.email ||
+        "Submitter";
+      const email = creator.email || "";
+      const rawPhoto =
+        creator.photo_url ||
+        creator.photoUrl ||
+        creator.photo ||
+        creator.avatarUrl ||
+        creator.avatar ||
+        creator.profilePhoto ||
+        creator.user?.photo_url ||
+        creator.user?.photoUrl ||
+        creator.user?.avatar;
+      const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+      if (email) seenEmails.add(email.toLowerCase());
+      teamList.push({
+        id: creator.id || "creator",
+        name,
+        role: "Principal Investigator / Submitter",
+        email,
+        organization: proposal.Organization?.name,
+        avatarUrl,
+      });
+    }
+
+    // 2. Add principalInvestigator if present and not already added
+    if (proposal.principalInvestigator) {
+      const pi = proposal.principalInvestigator as any;
+      const email = pi.email || "";
+      if (!email || !seenEmails.has(email.toLowerCase())) {
+        if (email) seenEmails.add(email.toLowerCase());
+        const name =
+          [pi.firstName || pi.first_name, pi.lastName || pi.last_name].filter(Boolean).join(" ") ||
+          pi.email ||
+          "Principal Investigator";
+        const rawPhoto =
+          pi.photo_url ||
+          pi.photoUrl ||
+          pi.photo ||
+          pi.avatarUrl ||
+          pi.avatar ||
+          pi.profilePhoto ||
+          pi.user?.photo_url ||
+          pi.user?.photoUrl ||
+          pi.user?.avatar;
+        const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+        teamList.push({
+          id: pi.id || "pi",
+          name,
+          role: "Principal Investigator",
+          email,
+          organization: proposal.Organization?.name,
+          avatarUrl,
+        });
+      }
+    }
+
+    // 3. Add teamMembers / coInvestigators
+    const rawMembers = [
+      ...(proposal.teamMembers || []),
+      ...(proposal.coInvestigators || []),
+    ];
+
+    rawMembers.forEach((m: any, idx: number) => {
+      const name =
+        m.memberName ||
+        m.member_name ||
+        [m.user?.firstName || m.user?.first_name, m.user?.lastName || m.user?.last_name].filter(Boolean).join(" ") ||
+        m.email ||
+        m.memberEmail ||
+        m.member_email ||
+        `Team Member ${idx + 1}`;
+      const email = m.memberEmail || m.member_email || m.email || m.user?.email || "";
+      const role =
+        m.roleName ||
+        m.role_name ||
+        m.position ||
+        m.memberType ||
+        m.member_type ||
+        m.userType ||
+        m.user_type ||
+        "Co-Investigator";
+      const org = m.organizationName || m.organization_name || proposal.Organization?.name;
+      const rawPhoto =
+        m.photo_url ||
+        m.photoUrl ||
+        m.avatarUrl ||
+        m.avatar ||
+        m.photo ||
+        m.user?.photo_url ||
+        m.user?.photoUrl ||
+        m.user?.avatarUrl ||
+        m.user?.avatar ||
+        m.user?.photo;
+      const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+
+      if (!email || !seenEmails.has(email.toLowerCase())) {
+        if (email) seenEmails.add(email.toLowerCase());
+        teamList.push({
+          id: String(m.id || idx),
+          name,
+          role,
+          email,
+          organization: org,
+          avatarUrl,
+        });
+      }
+    });
+
+    // Fallback if no team members are associated
+    if (teamList.length === 0) {
+      teamList.push({
+        id: "default-lead",
+        name: "Lead Researcher",
+        role: "Principal Investigator",
+        organization: proposal.Organization?.name || undefined,
+      });
+    }
+
+    return {
+      ...proposal,
+      organizationName: proposal.Organization?.name || "—",
+      unitName: proposal.Unit?.name || "—",
+      officeName: proposal.receivingOffice?.name || "—",
+      createdByName:
+        teamList[0]?.name ||
+        (proposal.createdBy
+          ? [proposal.createdBy.firstName, proposal.createdBy.lastName]
+              .filter(Boolean)
+              .join(" ") || proposal.createdBy.email || "—"
+          : "—"),
+      thematicAreaLabel: proposal.thematicAreas?.[0]?.name || "—",
+      shortAbstractText: proposal.shortAbstract
+        ? proposal.shortAbstract.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+        : "",
+      team: teamList,
+      totalTeamCount: teamList.length,
+    };
+  };
 
   const loadProposals = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -339,11 +642,15 @@ export default function ScreeningReviewsPage() {
     try {
       const response = await getManagedProposals({
         page: 1,
-        limit: 100,
+        limit: 50,
       });
-      setProposals(response.data.map(mapToProposalRow));
-    } catch (error) {
-      console.error("Failed to load proposals for screening:", error);
+      const dataItems = Array.isArray(response?.data) ? response.data : [];
+      setProposals(dataItems.map(mapToProposalRow));
+    } catch (error: any) {
+      console.error(
+        "Failed to load proposals for screening:",
+        error?.message || error,
+      );
       setProposals([]);
       setIsError(true);
     } finally {
@@ -602,6 +909,7 @@ export default function ScreeningReviewsPage() {
           <DataTable
             columns={columns}
             data={filteredProposals}
+            initialColumnVisibility={{ referenceNumber: false }}
             searchKey="title"
             searchPlaceholder={
               activeFilterCopy?.searchPlaceholder ??

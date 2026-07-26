@@ -79,6 +79,10 @@ export interface SearchableSelectProps<T = any> {
   // Additional options to always include (e.g. for edit mode)
   additionalOptions?: T[];
 
+  // Exclusion & custom filter options
+  excludeValues?: (string | number)[];
+  filterOption?: (item: T) => boolean;
+
   // Styling
   className?: string;
   triggerClassName?: string;
@@ -107,6 +111,8 @@ export function SearchableSelect<T = any>({
   disabled = false,
   error = false,
   additionalOptions,
+  excludeValues,
+  filterOption,
   className,
   triggerClassName,
 }: SearchableSelectProps<T>) {
@@ -172,8 +178,17 @@ export function SearchableSelect<T = any>({
       result = [...uniqueAdditional, ...result];
     }
 
+    if (excludeValues && excludeValues.length > 0) {
+      const excludeSet = new Set(excludeValues.map((v) => String(v)));
+      result = result.filter((item) => !excludeSet.has(String(getValue(item))));
+    }
+
+    if (filterOption) {
+      result = result.filter(filterOption);
+    }
+
     return result;
-  }, [rawData, extractData, additionalOptions, getValue]);
+  }, [rawData, extractData, additionalOptions, excludeValues, filterOption, getValue]);
 
   const filteredOptions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

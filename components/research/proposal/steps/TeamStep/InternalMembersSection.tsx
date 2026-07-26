@@ -33,6 +33,8 @@ import {
 } from "@/lib/queries/internal-users";
 import { useOrganizations, useUnitsWithParams } from "@/hooks/useReference";
 import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
+import { useAuth } from "@/hooks/useAuth";
+import { useProposal } from "@/lib/queries/proposals";
 import type { InternalUser } from "@/types/internal-user";
 import type { TeamMemberRole } from "@/types/team-member-role";
 import type {
@@ -85,11 +87,13 @@ function useInternalUsersForSelect(params?: {
 function TeamMemberUserIdField({
   index,
   proposalId,
+  piUserId,
   selectedOrdering,
   setSelectedOrdering,
 }: {
   index: number;
   proposalId?: string;
+  piUserId?: string | null;
   selectedOrdering: string;
   setSelectedOrdering: (v: string) => void;
 }) {
@@ -212,7 +216,7 @@ function TeamMemberUserIdField({
             Team Member {index + 1}
           </FormLabel>
           <FormControl>
-            <SearchableSelect<InternalUser>
+              <SearchableSelect<InternalUser>
               value={field.value || ""}
               onValueChange={field.onChange}
               useQueryHook={useInternalUsersForSelect}
@@ -224,6 +228,7 @@ function TeamMemberUserIdField({
               getOptionLabel={(user) =>
                 `${user.full_name ?? ""} (${user.email ?? ""})`.trim()
               }
+              excludeValues={piUserId ? [piUserId] : []}
               placeholder="Select team member"
               searchPlaceholder="Search team members..."
               emptyMessage="No members found"
@@ -254,6 +259,19 @@ interface InternalMembersSectionProps {
 export function InternalMembersSection({
   proposalId,
 }: InternalMembersSectionProps) {
+  const { user } = useAuth();
+  const { data: proposal } = useProposal(proposalId || "");
+
+  const piUserId = useMemo(() => {
+    const piFromProposal =
+      (proposal as any)?.principalInvestigator?.id ??
+      (proposal as any)?.createdBy?.id ??
+      (proposal as any)?.created_by;
+    if (piFromProposal) return String(piFromProposal);
+    if (user?.id) return String(user.id);
+    return null;
+  }, [proposal, user]);
+
   const form = useFormContext<ProposalTeamFormInput>();
   const { fields, append, remove } = useFieldArray<
     ProposalTeamFormInput,
@@ -437,6 +455,7 @@ export function InternalMembersSection({
                   <TeamMemberUserIdField
                     index={index}
                     proposalId={proposalId}
+                    piUserId={piUserId}
                     selectedOrdering={selectedOrdering}
                     setSelectedOrdering={setSelectedOrdering}
                   />

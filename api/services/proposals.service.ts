@@ -89,82 +89,91 @@ export const ProposalSchema = z
   })
   .passthrough();
 
-const ManagedProposalUserSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  firstName: z.string().nullable().optional(),
-  lastName: z.string().nullable().optional(),
-  email: z.string().email().optional(),
-});
+const ManagedProposalUserSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String).optional().nullable(),
+    firstName: z.string().nullable().optional(),
+    lastName: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+  })
+  .passthrough();
 
-const ManagedProposalQueueItemSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  referenceNumber: z.string().optional().nullable(),
-  title: z.string(),
-  shortAbstract: z.string().optional().default(""),
-  thematicAreas: z
-    .array(
-      z.object({
+const ManagedProposalTeamMemberSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String).optional().nullable(),
+    memberType: z.string().nullable().optional(),
+    userType: z.string().nullable().optional(),
+    organizationName: z.string().nullable().optional(),
+    stakeholderName: z.string().nullable().optional(),
+    position: z.string().nullable().optional(),
+    phoneNumber: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    member: z.union([z.string(), z.number()]).nullable().optional(),
+    memberName: z.string().nullable().optional(),
+    memberEmail: z.string().nullable().optional(),
+    role: z.union([z.string(), z.number()]).nullable().optional(),
+    roleName: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+const ManagedProposalQueueItemSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    referenceNumber: z.string().optional().nullable(),
+    title: z.string().optional().default(""),
+    shortAbstract: z.string().optional().default(""),
+    thematicAreas: z
+      .array(
+        z.object({
+          id: z.union([z.string(), z.number()]).transform(String),
+          name: z.string(),
+        }),
+      )
+      .optional()
+      .default([]),
+    receivingOffice: z
+      .object({
         id: z.union([z.string(), z.number()]).transform(String),
         name: z.string(),
-      }),
-    )
-    .optional()
-    .default([]),
-  receivingOffice: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  status: ProposalStatusSchema,
-  call: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      title: z.string(),
-    })
-    .optional()
-    .nullable(),
-  Organization: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  Unit: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  submittedAt: z.string().optional().nullable(),
-  proposalType: z
-    .object({
-      id: z.union([z.string(), z.number()]).transform(String),
-      name: z.string(),
-    })
-    .optional()
-    .nullable(),
-  createdBy: ManagedProposalUserSchema.optional().nullable(),
-});
-
-const ManagedProposalTeamMemberSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  memberType: z.string().nullable().optional(),
-  userType: z.string().nullable().optional(),
-  organizationName: z.string().nullable().optional(),
-  stakeholderName: z.string().nullable().optional(),
-  position: z.string().nullable().optional(),
-  phoneNumber: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
-  member: z.union([z.string(), z.number()]).nullable().optional(),
-  memberName: z.string().nullable().optional(),
-  memberEmail: z.string().nullable().optional(),
-  role: z.union([z.string(), z.number()]).nullable().optional(),
-  roleName: z.string().nullable().optional(),
-});
+      })
+      .optional()
+      .nullable(),
+    status: ProposalStatusSchema.optional().default("submitted"),
+    call: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String),
+        title: z.string(),
+      })
+      .optional()
+      .nullable(),
+    Organization: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String).optional(),
+        name: z.string().optional().default(""),
+      })
+      .optional()
+      .nullable(),
+    Unit: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String).optional(),
+        name: z.string().optional().default(""),
+      })
+      .optional()
+      .nullable(),
+    submittedAt: z.string().optional().nullable(),
+    proposalType: z
+      .object({
+        id: z.union([z.string(), z.number()]).transform(String).optional(),
+        name: z.string().optional().default(""),
+      })
+      .optional()
+      .nullable(),
+    createdBy: z.record(z.string(), z.unknown()).optional().nullable(),
+    teamMembers: z.array(z.record(z.string(), z.unknown())).optional().default([]),
+    coInvestigators: z.array(z.record(z.string(), z.unknown())).optional().default([]),
+    principalInvestigator: z.record(z.string(), z.unknown()).optional().nullable(),
+  })
+  .passthrough();
 
 const ManagedProposalDetailSchema = z
   .object({
@@ -341,7 +350,22 @@ export async function getManagedProposals(
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.MANAGE, {
     params: filters,
   });
-  return ManagedProposalsListSchema.parse(normalizeProposalPayload(res.data));
+  const normalized = normalizeProposalPayload(res.data);
+  const result = ManagedProposalsListSchema.safeParse(normalized);
+  if (!result.success) {
+    console.warn("ManagedProposalsListSchema validation warning:", result.error);
+    const dataArray = Array.isArray(normalized?.data)
+      ? normalized.data
+      : Array.isArray(normalized)
+      ? normalized
+      : [];
+    return {
+      success: true,
+      data: dataArray as ManagedProposalQueueItem[],
+      meta: normalized?.meta,
+    };
+  }
+  return result.data;
 }
 
 export async function getProposalById(id: string): Promise<Proposal> {
@@ -375,6 +399,10 @@ export async function updateProposal(
   return ProposalSchema.parse(
     normalizeProposalPayload(res.data?.data ?? res.data),
   );
+}
+
+export async function deleteProposal(id: string | number): Promise<void> {
+  await apiClient.delete(API_ENDPOINTS.PROPOSALS.DELETE(id));
 }
 
 export async function submitProposal(id: string): Promise<Proposal> {

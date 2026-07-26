@@ -146,6 +146,28 @@ export default function AssignExpertsPage() {
     }
   }, [assignedData, templates, selectedTemplateId]);
 
+  const piId = useMemo(() => {
+    if (!draft) return null;
+    const rawPi =
+      (typeof draft.submittedBy === "object"
+        ? draft.submittedBy?.id
+        : draft.submittedBy) ??
+      draft.submittedById ??
+      (draft.createdBy as any)?.id ??
+      (draft as any).created_by?.id ??
+      (draft as any).created_by ??
+      (draft as any).author?.id ??
+      (draft as any).pi?.id ??
+      (draft as any).pi;
+    return rawPi != null ? Number(rawPi) : null;
+  }, [draft]);
+
+  useEffect(() => {
+    if (piId != null) {
+      setSelectedIds((prev) => prev.filter((id) => id !== piId));
+    }
+  }, [piId]);
+
   // Reset to first page when search changes
   useEffect(() => {
     setCurrentPage(1);
@@ -153,6 +175,9 @@ export default function AssignExpertsPage() {
 
   const filteredUsers = useMemo(() => {
     return users.filter((u: any) => {
+      if (piId != null && Number(u.id) === piId) {
+        return false;
+      }
       const search = searchQuery.toLowerCase();
       const fullName =
         u.fullName ||
@@ -164,7 +189,7 @@ export default function AssignExpertsPage() {
         (u.organization?.name || "").toLowerCase().includes(search)
       );
     });
-  }, [users, searchQuery]);
+  }, [users, searchQuery, piId]);
 
   const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
   const paginatedUsers = useMemo(() => {
@@ -177,6 +202,7 @@ export default function AssignExpertsPage() {
   const assignedCount = selectedIds.length;
 
   const toggleAssignment = (userId: number) => {
+    if (piId != null && userId === piId) return;
     setSelectedIds((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)

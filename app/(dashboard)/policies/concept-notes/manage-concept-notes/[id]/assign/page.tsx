@@ -38,6 +38,7 @@ import {
   useAssignReviewer,
   useAssignedReviewers,
 } from "@/lib/queries/users";
+import { useManageConceptNoteDetail } from "@/lib/queries/concept-notes";
 
 const PAGE_SIZE = 6;
 
@@ -54,6 +55,10 @@ export default function AssignConceptNoteReviewersPage() {
     isError,
     refetch,
   } = useUserSelector(backendToken);
+  const { data: conceptNoteDetail } = useManageConceptNoteDetail(
+    conceptNoteId,
+    backendToken,
+  );
   const { data: assignedData, isLoading: isLoadingAssigned } =
     useAssignedReviewers(conceptNoteId);
   const assignMutation = useAssignReviewer();
@@ -63,24 +68,46 @@ export default function AssignConceptNoteReviewersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
+  const piId = useMemo(() => {
+    if (!conceptNoteDetail) return null;
+    const rawPi =
+      conceptNoteDetail.submittedBy?.id ??
+      (conceptNoteDetail as any).createdBy?.id ??
+      (conceptNoteDetail as any).created_by ??
+      (conceptNoteDetail as any).pi;
+    return rawPi != null ? Number(rawPi) : null;
+  }, [conceptNoteDetail]);
+
   // Sync assigned reviewer
   useEffect(() => {
     if (assignedData?.reviewerIds && assignedData.reviewerIds.length > 0) {
-      setSelectedId(assignedData.reviewerIds[0]);
+      const initialId = assignedData.reviewerIds[0];
+      if (piId == null || initialId !== piId) {
+        setSelectedId(initialId);
+      }
     }
-  }, [assignedData]);
+  }, [assignedData, piId]);
+
+  useEffect(() => {
+    if (piId != null && selectedId === piId) {
+      setSelectedId(null);
+    }
+  }, [piId, selectedId]);
 
   // ── Filtered & paginated ────────────────────────────────────────────────────
   const filteredUsers = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return users.filter((u) =>
-      [u.fullName, u.email, u.organization?.name, u.unit?.name]
+    return users.filter((u) => {
+      if (piId != null && u.id === piId) {
+        return false;
+      }
+      return [u.fullName, u.email, u.organization?.name, u.unit?.name]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
-        .includes(q),
-    );
-  }, [users, searchQuery]);
+        .includes(q);
+    });
+  }, [users, searchQuery, piId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const paginatedUsers = filteredUsers.slice(

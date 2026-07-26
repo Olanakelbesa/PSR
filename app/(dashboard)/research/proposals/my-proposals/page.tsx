@@ -24,7 +24,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
-import { useProposals } from "@/hooks/useProposals";
+import { ConfirmDialog } from "@/components/shared";
+import { useProposals, useDeleteProposal } from "@/hooks/useProposals";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -171,119 +173,131 @@ type ProposalRow = {
   unit?: string;
 };
 
-// ── Columns ────────────────────────────────────────────────────────────────────
-const columns: ColumnDef<ProposalRow>[] = [
-  {
-    accessorKey: "referenceNumber",
-    header: "Reference #",
-    cell: ({ row }) => (
-      <Link
-        href={`/research/proposals/my-proposals/${row.original.id}`}
-        className="font-medium text-primary hover:underline"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {row.original.referenceNumber}
-      </Link>
-    ),
-  },
-  {
-    accessorKey: "title",
-    header: "Title",
-    cell: ({ row }) => (
-      <div className="max-w-xs w-[250px]">
-        <p className="font-medium whitespace-normal break-words">
-          {row.original.title}
-        </p>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "thematicAreas",
-    header: "Thematic Area",
-    cell: ({ row }) => (
-      <Badge variant="outline" className="text-xs">
-        {row.original.thematicAreas || "N/A"}
-      </Badge>
-    ),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => {
-      const config =
-        statusConfig[row.original.status] || statusConfig.draft;
-      const Icon = config.icon;
-      return (
-        <Badge variant={config.variant} className="gap-1">
-          <Icon className="h-3 w-3" />
-          {row.original.statusLabel || config.label}
-        </Badge>
-      );
+function getColumns(onDelete: (proposal: ProposalRow) => void): ColumnDef<ProposalRow>[] {
+  return [
+    {
+      accessorKey: "referenceNumber",
+      header: "Reference #",
+      cell: ({ row }) => (
+        <Link
+          href={`/research/proposals/my-proposals/${row.original.id}`}
+          className="font-medium text-primary hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {row.original.referenceNumber}
+        </Link>
+      ),
     },
-  },
-  {
-    accessorKey: "submittedAt",
-    header: "Submitted",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {row.original.submittedAt
-          ? new Date(row.original.submittedAt).toLocaleDateString()
-          : "-"}
-      </span>
-    ),
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">Actions</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link href={`/research/proposals/my-proposals/${row.original.id}`}>
-              <Eye className="h-4 w-4 mr-2" />
-              View Details
-            </Link>
-          </DropdownMenuItem>
-          {row.original.status === "draft" && (
-            <>
-              <DropdownMenuItem asChild>
-                <Link
-                  href={`/research/proposals/my-proposals/${row.original.id}/edit`}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Send className="h-4 w-4 mr-2" />
-                Submit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-  },
-];
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => (
+        <div className="max-w-xs w-[250px]">
+          <p className="font-medium whitespace-normal break-words">
+            {row.original.title}
+          </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "thematicAreas",
+      header: "Thematic Area",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="text-xs">
+          {row.original.thematicAreas || "N/A"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const config =
+          statusConfig[row.original.status] || statusConfig.draft;
+        const Icon = config.icon;
+        return (
+          <Badge variant={config.variant} className="gap-1">
+            <Icon className="h-3 w-3" />
+            {row.original.statusLabel || config.label}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "submittedAt",
+      header: "Submitted",
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.submittedAt
+            ? new Date(row.original.submittedAt).toLocaleDateString()
+            : "-"}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href={`/research/proposals/my-proposals/${row.original.id}`}>
+                <Eye className="h-4 w-4 mr-2" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
+            {row.original.status === "draft" && (
+              <>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href={`/research/proposals/my-proposals/${row.original.id}/edit`}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(row.original);
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+}
 
 // ── Page Component ─────────────────────────────────────────────────────────────
 export default function ProposalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [proposalToDelete, setProposalToDelete] = useState<ProposalRow | null>(
+    null,
+  );
+  const deleteProposalMutation = useDeleteProposal();
+
+  const columns = useMemo(
+    () => getColumns((proposal) => setProposalToDelete(proposal)),
+    [],
+  );
 
   const initialQueue = ((): ManageQueueFilter => {
     const param = searchParams.get("queue");
@@ -672,6 +686,35 @@ export default function ProposalsPage() {
           </Empty>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!proposalToDelete}
+        onOpenChange={(open) => {
+          if (!open) setProposalToDelete(null);
+        }}
+        title="Delete Proposal"
+        description={`Are you sure you want to delete "${proposalToDelete?.title || "this proposal"}"? This action cannot be undone.`}
+        confirmLabel="Delete Proposal"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleteProposalMutation.isPending}
+        onConfirm={async () => {
+          if (!proposalToDelete) return;
+          try {
+            await deleteProposalMutation.mutateAsync(proposalToDelete.id);
+            toast.success(
+              `Proposal "${proposalToDelete.title}" deleted successfully.`,
+            );
+            setProposalToDelete(null);
+          } catch (error: any) {
+            const message =
+              error?.response?.data?.message ||
+              error?.message ||
+              "Failed to delete proposal. Please try again.";
+            toast.error(message);
+          }
+        }}
+      />
     </PageContainer>
   );
 }

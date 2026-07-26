@@ -734,7 +734,7 @@ export default function ReadyForFundingDetailPage() {
                     </div>
                     <div className="rounded-xl border p-4">
                       <p className="text-xs font-bold uppercase text-muted-foreground">
-                        Financial Review
+                        Funded Budget
                       </p>
                       <Badge
                         className={cn(

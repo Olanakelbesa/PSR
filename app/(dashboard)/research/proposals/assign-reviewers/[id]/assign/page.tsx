@@ -177,6 +177,28 @@ export default function AssignReviewersDetailPage() {
     };
   }, [screeningId]);
 
+  const piId = useMemo(() => {
+    if (!screening) return null;
+    const rawProposal = (screening.proposal || {}) as any;
+    const rawPi =
+      screening.principalInvestigator ||
+      rawProposal.principalInvestigator ||
+      rawProposal.principal_investigator ||
+      rawProposal.createdBy ||
+      rawProposal.created_by;
+    if (!rawPi) return null;
+    if (typeof rawPi === "object") {
+      return rawPi.id != null ? Number(rawPi.id) : null;
+    }
+    return Number(rawPi) || null;
+  }, [screening]);
+
+  useEffect(() => {
+    if (piId != null) {
+      setSelectedIds((prev) => prev.filter((id) => id !== piId));
+    }
+  }, [piId]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
@@ -184,6 +206,10 @@ export default function AssignReviewersDetailPage() {
   const filteredUsers = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return users.filter((u: any) => {
+      // Remove Principal Investigator dynamically from the user selector list
+      if (piId != null && Number(u.id) === piId) {
+        return false;
+      }
       const fullName =
         u.fullName ||
         `${u.firstName || ""} ${u.middleName || ""} ${u.lastName || ""}`;
@@ -194,7 +220,7 @@ export default function AssignReviewersDetailPage() {
         (u.organization?.name || "").toLowerCase().includes(q)
       );
     });
-  }, [users, searchQuery]);
+  }, [users, searchQuery, piId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const paginatedUsers = filteredUsers.slice(
@@ -203,12 +229,13 @@ export default function AssignReviewersDetailPage() {
   );
 
   const toggleAssignment = useCallback((userId: number) => {
+    if (piId != null && userId === piId) return;
     setSelectedIds((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
         : [...prev, userId],
     );
-  }, []);
+  }, [piId]);
 
   const selectedUsers = useMemo(() => {
     return users

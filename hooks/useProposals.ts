@@ -9,6 +9,7 @@ import {
   getProposalById,
   createProposal,
   updateProposal,
+  deleteProposal,
   submitProposal,
   assignReviewers,
   submitReview,
@@ -56,6 +57,16 @@ export function useUpdateProposal() {
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: proposalKeys.all });
       queryClient.invalidateQueries({ queryKey: proposalKeys.detail(id) });
+    },
+  });
+}
+
+export function useDeleteProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string | number) => deleteProposal(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: proposalKeys.all });
     },
   });
 }

@@ -175,6 +175,7 @@ export const API_ENDPOINTS = {
     MANAGE_DETAIL: (id: string | number) => `/v1/proposals/${id}/manage/`,
     CREATE: "/v1/proposals/",
     UPDATE: (id: string) => `/v1/proposals/${id}/`,
+    DELETE: (id: string | number) => `/v1/proposals/${id}/`,
     SUBMIT: (id: string) => `/v1/proposals/${id}/submit/`,
     ASSIGN_REVIEWERS: (id: string) => `/v1/proposals/${id}/assign-reviewers/`,
     REVIEWS: (id: string) => `/v1/proposals/${id}/reviews/`,

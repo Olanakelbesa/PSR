@@ -19,6 +19,7 @@ import {
   MapPin,
   Phone,
   RefreshCw,
+  Trash2,
   Users,
 } from "lucide-react";
 
@@ -28,6 +29,8 @@ import {
   type ReviewHistoryEvent,
 } from "@/api/services/screenings.service";
 import { PageContainer } from "@/components/layout";
+import { ConfirmDialog } from "@/components/shared";
+import { useDeleteProposal } from "@/hooks/useProposals";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -282,6 +285,8 @@ export default function ProposalDetailPage() {
   const [timelineEvents, setTimelineEvents] = useState<ReviewHistoryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const deleteProposalMutation = useDeleteProposal();
 
   useEffect(() => {
     if (!proposalId) {
@@ -426,6 +431,17 @@ export default function ProposalDetailPage() {
               </Link>
             </Button>
           )}
+
+          {isDraft && (
+            <Button
+              variant="destructive"
+              className="h-9"
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Proposal
+            </Button>
+          )}
         </div>
       }
     >
@@ -441,8 +457,8 @@ export default function ProposalDetailPage() {
                     className={cn(
                       "border px-2.5 py-1 text-[11px] capitalize font-bold shadow-none",
                       statusStyles[statusKey] ||
-                        statusStyles[currentStatus] ||
-                        statusStyles.draft,
+                      statusStyles[currentStatus] ||
+                      statusStyles.draft,
                     )}
                   >
                     {statusLabel}
@@ -547,7 +563,7 @@ export default function ProposalDetailPage() {
                   </TabsTrigger>
                   <TabsTrigger value="timeline" className="text-xs">
                     <History className="mr-1.5 h-3.5 w-3.5" />
-                    Audit Trail ({timelineEvents.length})
+                    Status ({timelineEvents.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -777,8 +793,8 @@ export default function ProposalDetailPage() {
                               (totalScore !== undefined && totalScore !== null
                                 ? `Technical Review (Score: ${totalScore} pts)`
                                 : reviewerName
-                                ? `Technical Review by ${reviewerName}`
-                                : "Technical Review");
+                                  ? `Technical Review by ${reviewerName}`
+                                  : "Technical Review");
 
                             return (
                               <div key={review.id || idx} className="flex gap-4">
@@ -789,8 +805,8 @@ export default function ProposalDetailPage() {
                                       review.recommendation?.includes("approved")
                                         ? "bg-emerald-500"
                                         : review.recommendation?.includes(
-                                              "rejected",
-                                            )
+                                          "rejected",
+                                        )
                                           ? "bg-rose-500"
                                           : "bg-primary",
                                     )}
@@ -1128,9 +1144,9 @@ export default function ProposalDetailPage() {
                 </div>
               ) : null}
               {!proposal.proposalFile &&
-              !proposal.updatedProposal &&
-              !proposal.supportingDocs &&
-              !proposal.signature ? (
+                !proposal.updatedProposal &&
+                !proposal.supportingDocs &&
+                !proposal.signature ? (
                 <div className="rounded-xl border border-dashed bg-muted/10 p-6 text-center">
                   <FileText className="mx-auto h-6 w-6 text-muted-foreground/50" />
                   <p className="mt-2 text-xs text-muted-foreground">
@@ -1154,9 +1170,9 @@ export default function ProposalDetailPage() {
                   <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
                     {proposal.createdBy
                       ? getInitials(
-                          proposal.createdBy.firstName,
-                          proposal.createdBy.lastName,
-                        )
+                        proposal.createdBy.firstName,
+                        proposal.createdBy.lastName,
+                      )
                       : "?"}
                   </AvatarFallback>
                 </Avatar>
@@ -1164,9 +1180,9 @@ export default function ProposalDetailPage() {
                   <p className="text-sm font-semibold truncate">
                     {proposal.createdBy
                       ? formatName(
-                          proposal.createdBy.firstName,
-                          proposal.createdBy.lastName,
-                        )
+                        proposal.createdBy.firstName,
+                        proposal.createdBy.lastName,
+                      )
                       : "Unknown creator"}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
@@ -1178,6 +1194,32 @@ export default function ProposalDetailPage() {
           </Card>
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Delete Proposal"
+        description={`Are you sure you want to delete "${proposal.title || "this proposal"}"? This action cannot be undone.`}
+        confirmLabel="Delete Proposal"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleteProposalMutation.isPending}
+        onConfirm={async () => {
+          try {
+            await deleteProposalMutation.mutateAsync(proposal.id);
+            toast.success(
+              `Proposal "${proposal.title || proposal.id}" deleted successfully.`,
+            );
+            router.push("/research/proposals/my-proposals");
+          } catch (error: any) {
+            const message =
+              error?.response?.data?.message ||
+              error?.message ||
+              "Failed to delete proposal. Please try again.";
+            toast.error(message);
+          }
+        }}
+      />
     </PageContainer>
   );
 }
