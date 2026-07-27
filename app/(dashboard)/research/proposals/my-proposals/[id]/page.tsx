@@ -1,34 +1,64 @@
 "use client";
 
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertCircle,
   ArrowLeft,
   Building2,
   Calendar,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   Download,
   Edit,
   ExternalLink,
-  Eye,
   FileText,
   History,
   Layers,
   Mail,
   MapPin,
+  MessageSquare,
   Paperclip,
   Phone,
   RefreshCw,
+  RotateCcw,
+  Search,
+  Send,
+  Shield,
+  Tag,
   Trash2,
   User,
   Users,
+  Wallet,
+  XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
-import { proposalsApi } from "@/api/client";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageContainer } from "@/components/layout";
+import { ConfirmDialog } from "@/components/shared";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
+import { useDeleteProposal } from "@/hooks/useProposals";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
+import { cn } from "@/lib/utils";
 import {
   getProposalById,
   getManagedProposalById,
@@ -37,393 +67,330 @@ import {
   getReviewHistory,
   type ReviewHistoryEvent,
 } from "@/api/services/screenings.service";
-import { PageContainer } from "@/components/layout";
-import { ConfirmDialog } from "@/components/shared";
-import { useDeleteProposal } from "@/hooks/useProposals";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PdfViewer } from "@/components/shared/pdf-viewer";
-import { WordViewer } from "@/components/shared/word-viewer";
-import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
-import { CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import type { Attachment } from "@/lib/types";
+
+type ManagedTeamMember = Awaited<
+  ReturnType<typeof getManagedProposalById>
+>["teamMembers"][number];
+
+// ── Status display config ──────────────────────────────────────────────────────
+const STATUS_DISPLAY: Record<
+  string,
+  { label: string; className: string }
+> = {
+  draft: { label: "Draft", className: "bg-slate-100 text-slate-700 border-slate-200" },
+  submitted: { label: "Submitted", className: "bg-blue-100 text-blue-700 border-blue-200" },
+  resubmitted: { label: "Resubmitted", className: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  under_review: { label: "Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  screening_under_review: { label: "Screening Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  approved: { label: "Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  screening_approved: { label: "Screening Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  screening_rejected: { label: "Screening Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
+  revision_required: { label: "Revision Required", className: "bg-orange-100 text-orange-700 border-orange-200" },
+  protocol_stage: { label: "Protocol Stage", className: "bg-violet-100 text-violet-700 border-violet-200" },
+  funding_recommendation: { label: "Funding Recommendation", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+};
+
+function getUserAvatarUrl(photoUrl?: string | null): string | undefined {
+  if (!photoUrl || photoUrl === "#") return undefined;
+  if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+    return photoUrl;
+  }
+  const cleanPath = photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`;
+  return `/bff/media/stream/${cleanPath.replace(/^\/media\//, "")}`;
+}
+
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function StatusBadge({ status, displayLabel }: { status?: string | null; displayLabel?: string | null }) {
+  const normalizedKey = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  const cfg = STATUS_DISPLAY[normalizedKey] ?? {
+    label: displayLabel || (status ? status.replace(/_/g, " ") : "Draft"),
+    className: "bg-muted text-muted-foreground border-border",
+  };
+  return (
+    <Badge
+      variant="outline"
+      className={cn("px-3 py-1 border shadow-none text-[10px] font-bold uppercase tracking-wide", cfg.className)}
+    >
+      {displayLabel || cfg.label}
+    </Badge>
+  );
+}
+
+function formatBudget(val: any): string {
+  if (!val) return "N/A";
+  const num = Number(val);
+  if (isNaN(num)) return String(val);
+  return `ETB ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 function EmbeddedViewer({ url, title }: { url: string; title: string }) {
   if (!url) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center bg-card">
         <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
         <p className="font-medium text-muted-foreground">No document attached</p>
       </div>
     );
   }
 
-  const kind = getConceptNoteAttachmentKind(url);
+  const resolvedUrl = resolveFileUrl(url) || url;
+  const kind = getConceptNoteAttachmentKind(resolvedUrl);
 
   if (kind === "pdf") {
     return (
-      <div className="overflow-hidden rounded-xl border border-primary/20 shadow-sm">
-        <PdfViewer url={url} title={title} className="h-[750px]" />
+      <div className="overflow-hidden rounded-xl border border-primary/20 shadow-xs bg-card">
+        <PdfViewer url={resolvedUrl} title={title} className="h-[750px] w-full" />
       </div>
     );
   }
 
   if (kind === "word") {
     return (
-      <div className="overflow-hidden rounded-xl border border-primary/20 bg-[#ededed] shadow-sm">
-        <WordViewer url={url} title={title} className="h-[750px]" />
+      <div className="overflow-hidden rounded-xl border border-primary/20 bg-[#ededed] dark:bg-muted/30 shadow-xs">
+        <WordViewer url={resolvedUrl} title={title} className="h-[750px] w-full" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-muted/10 p-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-card p-16 text-center shadow-2xs">
       <FileText className="h-12 w-12 text-primary" />
       <div>
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          This document type cannot be embedded directly in the browser.
+          This document type cannot be embedded directly in the browser preview.
         </p>
       </div>
       <div className="flex gap-2">
         <Button asChild variant="outline" size="sm">
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            Open in New Tab
+          <a href={resolvedUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-2 h-4 w-4" /> Open File
           </a>
         </Button>
         <Button asChild size="sm">
-          <a href={url} download>
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            Download Document
+          <a href={resolvedUrl} download>
+            <Download className="mr-2 h-4 w-4" /> Download
           </a>
         </Button>
       </div>
     </div>
   );
 }
-import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
-import { toast } from "sonner";
-import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
-type NamedEntity = {
-  id: number;
-  name: string;
-};
-
-type ProposalCall = {
-  id: number;
-  title: string;
-};
-
-type ProposalCreatedBy = {
-  id: number;
-  firstName: string;
-  lastName: string | null;
-  email: string;
-};
-
-type ProposalTeamMember = {
-  id: number;
-  memberType?: string | null;
-  member_type?: string | null;
-  userType?: string | null;
-  user_type?: string | null;
-  organizationName?: string | null;
-  organization_name?: string | null;
-  stakeholderName?: string | null;
-  stakeholder_name?: string | null;
-  position?: string | null;
-  phoneNumber?: string | null;
-  phone_number?: string | null;
-  email?: string | null;
-  member?: number | null;
-  memberName?: string | null;
-  member_name?: string | null;
-  memberEmail?: string | null;
-  member_email?: string | null;
-  role?: number | null;
-  roleName?: string | null;
-  role_name?: string | null;
-};
-
-type ProposalTechnicalReview = {
-  id: number;
-  reviewer?: {
-    id?: number;
-    fullName?: string | null;
-    email?: string | null;
-    photoUrl?: string | null;
-  } | null;
-  comments?: string | null;
-  totalScore?: number | null;
-  attachment?: string | null;
-  createdAt?: string | null;
-};
-
-type ProposalReviewHistory = {
-  status?: string | null;
-  decisionRemarks?: string | null;
-  reviewedAt?: string | null;
-  technicalReviews?: ProposalTechnicalReview[] | null;
-};
-
-type ProposalReviewEvent = {
-  id: number;
-  recommendation?: string | null;
-  comments?: string | null;
-  createdAt?: string | null;
-  reviewer?: {
-    name?: string | null;
-  } | null;
-};
-
-type ProposalDetail = {
-  id: number;
-  title: string;
-  abstract?: string | null;
-  keywords?: string[] | null;
-  thematicAreas?: NamedEntity[] | null;
-  receivingOffice?: NamedEntity | null;
-  call?: ProposalCall | null;
-  Organization?: NamedEntity | null;
-  Unit?: NamedEntity | null;
-  submittedAt?: string | null;
-  proposalType?: NamedEntity | null;
-  subThematicArea?: NamedEntity | null;
-  createdBy?: ProposalCreatedBy | null;
-  teamMembers?: ProposalTeamMember[] | null;
-  reviewHistory?: ProposalReviewHistory | ProposalReviewEvent[] | null;
-  status?: string | null;
-  statusDisplay?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  budgetRequested?: string | null;
-  proposalFile?: string | null;
-  updatedProposal?: string | null;
-  supportingDocs?: string | null;
-  signature?: string | null;
-  createdAt?: string | null;
-  rejectionReason?: string | null;
-};
-
-const statusStyles: Record<string, string> = {
-  draft:
-    "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-800",
-  submitted:
-    "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
-  resubmitted:
-    "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800",
-  under_review:
-    "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
-  revision_requested:
-    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
-  approved:
-    "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
-  rejected:
-    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
-  screening_rejected:
-    "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
-  revision_required:
-    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
-  protocol_stage:
-    "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800",
-  funding_recommendation:
-    "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
-};
-
-function normalizeStatusKey(status?: string | null) {
-  return String(status ?? "")
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return "Not available";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-ET", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return "Not available";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-ET", {
-    dateStyle: "medium",
-  }).format(date);
-}
-
-function formatName(firstName?: string | null, lastName?: string | null) {
-  return [firstName, lastName].filter(Boolean).join(" ").trim() || "N/A";
-}
-
-function getInitials(firstName?: string | null, lastName?: string | null) {
-  const first = firstName?.charAt(0) || "";
-  const last = lastName?.charAt(0) || "";
-  return (first + last).toUpperCase() || "?";
-}
-
-function isReviewHistoryObject(
-  value?: ProposalReviewHistory | ProposalReviewEvent[] | null,
-): value is ProposalReviewHistory {
-  return (
-    !!value &&
-    !Array.isArray(value) &&
-    typeof value === "object" &&
-    ("technicalReviews" in value ||
-      "status" in value ||
-      "decisionRemarks" in value ||
-      "reviewedAt" in value)
-  );
-}
-
-function getReviewHistoryEvents(
-  reviewHistory?: ProposalReviewHistory | ProposalReviewEvent[] | null,
-): ProposalReviewEvent[] {
-  if (Array.isArray(reviewHistory)) return reviewHistory;
-  return reviewHistory?.technicalReviews ?? [];
-}
-
-function DetailLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium text-right">{value}</span>
-    </div>
-  );
-}
-
-function SkeletonLoading() {
-  return (
-    <PageContainer title=" ">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-6">
-          <Card className="shadow-sm">
-            <CardHeader className="border-b bg-muted/20 pb-4">
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <Skeleton className="h-6 w-16 rounded-full" />
-                </div>
-                <Skeleton className="h-7 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <Skeleton className="h-20 rounded-2xl" />
-                <Skeleton className="h-20 rounded-2xl" />
-                <Skeleton className="h-20 rounded-2xl" />
-              </div>
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-4 w-2/3" />
-            </CardContent>
-          </Card>
-          <Skeleton className="h-64 rounded-lg" />
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-72 rounded-lg" />
-          <Skeleton className="h-48 rounded-lg" />
-          <Skeleton className="h-40 rounded-lg" />
-        </div>
-      </div>
-    </PageContainer>
-  );
-}
-
+// ── Page Component ────────────────────────────────────────────────────────────
 export default function ProposalDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
+
   const proposalId = useMemo(() => {
     const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
     return rawId ? String(rawId) : "";
   }, [params.id]);
 
-  const [proposal, setProposal] = useState<ProposalDetail | null>(null);
-  const [timelineEvents, setTimelineEvents] = useState<ReviewHistoryEvent[]>([]);
+  const [proposal, setProposal] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [previewDialog, setPreviewDialog] = useState<{
-    isOpen: boolean;
-    url: string;
-    title: string;
-  }>({
-    isOpen: false,
-    url: "",
-    title: "",
-  });
+  const [activeDocKey, setActiveDocKey] = useState<string>("proposal");
+  const [isCopiedRef, setIsCopiedRef] = useState(false);
+  const [viewingFile, setViewingFile] = useState<{ name: string; url: string } | null>(null);
 
   const deleteProposalMutation = useDeleteProposal();
 
-  const handlePreviewFile = (fileProp?: string | null, title?: string) => {
-    if (!fileProp) return;
-    const url = resolveFileUrl(fileProp) || fileProp;
-    setPreviewDialog({
-      isOpen: true,
-      url,
-      title: title || "Document Preview",
-    });
+  const handleCopyRef = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setIsCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setIsCopiedRef(false), 2000);
   };
 
-  const proposalFiles = useMemo(() => {
+  const documentList = useMemo(() => {
     if (!proposal) return [];
-    const files: Array<{
-      id: string;
-      label: string;
-      rawUrl: string;
-      url: string;
-      fileName: string;
-      icon: typeof FileText;
-    }> = [];
-
-    if (proposal.proposalFile) {
-      files.push({
-        id: "proposal-doc",
-        label: "Proposal Document",
-        rawUrl: proposal.proposalFile,
-        url: resolveFileUrl(proposal.proposalFile) || proposal.proposalFile,
-        fileName: proposal.proposalFile.split("/").pop() || "Proposal Document",
-        icon: FileText,
-      });
-    }
-
-    if (proposal.updatedProposal && proposal.updatedProposal !== proposal.proposalFile) {
-      files.push({
-        id: "updated-proposal-doc",
-        label: "Revised Proposal Document",
-        rawUrl: proposal.updatedProposal,
-        url: resolveFileUrl(proposal.updatedProposal) || proposal.updatedProposal,
-        fileName: proposal.updatedProposal.split("/").pop() || "Revised Proposal Document",
-        icon: FileText,
-      });
-    }
-
-    if (proposal.supportingDocs) {
-      files.push({
-        id: "supporting-doc",
-        label: "Budget / Supporting Document",
-        rawUrl: proposal.supportingDocs,
-        url: resolveFileUrl(proposal.supportingDocs) || proposal.supportingDocs,
-        fileName: proposal.supportingDocs.split("/").pop() || "Supporting Document",
-        icon: Paperclip,
-      });
-    }
-
-    return files;
+    return [
+      { key: "proposal", label: "Proposal Document", filePath: proposal.proposalFile },
+      { key: "updated", label: "Revised Proposal", filePath: proposal.updatedProposal },
+      { key: "supporting", label: "Budget / Supporting Document", filePath: proposal.supportingDocs },
+    ].filter((f) => Boolean(f.filePath));
   }, [proposal]);
+
+  const activeDoc = useMemo(() => {
+    return documentList.find((d) => d.key === activeDocKey) || documentList[0];
+  }, [documentList, activeDocKey]);
+
+  const mapManagedProposalToProposal = (detail: any) => {
+    const firstName = detail.createdBy?.firstName || detail.created_by?.first_name || "Unknown";
+    const lastName = detail.createdBy?.lastName || detail.created_by?.last_name || "";
+
+    const attachments: Attachment[] = [];
+    if (detail.proposalFile) {
+      attachments.push({
+        id: `${detail.id}-proposal-file`,
+        name: detail.proposalFile.split("/").pop() || "Proposal File",
+        type: "application/pdf",
+        size: 0,
+        url: detail.proposalFile,
+        uploadedAt:
+          detail.lastSubmittedAt ||
+          detail.createdAt ||
+          new Date().toISOString(),
+      });
+    }
+
+    const reviewTimeline: ReviewHistoryEvent[] = [];
+
+    if (detail.firstSubmittedAt || detail.submittedAt || detail.createdAt) {
+      reviewTimeline.push({
+        action: "Proposal Submitted",
+        timestamp: String(
+          detail.firstSubmittedAt || detail.submittedAt || detail.createdAt || new Date().toISOString(),
+        ),
+        status: "submitted",
+        comment: null,
+      });
+    }
+
+    if (detail.status && detail.status !== "submitted") {
+      const statusLabels: Record<string, string> = {
+        screening_under_review: "Screening Under Review",
+        screening_approved: "Screening Approved",
+        screening_rejected: "Screening Rejected",
+        resubmitted: "Resubmitted",
+        submitted: "Submitted",
+        revision_requested: "Revision Requested",
+        revision_required: "Revision Required",
+        protocol_stage: "Protocol Stage",
+        approved: "Approved",
+        rejected: "Rejected",
+      };
+      reviewTimeline.push({
+        action: statusLabels[detail.status] || `Status: ${detail.status}`,
+        timestamp: String(
+          detail.lastSubmittedAt || detail.updatedAt || new Date().toISOString(),
+        ),
+        status: detail.status,
+        comment: detail.rejectionReason || null,
+      });
+    }
+
+    return {
+      id: detail.id,
+      callId: detail.call?.id || detail.callId || "",
+      call: detail.call || undefined,
+      title: detail.title,
+      abstract: detail.abstract || "",
+      principalInvestigator: {
+        id: detail.createdBy?.id || detail.created_by?.id || "",
+        image: detail.createdBy?.photoUrl || detail.createdBy?.photo_url || detail.createdBy?.photo || undefined,
+        photoUrl: detail.createdBy?.photoUrl || detail.createdBy?.photo_url || detail.createdBy?.photo || undefined,
+        photo_url: detail.createdBy?.photoUrl || detail.createdBy?.photo_url || detail.createdBy?.photo || undefined,
+        email: detail.createdBy?.email || detail.created_by?.email || "",
+        firstName,
+        lastName,
+        role: "researcher",
+        status: "active",
+        createdAt: detail.createdAt || new Date().toISOString(),
+        updatedAt:
+          detail.lastSubmittedAt ||
+          detail.createdAt ||
+          new Date().toISOString(),
+      },
+      createdBy: detail.createdBy || detail.created_by || undefined,
+      coInvestigators: (detail.teamMembers || detail.team_members || [])
+        .filter((member: any) => {
+          const ownerId = String(detail.createdBy?.id || detail.created_by?.id || "");
+          const ownerEmail = (detail.createdBy?.email || detail.created_by?.email || "").toLowerCase();
+          const memberUserId = String(member.member?.id || member.member || "");
+          const memberEmail = (member.memberEmail || member.email || "").toLowerCase();
+          const isOwner =
+            (ownerId && memberUserId === ownerId) ||
+            (ownerEmail && memberEmail === ownerEmail) ||
+            member.roleName === "Principal Investigator" ||
+            member.is_pi;
+          return !isOwner;
+        })
+        .map((member: any, index: number) => ({
+          id: member.id,
+          userId: member.member ? String(member.member) : undefined,
+          name:
+            member.memberName ||
+            member.stakeholderName ||
+            member.organizationName ||
+            `Team Member ${index + 1}`,
+          email: member.memberEmail || member.email || "",
+          role: String(member.roleName || member.memberType || "researcher"),
+          roleName: member.roleName || "Team Member",
+          memberType: member.memberType || member.member_type || "internal",
+          institution: member.organizationName || "",
+          expertise: member.position || member.userType || "",
+          phoneNumber: member.phoneNumber || member.phone_number || "",
+          organizationName: member.organizationName || member.organization_name || "",
+          photoUrl: member.photoUrl || member.photo_url || member.avatarUrl || member.user?.photoUrl,
+        })),
+      institution: detail.Organization?.name || "",
+      researchArea: detail.thematicAreas?.[0]?.name || "",
+      budget: {
+        personnel: 0,
+        equipment: 0,
+        consumables: 0,
+        travel: 0,
+        other: 0,
+        total: Number(detail.budgetRequested || 0),
+      },
+      timeline: [],
+      status: detail.status,
+      statusDisplay: detail.statusDisplay || null,
+      attachments,
+      reviews: [],
+      submittedAt:
+        detail.submittedAt ||
+        detail.lastSubmittedAt ||
+        detail.firstSubmittedAt ||
+        undefined,
+      createdAt:
+        detail.createdAt || detail.firstSubmittedAt || new Date().toISOString(),
+      updatedAt:
+        detail.lastSubmittedAt || detail.createdAt || new Date().toISOString(),
+      referenceNumber: detail.referenceNumber || `PRP-${detail.id}`,
+      keywords: detail.keywords || [],
+      thematicAreas: detail.thematicAreas || [],
+      receivingOffice: detail.receivingOffice || null,
+      Organization: detail.Organization || null,
+      Unit: detail.Unit || null,
+      teamMembers: detail.teamMembers || detail.team_members || [],
+      reviewHistory: detail.reviewHistory,
+      reviewTimeline,
+      startDate: detail.startDate || undefined,
+      endDate: detail.endDate || undefined,
+      budgetRequested: detail.budgetRequested || null,
+      proposalFile: detail.proposalFile || null,
+      updatedProposal: detail.updatedProposal || null,
+      supportingDocs: detail.supportingDocs || null,
+      version: detail.version || null,
+      resubmissionCount: detail.resubmissionCount || null,
+      rejectionReason: detail.rejectionReason || null,
+      needsIrb: detail.needsIrb || null,
+      firstSubmittedAt: detail.firstSubmittedAt || null,
+      lastSubmittedAt: detail.lastSubmittedAt || null,
+      signature: detail.signature || null,
+      workflowState: detail.workflowState || null,
+      subThematicArea: detail.subThematicArea || null,
+      proposalType: detail.proposalType || null,
+      subProposalType: detail.subProposalType || null,
+    };
+  };
 
   useEffect(() => {
     if (!proposalId) {
@@ -438,26 +405,44 @@ export default function ProposalDetailPage() {
       try {
         let proposalData: any = null;
         try {
-          proposalData = await getProposalById(proposalId);
-        } catch {
           proposalData = await getManagedProposalById(proposalId);
+        } catch {
+          proposalData = await getProposalById(proposalId);
         }
 
         if (!isMounted) return;
 
         if (proposalData) {
-          setProposal(proposalData as ProposalDetail);
-          setHasError(false);
+          const mappedProposal = mapManagedProposalToProposal(proposalData);
 
-          // Fetch full audit trail timeline
           try {
-            const events = await getReviewHistory(proposalId);
-            if (isMounted && Array.isArray(events)) {
-              setTimelineEvents(events);
+            const { getReviewHistory: fetchReviewHistory } = await import(
+              "@/api/services/screenings.service"
+            );
+            const historyData = await fetchReviewHistory(String(proposalId));
+            if (historyData?.review_timeline && Array.isArray(historyData.review_timeline)) {
+              mappedProposal.reviewTimeline = historyData.review_timeline.map((evt: any) => ({
+                ...evt,
+                actor: undefined,
+                reviewer: undefined,
+                reviewerName: undefined,
+                reviewerEmail: undefined,
+              }));
+            } else if (Array.isArray(historyData)) {
+              mappedProposal.reviewTimeline = historyData.map((evt: any) => ({
+                ...evt,
+                actor: undefined,
+                reviewer: undefined,
+                reviewerName: undefined,
+                reviewerEmail: undefined,
+              }));
             }
-          } catch {
-            // Non-critical background load
+          } catch (historyError) {
+            console.warn("Could not fetch review history from backend:", historyError);
           }
+
+          setProposal(mappedProposal);
+          setHasError(false);
         } else {
           setProposal(null);
           setHasError(true);
@@ -481,31 +466,15 @@ export default function ProposalDetailPage() {
     };
   }, [proposalId]);
 
-  const currentStatus =
-    proposal?.status ?? (proposal?.submittedAt ? "submitted" : "draft");
-  const statusKey = normalizeStatusKey(currentStatus);
-  const statusLabel =
-    proposal?.statusDisplay ?? currentStatus.replace(/_/g, " ");
+  // ── Ownership & Status Calculations ──────────────────────────────────────────
+  const currentStatus = proposal?.status ?? (proposal?.submittedAt ? "submitted" : "draft");
+  const statusKey = (currentStatus || "").toLowerCase().replace(/[\s-]+/g, "_");
   const isScreeningRejected = statusKey === "screening_rejected";
-  const isRevisionRequired = statusKey === "revision_required";
+  const isRevisionRequired = statusKey === "revision_required" || statusKey === "revision_requested";
   const isProtocolStage = statusKey === "protocol_stage";
   const isResubmittable = isScreeningRejected || isRevisionRequired;
   const isDraft = statusKey === "draft" && !proposal?.submittedAt;
   const isEditable = isDraft || isProtocolStage;
-  const teamMembers = proposal?.teamMembers ?? [];
-  const internalTeam = teamMembers.filter(
-    (member) => (member.memberType ?? member.member_type) === "internal",
-  );
-  const externalTeam = teamMembers.filter(
-    (member) => (member.memberType ?? member.member_type) === "external",
-  );
-  const reviewHistoryObject =
-    proposal && isReviewHistoryObject(proposal.reviewHistory)
-      ? proposal.reviewHistory
-      : undefined;
-  const reviewHistoryEvents = getReviewHistoryEvents(proposal?.reviewHistory);
-  const rejectionFeedback =
-    proposal?.rejectionReason || reviewHistoryObject?.decisionRemarks || null;
 
   const currentUserId = String(currentUser?.id ?? "");
   const currentUserEmail = (currentUser?.email ?? "").toLowerCase();
@@ -516,57 +485,134 @@ export default function ProposalDetailPage() {
   const isOwner = Boolean(
     (currentUserId && createdById === currentUserId) ||
     (currentUserEmail && createdByEmail === currentUserEmail) ||
-    (proposal as any)?.isOwner ||
-    (proposal as any)?.is_owner
+    proposal?.isOwner ||
+    proposal?.is_owner
   );
 
-  if (isLoading) {
-    return <SkeletonLoading />;
-  }
+  const rejectionFeedback = proposal?.rejectionReason || null;
 
-  if (hasError || !proposal) {
+  // ── Loading skeleton ──────────────────────────────────────────────────────────
+  if (isLoading) {
     return (
-      <PageContainer title="Proposal Not Found">
-        <div className="h-96 flex flex-col items-center justify-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/30">
-            <AlertCircle className="h-8 w-8 text-rose-500" />
+      <PageContainer title="Loading Proposal...">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
           </div>
-          <div className="space-y-1">
-            <p className="font-bold text-lg">Unable to load this proposal</p>
-            <p className="text-sm text-muted-foreground max-w-md">
-              The detail record could not be retrieved from the proposals API.
-            </p>
+          <div className="space-y-6">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-36 w-full rounded-xl" />
+            <Skeleton className="h-36 w-full rounded-xl" />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.back()}
-            className="mt-2"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Go Back
-          </Button>
         </div>
       </PageContainer>
     );
   }
 
+  if (hasError || !proposal) {
+    return (
+      <PageContainer
+        title="Proposal Not Found"
+        description="The requested proposal could not be loaded."
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => router.push("/research/proposals/my-proposals")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to List
+          </Button>
+        }
+      >
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <h3 className="font-bold text-amber-900">Proposal Details Unavailable</h3>
+              <p className="text-sm text-amber-800">
+                The proposal details could not be retrieved. Please try again or return to the proposals list.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </PageContainer>
+    );
+  }
+
+  const coInvestigators = (proposal.coInvestigators || []) as Array<any>;
+  const rawTeamList = (proposal.teamMembers || proposal.team_members || coInvestigators) as Array<any>;
+
+  const getValidUser = (obj: any) => {
+    if (!obj || typeof obj !== "object") return null;
+    if (obj.id || obj.email || obj.firstName || obj.memberName || obj.name) return obj;
+    return null;
+  };
+
+  const pi =
+    getValidUser(proposal.principalInvestigator) ||
+    getValidUser(proposal.createdBy) ||
+    getValidUser(proposal.pi) ||
+    {};
+
+  const piFirstName = pi.firstName || pi.first_name || pi.memberName?.split(" ")[0] || "";
+  const piLastName = pi.lastName || pi.last_name || pi.memberName?.split(" ").slice(1).join(" ") || "";
+  const piName =
+    [piFirstName, piLastName].filter(Boolean).join(" ") ||
+    pi.name ||
+    pi.memberName ||
+    (pi.email ? pi.email.split("@")[0] : "") ||
+    "Principal Investigator";
+  const piEmail = pi.email || pi.memberEmail || "";
+  const rawPiPhoto =
+    pi.photoUrl ||
+    pi.photo_url ||
+    pi.avatarUrl ||
+    pi.avatar ||
+    pi.photo ||
+    proposal.createdBy?.photoUrl ||
+    proposal.createdBy?.photo_url ||
+    proposal.createdBy?.photo ||
+    proposal.principalInvestigator?.photoUrl ||
+    proposal.principalInvestigator?.photo_url;
+  const piAvatar = resolveFileUrl(rawPiPhoto) || (rawPiPhoto ? (rawPiPhoto.startsWith("http") ? rawPiPhoto : `http://127.0.0.1:8000${rawPiPhoto}`) : undefined);
+
+  const hasSignature = Boolean(proposal.signature);
+
   return (
     <PageContainer
       title={proposal.title || "Untitled Proposal"}
-      description={`Proposal ID: ${proposal.id} · ${proposal.call?.title || "No call assigned"}`}
+      description={
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
+          <button
+            type="button"
+            onClick={() => handleCopyRef(proposal.referenceNumber || `PRP-${proposal.id}`)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy reference number"
+          >
+            <span>{proposal.referenceNumber || `PRP-${proposal.id}`}</span>
+            {isCopiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+        </div>
+      }
       actions={
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => router.back()}
-            className="h-9"
+            onClick={() => router.push("/research/proposals/my-proposals")}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Back to List
           </Button>
 
           {isEditable && (
-            <Button asChild className="h-9 bg-primary hover:bg-primary/90">
+            <Button asChild className="bg-primary hover:bg-primary/90">
               <Link
                 href={`/research/proposals/my-proposals/${proposal.id}/edit`}
               >
@@ -577,7 +623,7 @@ export default function ProposalDetailPage() {
           )}
 
           {isResubmittable && (
-            <Button asChild className="h-9 bg-amber-600 hover:bg-amber-700">
+            <Button asChild className="bg-amber-600 hover:bg-amber-700">
               <Link
                 href={`/research/proposals/my-proposals/${proposal.id}/edit?mode=resubmit`}
               >
@@ -590,7 +636,6 @@ export default function ProposalDetailPage() {
           {isDraft && isOwner && (
             <Button
               variant="destructive"
-              className="h-9"
               onClick={() => setConfirmDeleteOpen(true)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -601,883 +646,758 @@ export default function ProposalDetailPage() {
       }
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        {/* Main Content */}
-        <div className="space-y-6">
-          {/* Header Card */}
-          <Card className="shadow-sm border-primary/5 overflow-hidden">
-            <CardHeader className="border-b bg-primary/5 pb-4">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    className={cn(
-                      "border px-2.5 py-1 text-[11px] capitalize font-bold shadow-none",
-                      statusStyles[statusKey] ||
-                      statusStyles[currentStatus] ||
-                      statusStyles.draft,
-                    )}
-                  >
-                    {statusLabel}
-                  </Badge>
-                  {isOwner ? (
-                    <Badge
-                      variant="outline"
-                      className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px] font-bold gap-1"
-                    >
-                      <User className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                      Owner
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 text-[11px] font-bold gap-1"
-                    >
-                      <Users className="h-3 w-3 text-sky-600 dark:text-sky-400" />
-                      Member
+        {/* ── Main Content ──────────────────────────────────────────────── */}
+        <div className="space-y-6 min-w-0">
+          <Tabs defaultValue="overview" className="w-full">
+            <div className="bg-muted/60 dark:bg-muted/40 p-1.5 rounded-2xl border border-border/40 shadow-xs backdrop-blur-md overflow-x-auto scrollbar-none">
+              <TabsList className="w-full justify-start bg-transparent p-0 gap-1.5 h-auto border-none shadow-none min-w-max">
+                <TabsTrigger
+                  value="overview"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <FileText className="h-4 w-4 shrink-0" />
+                  Proposal Content
+                </TabsTrigger>
+                <TabsTrigger
+                  value="documents"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Paperclip className="h-4 w-4 shrink-0" />
+                  Uploaded Documents
+                  {documentList.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-bold bg-primary/10 text-primary border-none rounded-md">
+                      {documentList.length}
                     </Badge>
                   )}
-                  {proposal.submittedAt && (
-                    <Badge
-                      variant="outline"
-                      className="border-emerald-200 text-emerald-700 text-[11px]"
-                    >
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Submitted
+                </TabsTrigger>
+                <TabsTrigger
+                  value="team"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Users className="h-4 w-4 shrink-0" />
+                  Research Team
+                  {rawTeamList.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
+                      {rawTeamList.length + 1}
                     </Badge>
                   )}
-                  {proposal.proposalType?.name && (
-                    <Badge variant="secondary" className="text-[11px]">
-                      {proposal.proposalType.name}
-                    </Badge>
-                  )}
-                </div>
-                <CardTitle className="text-xl md:text-2xl leading-tight">
-                  {proposal.title || "Untitled Proposal"}
-                </CardTitle>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  {proposal.call?.title && (
-                    <span className="flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5" />
-                      {proposal.call.title}
-                    </span>
-                  )}
-                  {proposal.submittedAt && (
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      Submitted {formatDateTime(proposal.submittedAt)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="history"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Clock className="h-4 w-4 shrink-0" />
+                  Review History
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-            <CardContent className="pt-6 space-y-6">
+            {/* ── Overview Tab ──────────────────────────────────────────── */}
+            <TabsContent value="overview" className="pt-6 space-y-6">
+              {/* Requested Budget & Period Summary Banner */}
+              <Card className="shadow-sm border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background overflow-hidden">
+                <CardContent className="p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shrink-0">
+                      <Wallet className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Requested Budget
+                      </p>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                        {formatBudget(proposal.budgetRequested)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {proposal.startDate && proposal.endDate && (
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-6 border-border/60">
+                      <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Project Period
+                        </p>
+                        <p className="text-sm font-bold text-foreground">
+                          {new Date(proposal.startDate).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {" — "}
+                          {new Date(proposal.endDate).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Rejection / Revision Feedback Alert Banner */}
               {rejectionFeedback && isResubmittable && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-                  <p className="text-sm font-bold">Screening feedback</p>
-                  <p className="mt-1 text-sm italic">{rejectionFeedback}</p>
-                  <p className="mt-3 text-xs text-rose-700/80 dark:text-rose-300/80">
-                    Update your proposal and resubmit it for screening review.
+                <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200 shadow-2xs">
+                  <div className="flex items-center gap-2 font-bold text-sm">
+                    <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                    <span>Screening Feedback & Rationale</span>
+                  </div>
+                  <p className="mt-2 text-xs italic leading-relaxed pl-6 border-l-2 border-rose-400">
+                    &ldquo;{rejectionFeedback}&rdquo;
+                  </p>
+                  <p className="mt-3 text-[11px] text-rose-700/80 dark:text-rose-300/80 font-medium">
+                    Please revise your proposal details and click &ldquo;Resubmit Proposal&rdquo; when ready.
                   </p>
                 </div>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-2xl border bg-muted/20 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                    Proposal Type
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">
-                    {proposal.proposalType?.name || "Not set"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border bg-muted/20 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                    Team Members
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">
-                    {teamMembers.length} total
-                  </p>
-                </div>
-                <div className="rounded-2xl border bg-muted/20 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                    Budget
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">
-                    {proposal.budgetRequested
-                      ? `ETB ${proposal.budgetRequested}`
-                      : "Not set"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border bg-muted/20 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                    Created On
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">
-                    {formatDate(proposal.createdAt)}
-                  </p>
-                </div>
-              </div>
+              {/* Abstract */}
+              <Card className="shadow-sm border-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    Abstract
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground leading-relaxed">
+                    <HtmlContentRenderer
+                      content={proposal.abstract || "No abstract provided."}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-              {/* Tabs */}
-              <Tabs defaultValue="overview">
-                <TabsList className="h-10 bg-muted/60 rounded-lg p-1 w-full grid grid-cols-5">
-                  <TabsTrigger value="overview" className="text-xs">
-                    <FileText className="mr-1.5 h-3.5 w-3.5" />
-                    Overview
-                  </TabsTrigger>
-                  <TabsTrigger value="files" className="text-xs">
-                    <Paperclip className="mr-1.5 h-3.5 w-3.5" />
-                    Files ({proposalFiles.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="team" className="text-xs">
-                    <Users className="mr-1.5 h-3.5 w-3.5" />
-                    Team ({teamMembers.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="reviews" className="text-xs">
-                    <Clock className="mr-1.5 h-3.5 w-3.5" />
-                    Reviews ({reviewHistoryEvents.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="timeline" className="text-xs">
-                    <History className="mr-1.5 h-3.5 w-3.5" />
-                    Status ({timelineEvents.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="files" className="mt-6 space-y-6">
-                  <Card className="border shadow-sm">
-                    <CardHeader className="border-b bg-muted/20 py-4 flex flex-row items-center justify-between">
-                      <div>
-                        <CardTitle className="text-base font-bold flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-primary" />
-                          Document Preview
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          Preview attached proposal files directly in the browser.
-                        </CardDescription>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6">
-                      {proposalFiles.length > 1 ? (
-                        <Tabs defaultValue={proposalFiles[0].id} className="w-full">
-                          <TabsList className="mb-4 bg-muted/50 p-1 flex flex-wrap gap-1">
-                            {proposalFiles.map((file) => {
-                              const IconComponent = file.icon;
-                              return (
-                                <TabsTrigger
-                                  key={file.id}
-                                  value={file.id}
-                                  className="flex items-center gap-2 text-xs font-semibold"
-                                >
-                                  <IconComponent className="h-3.5 w-3.5 text-primary" />
-                                  {file.label}
-                                </TabsTrigger>
-                              );
-                            })}
-                          </TabsList>
-                          {proposalFiles.map((file) => (
-                            <TabsContent key={file.id} value={file.id} className="space-y-4">
-                              <div className="flex items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                                  <span className="text-xs font-mono font-medium truncate">
-                                    {file.fileName}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                                    <a href={file.url} target="_blank" rel="noopener noreferrer">
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                      Open in New Tab
-                                    </a>
-                                  </Button>
-                                  <Button asChild variant="default" size="sm" className="h-8 text-xs gap-1.5">
-                                    <a href={file.url} download>
-                                      <Download className="h-3.5 w-3.5" />
-                                      Download
-                                    </a>
-                                  </Button>
-                                </div>
-                              </div>
-                              <EmbeddedViewer url={file.url} title={file.label} />
-                            </TabsContent>
-                          ))}
-                        </Tabs>
-                      ) : proposalFiles.length === 1 ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                              <span className="text-xs font-mono font-medium truncate">
-                                {proposalFiles[0].fileName}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                                <a href={proposalFiles[0].url} target="_blank" rel="noopener noreferrer">
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                  Open in New Tab
-                                </a>
-                              </Button>
-                              <Button asChild variant="default" size="sm" className="h-8 text-xs gap-1.5">
-                                <a href={proposalFiles[0].url} download>
-                                  <Download className="h-3.5 w-3.5" />
-                                  Download
-                                </a>
-                              </Button>
-                            </div>
-                          </div>
-                          <EmbeddedViewer url={proposalFiles[0].url} title={proposalFiles[0].label} />
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center text-muted-foreground">
-                          <Paperclip className="mb-3 h-10 w-10 opacity-40 text-muted-foreground" />
-                          <p className="font-semibold text-foreground">No documents attached</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            No proposal files or budget documents were uploaded with this proposal.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="overview" className="mt-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <h2 className="text-base font-bold">Abstract</h2>
+              {/* Keywords */}
+              {proposal.keywords && proposal.keywords.length > 0 && (
+                <Card className="shadow-sm border-primary/5">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-primary" />
+                      Keywords
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {proposal.keywords.map((kw: string, i: number) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {kw}
+                        </Badge>
+                      ))}
                     </div>
-                    <div className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                      <HtmlContentRenderer
-                        content={proposal.abstract || "No abstract provided."}
-                      />
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* ── Documents Preview Tab ──────────────────────────────────── */}
+            <TabsContent value="documents" className="pt-6 space-y-6">
+              {documentList.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Document Sub-navigation Pills */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-2.5 rounded-xl border border-border/60 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50 w-full sm:w-auto">
+                      {documentList.map((doc) => {
+                        const isActive = doc.key === (activeDoc?.key || documentList[0]?.key);
+                        const resolved = resolveFileUrl(doc.filePath) || doc.filePath || "";
+                        const kind = getConceptNoteAttachmentKind(resolved);
+                        return (
+                          <Button
+                            key={doc.key}
+                            variant={isActive ? "default" : "ghost"}
+                            size="sm"
+                            className="h-8 text-xs font-semibold rounded-md gap-2"
+                            onClick={() => setActiveDocKey(doc.key)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            {doc.label}
+                            <Badge
+                              variant={isActive ? "secondary" : "outline"}
+                              className="text-[9px] uppercase px-1.5 py-0 font-bold"
+                            >
+                              {kind.toUpperCase()}
+                            </Badge>
+                          </Button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {proposal.keywords?.length ? (
-                    <div className="space-y-3 border-t pt-4">
-                      <h3 className="text-sm font-bold">Keywords</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {proposal.keywords.map((keyword) => (
-                          <Badge
-                            key={keyword}
-                            variant="secondary"
-                            className="bg-muted/70"
-                          >
-                            {keyword}
-                          </Badge>
-                        ))}
+                  {/* Inline Document Previewer */}
+                  {activeDoc?.filePath ? (
+                    <EmbeddedViewer
+                      url={activeDoc.filePath}
+                      title={activeDoc.label}
+                    />
+                  ) : (
+                    <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <h3 className="font-bold text-muted-foreground">No Document Selected</h3>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-16 text-center border-2 border-dashed rounded-xl bg-card">
+                  <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <h3 className="font-bold text-muted-foreground">No Uploaded Files</h3>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
+                    No proposal documents or supporting files were attached to this submission.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── Team Tab ──────────────────────────────────────────────── */}
+            <TabsContent value="team" className="pt-6 space-y-6">
+              <Card className="shadow-sm border-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Research Team
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Principal Investigator */}
+                  <div className="p-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-background flex items-center gap-4 shadow-2xs">
+                    <Avatar className="h-14 w-14 border-2 border-primary/40 shadow-xs shrink-0 ring-4 ring-primary/10">
+                      <AvatarImage
+                        src={piAvatar}
+                        alt={piName}
+                        className="object-cover h-full w-full"
+                      />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-black text-base">
+                        {getInitials(piName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-base font-bold text-foreground truncate">
+                          {piName}
+                        </p>
+                        <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider bg-primary">
+                          Principal Investigator
+                        </Badge>
                       </div>
-                    </div>
-                  ) : null}
-                </TabsContent>
-
-                <TabsContent value="team" className="mt-6 space-y-6">
-                  {teamMembers.length ? (
-                    <>
-                      {internalTeam.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-bold flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-blue-500" />
-                            Members ({internalTeam.length})
-                          </h3>
-                          <div className="space-y-3">
-                            {internalTeam.map((member) => (
-                              <div
-                                key={member.id}
-                                className="rounded-xl border border-l-4 border-l-blue-500 p-4"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex items-start gap-3">
-                                    <Avatar className="h-10 w-10 mt-0.5">
-                                      <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-bold">
-                                        {getInitials(
-                                          (member.memberName ?? member.member_name)?.split(" ")[0],
-                                          (member.memberName ?? member.member_name)?.split(" ")[1],
-                                        )}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                      <p className="text-sm font-semibold">
-                                        {member.memberName || member.member_name || "Unnamed member"}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {member.roleName || member.role_name ||
-                                          `Role ${member.role ?? "N/A"}`}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <Badge
-                                    variant="secondary"
-                                    className="capitalize text-[10px]"
-                                  >
-                                    {member.memberType ?? member.member_type}
-                                  </Badge>
-                                </div>
-                                <div className="mt-3 ml-13 grid gap-2 text-sm sm:grid-cols-2">
-                                  {(member.memberEmail || member.member_email) && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                      <Mail className="h-3.5 w-3.5 shrink-0" />
-                                      <span className="break-all text-xs">
-                                        {member.memberEmail || member.member_email}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {(member.phoneNumber || member.phone_number) && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                      <Phone className="h-3.5 w-3.5 shrink-0" />
-                                      <span className="text-xs">
-                                        {member.phoneNumber || member.phone_number}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {externalTeam.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-sm font-bold flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                            External Stakeholders ({externalTeam.length})
-                          </h3>
-                          <div className="space-y-3">
-                            {externalTeam.map((member) => (
-                              <div
-                                key={member.id}
-                                className="rounded-xl border border-l-4 border-l-emerald-500 p-4"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex items-start gap-3">
-                                    <Avatar className="h-10 w-10 mt-0.5">
-                                      <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-bold">
-                                        {getInitials(
-                                          (member.stakeholderName ?? member.stakeholder_name)?.split(" ")[0],
-                                          (member.stakeholderName ?? member.stakeholder_name)?.split(" ")[1],
-                                        )}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                      <p className="text-sm font-semibold">
-                                        {member.stakeholderName || member.stakeholder_name ||
-                                          "Unnamed stakeholder"}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {member.roleName || member.role_name ||
-                                          `Role ${member.role ?? "N/A"}`}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <Badge
-                                    variant="secondary"
-                                    className="capitalize text-[10px]"
-                                  >
-                                    {member.memberType ?? member.member_type}
-                                  </Badge>
-                                </div>
-                                <div className="mt-3 ml-13 grid gap-2 text-sm sm:grid-cols-2">
-                                  {member.email && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                      <Mail className="h-3.5 w-3.5 shrink-0" />
-                                      <span className="break-all text-xs">
-                                        {member.email}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {(member.phoneNumber || member.phone_number) && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                      <Phone className="h-3.5 w-3.5 shrink-0" />
-                                      <span className="text-xs">
-                                        {member.phoneNumber || member.phone_number}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {(member.organizationName || member.organization_name) && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                      <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                      <span className="text-xs">
-                                        {member.organizationName || member.organization_name}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {member.position && (
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                      <MapPin className="h-3.5 w-3.5 shrink-0" />
-                                      <span className="text-xs">
-                                        {member.position}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
-                      <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        No team members added yet.
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="reviews" className="mt-6">
-                  {reviewHistoryObject || reviewHistoryEvents.length ? (
-                    <div className="space-y-4">
-                      {reviewHistoryObject ? (
-                        <div className="rounded-xl border bg-muted/10 p-4">
-                          <div className="grid gap-4 sm:grid-cols-3">
-                            <DetailLine
-                              label="Review Status"
-                              value={reviewHistoryObject.status || "N/A"}
-                            />
-                            <DetailLine
-                              label="Reviewed At"
-                              value={formatDateTime(
-                                reviewHistoryObject.reviewedAt,
-                              )}
-                            />
-                            <DetailLine
-                              label="Decision Remarks"
-                              value={
-                                reviewHistoryObject.decisionRemarks || "None"
-                              }
-                            />
-                          </div>
-                        </div>
-                      ) : null}
-                      {reviewHistoryEvents.length ? (
-                        <div className="space-y-0">
-                          {reviewHistoryEvents.map((review, idx) => {
-                            const reviewerName =
-                              (review as any).reviewer?.fullName ||
-                              review.reviewer?.name ||
-                              (review as any).reviewer?.email ||
-                              null;
-                            const totalScore = (review as any).totalScore;
-                            const itemTitle =
-                              review.recommendation?.replace(/_/g, " ") ||
-                              (totalScore !== undefined && totalScore !== null
-                                ? `Technical Review (Score: ${totalScore} pts)`
-                                : reviewerName
-                                  ? `Technical Review by ${reviewerName}`
-                                  : "Technical Review");
-
-                            return (
-                              <div key={review.id || idx} className="flex gap-4">
-                                <div className="flex flex-col items-center">
-                                  <div
-                                    className={cn(
-                                      "w-3 h-3 rounded-full mt-1.5",
-                                      review.recommendation?.includes("approved")
-                                        ? "bg-emerald-500"
-                                        : review.recommendation?.includes(
-                                          "rejected",
-                                        )
-                                          ? "bg-rose-500"
-                                          : "bg-primary",
-                                    )}
-                                  />
-                                  {idx < reviewHistoryEvents.length - 1 && (
-                                    <div className="w-0.5 flex-1 bg-border mt-2" />
-                                  )}
-                                </div>
-                                <div className="flex-1 pb-6">
-                                  <div className="rounded-xl border bg-card p-4">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm text-foreground capitalize">
-                                          {itemTitle}
-                                        </p>
-                                        {reviewerName && review.recommendation && (
-                                          <p className="text-xs text-muted-foreground mt-0.5">
-                                            by {reviewerName}
-                                          </p>
-                                        )}
-                                        {review.comments && (
-                                          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                                            {review.comments}
-                                          </p>
-                                        )}
-                                      </div>
-                                      <div className="text-right text-xs text-muted-foreground whitespace-nowrap">
-                                        {formatDate(review.createdAt)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
-                          <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            No technical reviews available.
-                          </p>
-                        </div>
+                      {piEmail && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                          {piEmail}
+                        </p>
                       )}
                     </div>
-                  ) : (
-                    <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
-                      <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        No review history available yet.
-                      </p>
-                    </div>
-                  )}
-                </TabsContent>
+                  </div>
 
-                <TabsContent value="timeline" className="mt-6">
-                  {timelineEvents.length ? (
-                    <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-                      {timelineEvents.map((event, idx) => {
-                        const statusLower = (event.status || "").toLowerCase();
-                        const isSuccess =
-                          statusLower.includes("approved") ||
-                          statusLower.includes("completed") ||
-                          statusLower.includes("submitted") ||
-                          statusLower.includes("recommendation_made");
-                        const isDanger = statusLower.includes("rejected");
-                        const isWarning =
-                          statusLower.includes("under_review") ||
-                          statusLower.includes("pending") ||
-                          statusLower.includes("resubmitted");
+                  {/* Team Members List with Avatars */}
+                  {rawTeamList.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Team Members ({rawTeamList.length})
+                        </h4>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2">
+                        {rawTeamList.map((member: any, idx: number) => {
+                          const name =
+                            member.memberName ||
+                            member.stakeholderName ||
+                            member.name ||
+                            [member.user?.firstName, member.user?.lastName].filter(Boolean).join(" ") ||
+                            `Team Member ${idx + 1}`;
+                          const email = member.memberEmail || member.email || member.user?.email || "";
+                          const roleName = member.roleName || member.position || member.role || "Co-Investigator";
+                          const isExternal =
+                            member.memberType?.toLowerCase() === "external" ||
+                            member.member_type?.toLowerCase() === "external" ||
+                            Boolean(member.stakeholderName);
+                          const rawPhoto = member.photoUrl || member.photo_url || member.avatarUrl || member.user?.photoUrl;
+                          const photoUrl = getUserAvatarUrl(rawPhoto);
+                          const initials = getInitials(name);
 
-                        return (
-                          <div
-                            key={idx}
-                            className="relative flex items-start gap-4 group"
-                          >
+                          return (
                             <div
+                              key={member.id || idx}
                               className={cn(
-                                "absolute -left-6 top-1 flex h-5 w-5 items-center justify-center rounded-full border bg-background text-xs shadow-xs transition-transform group-hover:scale-110",
-                                isSuccess
-                                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                                  : isDanger
-                                    ? "border-rose-500 bg-rose-50 text-rose-700"
-                                    : isWarning
-                                      ? "border-amber-500 bg-amber-50 text-amber-700"
-                                      : "border-primary bg-primary/10 text-primary",
+                                "p-3.5 rounded-xl border bg-card hover:bg-muted/30 transition-colors flex items-start gap-3.5 shadow-2xs",
+                                isExternal ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-blue-500",
                               )}
                             >
-                              {isSuccess ? (
-                                <CheckCircle2 className="h-3 w-3" />
-                              ) : isDanger ? (
-                                <AlertCircle className="h-3 w-3" />
-                              ) : (
-                                <Clock className="h-3 w-3" />
-                              )}
-                            </div>
+                              <Avatar className="h-10 w-10 border border-border/60 shrink-0 shadow-2xs">
+                                <AvatarImage
+                                  src={photoUrl}
+                                  alt={name}
+                                  className="object-cover h-full w-full"
+                                />
+                                <AvatarFallback
+                                  className={cn(
+                                    "text-xs font-bold",
+                                    isExternal
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                      : "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                                  )}
+                                >
+                                  {initials}
+                                </AvatarFallback>
+                              </Avatar>
 
-                            <div className="flex-1 rounded-xl border bg-card p-4 shadow-xs">
-                              <div className="flex flex-wrap items-start justify-between gap-2">
-                                <div>
-                                  <h4 className="text-sm font-bold text-foreground">
-                                    {event.action}
-                                  </h4>
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <p className="text-sm font-bold text-foreground truncate">{name}</p>
                                   <Badge
-                                    variant="outline"
-                                    className={cn(
-                                      "mt-1 text-[10px] font-bold uppercase shadow-none",
-                                      isSuccess
-                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                        : isDanger
-                                          ? "border-rose-200 bg-rose-50 text-rose-700"
-                                          : "border-amber-200 bg-amber-50 text-amber-700",
-                                    )}
+                                    variant={isExternal ? "outline" : "secondary"}
+                                    className="text-[9px] uppercase px-1.5 py-0 shrink-0 font-semibold"
                                   >
-                                    {event.status.replace(/_/g, " ")}
+                                    {isExternal ? "External" : "Internal"}
                                   </Badge>
                                 </div>
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {formatDateTime(event.timestamp)}
-                                </span>
+
+                                <p className="text-xs text-primary font-semibold">{roleName}</p>
+
+                                {email && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{email}</span>
+                                  </p>
+                                )}
+                                {(member.phoneNumber || member.phone_number) && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{member.phoneNumber || member.phone_number}</span>
+                                  </p>
+                                )}
+                                {(member.organizationName || member.organization_name) && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{member.organizationName || member.organization_name}</span>
+                                  </p>
+                                )}
                               </div>
-                              {event.comment && (
-                                <div className="mt-3 rounded-lg border bg-muted/30 p-2.5 text-xs text-muted-foreground italic">
-                                  &ldquo;{event.comment}&rdquo;
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── Review History Tab ────────────────────────────────────── */}
+            <TabsContent value="history" className="pt-6 space-y-6">
+              <Card className="shadow-xs border-border/60 overflow-hidden">
+                <CardHeader className="border-b bg-muted/30 py-4 px-6 flex flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <History className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold">Proposal Audit & Review History</CardTitle>
+                      <p className="text-xs text-muted-foreground">Complete lifecycle activity log and status progression</p>
+                    </div>
+                  </div>
+                  {proposal.reviewTimeline && proposal.reviewTimeline.length > 0 && (
+                    <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-background border-border/60">
+                      {proposal.reviewTimeline.length} {proposal.reviewTimeline.length === 1 ? "Event" : "Events"}
+                    </Badge>
+                  )}
+                </CardHeader>
+                <CardContent className="p-6">
+                  {proposal.reviewTimeline && proposal.reviewTimeline.length > 0 ? (
+                    <div className="relative pl-3 space-y-8 before:absolute before:left-6 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-primary/40 before:via-border before:to-muted">
+                      {proposal.reviewTimeline.map((event: any, idx: number) => {
+                        const statusStr = (event.status || event.action || "").toLowerCase();
+                        let Icon = Clock;
+                        let nodeStyle = "bg-primary text-primary-foreground shadow-xs ring-4 ring-primary/10";
+                        let borderStyle = "border-l-4 border-l-primary";
+                        let badgeStyle = "bg-primary/10 text-primary border-primary/20";
+                        let statusLabel = event.action || "Status Update";
+
+                        if (statusStr.includes("approved")) {
+                          Icon = CheckCircle2;
+                          nodeStyle = "bg-emerald-600 text-white shadow-emerald-500/20 ring-4 ring-emerald-500/15";
+                          borderStyle = "border-l-4 border-l-emerald-500";
+                          badgeStyle = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+                          statusLabel = "Screening Approved";
+                        } else if (statusStr.includes("rejected")) {
+                          Icon = XCircle;
+                          nodeStyle = "bg-rose-600 text-white shadow-rose-500/20 ring-4 ring-rose-500/15";
+                          borderStyle = "border-l-4 border-l-rose-500";
+                          badgeStyle = "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30";
+                          statusLabel = "Screening Rejected";
+                        } else if (statusStr.includes("revision")) {
+                          Icon = RotateCcw;
+                          nodeStyle = "bg-amber-600 text-white shadow-amber-500/20 ring-4 ring-amber-500/15";
+                          borderStyle = "border-l-4 border-l-amber-500";
+                          badgeStyle = "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
+                          statusLabel = "Revision Requested";
+                        } else if (statusStr.includes("under_review") || statusStr.includes("screening")) {
+                          Icon = Search;
+                          nodeStyle = "bg-blue-600 text-white shadow-blue-500/20 ring-4 ring-blue-500/15";
+                          borderStyle = "border-l-4 border-l-blue-500";
+                          badgeStyle = "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30";
+                          statusLabel = "Under Screening Review";
+                        } else if (statusStr.includes("submitted")) {
+                          Icon = Send;
+                          nodeStyle = "bg-indigo-600 text-white shadow-indigo-500/20 ring-4 ring-indigo-500/15";
+                          borderStyle = "border-l-4 border-l-indigo-500";
+                          badgeStyle = "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
+                          statusLabel = "Submitted";
+                        }
+
+                        const commentText = event.comment || event.decisionRemarks || event.remarks;
+
+                        return (
+                          <div key={idx} className="relative flex items-start gap-5 group">
+                            {/* Step Node Icon */}
+                            <div className={cn("relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110", nodeStyle)}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+
+                            {/* Event Card */}
+                            <div className="flex-1 min-w-0">
+                              <div className={cn("rounded-2xl border bg-card p-4 shadow-xs transition-all duration-200 hover:shadow-md", borderStyle)}>
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <h4 className="font-bold text-sm text-foreground truncate">
+                                      {event.action || statusLabel}
+                                    </h4>
+                                    {event.status && (
+                                      <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5", badgeStyle)}>
+                                        {event.status.replace(/_/g, " ")}
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* Timestamp Badge */}
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-lg border border-border/40 shrink-0">
+                                    <Calendar className="h-3 w-3 text-muted-foreground/70" />
+                                    <span className="font-medium">
+                                      {event.timestamp
+                                        ? new Date(event.timestamp).toLocaleDateString("en-US", {
+                                          day: "numeric",
+                                          month: "short",
+                                          year: "numeric",
+                                        })
+                                        : "N/A"}
+                                    </span>
+                                    {event.timestamp && (
+                                      <>
+                                        <span className="text-muted-foreground/40">•</span>
+                                        <Clock className="h-3 w-3 text-muted-foreground/70" />
+                                        <span className="font-medium">
+                                          {new Date(event.timestamp).toLocaleTimeString("en-US", {
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                            hour12: true,
+                                          })}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
+
+                                {/* Decision Remarks / Comments Section */}
+                                {commentText ? (
+                                  <div className="mt-3 p-3 rounded-xl bg-muted/40 border border-border/50 text-xs space-y-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-1.5 font-bold text-foreground">
+                                        <MessageSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                                        Reviewer Comments & Remarks
+                                      </div>
+                                      <Badge variant="outline" className="text-[9px] uppercase font-bold text-muted-foreground border-border/60 bg-background">
+                                        Anonymous Feedback
+                                      </Badge>
+                                    </div>
+                                    <p className="text-muted-foreground leading-relaxed italic pl-5 border-l-2 border-primary/30">
+                                      &ldquo;{commentText}&rdquo;
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="mt-2 text-xs text-muted-foreground/70 italic">
+                                    No additional remarks recorded for this status step.
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
-                      <History className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        No audit trail timeline events recorded yet.
+                    <div className="p-16 text-center border-2 border-dashed rounded-2xl bg-muted/10">
+                      <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+                        <History className="h-6 w-6" />
+                      </div>
+                      <h3 className="font-bold text-foreground text-sm">No Review History Recorded</h3>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
+                        This proposal is currently in its initial submission stage. Review activity will be logged automatically here as it moves through the screening process.
                       </p>
                     </div>
                   )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* Sidebar */}
+        {/* ── Sidebar ──────────────────────────────────────────────────── */}
         <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
-          {/* Proposal Metadata */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-primary/5 py-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          {/* Proposal Details Card */}
+          <Card className="shadow-xs border-border/60 overflow-hidden">
+            <CardHeader className="bg-muted/40 border-b py-3.5 px-5 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-primary" />
                 Proposal Details
               </CardTitle>
+              {proposal.referenceNumber && (
+                <Badge variant="outline" className="font-mono text-[10px] bg-background border-border/60 font-bold px-2 py-0.5">
+                  {proposal.referenceNumber}
+                </Badge>
+              )}
             </CardHeader>
-            <CardContent className="pt-4">
-              <DetailLine label="Status" value={statusLabel} />
-              <Separator className="my-1" />
-              <DetailLine
-                label="Submitted"
-                value={proposal.submittedAt ? "Yes" : "No"}
-              />
-              <Separator className="my-1" />
-              <DetailLine
-                label="Start Date"
-                value={formatDate(proposal.startDate)}
-              />
-              <Separator className="my-1" />
-              <DetailLine
-                label="End Date"
-                value={formatDate(proposal.endDate)}
-              />
-              <Separator className="my-1" />
-              <DetailLine
-                label="Budget"
-                value={
-                  proposal.budgetRequested
-                    ? `ETB ${proposal.budgetRequested}`
-                    : "Not set"
-                }
-              />
-              {proposal.subThematicArea?.name && (
-                <>
-                  <Separator className="my-1" />
-                  <DetailLine
-                    label="Sub-Thematic Area"
-                    value={proposal.subThematicArea.name}
-                  />
-                </>
+            <CardContent className="p-5 space-y-4">
+              {/* Status Badge */}
+              <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Status</span>
+                <StatusBadge
+                  status={proposal.status}
+                  displayLabel={proposal.statusDisplay}
+                />
+              </div>
+
+              {/* Requested Budget Highlight */}
+              {proposal.budgetRequested && (
+                <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background border border-emerald-500/20 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300 tracking-wider">
+                        Requested Budget
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                    {formatBudget(proposal.budgetRequested)}
+                  </span>
+                </div>
+              )}
+
+              {/* Grant Call Info */}
+              {proposal.call && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/15 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-primary tracking-wider">
+                    <Tag className="h-3 w-3" />
+                    Grant Call
+                  </div>
+                  <p className="text-xs font-bold text-foreground leading-snug break-words">
+                    {proposal.call.title}
+                  </p>
+                </div>
+              )}
+
+              {/* Classification Grid */}
+              <div className="space-y-2.5 text-xs pt-1">
+                {proposal.proposalType && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Type</span>
+                    <span className="font-bold text-foreground text-right">{proposal.proposalType.name}</span>
+                  </div>
+                )}
+
+                {proposal.subProposalType && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Sub Type</span>
+                    <span className="font-semibold text-foreground text-right">{proposal.subProposalType.name}</span>
+                  </div>
+                )}
+
+                {(proposal.thematicAreas?.length > 0 || proposal.researchArea) && (
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-muted-foreground font-medium shrink-0">Thematic Area</span>
+                    <Badge variant="secondary" className="font-bold text-[10px] text-right truncate max-w-[170px] bg-primary/10 text-primary border-none">
+                      {proposal.thematicAreas?.length > 0
+                        ? proposal.thematicAreas.map((t: any) => t.name).join(", ")
+                        : proposal.researchArea}
+                    </Badge>
+                  </div>
+                )}
+
+                {proposal.subThematicArea && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium shrink-0">Sub Thematic</span>
+                    <Badge variant="outline" className="font-semibold text-[10px] text-right truncate max-w-[170px]">
+                      {proposal.subThematicArea.name}
+                    </Badge>
+                  </div>
+                )}
+
+                {proposal.version && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Version</span>
+                    <Badge variant="outline" className="font-mono text-[10px] bg-muted/30">
+                      v{proposal.version}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              {/* Project Period & Submitted Date */}
+              <div className="pt-3.5 border-t border-border/40 space-y-3">
+                {proposal.startDate && proposal.endDate && (
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                        Project Period
+                      </p>
+                      <p className="text-xs font-bold text-foreground mt-0.5">
+                        {new Date(proposal.startDate).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                        <span className="text-muted-foreground/60 mx-1.5">•</span>
+                        {new Date(proposal.endDate).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Submitted Date & Time
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      <span className="text-xs font-bold text-foreground">
+                        {new Date(proposal.submittedAt || proposal.createdAt).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className="text-muted-foreground/40 text-xs">•</span>
+                      <Badge variant="outline" className="text-[10px] font-bold bg-background text-primary border-primary/20 px-1.5 py-0 font-mono">
+                        {new Date(proposal.submittedAt || proposal.createdAt).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Affiliated Institution Card */}
+          <Card className="shadow-xs border-border/60 overflow-hidden">
+            <CardHeader className="py-3.5 px-5 border-b bg-muted/40 flex flex-row items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary shrink-0" />
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Affiliated Institution
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 space-y-4">
+              {/* Submitted To (Receiving Office) */}
+              {proposal.receivingOffice && (
+                <div className="flex items-start gap-3 p-3 rounded-xl border bg-muted/20">
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                    <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Submitted To
+                    </p>
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.receivingOffice.name}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Organization */}
+              {proposal.Organization && (
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Lead Organization
+                    </p>
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.Organization.name}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Unit / Department */}
+              {proposal.Unit && (
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Layers className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Department / Academic Unit
+                    </p>
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.Unit.name}
+                    </p>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Institutional  */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-primary/5 py-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Institution
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <FileText className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {proposal.call?.title || "No call assigned"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Grant call</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Building2 className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {proposal.Organization?.name ||
-                      "No organization assigned"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Organization
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Layers className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {proposal.Unit?.name || "No unit assigned"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Unit</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <MapPin className="h-4 w-4 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {proposal.receivingOffice?.name ||
-                      "No receiving office assigned"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Submitted To
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Files & Signature */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-primary/5 py-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Files & Signature
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-2">
-              {proposal.proposalFile ? (
-                <a
-                  href={resolveFileUrl(proposal.proposalFile) ?? "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-xl border p-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      Proposal Document
-                    </p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </a>
-              ) : null}
-              {proposal.updatedProposal ? (
-                <a
-                  href={resolveFileUrl(proposal.updatedProposal) ?? "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-xl border p-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-90/30">
-                    <FileText className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      Updated Proposal
-                    </p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </a>
-              ) : null}
-              {proposal.supportingDocs ? (
-                <a
-                  href={resolveFileUrl(proposal.supportingDocs) ?? "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-xl border p-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-90/30">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      Supporting Documents
-                    </p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </a>
-              ) : null}
-              {proposal.signature ? (
-                <div className="rounded-xl border p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Digital Signature
-                  </p>
+          {hasSignature && (
+            <Card className="shadow-xs border-border/60 overflow-hidden hover:shadow-md transition-all duration-200">
+              <CardHeader className="border-b bg-muted/40 py-3.5 px-5 flex flex-row items-center gap-2">
+                <Shield className="h-4 w-4 text-primary shrink-0" />
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Digital Signature
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="rounded-xl border border-border/60 p-4 bg-white dark:bg-muted/30 backdrop-blur-xs flex items-center justify-center shadow-2xs">
                   <img
                     src={resolveFileUrl(proposal.signature) ?? undefined}
                     alt="Proposal signature"
-                    className="mt-2 h-28 w-full max-w-full object-contain rounded-lg border bg-white"
+                    className="h-24 w-auto max-w-full object-contain filter drop-shadow-xs dark:invert dark:hue-rotate-180"
                   />
                 </div>
-              ) : null}
-              {!proposal.proposalFile &&
-                !proposal.updatedProposal &&
-                !proposal.supportingDocs &&
-                !proposal.signature ? (
-                <div className="rounded-xl border border-dashed bg-muted/10 p-6 text-center">
-                  <FileText className="mx-auto h-6 w-6 text-muted-foreground/50" />
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    No files available.
-                  </p>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          {/* Created By */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-primary/5 py-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Created By
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-11 w-11">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
-                    {proposal.createdBy
-                      ? getInitials(
-                        proposal.createdBy.firstName,
-                        proposal.createdBy.lastName,
-                      )
-                      : "?"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {proposal.createdBy
-                      ? formatName(
-                        proposal.createdBy.firstName,
-                        proposal.createdBy.lastName,
-                      )
-                      : "Unknown creator"}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {proposal.createdBy?.email || "No email available"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </div>
 
+      {/* ── File Preview Dialog ─────────────────────────────────────────────── */}
       <PdfViewerDialog
-        isOpen={previewDialog.isOpen}
-        onOpenChange={(open) =>
-          setPreviewDialog((prev) => ({ ...prev, isOpen: open }))
-        }
-        url={previewDialog.url}
-        title={previewDialog.title}
+        isOpen={!!viewingFile}
+        onOpenChange={(open) => { if (!open) setViewingFile(null); }}
+        url={viewingFile?.url ?? ""}
+        title={viewingFile?.name ?? "Document preview"}
       />
 
+      {/* ── Confirm Delete Dialog ───────────────────────────────────────────── */}
       <ConfirmDialog
         open={confirmDeleteOpen}
         onOpenChange={setConfirmDeleteOpen}

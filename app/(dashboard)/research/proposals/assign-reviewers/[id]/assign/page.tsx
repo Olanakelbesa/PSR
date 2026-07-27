@@ -15,6 +15,8 @@ import {
   Info,
   X,
   ShieldCheck,
+  ShieldAlert,
+  Mail,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,15 @@ interface LocalReviewer {
   organization?: string;
   unit?: string;
   title?: string;
+}
+
+function getUserAvatarUrl(photoUrl?: string | null): string | undefined {
+  if (!photoUrl || photoUrl === "#") return undefined;
+  if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+    return photoUrl;
+  }
+  const cleanPath = photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`;
+  return `/bff/media/stream/${cleanPath.replace(/^\/media\//, "")}`;
 }
 
 function formatApiError(error: any, fallback: string) {
@@ -181,51 +192,111 @@ export default function AssignReviewersDetailPage() {
   const { user: currentUser } = useCurrentUser();
   const assignerId = currentUser?.id != null ? Number(currentUser.id) : null;
 
-  const piId = useMemo(() => {
-    if (!screening) return null;
-    const rawProposal = (screening.proposal || {}) as any;
-    const rawPi =
-      screening.principalInvestigator ||
-      rawProposal.principalInvestigator ||
-      rawProposal.principal_investigator ||
-      rawProposal.createdBy ||
-      rawProposal.created_by;
-    if (!rawPi) return null;
-    if (typeof rawPi === "object") {
-      return rawPi.id != null ? Number(rawPi.id) : null;
-    }
-    return Number(rawPi) || null;
-  }, [screening]);
+  // ── Conflict of Interest Exclusion Set (PI, Creator, Team Members, Assigner) ──
+  const { excludedUserIds, excludedUserEmails, excludedTeamCount } = useMemo(() => {
+    const ids = new Set<number>();
+    const emails = new Set<string>();
 
-  useEffect(() => {
-    setSelectedIds((prev) =>
-      prev.filter((id) => id !== piId && id !== assignerId),
-    );
-  }, [piId, assignerId]);
+    if (assignerId != null) {
+      ids.add(assignerId);
+      if (currentUser?.email) emails.add(currentUser.email.toLowerCase().trim());
+    }
+
+    if (screening) {
+      const rawProposal = (screening.proposal || {}) as any;
+
+      // 1. Principal Investigator
+      const rawPi =
+        screening.principalInvestigator ||
+        rawProposal.principalInvestigator ||
+        rawProposal.principal_investigator;
+      if (rawPi) {
+        if (typeof rawPi === "object") {
+          if (rawPi.id != null) ids.add(Number(rawPi.id));
+          if (rawPi.email) emails.add(String(rawPi.email).toLowerCase().trim());
+        } else if (!isNaN(Number(rawPi))) {
+          ids.add(Number(rawPi));
+        }
+      }
+
+      // 2. Proposal Creator / Owner
+      const creator = rawProposal.createdBy || rawProposal.created_by;
+      if (creator) {
+        if (typeof creator === "object") {
+          if (creator.id != null) ids.add(Number(creator.id));
+          if (creator.email) emails.add(String(creator.email).toLowerCase().trim());
+        } else if (!isNaN(Number(creator))) {
+          ids.add(Number(creator));
+        }
+      }
+
+      // 3. Team Members & Co-Investigators
+      const team =
+        rawProposal.teamMembers ||
+        rawProposal.team_members ||
+        rawProposal.coInvestigators ||
+        rawProposal.co_investigators ||
+        [];
+
+      if (Array.isArray(team)) {
+        team.forEach((m: any) => {
+          const uObj = m.user ?? m.user_detail ?? m;
+          const uId = uObj?.id ?? m.userId ?? m.user_id;
+          const uEmail = uObj?.email ?? m.memberEmail ?? m.email;
+
+          if (uId != null && !isNaN(Number(uId))) {
+            ids.add(Number(uId));
+          }
+          if (uEmail) {
+            emails.add(String(uEmail).toLowerCase().trim());
+          }
+        });
+      }
+    }
+
+    const count = ids.size > 0 || emails.size > 0 ? (ids.size + emails.size) : 0;
+
+    return {
+      excludedUserIds: ids,
+      excludedUserEmails: emails,
+      excludedTeamCount: count,
+    };
+  }, [screening, assignerId, currentUser]);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
   const filteredUsers = useMemo(() => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
     return users.filter((u: any) => {
       const uId = Number(u.id);
-      // Remove Principal Investigator and Assigner dynamically from the user selector list
-      if ((piId != null && uId === piId) || (assignerId != null && uId === assignerId)) {
+      const uEmail = (u.email || "").toLowerCase().trim();
+
+      // Conflict of Interest Exclusion: Exclude PI, Creator, Team Members, and Assigner
+      if (excludedUserIds.has(uId) || (uEmail && excludedUserEmails.has(uEmail))) {
         return false;
       }
+
+      if (!q) return true;
+
       const fullName =
         u.fullName ||
-        `${u.firstName || ""} ${u.middleName || ""} ${u.lastName || ""}`;
+        u.full_name ||
+        `${u.firstName || u.first_name || ""} ${u.middleName || u.middle_name || ""} ${u.lastName || u.last_name || ""}`;
+      const unitName = (u.unit?.name || u.unit_name || u.unit || "").toLowerCase();
+      const orgName = (u.organization?.name || u.organization_name || u.organization || "").toLowerCase();
+      const titleName = (u.title?.name || u.title_name || u.title || "").toLowerCase();
+
       return (
         fullName.toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q) ||
-        (u.unit?.name || "").toLowerCase().includes(q) ||
-        (u.organization?.name || "").toLowerCase().includes(q)
+        uEmail.includes(q) ||
+        unitName.includes(q) ||
+        orgName.includes(q) ||
+        titleName.includes(q)
       );
     });
-  }, [users, searchQuery, piId, assignerId]);
+  }, [users, searchQuery, excludedUserIds, excludedUserEmails]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const paginatedUsers = filteredUsers.slice(
@@ -234,21 +305,36 @@ export default function AssignReviewersDetailPage() {
   );
 
   const toggleAssignment = useCallback((userId: number) => {
-    if ((piId != null && userId === piId) || (assignerId != null && userId === assignerId)) return;
+    const matchingUser = users.find((u: any) => Number(u.id) === userId);
+    const uEmail = matchingUser?.email ? matchingUser.email.toLowerCase().trim() : "";
+
+    if (excludedUserIds.has(userId) || (uEmail && excludedUserEmails.has(uEmail))) {
+      toast.error("This user is a proposal author/team member and cannot be assigned as a reviewer due to Conflict of Interest.");
+      return;
+    }
+
     setSelectedIds((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
         : [...prev, userId],
     );
-  }, [piId, assignerId]);
+  }, [users, excludedUserIds, excludedUserEmails]);
 
   const selectedUsers = useMemo(() => {
     return users
-      .filter((u: any) => selectedIds.includes(u.id))
+      .filter((u: any) => {
+        const uId = Number(u.id);
+        const uEmail = (u.email || "").toLowerCase().trim();
+        return (
+          selectedIds.includes(uId) &&
+          !excludedUserIds.has(uId) &&
+          !excludedUserEmails.has(uEmail)
+        );
+      })
       .map(mapUserToSelector);
-  }, [users, selectedIds, mapUserToSelector]);
+  }, [users, selectedIds, excludedUserIds, excludedUserEmails, mapUserToSelector]);
 
-  const assignedCount = selectedIds.length;
+  const assignedCount = selectedUsers.length;
 
   const handleSubmitAssignment = useCallback(async () => {
     if (assignedCount === 0) {
@@ -261,17 +347,19 @@ export default function AssignReviewersDetailPage() {
       return;
     }
 
+    const validSelectedIds = selectedUsers.map((u) => u.id);
+
     setSubmitError(null);
     setSubmitting(true);
     try {
       await assignReviewers(
         screeningId,
-        selectedIds.map((v) => Number(v)),
+        validSelectedIds,
       );
       toast.success(
-        `Successfully assigned ${assignedCount} reviewer(s). They have been notified.`,
+        `Successfully assigned ${validSelectedIds.length} reviewer(s). They have been notified.`,
       );
-      router.push("/research/proposals/assign-reviewers");
+      router.push(`/research/proposals/assign-reviewers/${screeningId}?tab=reviewers`);
     } catch (error: any) {
       const message = formatApiError(
         error,
@@ -282,35 +370,39 @@ export default function AssignReviewersDetailPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [assignedCount, router, screeningId, selectedIds]);
+  }, [assignedCount, selectedUsers, router, screeningId]);
 
   const isLoadingPage = loading || isLoadingUsers;
 
   if (isLoadingPage) {
     return (
       <PageContainer title="Loading Reviewer Pool...">
-        <div className="rounded-xl border p-6 space-y-6 bg-card">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="h-6 w-[250px] bg-muted animate-pulse rounded" />
-              <div className="h-4 w-[350px] bg-muted animate-pulse rounded" />
-            </div>
-            <div className="flex gap-2">
-              <div className="h-9 w-[100px] bg-muted animate-pulse rounded" />
-              <div className="h-9 w-[150px] bg-muted animate-pulse rounded" />
+        <div className="grid gap-6 lg:grid-cols-4 items-start">
+          <div className="lg:col-span-3 space-y-6">
+            <div className="h-16 w-full bg-muted/60 animate-pulse rounded-xl" />
+            <div className="h-12 w-full bg-blue-500/10 animate-pulse rounded-xl" />
+
+            <div className="rounded-xl border bg-card p-6 space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                <div className="space-y-2">
+                  <div className="h-5 w-44 bg-muted animate-pulse rounded-md" />
+                  <div className="h-3 w-64 bg-muted/70 animate-pulse rounded-md" />
+                </div>
+                <div className="h-9 w-full sm:w-64 bg-muted animate-pulse rounded-md" />
+              </div>
+
+              <div className="space-y-2.5">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="h-20 w-full bg-muted/50 animate-pulse rounded-xl border p-4 flex items-center justify-between gap-4"
+                  />
+                ))}
+              </div>
             </div>
           </div>
-          <div className="grid gap-6 lg:grid-cols-4">
-            <div className="lg:col-span-3 space-y-4">
-              {[...Array(PAGE_SIZE)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-16 w-full bg-muted animate-pulse rounded-lg"
-                />
-              ))}
-            </div>
-            <div className="h-48 w-full bg-muted animate-pulse rounded-lg" />
-          </div>
+
+          <div className="h-64 w-full bg-muted/60 animate-pulse rounded-xl border" />
         </div>
       </PageContainer>
     );
@@ -369,9 +461,9 @@ export default function AssignReviewersDetailPage() {
             asChild
             className="shadow-sm border-primary/20 hover:bg-primary/5"
           >
-            <Link href="/research/proposals/assign-reviewers">
+            <Link href={`/research/proposals/assign-reviewers/${screeningId}?tab=reviewers`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Cancel
+              Back to Details
             </Link>
           </Button>
           <Button
@@ -421,7 +513,7 @@ export default function AssignReviewersDetailPage() {
                   asChild
                 >
                   <Link
-                    href={`/research/proposals/assign-reviewers/${screeningId}`}
+                    href={`/research/proposals/assign-reviewers/${screeningId}?tab=reviewers`}
                   >
                     <Info className="size-3" />
                     View Screening Details
@@ -431,6 +523,14 @@ export default function AssignReviewersDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Conflict of Interest Notice Banner */}
+          {/* <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 text-xs text-blue-800 dark:text-blue-300">
+            <ShieldAlert className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <div className="flex-1">
+              <span className="font-bold">Conflict of Interest Safeguard Active:</span> Proposal authors, principal investigators, co-investigators, and research team members are automatically excluded from the available reviewer selection pool.
+            </div>
+          </div> */}
+
           {/* Expert Pool */}
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="bg-muted/30 border-b pb-4">
@@ -438,8 +538,7 @@ export default function AssignReviewersDetailPage() {
                 <div>
                   <CardTitle className="text-lg">Reviewer Pool</CardTitle>
                   <CardDescription>
-                    Select subject matter experts to evaluate this research
-                    proposal.
+                    Select subject matter experts to evaluate this research proposal.
                   </CardDescription>
                 </div>
                 <div className="relative w-full sm:w-64">
@@ -454,288 +553,204 @@ export default function AssignReviewersDetailPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
-              {filteredUsers.length === 0 ? (
-                <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
-                  <AlertCircle className="h-8 w-8 text-muted-foreground/60" />
-                  <span>No reviewers match your search criteria.</span>
+            <CardContent className="p-6 space-y-6">
+              {paginatedUsers.length === 0 ? (
+                <div className="text-center py-12 border border-dashed rounded-xl">
+                  <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
+                  <h3 className="font-bold text-foreground">No reviewers found</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {searchQuery
+                      ? "No reviewers matched your search query."
+                      : "No eligible external reviewers are currently available in the system pool."}
+                  </p>
                 </div>
               ) : (
-                <>
-                  <div className="divide-y min-h-[280px]">
-                    {paginatedUsers.map((user: any) => {
-                      const isSelected = selectedIds.includes(user.id);
-                      const mapped = mapUserToSelector(user);
-                      return (
-                        <div
-                          key={user.id}
-                          className={cn(
-                            "flex items-center justify-between p-4 hover:bg-muted/20 transition-colors cursor-pointer",
-                            isSelected &&
-                              "bg-primary/5 hover:bg-primary/10",
-                          )}
-                          onClick={() => toggleAssignment(user.id)}
-                        >
-                          <div className="flex items-center gap-4">
-                            <Avatar
-                              className={cn(
-                                "h-10 w-10 border-2 transition-all",
-                                isSelected
-                                  ? "border-primary shadow-sm"
-                                  : "border-transparent",
-                              )}
-                            >
-                              <AvatarImage
-                                src={
-                                  resolveFileUrl(mapped.photoUrl) ??
-                                  undefined
-                                }
-                              />
-                              <AvatarFallback
-                                className={cn(
-                                  "text-xs font-bold transition-all",
-                                  isSelected
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-primary/10 text-primary",
-                                )}
-                              >
-                                {mapped.fullName
-                                  .split(" ")
-                                  .filter(Boolean)
-                                  .map((n: string) => n[0])
-                                  .join("")
-                                  .slice(0, 2)
-                                  .toUpperCase() || "U"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-sm text-foreground truncate">
-                                {mapped.fullName}
-                              </span>
-                              <span className="text-xs text-muted-foreground truncate">
-                                {mapped.email}
-                              </span>
-                              <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                                {mapped.organization && (
-                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/70">
-                                    {mapped.organization}
-                                  </span>
-                                )}
-                                {mapped.unit && (
-                                  <span className="text-[10px] font-medium text-muted-foreground">
-                                    {mapped.unit}
-                                  </span>
-                                )}
-                              </div>
-                              {user.roles &&
-                                user.roles.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {user.roles.map((role: any) => (
-                                      <Badge
-                                        key={role.id}
-                                        variant="secondary"
-                                        className="text-[9px] px-1.5 py-0 h-4 font-medium"
-                                      >
-                                        {role.name}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                            </div>
-                          </div>
-                          <Button
-                            variant={
-                              isSelected ? "default" : "outline"
-                            }
-                            size="sm"
-                            className={cn(
-                              "w-28 font-medium transition-all",
-                              isSelected
-                                ? "bg-primary hover:bg-primary/90"
-                                : "border-primary/20 hover:bg-primary/5 text-primary",
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleAssignment(user.id);
-                            }}
-                          >
-                            {isSelected ? (
-                              <>
-                                <Check className="mr-2 h-4 w-4" />{" "}
-                                Assigned
-                              </>
-                            ) : (
-                              "Assign"
-                            )}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="space-y-2.5">
+                  {paginatedUsers.map((user: any) => {
+                    const selector = mapUserToSelector(user);
+                    const isSelected = selectedIds.includes(selector.id);
+                    const photoUrl = getUserAvatarUrl(selector.photoUrl);
 
-                  {totalPages > 1 && (
-                    <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">
-                        Showing{" "}
-                        <span className="font-medium">{startIndex}</span>{" "}
-                        to{" "}
-                        <span className="font-medium">{endIndex}</span>{" "}
-                        of{" "}
-                        <span className="font-medium">
-                          {filteredUsers.length}
-                        </span>{" "}
-                        experts
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
-                          onClick={() =>
-                            setCurrentPage((p) =>
-                              Math.max(1, p - 1),
-                            )
-                          }
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        {Array.from(
-                          { length: totalPages },
-                          (_, i) => i + 1,
-                        ).map((page) => (
-                          <Button
-                            key={page}
-                            variant={
-                              currentPage === page
-                                ? "default"
-                                : "ghost"
-                            }
-                            size="sm"
+                    return (
+                      <div
+                        key={selector.id}
+                        onClick={() => toggleAssignment(selector.id)}
+                        className={cn(
+                          "p-4 rounded-xl border bg-card transition-all duration-200 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-md group",
+                          isSelected
+                            ? "border-primary bg-primary/5 ring-1 ring-primary shadow-2xs"
+                            : "border-border/60 hover:border-primary/40 hover:bg-muted/10",
+                        )}
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                          <div
                             className={cn(
-                              "h-8 w-8 p-0 text-xs font-semibold",
-                              currentPage === page
-                                ? "bg-primary text-primary-foreground"
-                                : "hover:bg-primary/5 text-primary",
+                              "h-5 w-5 rounded-md border flex items-center justify-center transition-colors shrink-0",
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "border-border/60 bg-background group-hover:border-primary/40",
                             )}
-                            onClick={() => setCurrentPage(page)}
                           >
-                            {page}
-                          </Button>
-                        ))}
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 border-primary/10 hover:bg-primary/5 text-primary"
-                          onClick={() =>
-                            setCurrentPage((p) =>
-                              Math.min(totalPages, p + 1),
-                            )
-                          }
-                          disabled={currentPage === totalPages}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                            {isSelected && <Check className="h-3.5 w-3.5" />}
+                          </div>
+
+                          <Avatar className="h-11 w-11 border-2 border-primary/20 shrink-0 shadow-2xs">
+                            <AvatarImage src={photoUrl} alt={selector.fullName} />
+                            <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
+                              {selector.fullName.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                                {selector.fullName}
+                              </h4>
+                              {selector.title && (
+                                <Badge variant="outline" className="text-[9px] uppercase font-bold px-2 py-0.5 bg-muted/40">
+                                  {selector.title}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                              <Mail className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                              <span className="truncate">{selector.email}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                          {(selector.unit || selector.organization) && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-semibold bg-muted/30 px-2.5 py-1 text-muted-foreground truncate max-w-[220px]"
+                            >
+                              {selector.unit || selector.organization}
+                            </Badge>
+                          )}
+
+                          <Badge
+                            variant={isSelected ? "default" : "outline"}
+                            className={cn(
+                              "text-[10px] uppercase font-extrabold px-2.5 py-1 tracking-wider",
+                              isSelected
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground border-border/60 bg-muted/20",
+                            )}
+                          >
+                            {isSelected ? "Assigned" : "Select"}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {filteredUsers.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t text-xs text-muted-foreground">
+                  <div>
+                    Showing <span className="font-bold">{startIndex}</span> to{" "}
+                    <span className="font-bold">{endIndex}</span> of{" "}
+                    <span className="font-bold">{filteredUsers.length}</span> eligible reviewers
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="font-semibold px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* ── Sidebar ──────────────────────────────────────────────────── */}
-        <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
-          {/* Assignment Summary */}
-          <Card className="shadow-sm border-primary/20 bg-primary/5">
-            <CardHeader className="pb-3 border-b border-primary/10">
-              <CardTitle className="text-base text-primary flex items-center justify-between">
-                Assignment Summary
-                <Badge className="bg-primary hover:bg-primary">
-                  {assignedCount}
+        {/* ── Selection Summary Sidebar ───────────────────────────────────── */}
+        <div className="space-y-6">
+          <Card className="shadow-sm border-primary/10 sticky top-20">
+            <CardHeader className="bg-muted/30 border-b py-3.5 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Selected Committee
+                </CardTitle>
+                <Badge variant="secondary" className="font-bold text-xs bg-primary/10 text-primary">
+                  {assignedCount} Assigned
                 </Badge>
-              </CardTitle>
+              </div>
             </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                You have selected{" "}
-                <strong>{assignedCount} reviewer(s)</strong> to evaluate
-                this proposal.
-              </p>
-              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                {selectedUsers.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
-                    Select reviewers from the directory
-                  </div>
-                ) : (
-                  selectedUsers.map((user) => (
+            <CardContent className="p-4 space-y-4">
+              {selectedUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <UserCheck className="mx-auto h-8 w-8 opacity-40 mb-2" />
+                  <p className="text-xs font-semibold">No Reviewers Selected</p>
+                  <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                    Click on cards in the pool to assign reviewers.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+                  {selectedUsers.map((user) => (
                     <div
                       key={user.id}
-                      className="flex items-center gap-2 text-sm bg-background p-2 rounded border border-primary/10 shadow-sm"
+                      className="flex items-center justify-between p-2.5 rounded-lg border bg-card text-xs shadow-2xs gap-2"
                     >
-                      <UserCheck className="h-4 w-4 text-green-600 shrink-0" />
-                      <span className="truncate font-medium text-foreground flex-1">
-                        {user.fullName}
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-7 w-7 border shrink-0">
+                          <AvatarImage src={getUserAvatarUrl(user.photoUrl)} />
+                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-[10px]">
+                            {user.fullName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-bold text-foreground truncate">
+                            {user.fullName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 text-muted-foreground hover:text-destructive shrink-0"
+                        size="sm"
                         onClick={() => toggleAssignment(user.id)}
-                        aria-label={`Remove ${user.fullName}`}
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                  ))
-                )}
-              </div>
-
-              {assignedCount === 0 && (
-                <div className="text-xs text-amber-600 bg-amber-50 p-2.5 rounded border border-amber-100 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
-                  <span>
-                    Select at least one reviewer to continue.
-                  </span>
+                  ))}
                 </div>
               )}
 
               <Button
                 onClick={handleSubmitAssignment}
                 disabled={submitting || assignedCount === 0}
-                className="bg-primary hover:bg-primary/90 shadow-sm w-full"
+                className="w-full bg-primary hover:bg-primary/90 font-semibold"
               >
-                {submitting ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="mr-2 h-4 w-4" />
-                    Save Assignments
-                  </>
-                )}
+                <Shield className="mr-2 h-4 w-4" />
+                {submitting ? "Saving..." : `Save ${assignedCount} Reviewer(s)`}
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Policy Info */}
-          <Card className="shadow-sm border-muted">
-            <CardContent className="pt-4 text-xs text-muted-foreground space-y-1.5">
-              <p className="font-medium text-foreground text-sm flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                Standard recommendation
-              </p>
-              <p>
-                Standard policy recommends 2 reviewers for research proposal
-                evaluation quality control.
-              </p>
-              <p>
-                Selected reviewers will be notified and given access to
-                conduct their technical review.
-              </p>
             </CardContent>
           </Card>
         </div>

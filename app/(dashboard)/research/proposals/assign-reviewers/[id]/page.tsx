@@ -2,25 +2,42 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
   Building2,
   Calendar,
+  Check,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   Clock,
+  Copy,
+  Download,
   ExternalLink,
   FileText,
+  History,
   Layers,
   Mail,
   MapPin,
+  MessageSquare,
+  Paperclip,
+  Phone,
   RefreshCw,
+  RotateCcw,
+  Search,
+  Send,
+  Shield,
   Tag,
+  User,
   Users,
+  Wallet,
+  XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import {
@@ -31,7 +48,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -54,23 +71,75 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
+import { ReviewerPoolList, type ReviewerPoolItem } from "@/components/research/reviewers";
 import { PdfViewerDialog } from "@/components/shared";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function formatDate(value?: string | null) {
-  if (!value) return "Not available";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-ET", {
-    dateStyle: "medium",
-  }).format(date);
+// ── Status display config ──────────────────────────────────────────────────────
+const STATUS_DISPLAY: Record<
+  string,
+  { label: string; className: string }
+> = {
+  draft: { label: "Draft", className: "bg-slate-100 text-slate-700 border-slate-200" },
+  submitted: { label: "Submitted", className: "bg-blue-100 text-blue-700 border-blue-200" },
+  resubmitted: { label: "Resubmitted", className: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  under_review: { label: "Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  screening_under_review: { label: "Screening Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
+  approved: { label: "Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  screening_approved: { label: "Screening Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  screening_rejected: { label: "Screening Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
+  revision_required: { label: "Revision Required", className: "bg-orange-100 text-orange-700 border-orange-200" },
+};
+
+function getUserAvatarUrl(photoUrl?: string | null): string | undefined {
+  if (!photoUrl || photoUrl === "#") return undefined;
+  if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+    return photoUrl;
+  }
+  const cleanPath = photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`;
+  return `/bff/media/stream/${cleanPath.replace(/^\/media\//, "")}`;
+}
+
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function StatusBadge({ status, displayLabel }: { status?: string | null; displayLabel?: string | null }) {
+  const normalizedKey = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  const cfg = STATUS_DISPLAY[normalizedKey] ?? {
+    label: displayLabel || (status ? status.replace(/_/g, " ") : "Screening Under Review"),
+    className: "bg-muted text-muted-foreground border-border",
+  };
+  return (
+    <Badge
+      variant="outline"
+      className={cn("px-3 py-1 border shadow-none text-[10px] font-bold uppercase tracking-wide", cfg.className)}
+    >
+      {displayLabel || cfg.label}
+    </Badge>
+  );
+}
+
+function formatBudget(val: any): string {
+  if (!val) return "N/A";
+  const num = Number(val);
+  if (isNaN(num)) return String(val);
+  return `ETB ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return "Not available";
+  if (!value) return "N/A";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("en-ET", {
@@ -79,34 +148,57 @@ function formatDateTime(value?: string | null) {
   }).format(date);
 }
 
-function DetailLine({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon?: typeof FileText;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
-        {label}
-      </span>
-      <span className="text-sm font-semibold text-right">{value}</span>
-    </div>
-  );
-}
+function EmbeddedViewer({ url, title }: { url: string; title: string }) {
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center bg-card">
+        <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
+        <p className="font-medium text-muted-foreground">No document attached</p>
+      </div>
+    );
+  }
 
-function getInitials(name: string) {
+  const resolvedUrl = resolveFileUrl(url) || url;
+  const kind = getConceptNoteAttachmentKind(resolvedUrl);
+
+  if (kind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 shadow-xs bg-card">
+        <PdfViewer url={resolvedUrl} title={title} className="h-[750px] w-full" />
+      </div>
+    );
+  }
+
+  if (kind === "word") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 bg-[#ededed] dark:bg-muted/30 shadow-xs">
+        <WordViewer url={resolvedUrl} title={title} className="h-[750px] w-full" />
+      </div>
+    );
+  }
+
   return (
-    name
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "R"
+    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-card p-16 text-center shadow-2xs">
+      <FileText className="h-12 w-12 text-primary" />
+      <div>
+        <p className="font-semibold text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          This document type cannot be embedded directly in the browser preview.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button asChild variant="outline" size="sm">
+          <a href={resolvedUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-2 h-4 w-4" /> Open File
+          </a>
+        </Button>
+        <Button asChild size="sm">
+          <a href={resolvedUrl} download>
+            <Download className="mr-2 h-4 w-4" /> Download
+          </a>
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -120,11 +212,16 @@ const REVIEWER_BORDER_COLORS = [
   "border-l-cyan-500",
 ];
 
-/** Check if a technical review has actual submitted content (not just a placeholder stub) */
-function hasReviewContent(review: ScreeningTechnicalReview): boolean {
+function hasReviewContent(review: ScreeningTechnicalReview | any, reviewer?: any): boolean {
+  if (reviewer?.isCompleted || (reviewer?.totalScore != null && reviewer.totalScore > 0)) {
+    return true;
+  }
+  if (!review) return false;
+  const responses = review.responses ?? review.technical_review_responses ?? [];
   return Boolean(
     review.hasResponses ||
-    (review.totalScore != null && review.totalScore > 0) ||
+    (Array.isArray(responses) && responses.length > 0) ||
+    (review.totalScore != null && Number(review.totalScore) > 0) ||
     (review.comments && review.comments.trim().length > 0) ||
     review.attachment,
   );
@@ -137,12 +234,15 @@ type CategoryGroup = {
 };
 
 function groupResponsesByCategory(
-  responses: ScreeningTechnicalReviewResponse[],
+  responses: ScreeningTechnicalReviewResponse[] | any[],
 ): CategoryGroup[] {
+  if (!Array.isArray(responses)) return [];
   const map = new Map<string, CategoryGroup>();
   for (const resp of responses) {
-    const catId = resp.question?.category?.id ?? "uncategorized";
-    const catName = resp.question?.category?.name || "Evaluation Criteria";
+    const q = resp.question ?? resp.question_detail ?? resp;
+    const cat = q?.category ?? q?.question_category ?? resp.category;
+    const catId = cat?.id ?? "uncategorized";
+    const catName = cat?.name || "Evaluation Criteria";
     const key = String(catId);
     const existing = map.get(key);
     if (existing) {
@@ -154,7 +254,7 @@ function groupResponsesByCategory(
   return Array.from(map.values());
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page Component ────────────────────────────────────────────────────────────
 export default function AssignReviewersDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -162,14 +262,36 @@ export default function AssignReviewersDetailPage() {
     const rawId = Array.isArray(id) ? id[0] : id;
     return rawId ? String(rawId) : "";
   }, [id]);
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<string>(tabParam || "overview");
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   const [screening, setScreening] = useState<Screening | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [activeDocKey, setActiveDocKey] = useState<string>("proposal");
+  const [isCopiedRef, setIsCopiedRef] = useState(false);
   const [viewingFile, setViewingFile] = useState<{
     name: string;
     url: string;
   } | null>(null);
+
+  // Manage expanded reviewer cards state (stores stringified reviewer IDs)
+  const [expandedReviewerIds, setExpandedReviewerIds] = useState<Set<string>>(new Set());
+
+  const handleCopyRef = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setIsCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setIsCopiedRef(false), 2000);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -201,25 +323,76 @@ export default function AssignReviewersDetailPage() {
     };
   }, [screeningId]);
 
-  const proposal = (screening?.proposal ??
-    null) as ScreeningProposalDetail | null;
+  const proposal = (screening?.proposal ?? null) as ScreeningProposalDetail | null;
   const rawProposal = proposal as any;
-  const assignedReviewers = (screening?.assignedReviewers ??
-    []) as ScreeningAssignedReviewer[];
-  const technicalReviews = proposal?.reviewHistory?.technicalReviews ?? [];
+  const assignedReviewers = (screening?.assignedReviewers ?? []) as ScreeningAssignedReviewer[];
 
+  // ── Multi-location extraction for technicalReviews ──────────────────────────
+  const technicalReviews = useMemo(() => {
+    const reviewsFromProposal =
+      proposal?.reviewHistory?.technicalReviews ??
+      (proposal as any)?.reviewHistory?.technical_reviews ??
+      (proposal as any)?.technicalReviews ??
+      (proposal as any)?.technical_reviews ??
+      [];
+    const reviewsFromScreening =
+      (screening as any)?.technicalReviews ??
+      (screening as any)?.technical_reviews ??
+      (screening as any)?.reviewHistory?.technicalReviews ??
+      (screening as any)?.review_history?.technical_reviews ??
+      [];
+
+    if (Array.isArray(reviewsFromProposal) && reviewsFromProposal.length > 0) return reviewsFromProposal;
+    if (Array.isArray(reviewsFromScreening) && reviewsFromScreening.length > 0) return reviewsFromScreening;
+    return [];
+  }, [proposal, screening]);
+
+  // ── Map technical reviews by reviewer ID ──────────────────────────────────────
   const reviewByReviewerId = useMemo(() => {
-    const map = new Map<number, ScreeningTechnicalReview>();
+    const map = new Map<string, ScreeningTechnicalReview>();
     for (const review of technicalReviews) {
-      if (review.reviewer?.id != null) {
-        map.set(review.reviewer.id, review);
+      const revId = review.reviewer?.id ?? (review as any).reviewer_id ?? (review as any).reviewerId;
+      if (revId != null) {
+        map.set(String(revId), review);
       }
     }
     return map;
   }, [technicalReviews]);
 
+  // ── Resolver function to find review for an assigned reviewer ────────────────
+  const getReviewForReviewer = (reviewer: any): ScreeningTechnicalReview | undefined => {
+    if (!reviewer) return undefined;
+
+    // 1. Direct ID match
+    const reviewerId = reviewer.id ?? reviewer.reviewerId ?? reviewer.reviewer_id;
+    if (reviewerId != null) {
+      const directMatch = reviewByReviewerId.get(String(reviewerId));
+      if (directMatch) return directMatch;
+    }
+
+    // 2. Email fallback match
+    const reviewerEmail = (reviewer.email || "").toLowerCase().trim();
+    if (reviewerEmail) {
+      const emailMatch = technicalReviews.find((r: any) =>
+        (r.reviewer?.email || r.email || "").toLowerCase().trim() === reviewerEmail
+      );
+      if (emailMatch) return emailMatch;
+    }
+
+    // 3. Name fallback match
+    const reviewerName = (reviewer.fullName || reviewer.name || "").toLowerCase().trim();
+    if (reviewerName) {
+      const nameMatch = technicalReviews.find((r: any) =>
+        (r.reviewer?.fullName || r.reviewer?.name || "").toLowerCase().trim() === reviewerName
+      );
+      if (nameMatch) return nameMatch;
+    }
+
+    return undefined;
+  };
+
   const submittedReviews = useMemo(
-    () => technicalReviews.filter(hasReviewContent),
+    () => technicalReviews.filter((r) => hasReviewContent(r)),
     [technicalReviews],
   );
 
@@ -229,68 +402,81 @@ export default function AssignReviewersDetailPage() {
     const scored = submittedReviews.filter(
       (review) => review.totalScore != null,
     );
-    if (!scored.length) return null;
+    if (!scored.length) return (screening as any)?.averageScorePercentage != null ? (screening as any).averageScorePercentage : null;
     const total = scored.reduce(
       (sum, review) => sum + Number(review.totalScore ?? 0),
       0,
     );
     return total / scored.length;
-  }, [submittedReviews]);
+  }, [submittedReviews, screening]);
 
   const averageScorePct = useMemo(() => {
+    if ((screening as any)?.averageScorePercentage != null) {
+      return Math.round(Number((screening as any).averageScorePercentage));
+    }
     if (averageScore == null || !maxPossiblePoints) return null;
     return Math.round((averageScore / maxPossiblePoints) * 100);
-  }, [averageScore, maxPossiblePoints]);
+  }, [averageScore, maxPossiblePoints, screening]);
 
-  /** Convert a raw score to a percentage string */
-  const toPercent = (rawScore: number | null | undefined): string => {
-    if (rawScore == null || !maxPossiblePoints) return "—";
-    return `${Math.round((Number(rawScore) / maxPossiblePoints) * 100)}%`;
-  };
+  // ── Auto-expand submitted reviewer cards on load ────────────────────────────
+  useEffect(() => {
+    if (assignedReviewers.length > 0) {
+      setExpandedReviewerIds((prev) => {
+        if (prev.size > 0) return prev;
+        const initialExpanded = new Set<string>();
+        assignedReviewers.forEach((reviewer) => {
+          const review = getReviewForReviewer(reviewer);
+          if (hasReviewContent(review, reviewer)) {
+            initialExpanded.add(String(reviewer.id));
+          }
+        });
+        if (initialExpanded.size === 0 && assignedReviewers[0]?.id != null) {
+          initialExpanded.add(String(assignedReviewers[0].id));
+        }
+        return initialExpanded;
+      });
+    }
+  }, [assignedReviewers.length, technicalReviews.length]);
 
-  const currentStatus =
-    proposal?.status ?? screening?.status ?? "screening_under_review";
-  const statusKey = String(currentStatus)
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-  const statusLabel =
-    proposal?.statusDisplay ??
-    screening?.status?.replace(/_/g, " ") ??
-    currentStatus.replace(/_/g, " ");
-  const teamMembers = (rawProposal?.teamMembers ?? []) as Array<{
-    id?: string | number;
-    memberName?: string;
-    stakeholderName?: string;
-    roleName?: string;
-    memberType?: string;
-    email?: string;
-  }>;
+  const reviewerPoolItems = useMemo<ReviewerPoolItem[]>(() => {
+    return assignedReviewers.map((reviewer) => {
+      const review = getReviewForReviewer(reviewer);
+      const isCompleted = hasReviewContent(review, reviewer);
+      const totalScore = reviewer.totalScore ?? review?.totalScore ?? null;
+      const scorePct =
+        reviewer.scorePercentage ??
+        (totalScore != null && maxPossiblePoints > 0
+          ? Math.round((Number(totalScore) / maxPossiblePoints) * 100)
+          : null);
 
-  const hasFiles =
-    proposal?.proposalFile || proposal?.supportingDocs || proposal?.updatedProposal;
-  const hasSignature = Boolean(proposal?.signature);
+      return {
+        id: reviewer.id,
+        fullName: reviewer.fullName || "Unknown Reviewer",
+        email: reviewer.email || "",
+        role: reviewer.role,
+        photoUrl: (reviewer as any).photoUrl || (reviewer as any).photo_url,
+        isCompleted,
+        totalScore,
+        scorePercentage: scorePct,
+        reviewData: review,
+      };
+    });
+  }, [assignedReviewers, technicalReviews, maxPossiblePoints]);
 
-  const fileEntries: Array<{
-    key: string;
-    label: string;
-    filePath: string | null;
-  }> = [
-    {
-      key: "proposal",
-      label: "Proposal Document",
-      filePath: proposal?.proposalFile ?? null,
-    },
-    {
-      key: "updated",
-      label: "Updated Proposal",
-      filePath: proposal?.updatedProposal ?? null,
-    },
-    {
-      key: "supporting",
-      label: "Supporting Documents",
-      filePath: proposal?.supportingDocs ?? null,
-    },
-  ].filter((f) => Boolean(f.filePath));
+  const documentList = useMemo(() => {
+    if (!proposal) return [];
+    return [
+      { key: "proposal", label: "Proposal Document", filePath: proposal.proposalFile },
+      { key: "updated", label: "Revised Proposal", filePath: proposal.updatedProposal },
+      { key: "supporting", label: "Supporting Documents", filePath: proposal.supportingDocs },
+    ].filter((f) => Boolean(f.filePath));
+  }, [proposal]);
+
+  const activeDoc = useMemo(() => {
+    return documentList.find((d) => d.key === activeDocKey) || documentList[0];
+  }, [documentList, activeDocKey]);
+
+  const currentStatus = proposal?.status ?? screening?.status ?? "screening_under_review";
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (isLoading) {
@@ -317,7 +503,7 @@ export default function AssignReviewersDetailPage() {
     return (
       <PageContainer
         title="Screening Not Found"
-        description="The requested screening could not be loaded."
+        description="The requested screening detail could not be loaded."
         actions={
           <Button
             variant="outline"
@@ -329,23 +515,24 @@ export default function AssignReviewersDetailPage() {
         }
       >
         <Card className="border-l-4 border-l-amber-500 bg-amber-50">
-          <CardContent className="p-6 flex items-center gap-4">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-            <div className="flex-1">
-              <h3 className="font-bold text-amber-900">
-                Screening Details Unavailable
-              </h3>
-              <p className="text-sm text-amber-800">
-                The screening details could not be loaded. Please try again or
-                contact support.
-              </p>
+          <CardContent className="p-6 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+              <div>
+                <h3 className="font-bold text-amber-900">
+                  Screening Details Unavailable
+                </h3>
+                <p className="text-sm text-amber-800">
+                  The screening details could not be loaded. Please try again or return to the reviewers list.
+                </p>
+              </div>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => router.refresh()}
             >
-              <RefreshCw className="mr-2 h-3 w-3" /> Retry
+              <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
             </Button>
           </CardContent>
         </Card>
@@ -353,9 +540,66 @@ export default function AssignReviewersDetailPage() {
     );
   }
 
+  const coInvestigators = (proposal.coInvestigators || []) as Array<any>;
+  const rawTeamList = (rawProposal?.teamMembers || rawProposal?.team_members || coInvestigators) as Array<any>;
+
+  const getValidUser = (obj: any) => {
+    if (!obj || typeof obj !== "object") return null;
+    if (obj.id || obj.email || obj.firstName || obj.memberName || obj.name) return obj;
+    return null;
+  };
+
+  const pi =
+    getValidUser(proposal.principalInvestigator) ||
+    getValidUser(proposal.createdBy) ||
+    getValidUser(rawProposal?.pi) ||
+    {};
+
+  const piFirstName = pi.firstName || pi.first_name || pi.memberName?.split(" ")[0] || "";
+  const piLastName = pi.lastName || pi.last_name || pi.memberName?.split(" ").slice(1).join(" ") || "";
+  const piName =
+    [piFirstName, piLastName].filter(Boolean).join(" ") ||
+    pi.name ||
+    pi.memberName ||
+    (pi.email ? pi.email.split("@")[0] : "") ||
+    "Principal Investigator";
+  const piEmail = pi.email || pi.memberEmail || "";
+  const rawPiPhoto =
+    pi.photoUrl ||
+    pi.photo_url ||
+    pi.avatarUrl ||
+    pi.avatar ||
+    pi.photo ||
+    proposal.createdBy?.photoUrl ||
+    proposal.createdBy?.photo_url ||
+    proposal.createdBy?.photo ||
+    proposal.principalInvestigator?.photoUrl ||
+    proposal.principalInvestigator?.photo_url;
+  const piAvatar = resolveFileUrl(rawPiPhoto) || (rawPiPhoto ? (rawPiPhoto.startsWith("http") ? rawPiPhoto : `http://127.0.0.1:8000${rawPiPhoto}`) : undefined);
+
+  const hasSignature = Boolean(proposal.signature);
+
   return (
     <PageContainer
-      title="Assign Reviewers"
+      title={proposal.title || "Untitled Proposal"}
+      description={
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
+          <button
+            type="button"
+            onClick={() => handleCopyRef(proposal.referenceNumber || `PRP-${proposal.id}`)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy reference number"
+          >
+            <span>{proposal.referenceNumber || `PRP-${proposal.id}`}</span>
+            {isCopiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+        </div>
+      }
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -368,6 +612,7 @@ export default function AssignReviewersDetailPage() {
             Back to List
           </Button>
           <Button
+            className="bg-primary hover:bg-primary/90"
             onClick={() =>
               router.push(
                 `/research/proposals/assign-reviewers/${screening.id}/assign`,
@@ -383,159 +628,169 @@ export default function AssignReviewersDetailPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* ── Main Content ──────────────────────────────────────────────── */}
         <div className="space-y-6 min-w-0">
-          {/* Proposal Header */}
-          <Card className="shadow-sm border-primary/5 overflow-hidden">
-            <CardHeader className="border-b bg-muted/20 pb-4">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[10px] font-bold uppercase tracking-wide border shadow-none",
-                        submittedReviews.length === assignedReviewers.length && assignedReviewers.length > 0
-                          ? "bg-green-100 text-green-700 border-green-200"
-                          : submittedReviews.length > 0
-                            ? "bg-amber-50 text-amber-600 border-amber-200"
-                            : "bg-muted text-muted-foreground border-border",
-                      )}
-                    >
-                      {submittedReviews.length === assignedReviewers.length && assignedReviewers.length > 0
-                        ? "All Reviews Complete"
-                        : assignedReviewers.length === 0
-                          ? "No Reviewers Assigned"
-                          : `${submittedReviews.length} of ${assignedReviewers.length} Reviews Complete`}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="bg-muted/60 dark:bg-muted/40 p-1.5 rounded-2xl border border-border/40 shadow-xs backdrop-blur-md overflow-x-auto scrollbar-none">
+              <TabsList className="w-full justify-start bg-transparent p-0 gap-1.5 h-auto border-none shadow-none min-w-max">
+                <TabsTrigger
+                  value="overview"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <FileText className="h-4 w-4 shrink-0" />
+                  Proposal Content
+                </TabsTrigger>
+                <TabsTrigger
+                  value="reviewers"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Users className="h-4 w-4 shrink-0" />
+                  Assigned Reviewers
+                  {assignedReviewers.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-bold bg-primary/10 text-primary border-none rounded-md">
+                      {submittedReviews.length}/{assignedReviewers.length}
                     </Badge>
-                    {averageScorePct != null && (
-                      <div className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold",
-                        averageScorePct >= 70
-                          ? "bg-green-100 text-green-700 border-green-200"
-                          : averageScorePct >= 50
-                            ? "bg-amber-50 text-amber-600 border-amber-200"
-                            : "bg-rose-50 text-rose-600 border-rose-200",
-                      )}>
-                        <span>Average: {averageScorePct}%</span>
-                        {maxPossiblePoints > 0 && averageScore != null && (
-                          <span className="font-normal text-muted-foreground">
-                            ({averageScore.toFixed(1)} / {maxPossiblePoints})
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <CardTitle className="text-xl md:text-2xl leading-tight">
-                    {proposal.title}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {proposal.call?.title || "No call assigned"}
-                  </p>
-                </div>
-                <div className="min-w-45 rounded-2xl border bg-background px-4 py-3 text-right">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                    Submitted At
-                  </p>
-                  <p className="mt-1 text-sm font-semibold">
-                    {formatDate(proposal.submittedAt)}
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="pt-6">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border bg-primary/5 p-4 flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <FileText className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                      Budget
-                    </p>
-                    <p className="mt-1 text-sm font-semibold">
-                      {proposal.budgetRequested
-                        ? `ETB ${proposal.budgetRequested}`
-                        : "Not set"}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-xl border bg-violet-50 p-4 flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                    <Tag className="h-4 w-4 text-violet-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                      Type
-                    </p>
-                    <p className="mt-1 text-sm font-semibold">
-                      {proposal.proposalType?.name || "Not set"}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-xl border bg-blue-50 p-4 flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                    <Layers className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                      Thematic Area
-                    </p>
-                    <p className="mt-1 text-sm font-semibold">
-                      {proposal.thematicAreas?.[0]?.name || "Not set"}
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-xl border bg-emerald-50 p-4 flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                    <Users className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                      Reviews
-                    </p>
-                    <p className="mt-1 text-sm font-semibold">
-                      {submittedReviews.length} of {assignedReviewers.length}{" "}
-                      completed
-                    </p>
-                    {averageScorePct != null && (
-                      <p className={cn(
-                        "text-xs font-bold mt-0.5",
-                        averageScorePct >= 70 ? "text-green-600" : averageScorePct >= 50 ? "text-amber-600" : "text-rose-600",
-                      )}>
-                        Average: {averageScorePct}%
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tabbed Content */}
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-8">
-              <TabsTrigger
-                value="overview"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Overview
-              </TabsTrigger>
-              <TabsTrigger
-                value="team"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Team
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Review History
-              </TabsTrigger>
-            </TabsList>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="documents"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Paperclip className="h-4 w-4 shrink-0" />
+                  Uploaded Documents
+                  {documentList.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
+                      {documentList.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="team"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Users className="h-4 w-4 shrink-0" />
+                  Research Team
+                  {rawTeamList.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
+                      {rawTeamList.length + 1}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="history"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Clock className="h-4 w-4 shrink-0" />
+                  Review History
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* ── Overview Tab ──────────────────────────────────────────── */}
             <TabsContent value="overview" className="pt-6 space-y-6">
+              {/* Requested Budget & Period Summary Banner */}
+              <Card className="shadow-sm border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background overflow-hidden">
+                <CardContent className="p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shrink-0">
+                      <Wallet className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Requested Budget
+                      </p>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                        {formatBudget(proposal.budgetRequested)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {proposal.startDate && proposal.endDate && (
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-6 border-border/60">
+                      <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Project Period
+                        </p>
+                        <p className="text-sm font-bold text-foreground">
+                          {new Date(proposal.startDate).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {" — "}
+                          {new Date(proposal.endDate).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Review Progress Summary Highlight Card */}
+              <Card className="shadow-sm border-primary/15 bg-primary/5 overflow-hidden">
+                <CardContent className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="p-3 rounded-xl bg-primary/15 text-primary shrink-0">
+                      <ClipboardCheck className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-foreground">Reviewer Evaluation Status</h4>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-extrabold uppercase px-2 py-0.5",
+                            submittedReviews.length === assignedReviewers.length && assignedReviewers.length > 0
+                              ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                              : submittedReviews.length > 0
+                                ? "bg-amber-100 text-amber-700 border-amber-200"
+                                : "bg-muted text-muted-foreground border-border",
+                          )}
+                        >
+                          {submittedReviews.length === assignedReviewers.length && assignedReviewers.length > 0
+                            ? "All Complete"
+                            : assignedReviewers.length === 0
+                              ? "Unassigned"
+                              : `${submittedReviews.length}/${assignedReviewers.length} Complete`}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {assignedReviewers.length === 0
+                          ? "No technical reviewers have been assigned to evaluate this proposal yet."
+                          : `${submittedReviews.length} out of ${assignedReviewers.length} assigned reviewer(s) have submitted their evaluation scores.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {averageScorePct != null && (
+                    <div className="flex items-center gap-3 pt-3 md:pt-0 border-t md:border-t-0 md:border-l md:pl-6 border-border/60 shrink-0">
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Average Score
+                        </p>
+                        <p className={cn(
+                          "text-2xl font-black font-mono",
+                          averageScorePct >= 70 ? "text-emerald-600" : averageScorePct >= 50 ? "text-amber-600" : "text-rose-600",
+                        )}>
+                          {averageScorePct}%
+                        </p>
+                      </div>
+                      {maxPossiblePoints > 0 && averageScore != null && (
+                        <Badge variant="outline" className="text-xs font-semibold px-2 py-1 bg-background border-border/60">
+                          {averageScore.toFixed(1)} / {maxPossiblePoints} pts
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Abstract */}
               <Card className="shadow-sm border-primary/5">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -546,14 +801,13 @@ export default function AssignReviewersDetailPage() {
                 <CardContent>
                   <div className="text-sm text-muted-foreground leading-relaxed">
                     <HtmlContentRenderer
-                      content={
-                        proposal.abstract || "No abstract provided."
-                      }
+                      content={proposal.abstract || "No abstract provided."}
                     />
                   </div>
                 </CardContent>
               </Card>
 
+              {/* Keywords */}
               {proposal.keywords && proposal.keywords.length > 0 && (
                 <Card className="shadow-sm border-primary/5">
                   <CardHeader>
@@ -565,17 +819,87 @@ export default function AssignReviewersDetailPage() {
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
                       {proposal.keywords.map((kw: string, i: number) => (
-                        <Badge
-                          key={i}
-                          variant="secondary"
-                          className="text-xs"
-                        >
+                        <Badge key={i} variant="secondary" className="text-xs">
                           {kw}
                         </Badge>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
+              )}
+            </TabsContent>
+
+            {/* ── Assigned Reviewers Tab ─────────────────────────────────── */}
+            <TabsContent value="reviewers" className="pt-6 space-y-6">
+              <ReviewerPoolList
+                reviewers={reviewerPoolItems}
+                maxPossiblePoints={maxPossiblePoints}
+                overallAverageScorePct={averageScorePct}
+                overallAverageScore={averageScore}
+                submittedCount={submittedReviews.length}
+                showManageAction={true}
+                onManageReviewers={() =>
+                  router.push(
+                    `/research/proposals/assign-reviewers/${screening.id}/assign`,
+                  )
+                }
+              />
+            </TabsContent>
+
+            {/* ── Documents Preview Tab ──────────────────────────────────── */}
+            <TabsContent value="documents" className="pt-6 space-y-6">
+              {documentList.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Document Sub-navigation Pills */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-2.5 rounded-xl border border-border/60 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50 w-full sm:w-auto">
+                      {documentList.map((doc) => {
+                        const isActive = doc.key === (activeDoc?.key || documentList[0]?.key);
+                        const resolved = resolveFileUrl(doc.filePath) || doc.filePath || "";
+                        const kind = getConceptNoteAttachmentKind(resolved);
+                        return (
+                          <Button
+                            key={doc.key}
+                            variant={isActive ? "default" : "ghost"}
+                            size="sm"
+                            className="h-8 text-xs font-semibold rounded-md gap-2"
+                            onClick={() => setActiveDocKey(doc.key)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            {doc.label}
+                            <Badge
+                              variant={isActive ? "secondary" : "outline"}
+                              className="text-[9px] uppercase px-1.5 py-0 font-bold"
+                            >
+                              {kind.toUpperCase()}
+                            </Badge>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Inline Document Previewer */}
+                  {activeDoc?.filePath ? (
+                    <EmbeddedViewer
+                      url={activeDoc.filePath}
+                      title={activeDoc.label}
+                    />
+                  ) : (
+                    <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <h3 className="font-bold text-muted-foreground">No Document Selected</h3>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-16 text-center border-2 border-dashed rounded-xl bg-card">
+                  <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <h3 className="font-bold text-muted-foreground">No Uploaded Files</h3>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
+                    No proposal documents or supporting files were attached to this submission.
+                  </p>
+                </div>
               )}
             </TabsContent>
 
@@ -588,303 +912,212 @@ export default function AssignReviewersDetailPage() {
                     Research Team
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
                   {/* Principal Investigator */}
-                  {rawProposal.principalInvestigator && (
-                    <div className="p-4 rounded-xl border-2 border-primary/20 bg-primary/5 flex items-start gap-4">
-                      <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black shrink-0 text-sm">
-                        {rawProposal.principalInvestigator.firstName?.[0] ||
-                          "U"}
-                        {rawProposal.principalInvestigator.lastName?.[0] || ""}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold">
-                          {rawProposal.principalInvestigator.firstName}{" "}
-                          {rawProposal.principalInvestigator.lastName}
+                  <div className="p-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-background flex items-center gap-4 shadow-2xs">
+                    <Avatar className="h-14 w-14 border-2 border-primary/40 shadow-xs shrink-0 ring-4 ring-primary/10">
+                      <AvatarImage
+                        src={piAvatar}
+                        alt={piName}
+                        className="object-cover h-full w-full"
+                      />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-black text-base">
+                        {getInitials(piName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-base font-bold text-foreground truncate">
+                          {piName}
                         </p>
-                        <p className="text-[10px] text-primary font-bold uppercase tracking-wider">
+                        <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider bg-primary">
                           Principal Investigator
-                        </p>
-                        {rawProposal.principalInvestigator.email && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <Mail className="h-3 w-3" />
-                            {rawProposal.principalInvestigator.email}
-                          </p>
-                        )}
+                        </Badge>
                       </div>
+                      {piEmail && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                          {piEmail}
+                        </p>
+                      )}
                     </div>
-                  )}
+                  </div>
 
-                  {/* Team Members */}
-                  {teamMembers.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Team Members
-                      </p>
-                      {teamMembers.map((member, index) => {
-                        const name = String(
-                          member.memberName ??
-                          member.stakeholderName ??
-                          "Unnamed member",
-                        );
-                        const borderColor =
-                          REVIEWER_BORDER_COLORS[
-                          index % REVIEWER_BORDER_COLORS.length
-                          ];
-                        return (
-                          <div
-                            key={String(member.id ?? index)}
-                            className={cn(
-                              "rounded-xl border-l-4 border border-border p-4 flex items-start gap-3",
-                              borderColor,
-                            )}
-                          >
-                            <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
-                              {getInitials(name)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold">{name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {String(
-                                  member.roleName ??
-                                  member.memberType ??
-                                  "Member",
-                                )}
-                              </p>
-                              {member.email && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                  <Mail className="h-3 w-3" />
-                                  {member.email}
-                                </p>
+                  {/* Team Members List with Avatars */}
+                  {rawTeamList.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Team Members ({rawTeamList.length})
+                        </h4>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2">
+                        {rawTeamList.map((member: any, idx: number) => {
+                          const name =
+                            member.memberName ||
+                            member.stakeholderName ||
+                            member.name ||
+                            [member.user?.firstName, member.user?.lastName].filter(Boolean).join(" ") ||
+                            `Team Member ${idx + 1}`;
+                          const email = member.memberEmail || member.email || member.user?.email || "";
+                          const roleName = member.roleName || member.position || member.role || "Co-Investigator";
+                          const isExternal =
+                            member.memberType?.toLowerCase() === "external" ||
+                            member.member_type?.toLowerCase() === "external" ||
+                            Boolean(member.stakeholderName);
+                          const rawPhoto = member.photoUrl || member.photo_url || member.avatarUrl || member.user?.photoUrl;
+                          const photoUrl = getUserAvatarUrl(rawPhoto);
+                          const initials = getInitials(name);
+
+                          return (
+                            <div
+                              key={member.id || idx}
+                              className={cn(
+                                "p-3.5 rounded-xl border bg-card hover:bg-muted/30 transition-colors flex items-start gap-3.5 shadow-2xs",
+                                isExternal ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-blue-500",
                               )}
+                            >
+                              <Avatar className="h-10 w-10 border border-border/60 shrink-0 shadow-2xs">
+                                <AvatarImage
+                                  src={photoUrl}
+                                  alt={name}
+                                  className="object-cover h-full w-full"
+                                />
+                                <AvatarFallback
+                                  className={cn(
+                                    "text-xs font-bold",
+                                    isExternal
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                      : "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                                  )}
+                                >
+                                  {initials}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <p className="text-sm font-bold text-foreground truncate">{name}</p>
+                                  <Badge
+                                    variant={isExternal ? "outline" : "secondary"}
+                                    className="text-[9px] uppercase px-1.5 py-0 shrink-0 font-semibold"
+                                  >
+                                    {isExternal ? "External" : "Internal"}
+                                  </Badge>
+                                </div>
+
+                                <p className="text-xs text-primary font-semibold">{roleName}</p>
+
+                                {email && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{email}</span>
+                                  </p>
+                                )}
+                                {(member.phoneNumber || member.phone_number) && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{member.phoneNumber || member.phone_number}</span>
+                                  </p>
+                                )}
+                                {(member.organizationName || member.organization_name) && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{member.organizationName || member.organization_name}</span>
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
-
-                  {!rawProposal.principalInvestigator &&
-                    teamMembers.length === 0 && (
-                      <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
-                        <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          No team information available.
-                        </p>
-                      </div>
-                    )}
                 </CardContent>
               </Card>
             </TabsContent>
 
             {/* ── Review History Tab ────────────────────────────────────── */}
             <TabsContent value="history" className="pt-6 space-y-6">
-              {/* Screening Decision */}
-              {proposal.reviewHistory?.decisionRemarks && (
-                <Card className="shadow-sm border-primary/5">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                      Screening Decision
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-xl border bg-muted/10 p-4 space-y-2">
-                      <p className="text-sm font-medium">
-                        {proposal.reviewHistory.decisionRemarks}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {proposal.reviewHistory.status || statusLabel} - {" "}
-                        {formatDateTime(proposal.reviewHistory.reviewedAt)}
-                      </p>
+              <Card className="shadow-xs border-border/60 overflow-hidden">
+                <CardHeader className="border-b bg-muted/30 py-4 px-6 flex flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <History className="h-4 w-4" />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Technical Reviews */}
-              <Card className="shadow-sm border-primary/5">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
-                    Technical Reviews
-                  </CardTitle>
+                    <div>
+                      <CardTitle className="text-base font-bold">Proposal Audit & Technical Review History</CardTitle>
+                      <p className="text-xs text-muted-foreground">Complete technical evaluations and reviewer decision audit trail</p>
+                    </div>
+                  </div>
+                  {submittedReviews.length > 0 && (
+                    <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-background border-border/60">
+                      {submittedReviews.length} {submittedReviews.length === 1 ? "Review" : "Reviews"}
+                    </Badge>
+                  )}
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {submittedReviews.length > 0 ? (
-                    <div className="space-y-6">
-                      {submittedReviews.map((review, index) => {
-                        const categoryGroups = groupResponsesByCategory(
-                          review.responses ?? [],
-                        );
+                    <div className="relative pl-3 space-y-8 before:absolute before:left-6 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-primary/40 before:via-border before:to-muted">
+                      {submittedReviews.map((review, idx) => {
+                        const reviewerName = review.reviewer?.fullName || "Reviewer";
+                        const totalScore = review.totalScore;
                         const reviewPercent =
-                          review.totalScore != null && maxPossiblePoints > 0
-                            ? Math.round(
-                              (Number(review.totalScore) /
-                                maxPossiblePoints) *
-                              100,
-                            )
+                          totalScore != null && maxPossiblePoints > 0
+                            ? Math.round((Number(totalScore) / maxPossiblePoints) * 100)
                             : null;
 
                         return (
-                          <div key={review.id ?? index} className="relative">
-                            {index < submittedReviews.length - 1 && (
-                              <div className="absolute left-4 top-10 h-full w-px bg-border" />
-                            )}
-                            <div className="flex gap-4">
-                              <div className="relative z-10 mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                <span className="text-[10px] font-bold">
-                                  {index + 1}
-                                </span>
-                              </div>
-                              <div className="flex-1 rounded-xl border p-4 space-y-3">
-                                {/* Reviewer header */}
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <Avatar className="h-7 w-7 border shrink-0">
-                                      <AvatarFallback className="bg-primary/10 text-primary text-[9px] font-bold">
-                                        {(review.reviewer?.fullName || "R")
-                                          .split(" ")
-                                          .map((w: string) => w[0])
-                                          .join("")
-                                          .slice(0, 2)
-                                          .toUpperCase()}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <p className="text-sm font-semibold">
-                                      {review.reviewer?.fullName || "Reviewer"}
-                                    </p>
+                          <div key={review.id || idx} className="relative flex items-start gap-5 group">
+                            {/* Step Node Icon */}
+                            <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-emerald-500/20 ring-4 ring-emerald-500/15 transition-transform duration-200 group-hover:scale-110">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </div>
+
+                            {/* Event Card */}
+                            <div className="flex-1 min-w-0">
+                              <div className="rounded-2xl border border-l-4 border-l-emerald-500 bg-card p-4 shadow-xs transition-all duration-200 hover:shadow-md">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <h4 className="font-bold text-sm text-foreground truncate">
+                                      Technical Evaluation by {reviewerName}
+                                    </h4>
+                                    {reviewPercent != null && (
+                                      <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                                        Score: {reviewPercent}% ({totalScore}/{maxPossiblePoints} pts)
+                                      </Badge>
+                                    )}
                                   </div>
-                                  {reviewPercent != null && (
-                                    <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        "text-xs font-bold",
-                                        reviewPercent >= 70
-                                          ? "bg-green-100 text-green-700 border-green-200"
-                                          : reviewPercent >= 50
-                                            ? "bg-amber-50 text-amber-600 border-amber-200"
-                                            : "bg-rose-50 text-rose-600 border-rose-200",
-                                      )}
-                                    >
-                                      {reviewPercent}%
-                                      {maxPossiblePoints > 0 && (
-                                        <span className="text-muted-foreground font-normal ml-1">
-                                          ({review.totalScore}/{maxPossiblePoints})
-                                        </span>
-                                      )}
-                                    </Badge>
-                                  )}
+
+                                  {/* Timestamp */}
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-lg border border-border/40 shrink-0">
+                                    <Calendar className="h-3 w-3 text-muted-foreground/70" />
+                                    <span className="font-medium">
+                                      {review.createdAt
+                                        ? new Date(review.createdAt).toLocaleDateString("en-US", {
+                                          day: "numeric",
+                                          month: "short",
+                                          year: "numeric",
+                                        })
+                                        : "N/A"}
+                                    </span>
+                                  </div>
                                 </div>
 
-                                {/* Comments */}
-                                {review.comments && (
-                                  <p className="text-xs text-muted-foreground leading-relaxed italic border-l-2 border-primary/20 pl-3">
-                                    {review.comments}
-                                  </p>
-                                )}
-
-                                {/* Date */}
-                                {review.createdAt && (
-                                  <p className="text-[10px] text-muted-foreground">
-                                    {formatDateTime(review.createdAt)}
-                                  </p>
-                                )}
-
-                                {/* Category-grouped responses checklist */}
-                                {categoryGroups.length > 0 && (
-                                  <div className="rounded-lg border border-border/60 overflow-hidden mt-2">
-                                    <div className="bg-muted/30 px-3 py-2 border-b border-border/60">
-                                      <div className="flex items-center gap-1.5">
-                                        <ClipboardList className="h-3.5 w-3.5 text-primary" />
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                          Review Checklist ({categoryGroups.length} {categoryGroups.length === 1 ? "category" : "categories"})
-                                        </p>
-                                      </div>
+                                {review.comments ? (
+                                  <div className="mt-3 p-3 rounded-xl bg-muted/40 border border-border/50 text-xs space-y-1.5">
+                                    <div className="flex items-center gap-1.5 font-bold text-foreground">
+                                      <MessageSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                                      Reviewer Rationale & Remarks
                                     </div>
-                                    {categoryGroups.map((group) => {
-                                      const groupMax = group.responses.reduce(
-                                        (s, r) => s + (r.question?.maxPoints ?? 0),
-                                        0,
-                                      );
-                                      const groupEarned = group.responses.reduce(
-                                        (s, r) => s + r.pointsEarned,
-                                        0,
-                                      );
-                                      const groupPct =
-                                        groupMax > 0
-                                          ? Math.round((groupEarned / groupMax) * 100)
-                                          : 0;
-
-                                      return (
-                                        <Collapsible key={group.id}>
-                                          <CollapsibleTrigger asChild>
-                                            <button
-                                              type="button"
-                                              className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-muted/20 transition-colors border-b border-border/40 last:border-b-0"
-                                            >
-                                              <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-bold text-foreground truncate">
-                                                  {group.name}
-                                                </p>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                  {group.responses.length} criteria · {groupEarned}/{groupMax} pts
-                                                </p>
-                                              </div>
-                                              <div className="flex items-center gap-2 shrink-0">
-                                                <Badge
-                                                  variant="outline"
-                                                  className={cn(
-                                                    "text-[10px] font-bold",
-                                                    groupPct >= 70
-                                                      ? "bg-green-100 text-green-700 border-green-200"
-                                                      : groupPct >= 50
-                                                        ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                        : "bg-rose-50 text-rose-600 border-rose-200",
-                                                  )}
-                                                >
-                                                  {groupPct}%
-                                                </Badge>
-                                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                              </div>
-                                            </button>
-                                          </CollapsibleTrigger>
-                                          <CollapsibleContent className="bg-background">
-                                            {group.responses.map((resp) => {
-                                              const maxPts = resp.question?.maxPoints ?? 0;
-                                              const respPct =
-                                                maxPts > 0
-                                                  ? Math.round((resp.pointsEarned / maxPts) * 100)
-                                                  : 0;
-                                              return (
-                                                <div
-                                                  key={resp.id}
-                                                  className="flex items-center justify-between gap-3 px-3 py-2 border-b border-border/30 last:border-b-0"
-                                                >
-                                                  <p className="text-xs text-foreground min-w-0 truncate flex-1">
-                                                    {resp.question?.text || `Question ${resp.question?.id}`}
-                                                  </p>
-                                                  <Badge
-                                                    variant="outline"
-                                                    className={cn(
-                                                      "text-[10px] font-bold shrink-0",
-                                                      respPct >= 70
-                                                        ? "bg-green-100 text-green-700 border-green-200"
-                                                        : respPct >= 50
-                                                          ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                          : "bg-rose-50 text-rose-600 border-rose-200",
-                                                    )}
-                                                  >
-                                                    {resp.pointsEarned}/{maxPts}
-                                                  </Badge>
-                                                </div>
-                                              );
-                                            })}
-                                          </CollapsibleContent>
-                                        </Collapsible>
-                                      );
-                                    })}
+                                    <p className="text-muted-foreground leading-relaxed italic pl-5 border-l-2 border-primary/30">
+                                      &ldquo;{review.comments}&rdquo;
+                                    </p>
                                   </div>
+                                ) : (
+                                  <p className="mt-2 text-xs text-muted-foreground/70 italic">
+                                    No additional written comments submitted with this score.
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -893,14 +1126,13 @@ export default function AssignReviewersDetailPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center">
-                      <Clock className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        No technical reviews have been submitted yet.
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Reviews will appear here once assigned reviewers submit
-                        their evaluations.
+                    <div className="p-16 text-center border-2 border-dashed rounded-2xl bg-muted/10">
+                      <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+                        <History className="h-6 w-6" />
+                      </div>
+                      <h3 className="font-bold text-foreground text-sm">No Technical Reviews Recorded</h3>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
+                        Technical evaluations submitted by assigned reviewers will be logged automatically here.
                       </p>
                     </div>
                   )}
@@ -912,21 +1144,39 @@ export default function AssignReviewersDetailPage() {
 
         {/* ── Sidebar ──────────────────────────────────────────────────── */}
         <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
-          {/* Assigned Reviewers */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="bg-muted/50 border-b py-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Assigned Reviewers ({assignedReviewers.length})
+          {/* Proposal Details Card */}
+          <Card className="shadow-xs border-border/60 overflow-hidden">
+            <CardHeader className="bg-muted/40 border-b py-3.5 px-5 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                Proposal Details
               </CardTitle>
-              {averageScorePct != null && maxPossiblePoints > 0 && (
-                <div className="mt-3 space-y-1.5">
+              {proposal.referenceNumber && (
+                <Badge variant="outline" className="font-mono text-[10px] bg-background border-border/60 font-bold px-2 py-0.5">
+                  {proposal.referenceNumber}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent className="p-5 space-y-4">
+              {/* Status Badge */}
+              <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Status</span>
+                <StatusBadge
+                  status={currentStatus}
+                  displayLabel={proposal.statusDisplay}
+                />
+              </div>
+
+              {/* Average Score Progress Highlight */}
+              {averageScorePct != null && (
+                <div className="p-3.5 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-background border border-primary/20 space-y-2 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Average Score
+                    <span className="text-[10px] font-bold uppercase text-primary tracking-wider flex items-center gap-1.5">
+                      <ClipboardCheck className="h-3.5 w-3.5" /> Average Technical Score
                     </span>
                     <span className={cn(
-                      "text-sm font-black",
-                      averageScorePct >= 70 ? "text-green-600" : averageScorePct >= 50 ? "text-amber-600" : "text-rose-600",
+                      "text-sm font-black font-mono",
+                      averageScorePct >= 70 ? "text-emerald-600" : averageScorePct >= 50 ? "text-amber-600" : "text-rose-600",
                     )}>
                       {averageScorePct}%
                     </span>
@@ -935,279 +1185,193 @@ export default function AssignReviewersDetailPage() {
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-700",
-                        averageScorePct >= 70 ? "bg-green-500" : averageScorePct >= 50 ? "bg-amber-400" : "bg-rose-500",
+                        averageScorePct >= 70 ? "bg-emerald-500" : averageScorePct >= 50 ? "bg-amber-400" : "bg-rose-500",
                       )}
                       style={{ width: `${Math.min(averageScorePct, 100)}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    {averageScore?.toFixed(1)} / {maxPossiblePoints} pts · {submittedReviews.length} submitted
+                    {averageScore?.toFixed(1)} / {maxPossiblePoints} pts · {submittedReviews.length} of {assignedReviewers.length} submitted
                   </p>
                 </div>
               )}
-            </CardHeader>
-            <CardContent className="pt-4 space-y-3">
-              {assignedReviewers.length > 0 ? (
-                assignedReviewers.map((reviewer, index) => {
-                  const review = reviewByReviewerId.get(reviewer.id);
-                  const borderColor =
-                    REVIEWER_BORDER_COLORS[
-                    index % REVIEWER_BORDER_COLORS.length
-                    ];
-                  const hasSubmitted = Boolean(review && hasReviewContent(review));
 
-                  return (
-                    <div
-                      key={reviewer.id}
-                      className={cn(
-                        "rounded-xl border-l-4 border p-4 space-y-2",
-                        borderColor,
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <Avatar className="h-9 w-9 border shrink-0">
-                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
-                              {getInitials(
-                                reviewer.fullName || "Reviewer",
-                              )}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate">
-                              {reviewer.fullName || "Unknown Reviewer"}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {reviewer.email || "No email"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          {review?.totalScore != null ? (
-                            <div className="text-right">
-                              <p className={cn(
-                                "text-lg font-black leading-none",
-                                toPercent(review.totalScore) !== "—" &&
-                                  parseInt(toPercent(review.totalScore)) >= 70
-                                  ? "text-green-600"
-                                  : parseInt(toPercent(review.totalScore)) >= 50
-                                    ? "text-amber-600"
-                                    : "text-rose-600",
-                              )}>
-                                {toPercent(review.totalScore)}
-                              </p>
-                              <p className="text-[9px] text-muted-foreground mt-0.5">
-                                {review.totalScore}/{maxPossiblePoints || "?"}
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="text-lg font-black text-muted-foreground/40 leading-none">
-                              —
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {reviewer.role ? (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px]"
-                          >
-                            {reviewer.role}
-                          </Badge>
-                        ) : null}
-                        <Badge
-                          variant={hasSubmitted ? "secondary" : "outline"}
-                          className={cn(
-                            "text-[10px]",
-                            hasSubmitted
-                              ? "bg-green-100 text-green-700 border-green-200"
-                              : "bg-amber-50 text-amber-600 border-amber-200",
-                          )}
-                        >
-                          {hasSubmitted ? "Review Submitted" : "Pending Review"}
-                        </Badge>
-                      </div>
-                      {review?.comments && (
-                        <p className="text-xs text-muted-foreground italic border-t pt-2 line-clamp-2">
-                          {review.comments}
-                        </p>
-                      )}
+              {/* Requested Budget Highlight */}
+              {proposal.budgetRequested && (
+                <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background border border-emerald-500/20 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <Wallet className="h-4 w-4" />
                     </div>
-                  );
-                })
-              ) : (
-                <div className="rounded-xl border border-dashed bg-muted/10 p-6 text-center">
-                  <Users className="mx-auto h-6 w-6 text-muted-foreground/50" />
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    No reviewers assigned yet.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() =>
-                      router.push(
-                        `/research/proposals/assign-reviewers/${screening.id}/assign`,
-                      )
-                    }
-                  >
-                    Assign Reviewers
-                  </Button>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300 tracking-wider">
+                        Requested Budget
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                    {formatBudget(proposal.budgetRequested)}
+                  </span>
                 </div>
               )}
+
+              {/* Grant Call Info */}
+              {proposal.call && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/15 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-primary tracking-wider">
+                    <Tag className="h-3 w-3" />
+                    Grant Call
+                  </div>
+                  <p className="text-xs font-bold text-foreground leading-snug break-words">
+                    {proposal.call.title}
+                  </p>
+                </div>
+              )}
+
+              {/* Classification Grid */}
+              <div className="space-y-2.5 text-xs pt-1">
+                {proposal.proposalType && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Type</span>
+                    <span className="font-bold text-foreground text-right">{proposal.proposalType.name}</span>
+                  </div>
+                )}
+
+                {(proposal.thematicAreas?.length > 0 || proposal.researchArea) && (
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-muted-foreground font-medium shrink-0">Thematic Area</span>
+                    <Badge variant="secondary" className="font-bold text-[10px] text-right truncate max-w-[170px] bg-primary/10 text-primary border-none">
+                      {proposal.thematicAreas?.length > 0
+                        ? proposal.thematicAreas.map((t: any) => t.name).join(", ")
+                        : proposal.researchArea}
+                    </Badge>
+                  </div>
+                )}
+
+                {proposal.version && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Version</span>
+                    <Badge variant="outline" className="font-mono text-[10px] bg-muted/30">
+                      v{proposal.version}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              {/* Project Period & Submitted Date */}
+              <div className="pt-3.5 border-t border-border/40 space-y-3">
+                {proposal.startDate && proposal.endDate && (
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                        Project Period
+                      </p>
+                      <p className="text-xs font-bold text-foreground mt-0.5">
+                        {new Date(proposal.startDate).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                        <span className="text-muted-foreground/60 mx-1.5">•</span>
+                        {new Date(proposal.endDate).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Submitted Date & Time
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      <span className="text-xs font-bold text-foreground">
+                        {new Date(proposal.submittedAt || proposal.createdAt || new Date()).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className="text-muted-foreground/40 text-xs">•</span>
+                      <Badge variant="outline" className="text-[10px] font-bold bg-background text-primary border-primary/20 px-1.5 py-0 font-mono">
+                        {new Date(proposal.submittedAt || proposal.createdAt || new Date()).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Uploaded Files */}
-          {hasFiles && (
-            <Card className="shadow-sm border-primary/10">
-              <CardHeader className="py-4 border-b">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Uploaded Files
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-5 p-0">
-                {fileEntries.map((entry) => {
-                  const resolvedUrl = resolveFileUrl(entry.filePath);
-                  return (
-                    <button
-                      key={entry.key}
-                      onClick={() => {
-                        if (resolvedUrl) {
-                          setViewingFile({
-                            name: entry.label,
-                            url: resolvedUrl,
-                          });
-                        }
-                      }}
-                      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-0 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform shrink-0" />
-                        <div className="text-left min-w-0">
-                          <p className="text-xs font-bold truncate">
-                            {entry.label}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {entry.filePath?.split("/").pop() || "File"}
-                          </p>
-                        </div>
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                    </button>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Digital Signature */}
-          {hasSignature && (
-            <Card className="shadow-sm border-primary/10">
-              <CardHeader className="border-b bg-primary/5 py-3">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Digital Signature
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <div className="rounded-xl border p-3 bg-white">
-                  <img
-                    src={
-                      resolveFileUrl(proposal.signature) ?? undefined
-                    }
-                    alt="Proposal signature"
-                    className="h-28 w-full max-w-full object-contain rounded-lg"
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center mt-2">
-                  Preview only
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Proposal Details */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="bg-muted/50 border-b py-4">
+          {/* Affiliated Institution Card */}
+          <Card className="shadow-xs border-border/60 overflow-hidden">
+            <CardHeader className="py-3.5 px-5 border-b bg-muted/40 flex flex-row items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary shrink-0" />
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Proposal Details
+                Affiliated Institution
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4">
-              <DetailLine
-                label="Status"
-                value={statusLabel}
-              />
-              <Separator className="my-0.5" />
-              {proposal.proposalType && (
-                <>
-                  <DetailLine
-                    label="Type"
-                    value={proposal.proposalType.name}
-                  />
-                  <Separator className="my-0.5" />
-                </>
-              )}
-              {proposal.thematicAreas?.[0]?.name && (
-                <>
-                  <DetailLine
-                    label="Thematic Area"
-                    value={proposal.thematicAreas[0].name}
-                  />
-                  <Separator className="my-0.5" />
-                </>
-              )}
-              {proposal.version && (
-                <>
-                  <DetailLine
-                    label="Version"
-                    value={`v${proposal.version}`}
-                  />
-                  <Separator className="my-0.5" />
-                </>
-              )}
-              <DetailLine
-                label="Resubmissions"
-                value={String(proposal.resubmissionCount ?? 0)}
-              />
-              <Separator className="my-0.5" />
-              <div className="flex items-center gap-2.5 text-muted-foreground pt-2">
-                <Clock className="h-4 w-4 shrink-0" />
-                <div className="text-xs">
-                  <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
-                    Submitted Date
-                  </p>
-                  <p className="font-medium">
-                    {formatDate(proposal.submittedAt)}
-                  </p>
-                </div>
-              </div>
-              {proposal.startDate && proposal.endDate && (
-                <div className="flex items-center gap-2.5 text-muted-foreground pt-2">
-                  <Calendar className="h-4 w-4 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
-                      Project Period
+            <CardContent className="p-5 space-y-4">
+              {/* Submitted To (Receiving Office) */}
+              {proposal.receivingOffice && (
+                <div className="flex items-start gap-3 p-3 rounded-xl border bg-muted/20">
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                    <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Submitted To
                     </p>
-                    <p className="font-medium">
-                      {new Date(proposal.startDate).toLocaleDateString(
-                        "en-GB",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                      {" \u2014 "}
-                      {new Date(proposal.endDate).toLocaleDateString(
-                        "en-GB",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.receivingOffice.name}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Organization */}
+              {proposal.Organization && (
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Lead Organization
+                    </p>
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.Organization.name}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Unit / Department */}
+              {proposal.Unit && (
+                <div className="flex items-start gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Layers className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Department / Academic Unit
+                    </p>
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.Unit.name}
                     </p>
                   </div>
                 </div>
@@ -1215,89 +1379,25 @@ export default function AssignReviewersDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Institutional Context */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-primary/5 py-3">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Institution
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <div className="flex items-start gap-3">
-                <Building2 className="mt-0.5 h-5 w-5 text-primary shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold">
-                    {proposal.Organization?.name || "No organization"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Organization
-                  </p>
+          {hasSignature && (
+            <Card className="shadow-xs border-border/60 overflow-hidden hover:shadow-md transition-all duration-200">
+              <CardHeader className="border-b bg-muted/40 py-3.5 px-5 flex flex-row items-center gap-2">
+                <Shield className="h-4 w-4 text-primary shrink-0" />
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Digital Signature
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="rounded-xl border border-border/60 p-4 bg-white dark:bg-muted/30 backdrop-blur-xs flex items-center justify-center shadow-2xs">
+                  <img
+                    src={resolveFileUrl(proposal.signature) ?? undefined}
+                    alt="Proposal signature"
+                    className="h-24 w-auto max-w-full object-contain filter drop-shadow-xs dark:invert dark:hue-rotate-180"
+                  />
                 </div>
-              </div>
-              <div className="flex items-start gap-3 border-t border-dashed pt-4">
-                <Layers className="mt-0.5 h-5 w-5 text-primary shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold">
-                    {proposal.Unit?.name || "No unit"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Unit</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 border-t border-dashed pt-4">
-                <MapPin className="mt-0.5 h-5 w-5 text-primary shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold">
-                    {proposal.receivingOffice?.name ||
-                      "No receiving office"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Receiving Office
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Submitted By */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="border-b bg-primary/5 py-3">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Submitted By
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                  {proposal.createdBy
-                    ? getInitials(
-                      [
-                        proposal.createdBy.firstName,
-                        proposal.createdBy.lastName,
-                      ]
-                        .filter(Boolean)
-                        .join(" ") || "U",
-                    )
-                    : "U"}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">
-                    {proposal.createdBy
-                      ? [
-                        proposal.createdBy.firstName,
-                        proposal.createdBy.lastName,
-                      ]
-                        .filter(Boolean)
-                        .join(" ") || "Unknown"
-                      : "Unknown creator"}
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    {proposal.createdBy?.email || "No email"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </div>
 

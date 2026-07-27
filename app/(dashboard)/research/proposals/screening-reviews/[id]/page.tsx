@@ -858,9 +858,9 @@ export default function ScreeningDetailPage() {
             <TabsContent value="documents" className="pt-6 space-y-6">
               {documentList.length > 0 ? (
                 <div className="space-y-4">
-                  {/* Document Sub-navigation Pills & Action Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border/60 shadow-2xs">
-                    <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50">
+                  {/* Document Sub-navigation Pills */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-2.5 rounded-xl border border-border/60 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50 w-full sm:w-auto">
                       {documentList.map((doc) => {
                         const isActive = doc.key === (activeDoc?.key || documentList[0]?.key);
                         const resolved = resolveFileUrl(doc.filePath) || doc.filePath || "";
@@ -885,30 +885,6 @@ export default function ScreeningDetailPage() {
                         );
                       })}
                     </div>
-
-                    {activeDoc?.filePath && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                          <a
-                            href={resolveFileUrl(activeDoc.filePath) || activeDoc.filePath}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Open in New Tab
-                          </a>
-                        </Button>
-                        <Button asChild size="sm" className="h-8 text-xs gap-1.5">
-                          <a
-                            href={resolveFileUrl(activeDoc.filePath) || activeDoc.filePath}
-                            download
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            Download
-                          </a>
-                        </Button>
-                      </div>
-                    )}
                   </div>
 
                   {/* Inline Document Previewer */}

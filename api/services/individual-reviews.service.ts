@@ -62,6 +62,15 @@ const ProposalDetailSchema = z
       .nullable()
       .optional(),
     createdBy: ProposalOwnerSchema.nullable().optional(),
+    abstract: z.string().nullable().optional(),
+    proposalFile: z.string().nullable().optional(),
+    proposal_file: z.string().nullable().optional(),
+    conceptNoteFile: z.string().nullable().optional(),
+    concept_note_file: z.string().nullable().optional(),
+    updatedProposal: z.string().nullable().optional(),
+    updated_proposal: z.string().nullable().optional(),
+    supportingDocs: z.string().nullable().optional(),
+    supporting_docs: z.string().nullable().optional(),
   })
   .passthrough();
 
