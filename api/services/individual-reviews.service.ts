@@ -221,7 +221,13 @@ export async function getIndividualReviews(
   const res = await apiClient.get(API_ENDPOINTS.INDIVIDUAL_REVIEWS.LIST, {
     params: filters,
   });
-  return IndividualReviewsListSchema.parse(normalizeListResponse(res.data));
+  const normalized = normalizeListResponse(res.data);
+  const parsed = IndividualReviewsListSchema.safeParse(normalized);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("IndividualReviewsListSchema safeParse warnings:", parsed.error);
+  return normalized as any;
 }
 
 export async function getIndividualReviewById(
@@ -237,11 +243,16 @@ export async function getIndividualReviewById(
       question: r.question,
       // normalize backend field → frontend field
       question_id: r.question?.id,
-      points_earned: r.pointsEarned ?? 0,
+      points_earned: r.pointsEarned ?? r.points_earned ?? 0,
     })),
   };
 
-  return IndividualReviewDetailSchema.parse(safe);
+  const parsed = IndividualReviewDetailSchema.safeParse(safe);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("IndividualReviewDetailSchema safeParse warnings:", parsed.error);
+  return safe as any;
 }
 
 export interface ReviewQuestion {

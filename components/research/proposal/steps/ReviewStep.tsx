@@ -17,7 +17,9 @@ import { useOffice } from "@/lib/queries/office";
 import { useThematicArea } from "@/lib/queries/thematic-area";
 import { useInternalUsers } from "@/lib/queries/internal-users";
 import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
-import { CheckCircle2, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { CheckCircle2, Send, ChevronDown, ChevronUp, Eye, FileText } from "lucide-react";
 
 // Helper function to format dates
 const formatDate = (date: Date | undefined | null): string => {
@@ -40,6 +42,17 @@ const formatCurrency = (amount: number | undefined | null): string => {
     style: "currency",
     currency: "ETB",
   }).format(amount);
+};
+
+const getFileName = (fileVal: unknown, defaultName: string): string => {
+  if (!fileVal) return defaultName;
+  if (fileVal instanceof File) return fileVal.name;
+  if (typeof fileVal === "string") return fileVal.split("/").pop() || defaultName;
+  if (typeof fileVal === "object" && fileVal !== null) {
+    const f = (fileVal as any).name || (fileVal as any).file || (fileVal as any).url;
+    if (typeof f === "string") return f.split("/").pop() || defaultName;
+  }
+  return defaultName;
 };
 
 interface ProposalReviewStepProps {
@@ -74,8 +87,6 @@ type SavedSignatureValue = {
 function isSavedSignatureValue(value: unknown): value is SavedSignatureValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
-import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 function getSignatureUrl(value: unknown): string | undefined {
   if (value instanceof File) return undefined;
@@ -173,24 +184,41 @@ export function ProposalReviewStep({
 
   const teamMembers = (values.teamMembers ?? []) as TeamMemberValue[];
   const stakeholders = (values.stakeholders ?? []) as StakeholderValue[];
-  const hasTechnicalProposal = Boolean(values.technicalProposal);
+  const proposalDoc = values.technicalProposal || values.proposalFile;
+  const hasTechnicalProposal = Boolean(proposalDoc);
   const hasBudgetFile = Boolean(values.budgetFile);
+  const hasSupportingDocs = Boolean(values.supportingDocs);
 
-  // State to track expanded/collapsed sections
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(), // Start with all sections collapsed
-  );
+  const [previewDialog, setPreviewDialog] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+  }>({
+    isOpen: false,
+    url: "",
+    title: "",
+  });
 
-  // Toggle section expand/collapse
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(sectionId)) {
-        next.delete(sectionId);
-      } else {
-        next.add(sectionId);
-      }
-      return next;
+  const handlePreviewFile = (fileVal: unknown, title: string) => {
+    let url: string | null = null;
+    if (fileVal instanceof File) {
+      url = URL.createObjectURL(fileVal);
+    } else if (typeof fileVal === "string") {
+      url = resolveFileUrl(fileVal) || fileVal;
+    } else if (typeof fileVal === "object" && fileVal !== null) {
+      const fileProp = (fileVal as any).file || (fileVal as any).url || (fileVal as any).path;
+      if (fileProp) url = resolveFileUrl(fileProp) || fileProp;
+    }
+
+    if (!url) {
+      toast.error("File preview is not available for this file.");
+      return;
+    }
+
+    setPreviewDialog({
+      isOpen: true,
+      url,
+      title,
     });
   };
 
@@ -510,49 +538,117 @@ export function ProposalReviewStep({
         </Card>
       )}
 
-      {(hasTechnicalProposal || hasBudgetFile) && (
+      {hasTechnicalProposal || hasBudgetFile || hasSupportingDocs ? (
         <Card>
           <CardHeader>
-            <CardTitle>Files</CardTitle>
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              Uploaded Files
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {hasTechnicalProposal && (
-              <div className="border rounded-md p-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span className="text-sm font-medium">
-                    Proposal Document
-                  </span>
+              <div className="border rounded-lg p-3.5 flex items-center justify-between gap-3 bg-muted/20">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="text-sm font-semibold text-foreground">
+                      Proposal Document
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 ml-6 truncate">
+                    {getFileName(proposalDoc, "Proposal Document")}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1 ml-6">
-                  {values.technicalProposal instanceof File
-                    ? values.technicalProposal.name
-                    : (values.technicalProposal as any)?.name ||
-                      (values.technicalProposal as any)?.file
-                        ?.split("/")
-                        .pop() ||
-                      "Proposal Document"}
-                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 shrink-0"
+                  onClick={() =>
+                    handlePreviewFile(
+                      proposalDoc,
+                      "Proposal Document Preview"
+                    )
+                  }
+                >
+                  <Eye className="h-3.5 w-3.5 text-primary" />
+                  <span>Preview</span>
+                </Button>
               </div>
             )}
             {hasBudgetFile && (
-              <div className="border rounded-md p-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span className="text-sm font-medium">Budget File</span>
+              <div className="border rounded-lg p-3.5 flex items-center justify-between gap-3 bg-muted/20">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="text-sm font-semibold text-foreground">
+                      Budget File
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 ml-6 truncate">
+                    {getFileName(values.budgetFile, "Budget File")}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1 ml-6">
-                  {values.budgetFile instanceof File
-                    ? values.budgetFile.name
-                    : (values.budgetFile as any)?.name ||
-                      (values.budgetFile as any)?.file?.split("/").pop() ||
-                      "Budget File"}
-                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 shrink-0"
+                  onClick={() =>
+                    handlePreviewFile(
+                      values.budgetFile,
+                      "Budget File Preview"
+                    )
+                  }
+                >
+                  <Eye className="h-3.5 w-3.5 text-primary" />
+                  <span>Preview</span>
+                </Button>
+              </div>
+            )}
+            {hasSupportingDocs && (
+              <div className="border rounded-lg p-3.5 flex items-center justify-between gap-3 bg-muted/20">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="text-sm font-semibold text-foreground">
+                      Supporting Document
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 ml-6 truncate">
+                    {getFileName(values.supportingDocs, "Supporting Document")}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 shrink-0"
+                  onClick={() =>
+                    handlePreviewFile(
+                      values.supportingDocs,
+                      "Supporting Document Preview"
+                    )
+                  }
+                >
+                  <Eye className="h-3.5 w-3.5 text-primary" />
+                  <span>Preview</span>
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
-      )}
+      ) : null}
+
+      <PdfViewerDialog
+        isOpen={previewDialog.isOpen}
+        onOpenChange={(open) =>
+          setPreviewDialog((prev) => ({ ...prev, isOpen: open }))
+        }
+        url={previewDialog.url}
+        title={previewDialog.title}
+      />
 
       <Card>
         <CardHeader>

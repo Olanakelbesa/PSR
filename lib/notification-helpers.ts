@@ -42,6 +42,35 @@ export function getPriorityStyles(priority?: string): string | null {
   }
 }
 
+export function parseUtcDate(createdAt: string): Date {
+  if (!createdAt) return new Date();
+  let str = String(createdAt).trim();
+  if (!str.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(str) && !/[+-]\d{4}$/.test(str)) {
+    str = `${str}Z`;
+  }
+  const d = new Date(str);
+  return Number.isNaN(d.getTime()) ? new Date(createdAt) : d;
+}
+
+export function formatRelativeTime(createdAt: string): string {
+  const date = parseUtcDate(createdAt);
+  const time = date.getTime();
+  if (Number.isNaN(time)) return "Just now";
+
+  const diffInMs = Date.now() - time;
+  if (diffInMs <= 0) return "Just now";
+
+  const minutes = Math.floor(diffInMs / 1000 / 60);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 function startOfDay(date: Date): Date {
@@ -57,7 +86,7 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 export function getGroupLabel(createdAt: string): string {
-  const date = new Date(createdAt);
+  const date = parseUtcDate(createdAt);
   if (Number.isNaN(date.getTime())) return "Older";
 
   const now = new Date();

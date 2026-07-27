@@ -213,8 +213,20 @@ export default function ScreeningDetailPage() {
           detail.createdAt ||
           new Date().toISOString(),
       },
-      coInvestigators: (detail.teamMembers || []).map(
-        (member: ManagedTeamMember, index: number) => ({
+      coInvestigators: (detail.teamMembers || [])
+        .filter((member: ManagedTeamMember) => {
+          const ownerId = String(detail.createdBy?.id || detail.created_by?.id || "");
+          const ownerEmail = (detail.createdBy?.email || detail.created_by?.email || "").toLowerCase();
+          const memberUserId = String(member.member?.id || member.member || "");
+          const memberEmail = (member.memberEmail || member.email || "").toLowerCase();
+          const isOwner =
+            (ownerId && memberUserId === ownerId) ||
+            (ownerEmail && memberEmail === ownerEmail) ||
+            member.roleName === "Principal Investigator" ||
+            (member as any).is_pi;
+          return !isOwner;
+        })
+        .map((member: ManagedTeamMember, index: number) => ({
           id: member.id,
           userId: member.member ? String(member.member) : undefined,
           name:
@@ -228,8 +240,7 @@ export default function ScreeningDetailPage() {
           memberType: member.memberType || "internal",
           institution: member.organizationName || "",
           expertise: member.position || member.userType || "",
-        }),
-      ),
+        })),
       institution: detail.Organization?.name || "",
       researchArea: detail.thematicAreas?.[0]?.name || "",
       budget: {

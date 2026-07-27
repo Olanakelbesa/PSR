@@ -529,100 +529,104 @@ export default function ScreeningReviewsPage() {
     const teamList: NormalizedTeamMember[] = [];
     const seenEmails = new Set<string>();
 
-    // 1. Add createdBy / Submitter
-    if (proposal.createdBy) {
-      const creator = proposal.createdBy as any;
-      const name =
-        [creator.firstName || creator.first_name, creator.lastName || creator.last_name].filter(Boolean).join(" ") ||
-        creator.email ||
-        "Submitter";
-      const email = creator.email || "";
-      const rawPhoto =
-        creator.photo_url ||
-        creator.photoUrl ||
-        creator.photo ||
-        creator.avatarUrl ||
-        creator.avatar ||
-        creator.profilePhoto ||
-        creator.user?.photo_url ||
-        creator.user?.photoUrl ||
-        creator.user?.avatar;
-      const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
-      if (email) seenEmails.add(email.toLowerCase());
-      teamList.push({
-        id: creator.id || "creator",
-        name,
-        role: "Principal Investigator / Submitter",
-        email,
-        organization: proposal.Organization?.name,
-        avatarUrl,
-      });
-    }
+    // Track owner email/id/name to exclude owner from team members list (since Submitted By column already displays owner)
+    const ownerObj =
+      proposal.createdBy ||
+      proposal.created_by ||
+      (proposal as any).submittedBy ||
+      (proposal as any).submitted_by ||
+      proposal.principalInvestigator ||
+      (proposal as any).user;
 
-    // 2. Add principalInvestigator if present and not already added
-    if (proposal.principalInvestigator) {
-      const pi = proposal.principalInvestigator as any;
-      const email = pi.email || "";
-      if (!email || !seenEmails.has(email.toLowerCase())) {
-        if (email) seenEmails.add(email.toLowerCase());
-        const name =
-          [pi.firstName || pi.first_name, pi.lastName || pi.last_name].filter(Boolean).join(" ") ||
-          pi.email ||
-          "Principal Investigator";
-        const rawPhoto =
-          pi.photo_url ||
-          pi.photoUrl ||
-          pi.photo ||
-          pi.avatarUrl ||
-          pi.avatar ||
-          pi.profilePhoto ||
-          pi.user?.photo_url ||
-          pi.user?.photoUrl ||
-          pi.user?.avatar;
-        const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
-        teamList.push({
-          id: pi.id || "pi",
-          name,
-          role: "Principal Investigator",
-          email,
-          organization: proposal.Organization?.name,
-          avatarUrl,
-        });
-      }
-    }
+    const ownerEmails = new Set<string>();
+    const ownerIds = new Set<string>();
+    const ownerNames = new Set<string>();
 
-    // 3. Add teamMembers / coInvestigators
+    const addOwnerInfo = (u: any) => {
+      if (!u) return;
+      if (u.email) ownerEmails.add(String(u.email).toLowerCase());
+      if (u.id) ownerIds.add(String(u.id));
+      const fullName = [u.firstName || u.first_name, u.lastName || u.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (fullName) ownerNames.add(fullName);
+    };
+
+    addOwnerInfo(proposal.createdBy);
+    addOwnerInfo(proposal.created_by);
+    addOwnerInfo((proposal as any).submittedBy);
+    addOwnerInfo((proposal as any).submitted_by);
+    addOwnerInfo(proposal.principalInvestigator);
+    addOwnerInfo((proposal as any).user);
+
+    // Process teamMembers, coInvestigators, externalTeamMembers, and stakeholders
     const rawMembers = [
       ...(proposal.teamMembers || []),
       ...(proposal.coInvestigators || []),
+      ...((proposal as any).externalTeamMembers || []),
+      ...((proposal as any).external_team_members || []),
+      ...((proposal as any).stakeholders || []),
     ];
 
     rawMembers.forEach((m: any, idx: number) => {
+      const email = (m.memberEmail || m.member_email || m.email || m.user?.email || "").toLowerCase();
+      const memberUserId = String(m.member?.id || m.member || m.user?.id || m.userId || "");
+
+      const isExternal =
+        m.member_type === "external" ||
+        m.memberType === "external" ||
+        m.user_type === "external" ||
+        m.userType === "external" ||
+        Boolean(m.stakeholder_name || m.stakeholderName);
+
       const name =
+        m.stakeholderName ||
+        m.stakeholder_name ||
         m.memberName ||
         m.member_name ||
         [m.user?.firstName || m.user?.first_name, m.user?.lastName || m.user?.last_name].filter(Boolean).join(" ") ||
         m.email ||
         m.memberEmail ||
         m.member_email ||
-        `Team Member ${idx + 1}`;
-      const email = m.memberEmail || m.member_email || m.email || m.user?.email || "";
+        (isExternal ? "External Stakeholder" : `Team Member ${idx + 1}`);
+
+      const memberNameLower = name.toLowerCase();
+
+      // Exclude internal proposal owner / Principal Investigator from team avatars
+      const isOwner =
+        !isExternal &&
+        ((email && ownerEmails.has(email)) ||
+          (memberUserId && ownerIds.has(memberUserId)) ||
+          (memberNameLower && ownerNames.has(memberNameLower)) ||
+          m.is_pi ||
+          m.isPi ||
+          m.role_name === "Principal Investigator" ||
+          m.roleName === "Principal Investigator");
+
+      if (isOwner) return;
+
       const role =
+        m.position ||
         m.roleName ||
         m.role_name ||
-        m.position ||
         m.memberType ||
         m.member_type ||
-        m.userType ||
-        m.user_type ||
-        "Co-Investigator";
-      const org = m.organizationName || m.organization_name || proposal.Organization?.name;
+        (isExternal ? "External Stakeholder" : "Co-Investigator");
+
+      const org = m.organizationName || m.organization_name || m.organization || proposal.Organization?.name;
+
       const rawPhoto =
         m.photo_url ||
         m.photoUrl ||
         m.avatarUrl ||
         m.avatar ||
         m.photo ||
+        m.image ||
+        m.profilePhoto ||
+        m.profile_photo ||
+        m.external_avatar ||
+        m.externalAvatar ||
         m.user?.photo_url ||
         m.user?.photoUrl ||
         m.user?.avatarUrl ||
@@ -630,42 +634,38 @@ export default function ScreeningReviewsPage() {
         m.user?.photo;
       const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
 
-      if (!email || !seenEmails.has(email.toLowerCase())) {
-        if (email) seenEmails.add(email.toLowerCase());
+      const key = email ? email : `${name}-${idx}`;
+      if (!seenEmails.has(key)) {
+        seenEmails.add(key);
         teamList.push({
           id: String(m.id || idx),
           name,
           role,
-          email,
+          email: email || undefined,
           organization: org,
           avatarUrl,
         });
       }
     });
 
-    // Fallback if no team members are associated
-    if (teamList.length === 0) {
-      teamList.push({
-        id: "default-lead",
-        name: "Lead Researcher",
-        role: "Principal Investigator",
-        organization: proposal.Organization?.name || undefined,
-      });
-    }
+    const ownerName = ownerObj
+      ? [ownerObj.firstName || ownerObj.first_name, ownerObj.lastName || ownerObj.last_name]
+          .filter(Boolean)
+          .join(" ") ||
+        ownerObj.fullName ||
+        ownerObj.full_name ||
+        ownerObj.name ||
+        ownerObj.email ||
+        "—"
+      : "—";
 
     return {
       ...proposal,
       organizationName: proposal.Organization?.name || "—",
       unitName: proposal.Unit?.name || "—",
       officeName: proposal.receivingOffice?.name || "—",
-      createdByName:
-        teamList[0]?.name ||
-        (proposal.createdBy
-          ? [proposal.createdBy.firstName, proposal.createdBy.lastName]
-              .filter(Boolean)
-              .join(" ") || proposal.createdBy.email || "—"
-          : "—"),
-      createdByObj: proposal.createdBy || proposal.created_by,
+      createdByName: ownerName,
+      createdByObj: ownerObj,
       thematicAreaLabel: proposal.thematicAreas?.[0]?.name || "—",
       shortAbstractText: proposal.shortAbstract
         ? proposal.shortAbstract.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()

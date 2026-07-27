@@ -17,8 +17,13 @@ import {
   RefreshCw,
   Calendar,
   ShieldCheck,
+  Copy,
+  Check,
+  Tag,
+  Building2,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -134,12 +139,59 @@ const proposalStatusConfig: Record<
   },
 };
 
+// ── Helper Component: Copyable Reference Cell ──────────────────────────────────
+function ReferenceCell({ refNum, id }: { refNum: string; id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!refNum) return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-muted/60 hover:bg-muted dark:bg-muted/40 px-2 py-0.5 rounded-md border border-border/50 transition-colors max-w-fit">
+      <Link
+        href={`/research/proposals/technical-reviews/${id}`}
+        className="font-mono text-xs font-semibold text-foreground hover:text-primary transition-colors truncate"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {refNum}
+      </Link>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy reference number"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
 // ── Review row type ────────────────────────────────────────────────────────────
 type ReviewRow = IndividualReview & {
-  organizationName: string;
-  unitName: string;
-  scoreLabel: string;
+  thematicAreaLabel: string;
+  scorePct: number | null;
 };
+
+// ── Score Color Badge Helper ──────────────────────────────────────────────────
+function getScoreColor(pct: number) {
+  if (pct >= 80)
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800";
+  if (pct >= 60)
+    return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800";
+  return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800";
+}
 
 // ── Columns ────────────────────────────────────────────────────────────────────
 const columns: ColumnDef<ReviewRow>[] = [
@@ -147,40 +199,45 @@ const columns: ColumnDef<ReviewRow>[] = [
     accessorKey: "referenceNumber",
     header: "Reference #",
     cell: ({ row }) => (
-      <Link
-        href={`/research/proposals/technical-reviews/${row.original.id}`}
-        className="font-bold text-primary hover:underline"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {row.original.referenceNumber}
-      </Link>
+      <ReferenceCell
+        refNum={String(row.original.referenceNumber || row.original.id || "")}
+        id={String(row.original.id)}
+      />
     ),
   },
   {
     accessorKey: "proposalTitle",
     header: "Proposal Title",
     cell: ({ row }) => (
-      <div className="max-w-[280px] min-w-[130px]">
-        <p className="font-semibold text-sm line-clamp-1 whitespace-normal break-words">
+      <div className="max-w-[320px] min-w-[160px] py-1">
+        <Link
+          href={`/research/proposals/technical-reviews/${row.original.id}`}
+          className="font-semibold text-sm line-clamp-2 text-foreground hover:text-primary transition-colors block leading-snug"
+          onClick={(e) => e.stopPropagation()}
+        >
           {row.original.proposalTitle}
-        </p>
-        <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
-          {row.original.principalInvestigator || "No PI assigned"}
-        </p>
+        </Link>
       </div>
     ),
   },
   {
-    accessorKey: "organizationName",
-    header: "Organization",
-    cell: ({ row }) => (
-      <div className="text-sm">
-        <div className="font-medium">{row.original.organizationName}</div>
-        <div className="text-xs text-muted-foreground">
-          {row.original.unitName}
-        </div>
-      </div>
-    ),
+    accessorKey: "thematicAreaLabel",
+    header: "Thematic Area",
+    cell: ({ row }) => {
+      const area = row.original.thematicAreaLabel;
+      if (!area || area === "—") {
+        return <span className="text-sm text-muted-foreground">—</span>;
+      }
+      return (
+        <Badge
+          variant="outline"
+          className="text-[11px] font-medium px-2 py-0.5 bg-muted/30 border-border/70 flex items-center gap-1.5 w-fit shrink-0"
+        >
+          <Tag className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className="truncate max-w-[160px]">{area}</span>
+        </Badge>
+      );
+    },
   },
   {
     accessorKey: "proposalStatus",
@@ -234,16 +291,21 @@ const columns: ColumnDef<ReviewRow>[] = [
     accessorKey: "totalScore",
     header: "Score",
     cell: ({ row }) => {
-      const score = row.original.totalScore;
+      const scorePct = row.original.scorePct;
+      if (scorePct == null) {
+        return (
+          <span className="text-xs font-medium text-muted-foreground italic">
+            Pending
+          </span>
+        );
+      }
       return (
-        <span
-          className={cn(
-            "text-sm font-bold",
-            score > 0 ? "text-foreground" : "text-muted-foreground",
-          )}
+        <Badge
+          variant="outline"
+          className={cn("text-[11px] font-bold px-2 py-0.5", getScoreColor(scorePct))}
         >
-          {score > 0 ? score : "—"}
-        </span>
+          {scorePct}%
+        </Badge>
       );
     },
   },
@@ -329,13 +391,38 @@ export default function TechnicalReviewsPage() {
   const [isError, setIsError] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  const mapToReviewRow = (review: IndividualReview): ReviewRow => ({
-    ...review,
-    organizationName: review.organization?.name || "—",
-    unitName: review.unit?.name || "—",
-    scoreLabel:
-      typeof review.totalScore === "number" ? `${review.totalScore}` : "0",
-  });
+  const mapToReviewRow = (review: IndividualReview): ReviewRow => {
+    const raw = review as any;
+    const proposal = (review.proposal || {}) as any;
+
+    const rawArea =
+      raw.thematic_area ||
+      raw.thematicArea ||
+      proposal.thematicAreas?.[0]?.name ||
+      proposal.thematic_areas?.[0]?.name;
+    const thematicAreaLabel =
+      rawArea && rawArea !== "—" ? String(rawArea).trim() : "";
+
+    let scorePct: number | null = null;
+    if (typeof raw.score_percentage === "number") {
+      scorePct = raw.score_percentage;
+    } else if (typeof raw.scorePercentage === "number") {
+      scorePct = raw.scorePercentage;
+    } else if (
+      typeof review.totalScore === "number" &&
+      raw.max_possible_points > 0
+    ) {
+      scorePct = Math.round(
+        (review.totalScore / raw.max_possible_points) * 100,
+      );
+    }
+
+    return {
+      ...review,
+      thematicAreaLabel,
+      scorePct,
+    };
+  };
 
   const loadReviews = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -352,8 +439,8 @@ export default function TechnicalReviewsPage() {
         all: "true",
       });
       setReviews((response.data || []).map(mapToReviewRow));
-    } catch (error) {
-      console.error("Failed to load individual reviews:", error);
+    } catch (error: any) {
+      console.error("Failed to load individual reviews:", error?.message || error);
       setReviews([]);
       setIsError(true);
     } finally {
@@ -606,10 +693,11 @@ export default function TechnicalReviewsPage() {
           <DataTable
             columns={columns}
             data={filteredReviews}
+            initialColumnVisibility={{ referenceNumber: false }}
             searchKey="proposalTitle"
             searchPlaceholder={
               activeFilterCopy?.searchPlaceholder ??
-              "Search by title, PI, or reference..."
+              "Search by proposal title or thematic area..."
             }
             filterOptions={
               queueFilter === "all"

@@ -37,25 +37,11 @@ import {
   getCategoryIcon,
   getPriorityStyles,
   groupNotificationsByDate,
+  formatRelativeTime,
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_CATEGORY_LABELS,
 } from "@/lib/notification-helpers";
 import type { Notification } from "@/lib/types";
-
-function getRelativeTime(createdAt: string) {
-  const diffInMs = Date.now() - new Date(createdAt).getTime();
-  if (Number.isNaN(diffInMs)) return "Just now";
-
-  const minutes = Math.round(diffInMs / 1000 / 60);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
-
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-
-  const days = Math.round(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
-}
 
 function NotificationItem({
   notification,
@@ -111,7 +97,7 @@ function NotificationItem({
               {notification.message}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {getRelativeTime(notification.createdAt)}
+              {formatRelativeTime(notification.createdAt)}
             </p>
           </div>
         </button>

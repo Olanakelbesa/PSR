@@ -203,6 +203,24 @@ function TeamMemberUserIdField({
     };
   }, [normalizedProposalId, serializedMember, watchedMember, form, index]);
 
+  const watchedAllMembers = useWatch({
+    control: form.control,
+    name: "teamMembers",
+  }) as TeamMemberFormValue[] | undefined;
+
+  const excludedUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (piUserId) ids.add(String(piUserId));
+
+    (watchedAllMembers || []).forEach((m, idx) => {
+      if (idx !== index && m?.userId) {
+        ids.add(String(m.userId));
+      }
+    });
+
+    return Array.from(ids);
+  }, [piUserId, watchedAllMembers, index]);
+
   return (
     <FormField
       control={form.control}
@@ -228,7 +246,7 @@ function TeamMemberUserIdField({
               getOptionLabel={(user) =>
                 `${user.full_name ?? ""} (${user.email ?? ""})`.trim()
               }
-              excludeValues={piUserId ? [piUserId] : []}
+              excludeValues={excludedUserIds}
               placeholder="Select team member"
               searchPlaceholder="Search team members..."
               emptyMessage="No members found"

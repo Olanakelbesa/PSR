@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import {
   AlertCircle,
   ArrowLeft,
@@ -10,13 +11,16 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Download,
   Edit,
   ExternalLink,
+  Eye,
   FileText,
   History,
   Layers,
   Mail,
   MapPin,
+  Paperclip,
   Phone,
   RefreshCw,
   Trash2,
@@ -24,6 +28,10 @@ import {
 } from "lucide-react";
 
 import { proposalsApi } from "@/api/client";
+import {
+  getProposalById,
+  getManagedProposalById,
+} from "@/api/services/proposals.service";
 import {
   getReviewHistory,
   type ReviewHistoryEvent,
@@ -37,8 +45,67 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
+import { CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+
+function EmbeddedViewer({ url, title }: { url: string; title: string }) {
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
+        <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
+        <p className="font-medium text-muted-foreground">No document attached</p>
+      </div>
+    );
+  }
+
+  const kind = getConceptNoteAttachmentKind(url);
+
+  if (kind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 shadow-sm">
+        <PdfViewer url={url} title={title} className="h-[750px]" />
+      </div>
+    );
+  }
+
+  if (kind === "word") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 bg-[#ededed] shadow-sm">
+        <WordViewer url={url} title={title} className="h-[750px]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-muted/10 p-16 text-center">
+      <FileText className="h-12 w-12 text-primary" />
+      <div>
+        <p className="font-semibold text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          This document type cannot be embedded directly in the browser.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button asChild variant="outline" size="sm">
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+            Open in New Tab
+          </a>
+        </Button>
+        <Button asChild size="sm">
+          <a href={url} download>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Download Document
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
@@ -286,7 +353,74 @@ export default function ProposalDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [previewDialog, setPreviewDialog] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+  }>({
+    isOpen: false,
+    url: "",
+    title: "",
+  });
+
   const deleteProposalMutation = useDeleteProposal();
+
+  const handlePreviewFile = (fileProp?: string | null, title?: string) => {
+    if (!fileProp) return;
+    const url = resolveFileUrl(fileProp) || fileProp;
+    setPreviewDialog({
+      isOpen: true,
+      url,
+      title: title || "Document Preview",
+    });
+  };
+
+  const proposalFiles = useMemo(() => {
+    if (!proposal) return [];
+    const files: Array<{
+      id: string;
+      label: string;
+      rawUrl: string;
+      url: string;
+      fileName: string;
+      icon: typeof FileText;
+    }> = [];
+
+    if (proposal.proposalFile) {
+      files.push({
+        id: "proposal-doc",
+        label: "Proposal Document",
+        rawUrl: proposal.proposalFile,
+        url: resolveFileUrl(proposal.proposalFile) || proposal.proposalFile,
+        fileName: proposal.proposalFile.split("/").pop() || "Proposal Document",
+        icon: FileText,
+      });
+    }
+
+    if (proposal.updatedProposal && proposal.updatedProposal !== proposal.proposalFile) {
+      files.push({
+        id: "updated-proposal-doc",
+        label: "Revised Proposal Document",
+        rawUrl: proposal.updatedProposal,
+        url: resolveFileUrl(proposal.updatedProposal) || proposal.updatedProposal,
+        fileName: proposal.updatedProposal.split("/").pop() || "Revised Proposal Document",
+        icon: FileText,
+      });
+    }
+
+    if (proposal.supportingDocs) {
+      files.push({
+        id: "supporting-doc",
+        label: "Budget / Supporting Document",
+        rawUrl: proposal.supportingDocs,
+        url: resolveFileUrl(proposal.supportingDocs) || proposal.supportingDocs,
+        fileName: proposal.supportingDocs.split("/").pop() || "Supporting Document",
+        icon: Paperclip,
+      });
+    }
+
+    return files;
+  }, [proposal]);
 
   useEffect(() => {
     if (!proposalId) {
@@ -299,12 +433,17 @@ export default function ProposalDetailPage() {
 
     async function loadProposal() {
       try {
-        const response = await proposalsApi.getById(proposalId);
+        let proposalData: any = null;
+        try {
+          proposalData = await getProposalById(proposalId);
+        } catch {
+          proposalData = await getManagedProposalById(proposalId);
+        }
+
         if (!isMounted) return;
 
-        if (response?.success && response?.data) {
-          const proposalData = response.data as ProposalDetail;
-          setProposal(proposalData);
+        if (proposalData) {
+          setProposal(proposalData as ProposalDetail);
           setHasError(false);
 
           // Fetch full audit trail timeline
@@ -319,7 +458,7 @@ export default function ProposalDetailPage() {
         } else {
           setProposal(null);
           setHasError(true);
-          toast.error(response?.message || "Failed to load proposal details");
+          toast.error("Failed to load proposal details");
         }
       } catch (error) {
         if (!isMounted) return;
@@ -548,10 +687,14 @@ export default function ProposalDetailPage() {
 
               {/* Tabs */}
               <Tabs defaultValue="overview">
-                <TabsList className="h-10 bg-muted/60 rounded-lg p-1 w-full grid grid-cols-4">
+                <TabsList className="h-10 bg-muted/60 rounded-lg p-1 w-full grid grid-cols-5">
                   <TabsTrigger value="overview" className="text-xs">
                     <FileText className="mr-1.5 h-3.5 w-3.5" />
                     Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="files" className="text-xs">
+                    <Paperclip className="mr-1.5 h-3.5 w-3.5" />
+                    Files ({proposalFiles.length})
                   </TabsTrigger>
                   <TabsTrigger value="team" className="text-xs">
                     <Users className="mr-1.5 h-3.5 w-3.5" />
@@ -566,6 +709,104 @@ export default function ProposalDetailPage() {
                     Status ({timelineEvents.length})
                   </TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="files" className="mt-6 space-y-6">
+                  <Card className="border shadow-sm">
+                    <CardHeader className="border-b bg-muted/20 py-4 flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          Document Preview
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Preview attached proposal files directly in the browser.
+                        </CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6">
+                      {proposalFiles.length > 1 ? (
+                        <Tabs defaultValue={proposalFiles[0].id} className="w-full">
+                          <TabsList className="mb-4 bg-muted/50 p-1 flex flex-wrap gap-1">
+                            {proposalFiles.map((file) => {
+                              const IconComponent = file.icon;
+                              return (
+                                <TabsTrigger
+                                  key={file.id}
+                                  value={file.id}
+                                  className="flex items-center gap-2 text-xs font-semibold"
+                                >
+                                  <IconComponent className="h-3.5 w-3.5 text-primary" />
+                                  {file.label}
+                                </TabsTrigger>
+                              );
+                            })}
+                          </TabsList>
+                          {proposalFiles.map((file) => (
+                            <TabsContent key={file.id} value={file.id} className="space-y-4">
+                              <div className="flex items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                                  <span className="text-xs font-mono font-medium truncate">
+                                    {file.fileName}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                                    <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                      Open in New Tab
+                                    </a>
+                                  </Button>
+                                  <Button asChild variant="default" size="sm" className="h-8 text-xs gap-1.5">
+                                    <a href={file.url} download>
+                                      <Download className="h-3.5 w-3.5" />
+                                      Download
+                                    </a>
+                                  </Button>
+                                </div>
+                              </div>
+                              <EmbeddedViewer url={file.url} title={file.label} />
+                            </TabsContent>
+                          ))}
+                        </Tabs>
+                      ) : proposalFiles.length === 1 ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                              <span className="text-xs font-mono font-medium truncate">
+                                {proposalFiles[0].fileName}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                                <a href={proposalFiles[0].url} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Open in New Tab
+                                </a>
+                              </Button>
+                              <Button asChild variant="default" size="sm" className="h-8 text-xs gap-1.5">
+                                <a href={proposalFiles[0].url} download>
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download
+                                </a>
+                              </Button>
+                            </div>
+                          </div>
+                          <EmbeddedViewer url={proposalFiles[0].url} title={proposalFiles[0].label} />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center text-muted-foreground">
+                          <Paperclip className="mb-3 h-10 w-10 opacity-40 text-muted-foreground" />
+                          <p className="font-semibold text-foreground">No documents attached</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            No proposal files or budget documents were uploaded with this proposal.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
                 <TabsContent value="overview" className="mt-6 space-y-6">
                   <div className="space-y-4">
@@ -1194,6 +1435,15 @@ export default function ProposalDetailPage() {
           </Card>
         </aside>
       </div>
+
+      <PdfViewerDialog
+        isOpen={previewDialog.isOpen}
+        onOpenChange={(open) =>
+          setPreviewDialog((prev) => ({ ...prev, isOpen: open }))
+        }
+        url={previewDialog.url}
+        title={previewDialog.title}
+      />
 
       <ConfirmDialog
         open={confirmDeleteOpen}

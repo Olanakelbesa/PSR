@@ -640,94 +640,78 @@ export default function ProposalsPage() {
       const teamList: NormalizedTeamMember[] = [];
       const seenEmails = new Set<string>();
 
-      // 1. Add createdBy / Submitter
-      if (p.createdBy || p.created_by) {
-        const creator = (p.createdBy || p.created_by) as any;
-        const name =
-          [creator.firstName || creator.first_name, creator.lastName || creator.last_name].filter(Boolean).join(" ") ||
-          creator.email ||
-          "Submitter";
-        const email = creator.email || "";
-        const rawPhoto =
-          creator.photo_url ||
-          creator.photoUrl ||
-          creator.photo ||
-          creator.avatarUrl ||
-          creator.avatar ||
-          creator.profilePhoto ||
-          creator.user?.photo_url ||
-          creator.user?.photoUrl ||
-          creator.user?.avatar;
-        const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
-        if (email) seenEmails.add(email.toLowerCase());
-        teamList.push({
-          id: creator.id || "creator",
-          name,
-          role: "Principal Investigator / Submitter",
-          email,
-          organization: p.Organization?.name || p.organization?.name,
-          avatarUrl,
-        });
+      // Track owner email/id to exclude owner from team members list
+      const ownerCreator = (p.createdBy || p.created_by) as any;
+      const ownerPi = (p.principalInvestigator || p.principal_investigator) as any;
+      const ownerEmails = new Set<string>();
+      const ownerIds = new Set<string>();
+
+      if (ownerCreator) {
+        if (ownerCreator.email) ownerEmails.add(String(ownerCreator.email).toLowerCase());
+        if (ownerCreator.id) ownerIds.add(String(ownerCreator.id));
+      }
+      if (ownerPi) {
+        if (ownerPi.email) ownerEmails.add(String(ownerPi.email).toLowerCase());
+        if (ownerPi.id) ownerIds.add(String(ownerPi.id));
       }
 
-      // 2. Add principalInvestigator if present and not already added
-      if (p.principalInvestigator || p.principal_investigator) {
-        const pi = (p.principalInvestigator || p.principal_investigator) as any;
-        const email = pi.email || "";
-        if (!email || !seenEmails.has(email.toLowerCase())) {
-          if (email) seenEmails.add(email.toLowerCase());
-          const name =
-            [pi.firstName || pi.first_name, pi.lastName || pi.last_name].filter(Boolean).join(" ") ||
-            pi.email ||
-            "Principal Investigator";
-          const rawPhoto =
-            pi.photo_url ||
-            pi.photoUrl ||
-            pi.photo ||
-            pi.avatarUrl ||
-            pi.avatar ||
-            pi.profilePhoto ||
-            pi.user?.photo_url ||
-            pi.user?.photoUrl ||
-            pi.user?.avatar;
-          const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
-          teamList.push({
-            id: pi.id || "pi",
-            name,
-            role: "Principal Investigator",
-            email,
-            organization: p.Organization?.name || p.organization?.name,
-            avatarUrl,
-          });
-        }
-      }
-
-      // 3. Add teamMembers / coInvestigators
+      // Process teamMembers, coInvestigators, externalTeamMembers, and stakeholders
       const rawMembers = [
         ...(p.teamMembers || p.team_members || []),
         ...(p.coInvestigators || p.co_investigators || []),
+        ...(p.externalTeamMembers || p.external_team_members || []),
+        ...(p.stakeholders || []),
       ];
 
       rawMembers.forEach((m: any, idx: number) => {
+        const email = (m.memberEmail || m.member_email || m.email || m.user?.email || "").toLowerCase();
+        const memberUserId = String(m.member?.id || m.member || m.user?.id || m.userId || "");
+
+        const isExternal =
+          m.member_type === "external" ||
+          m.memberType === "external" ||
+          m.user_type === "external" ||
+          m.userType === "external" ||
+          Boolean(m.stakeholder_name || m.stakeholderName);
+
+        // Exclude internal proposal owner / Principal Investigator from team avatars
+        const isOwner =
+          !isExternal &&
+          ((email && ownerEmails.has(email)) ||
+            (memberUserId && ownerIds.has(memberUserId)) ||
+            m.is_pi ||
+            m.isPi ||
+            m.role_name === "Principal Investigator" ||
+            m.roleName === "Principal Investigator");
+
+        if (isOwner) return;
+
         const name =
+          m.stakeholderName ||
+          m.stakeholder_name ||
           m.memberName ||
           m.member_name ||
           [m.user?.firstName || m.user?.first_name, m.user?.lastName || m.user?.last_name].filter(Boolean).join(" ") ||
           m.email ||
           m.memberEmail ||
           m.member_email ||
-          `Team Member ${idx + 1}`;
-        const email = m.memberEmail || m.member_email || m.email || m.user?.email || "";
+          (isExternal ? "External Stakeholder" : `Team Member ${idx + 1}`);
+
         const role =
+          m.position ||
           m.roleName ||
           m.role_name ||
-          m.position ||
           m.memberType ||
           m.member_type ||
-          m.userType ||
-          m.user_type ||
-          "Co-Investigator";
-        const org = m.organizationName || m.organization_name || p.Organization?.name || p.organization?.name;
+          (isExternal ? "External Stakeholder" : "Co-Investigator");
+
+        const org =
+          m.organizationName ||
+          m.organization_name ||
+          m.organization ||
+          p.Organization?.name ||
+          p.organization?.name;
+
         const rawPhoto =
           m.photo_url ||
           m.photoUrl ||
@@ -741,13 +725,14 @@ export default function ProposalsPage() {
           m.user?.photo;
         const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
 
-        if (!email || !seenEmails.has(email.toLowerCase())) {
-          if (email) seenEmails.add(email.toLowerCase());
+        const key = email ? email : `${name}-${idx}`;
+        if (!seenEmails.has(key)) {
+          seenEmails.add(key);
           teamList.push({
             id: String(m.id || idx),
             name,
             role,
-            email,
+            email: email || undefined,
             organization: org,
             avatarUrl,
           });
