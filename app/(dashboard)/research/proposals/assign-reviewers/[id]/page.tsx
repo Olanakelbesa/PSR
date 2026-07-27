@@ -186,9 +186,9 @@ export default function AssignReviewersDetailPage() {
         if (!isMounted) return;
         setScreening(record);
         setHasError(false);
-      } catch (error) {
+      } catch (error: any) {
         if (!isMounted) return;
-        console.error("Failed to load screening detail:", error);
+        console.error("Failed to load screening detail:", error?.message || error);
         setScreening(null);
         setHasError(true);
         toast.error("Failed to load screening detail");

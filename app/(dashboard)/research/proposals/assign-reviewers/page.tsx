@@ -16,11 +16,23 @@ import {
   UserCheck,
   RefreshCw,
   Calendar,
+  Building2,
+  Copy,
+  Check,
+  Mail,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +50,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import {
   Empty,
   EmptyContent,
@@ -122,6 +135,358 @@ function getScoreColor(pct: number): string {
   return "bg-rose-50 text-rose-600 border-rose-200";
 }
 
+// ── Helper Component: Copyable Reference Cell ──────────────────────────────────
+function ReferenceCell({ refNum, id }: { refNum: string; id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!refNum) return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-muted/60 hover:bg-muted dark:bg-muted/40 px-2 py-0.5 rounded-md border border-border/50 transition-colors max-w-fit">
+      <Link
+        href={`/research/proposals/assign-reviewers/${id}`}
+        className="font-mono text-xs font-semibold text-foreground hover:text-primary transition-colors truncate"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {refNum}
+      </Link>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy reference number"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
+// ── Helper Component: Submitted By User Cell ──────────────────────────────────
+function SubmittedByCell({ name, user }: { name: string; user?: any }) {
+  const getInitials = (str: string) => {
+    if (!str || str === "—") return "U";
+    const parts = str.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return str.slice(0, 2).toUpperCase();
+  };
+
+  const initials = getInitials(name);
+  const rawPhoto = user
+    ? user.photo_url ||
+      user.photoUrl ||
+      user.photo ||
+      user.avatarUrl ||
+      user.avatar ||
+      user.profilePhoto ||
+      user.user?.photo_url ||
+      user.user?.photoUrl ||
+      user.user?.avatar
+    : undefined;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar className="h-7 w-7 border border-border shrink-0 shadow-xs">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt={name} /> : null}
+        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary flex items-center justify-center size-full">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-sm font-medium text-foreground truncate max-w-[150px]">
+        {name}
+      </span>
+    </div>
+  );
+}
+
+// ── Helper Component: Assigned Reviewers Avatars & Info Tooltip ────────────────
+type ReviewerItem = {
+  id?: string | number;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  photoUrl?: string;
+  avatarUrl?: string;
+};
+
+function ReviewersCell({
+  reviewers,
+  count,
+}: {
+  reviewers?: ReviewerItem[];
+  count: number;
+}) {
+  const list = reviewers || [];
+  const displayReviewers = list.slice(0, 3);
+
+  const getInitials = (name?: string) => {
+    if (!name) return "R";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const avatarStyles = [
+    "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+    "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
+    "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+  ];
+
+  if (count === 0 && list.length === 0) {
+    return (
+      <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
+        0 reviewers
+      </Badge>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex -space-x-2 overflow-hidden py-1">
+        {displayReviewers.map((rev, idx) => {
+          const revName = rev.fullName || rev.name || `Reviewer ${idx + 1}`;
+          const initials = getInitials(revName);
+          const rawPhoto =
+            rev.photoUrl ||
+            rev.avatarUrl ||
+            (rev as any).photo_url ||
+            (rev as any).photo ||
+            (rev as any).avatar;
+          const resolvedAvatar = resolveFileUrl(rawPhoto) || undefined;
+          const colorStyle = avatarStyles[idx % avatarStyles.length];
+
+          return (
+            <TooltipProvider key={rev.id || idx}>
+              <Tooltip delayDuration={150}>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-7 w-7 border-2 border-background ring-1 ring-border shrink-0 shadow-xs cursor-pointer hover:z-10 transition-transform hover:scale-110">
+                    {resolvedAvatar ? (
+                      <AvatarImage src={resolvedAvatar} alt={revName} />
+                    ) : null}
+                    <AvatarFallback
+                      className={cn(
+                        "text-[10px] font-bold flex items-center justify-center size-full",
+                        colorStyle
+                      )}
+                    >
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  className="p-3.5 max-w-[270px] z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl"
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10 shrink-0 border-2 border-border/60 shadow-sm">
+                      {resolvedAvatar ? (
+                        <AvatarImage src={resolvedAvatar} alt={revName} />
+                      ) : null}
+                      <AvatarFallback
+                        className={cn(
+                          "text-xs font-bold flex items-center justify-center size-full",
+                          colorStyle
+                        )}
+                      >
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="font-bold text-xs text-foreground truncate">
+                        {revName}
+                      </p>
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] py-0.5 px-2 font-medium bg-primary/10 text-primary border-0 block w-fit truncate"
+                      >
+                        {rev.role || "Technical Reviewer"}
+                      </Badge>
+                      {rev.email && (
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-1 truncate">
+                          <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+                          <span className="truncate">{rev.email}</span>
+                        </p>
+                      )}
+                      {(rev as any).score_percentage != null && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 mt-1.5 border block w-fit",
+                            getScoreColor((rev as any).score_percentage)
+                          )}
+                        >
+                          Score: {(rev as any).score_percentage}%
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })}
+      </div>
+      <Badge
+        variant="secondary"
+        className="text-[11px] font-medium px-2 py-0.5 whitespace-nowrap"
+      >
+        {count || list.length} {count === 1 || list.length === 1 ? "reviewer" : "reviewers"}
+      </Badge>
+    </div>
+  );
+}
+
+// ── Helper Component: Review Progress Cell with Individual Scores Tooltip ─────
+function ReviewProgressCell({ row }: { row: ScreeningRow }) {
+  const assigned = row.assignedReviewersCount || 0;
+  const completed = row.reviewsCompletedCount || 0;
+  const pct = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
+  const list = row.assignedReviewers || [];
+
+  const getInitials = (name?: string) => {
+    if (!name) return "R";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const progressContent = (
+    <div
+      className="space-y-1.5 min-w-[130px] cursor-pointer py-1 group/progress"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground group-hover/progress:text-foreground transition-colors">
+          {completed}/{assigned}
+        </span>
+        <span className="text-[10px] font-bold text-foreground">{pct}%</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden ring-1 ring-border/30">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-500",
+            pct === 100
+              ? "bg-green-500"
+              : pct > 0
+                ? "bg-amber-400"
+                : "bg-muted-foreground/30",
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-[10px] text-muted-foreground group-hover/progress:text-foreground/80 transition-colors">
+        {assigned === 0
+          ? "No reviewers"
+          : pct === 100
+            ? "All reviewed"
+            : `${completed} of ${assigned} reviewed`}
+      </p>
+    </div>
+  );
+
+  if (list.length === 0) {
+    return progressContent;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild>
+          {progressContent}
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="p-3.5 min-w-[270px] max-w-[320px] z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl space-y-2.5"
+        >
+          <div className="flex items-center justify-between border-b border-border/50 pb-2">
+            <span className="text-xs font-bold text-foreground">Reviewer Scores</span>
+            <Badge variant="outline" className="text-[10px] font-semibold bg-muted/30">
+              {completed}/{assigned} Submitted
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {list.map((rev: any, idx: number) => {
+              const revName = rev.fullName || rev.name || `Reviewer ${idx + 1}`;
+              const initials = getInitials(revName);
+              const rawPhoto = rev.photo_url || rev.photoUrl || rev.photo || rev.avatar;
+              const resolvedAvatar = resolveFileUrl(rawPhoto) || undefined;
+
+              const scorePct =
+                rev.score_percentage !== undefined && rev.score_percentage !== null
+                  ? Number(rev.score_percentage)
+                  : rev.scorePercentage !== undefined && rev.scorePercentage !== null
+                    ? Number(rev.scorePercentage)
+                    : rev.score_pct !== undefined && rev.score_pct !== null
+                      ? Number(rev.score_pct)
+                      : null;
+
+              const isCompleted =
+                rev.is_completed ??
+                rev.isCompleted ??
+                (scorePct !== null);
+
+              return (
+                <div key={rev.id || idx} className="flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-6 w-6 border border-border shrink-0">
+                      {resolvedAvatar ? <AvatarImage src={resolvedAvatar} alt={revName} /> : null}
+                      <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary flex items-center justify-center size-full">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium text-foreground truncate max-w-[130px]">
+                      {revName}
+                    </span>
+                  </div>
+                  <div className="shrink-0">
+                    {scorePct !== null ? (
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] font-bold px-2 py-0.5", getScoreColor(scorePct))}
+                      >
+                        {scorePct}%
+                      </Badge>
+                    ) : isCompleted ? (
+                      <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
+                        Submitted
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground bg-muted/40">
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 // ── Screening row type ────────────────────────────────────────────────────────
 type ScreeningRow = Screening & {
   proposalId: string;
@@ -131,6 +496,7 @@ type ScreeningRow = Screening & {
   unitName: string;
   officeName: string;
   createdByName: string;
+  createdByObj?: any;
   thematicAreaLabel: string;
   shortAbstractText: string;
   submittedAt?: string;
@@ -142,26 +508,24 @@ const columns: ColumnDef<ScreeningRow>[] = [
     accessorKey: "referenceNumber",
     header: "Reference #",
     cell: ({ row }) => (
-      <Link
-        href={`/research/proposals/assign-reviewers/${row.original.id}`}
-        className="font-bold text-primary hover:underline"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {row.original.referenceNumber}
-      </Link>
+      <ReferenceCell
+        refNum={String(row.original.referenceNumber || row.original.id || "")}
+        id={String(row.original.id)}
+      />
     ),
   },
   {
     accessorKey: "proposalTitle",
     header: "Proposal Title",
     cell: ({ row }) => (
-      <div className="max-w-[250px] min-w-[130px]">
-        <p className="font-semibold text-sm line-clamp-1 whitespace-normal break-words">
+      <div className="max-w-[320px] min-w-[160px] py-1">
+        <Link
+          href={`/research/proposals/assign-reviewers/${row.original.id}`}
+          className="font-semibold text-sm line-clamp-2 text-foreground hover:text-primary transition-colors block leading-snug"
+          onClick={(e) => e.stopPropagation()}
+        >
           {row.original.proposalTitle}
-        </p>
-        <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2">
-          {row.original.shortAbstractText || row.original.thematicAreaLabel}
-        </p>
+        </Link>
       </div>
     ),
   },
@@ -169,78 +533,32 @@ const columns: ColumnDef<ScreeningRow>[] = [
     accessorKey: "createdByName",
     header: "Submitted By",
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-          {row.original.createdByName
-            .split(" ")
-            .filter(Boolean)
-            .map((part: string) => part[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase() || "U"}
-        </div>
-        <span className="text-sm font-medium">{row.original.createdByName}</span>
-      </div>
+      <SubmittedByCell
+        name={row.original.createdByName}
+        user={row.original.createdByObj}
+      />
     ),
   },
   {
-    accessorKey: "organizationName",
-    header: "Organization",
+    accessorKey: "assignedReviewers",
+    header: "Assigned Reviewers",
     cell: ({ row }) => (
-      <div className="text-sm">
-        <div className="font-medium">{row.original.organizationName}</div>
-        <div className="text-xs text-muted-foreground">
-          {row.original.unitName}
-        </div>
-      </div>
+      <ReviewersCell
+        reviewers={row.original.assignedReviewers}
+        count={row.original.assignedReviewersCount || 0}
+      />
     ),
   },
   {
     accessorKey: "assignedReviewersCount",
     header: "Review Progress",
-    cell: ({ row }) => {
-      const assigned = row.original.assignedReviewersCount || 0;
-      const completed = row.original.reviewsCompletedCount || 0;
-      const pct = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
-
-      return (
-        <div className="space-y-1.5 min-w-[120px]">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-              {completed}/{assigned}
-            </span>
-            <span className="text-[10px] font-bold">{pct}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                pct === 100
-                  ? "bg-green-500"
-                  : pct > 0
-                    ? "bg-amber-400"
-                    : "bg-muted-foreground/30",
-              )}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            {assigned === 0
-              ? "No reviewers"
-              : pct === 100
-                ? "All reviewed"
-                : `${completed} of ${assigned} reviewed`}
-          </p>
-        </div>
-      );
-    },
+    cell: ({ row }) => <ReviewProgressCell row={row.original} />,
   },
   {
     accessorKey: "averageScorePercentage",
     header: "Avg Score",
     cell: ({ row }) => {
       const pct = row.original.averageScorePercentage;
-      const maxPts = row.original.maxPossiblePoints;
       if (pct == null) {
         return (
           <span className="text-xs text-muted-foreground italic">No scores</span>
@@ -374,6 +692,7 @@ export default function AssignReviewersPage() {
       unitName: proposal?.Unit?.name || "—",
       officeName: proposal?.receivingOffice?.name || "—",
       createdByName: getCreatedByName(proposal),
+      createdByObj: proposal?.createdBy || proposal?.created_by,
       thematicAreaLabel: proposal?.thematicAreas?.[0]?.name || "—",
       shortAbstractText: stripHtml(proposal?.shortAbstract || ""),
       submittedAt:
@@ -399,8 +718,8 @@ export default function AssignReviewersPage() {
         .map(mapToScreeningRow);
 
       setScreenings(readyForAssignment);
-    } catch (error) {
-      console.error("Failed to load screenings:", error);
+    } catch (error: any) {
+      console.error("Failed to load screenings:", error?.message || error);
       setScreenings([]);
       setIsError(true);
     } finally {
@@ -699,6 +1018,7 @@ export default function AssignReviewersPage() {
           <DataTable
             columns={columns}
             data={filteredScreenings}
+            initialColumnVisibility={{ referenceNumber: false }}
             searchKey="proposalTitle"
             searchPlaceholder={
               activeFilterCopy?.searchPlaceholder ??

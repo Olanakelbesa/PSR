@@ -177,11 +177,52 @@ type ProposalRow = Omit<ManagedProposalQueueItem, "status"> & {
   unitName: string;
   officeName: string;
   createdByName: string;
+  createdByObj?: any;
   thematicAreaLabel: string;
   shortAbstractText: string;
   team: NormalizedTeamMember[];
   totalTeamCount: number;
 };
+
+// ── Helper Component: Submitted By User Cell ──────────────────────────────────
+function SubmittedByCell({ name, user }: { name: string; user?: any }) {
+  const getInitials = (str: string) => {
+    if (!str || str === "—") return "U";
+    const parts = str.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return str.slice(0, 2).toUpperCase();
+  };
+
+  const initials = getInitials(name);
+  const rawPhoto = user
+    ? user.photo_url ||
+      user.photoUrl ||
+      user.photo ||
+      user.avatarUrl ||
+      user.avatar ||
+      user.profilePhoto ||
+      user.user?.photo_url ||
+      user.user?.photoUrl ||
+      user.user?.avatar
+    : undefined;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar className="h-7 w-7 border border-border shrink-0 shadow-xs">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt={name} /> : null}
+        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary flex items-center justify-center size-full">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-sm font-medium text-foreground truncate max-w-[150px]">
+        {name}
+      </span>
+    </div>
+  );
+}
 
 // ── Helper Component: Copyable Reference Number ────────────────────────────────
 function ReferenceCell({ refNum, id }: { refNum: string; id: string }) {
@@ -367,9 +408,10 @@ const columns: ColumnDef<ProposalRow>[] = [
     accessorKey: "createdByName",
     header: "Submitted By",
     cell: ({ row }) => (
-      <span className="text-sm font-medium text-foreground">
-        {row.original.createdByName}
-      </span>
+      <SubmittedByCell
+        name={row.original.createdByName}
+        user={row.original.createdByObj}
+      />
     ),
   },
   {
@@ -623,6 +665,7 @@ export default function ScreeningReviewsPage() {
               .filter(Boolean)
               .join(" ") || proposal.createdBy.email || "—"
           : "—"),
+      createdByObj: proposal.createdBy || proposal.created_by,
       thematicAreaLabel: proposal.thematicAreas?.[0]?.name || "—",
       shortAbstractText: proposal.shortAbstract
         ? proposal.shortAbstract.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()

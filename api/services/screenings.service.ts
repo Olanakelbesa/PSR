@@ -13,19 +13,21 @@ export const ScreeningStatusSchema = z.enum([
   "screening_rejected",
 ]);
 
-const ScreeningUserSchema = z.object({
-  id: z.union([z.string(), z.number()]).transform(String),
-  firstName: z.string().nullable().optional(),
-  lastName: z.string().nullable().optional(),
-  email: z.string().email().optional(),
-});
+const ScreeningUserSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    firstName: z.string().nullable().optional(),
+    lastName: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+  })
+  .passthrough();
 
 const ScreeningAssignedReviewerSchema = z
   .object({
-    id: z.union([z.string(), z.number()]).transform(Number),
-    fullName: z.string().optional().default(""),
-    email: z.string().email().optional().default(""),
-    role: z.string().optional().default(""),
+    id: z.union([z.string(), z.number()]).transform(String),
+    fullName: z.string().nullable().optional().default(""),
+    email: z.string().nullable().optional().default(""),
+    role: z.string().nullable().optional().default(""),
   })
   .passthrough();
 
@@ -363,14 +365,29 @@ export async function getScreenings(
   const res = await apiClient.get(API_ENDPOINTS.SCREENINGS.LIST, {
     params: filters,
   });
-  return ScreeningsListSchema.parse(res.data);
+  const parsed = ScreeningsListSchema.safeParse(res.data);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("ScreeningsListSchema safeParse warnings:", parsed.error);
+  const rawData = res.data?.data ?? res.data ?? [];
+  return {
+    data: Array.isArray(rawData) ? rawData : [],
+    meta: res.data?.meta ?? {},
+  } as any;
 }
 
 export async function getScreeningById(
   id: string | number,
 ): Promise<Screening> {
   const res = await apiClient.get(API_ENDPOINTS.SCREENINGS.DETAIL(id));
-  return ScreeningSchema.parse(res.data?.data ?? res.data);
+  const raw = res.data?.data ?? res.data;
+  const parsed = ScreeningSchema.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("ScreeningSchema safeParse warning:", parsed.error);
+  return raw as any;
 }
 
 export async function assignReviewers(

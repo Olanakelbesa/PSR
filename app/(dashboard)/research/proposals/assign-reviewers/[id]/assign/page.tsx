@@ -33,6 +33,7 @@ import { PageContainer } from "@/components/layout";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUserSelector } from "@/lib/queries/users";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   assignReviewers,
   getAssignedReviewers,
@@ -177,6 +178,9 @@ export default function AssignReviewersDetailPage() {
     };
   }, [screeningId]);
 
+  const { user: currentUser } = useCurrentUser();
+  const assignerId = currentUser?.id != null ? Number(currentUser.id) : null;
+
   const piId = useMemo(() => {
     if (!screening) return null;
     const rawProposal = (screening.proposal || {}) as any;
@@ -194,10 +198,10 @@ export default function AssignReviewersDetailPage() {
   }, [screening]);
 
   useEffect(() => {
-    if (piId != null) {
-      setSelectedIds((prev) => prev.filter((id) => id !== piId));
-    }
-  }, [piId]);
+    setSelectedIds((prev) =>
+      prev.filter((id) => id !== piId && id !== assignerId),
+    );
+  }, [piId, assignerId]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -206,8 +210,9 @@ export default function AssignReviewersDetailPage() {
   const filteredUsers = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return users.filter((u: any) => {
-      // Remove Principal Investigator dynamically from the user selector list
-      if (piId != null && Number(u.id) === piId) {
+      const uId = Number(u.id);
+      // Remove Principal Investigator and Assigner dynamically from the user selector list
+      if ((piId != null && uId === piId) || (assignerId != null && uId === assignerId)) {
         return false;
       }
       const fullName =
@@ -220,7 +225,7 @@ export default function AssignReviewersDetailPage() {
         (u.organization?.name || "").toLowerCase().includes(q)
       );
     });
-  }, [users, searchQuery, piId]);
+  }, [users, searchQuery, piId, assignerId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const paginatedUsers = filteredUsers.slice(
@@ -229,13 +234,13 @@ export default function AssignReviewersDetailPage() {
   );
 
   const toggleAssignment = useCallback((userId: number) => {
-    if (piId != null && userId === piId) return;
+    if ((piId != null && userId === piId) || (assignerId != null && userId === assignerId)) return;
     setSelectedIds((prev) =>
       prev.includes(userId)
         ? prev.filter((id) => id !== userId)
         : [...prev, userId],
     );
-  }, [piId]);
+  }, [piId, assignerId]);
 
   const selectedUsers = useMemo(() => {
     return users
