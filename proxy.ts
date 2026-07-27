@@ -1,5 +1,5 @@
 // ============================================================================
-// RPDMS — Auth Proxy (Next.js 16 — Edge routing, not counted as Serverless Fn)
+// RPDMS — Auth Proxy (Next.js 16 — Edge routing)
 // ============================================================================
 
 import { NextResponse } from "next/server";
@@ -9,10 +9,21 @@ import { isPublicPath } from "@/lib/auth/public-routes";
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl;
 
+  // Fast-bypass: API proxy routes (/bff), auth endpoints (/auth-api), static build assets,
+  // images, and media files bypass heavy session error checks.
+  if (
+    pathname.startsWith("/bff") ||
+    pathname.startsWith("/auth-api") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/media") ||
+    pathname.startsWith("/images")
+  ) {
+    return NextResponse.next();
+  }
+
   if (
     req.auth?.error === "RefreshTokenError" &&
-    !isPublicPath(pathname) &&
-    !pathname.startsWith("/auth-api")
+    !isPublicPath(pathname)
   ) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);

@@ -67,8 +67,8 @@ export function createQueryClient() {
         staleTime: 1_000 * 60 * 5,
         // Retry once on transient failures; avoids hammering after real errors
         retry: 1,
-        // Automatically refetch stale queries when user switches back to a tab
-        refetchOnWindowFocus: true,
+        // Disable automatic window focus refetching to prevent unnecessary network activity
+        refetchOnWindowFocus: false,
       },
       mutations: {
         // Global mutation error handler — logs in dev, silent in production

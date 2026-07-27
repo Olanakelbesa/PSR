@@ -117,10 +117,10 @@ export function useNotifications(userId?: string) {
       return unwrapNotificationList(data).map(normalizeNotification);
     },
     enabled: !!userId,
-    staleTime: 1000 * 2,
-    refetchInterval: 3_000,
-    refetchIntervalInBackground: true,
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 30,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
 }

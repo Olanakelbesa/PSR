@@ -27,7 +27,12 @@ export function Providers({ children, session }: ProvidersProps) {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    <SessionProvider session={session} basePath="/auth-api">
+    <SessionProvider
+      session={session}
+      basePath="/auth-api"
+      refetchInterval={0}
+      refetchOnWindowFocus={false}
+    >
       <QueryClientProvider client={queryClient}>
         <ErrorBoundary>{children}</ErrorBoundary>
 

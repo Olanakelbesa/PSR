@@ -177,7 +177,6 @@ const handler = auth(async (req, context) => {
       upstreamContentType.startsWith("image/");
 
     if (isBinary) {
-      const buffer = await upstreamRes.arrayBuffer();
       const responseHeaders = new Headers({
         "content-type": upstreamContentType,
       });
@@ -185,7 +184,7 @@ const handler = auth(async (req, context) => {
       if (disposition) {
         responseHeaders.set("content-disposition", disposition);
       }
-      return new NextResponse(buffer, {
+      return new NextResponse(upstreamRes.body as any, {
         status: upstreamRes.status,
         headers: responseHeaders,
       });

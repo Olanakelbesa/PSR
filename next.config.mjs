@@ -46,6 +46,20 @@ const nextConfig = {
   // Increase the HTTP server's max header size to fix 431 errors caused by
   // large NextAuth JWT session cookies exceeding the default 8KB Node.js limit.
   experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "recharts",
+      "framer-motion",
+      "@tanstack/react-query",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-tooltip",
+    ],
     // Large file uploads via /bff (multipart proxied through Next.js)
     proxyClientMaxBodySize: "100mb",
     serverActions: {

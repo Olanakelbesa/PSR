@@ -300,9 +300,9 @@ export default function LandingPage() {
       if (payload && payload.data !== undefined) payload = payload.data;
       return payload ?? null;
     },
-    staleTime: 10_000,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 5,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 
   const metrics = overview?.metrics ?? {};
