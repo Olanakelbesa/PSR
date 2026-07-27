@@ -1,6 +1,6 @@
 interface PageContainerProps {
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   actions?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -19,7 +19,7 @@ export function PageContainer({
           <div>
             {title && <h1 className="text-2xl font-bold tracking-tight">{title}</h1>}
             {description && (
-              <p className="text-muted-foreground">{description}</p>
+              <div className="text-sm text-muted-foreground">{description}</div>
             )}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}

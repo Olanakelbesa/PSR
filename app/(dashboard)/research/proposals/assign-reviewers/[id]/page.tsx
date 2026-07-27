@@ -124,9 +124,9 @@ const REVIEWER_BORDER_COLORS = [
 function hasReviewContent(review: ScreeningTechnicalReview): boolean {
   return Boolean(
     review.hasResponses ||
-      (review.totalScore != null && review.totalScore > 0) ||
-      (review.comments && review.comments.trim().length > 0) ||
-      review.attachment,
+    (review.totalScore != null && review.totalScore > 0) ||
+    (review.comments && review.comments.trim().length > 0) ||
+    review.attachment,
   );
 }
 
@@ -624,12 +624,12 @@ export default function AssignReviewersDetailPage() {
                       {teamMembers.map((member, index) => {
                         const name = String(
                           member.memberName ??
-                            member.stakeholderName ??
-                            "Unnamed member",
+                          member.stakeholderName ??
+                          "Unnamed member",
                         );
                         const borderColor =
                           REVIEWER_BORDER_COLORS[
-                            index % REVIEWER_BORDER_COLORS.length
+                          index % REVIEWER_BORDER_COLORS.length
                           ];
                         return (
                           <div
@@ -647,8 +647,8 @@ export default function AssignReviewersDetailPage() {
                               <p className="text-xs text-muted-foreground">
                                 {String(
                                   member.roleName ??
-                                    member.memberType ??
-                                    "Member",
+                                  member.memberType ??
+                                  "Member",
                                 )}
                               </p>
                               {member.email && (
@@ -720,10 +720,10 @@ export default function AssignReviewersDetailPage() {
                         const reviewPercent =
                           review.totalScore != null && maxPossiblePoints > 0
                             ? Math.round(
-                                (Number(review.totalScore) /
-                                  maxPossiblePoints) *
-                                  100,
-                              )
+                              (Number(review.totalScore) /
+                                maxPossiblePoints) *
+                              100,
+                            )
                             : null;
 
                         return (
@@ -952,7 +952,7 @@ export default function AssignReviewersDetailPage() {
                   const review = reviewByReviewerId.get(reviewer.id);
                   const borderColor =
                     REVIEWER_BORDER_COLORS[
-                      index % REVIEWER_BORDER_COLORS.length
+                    index % REVIEWER_BORDER_COLORS.length
                     ];
                   const hasSubmitted = Boolean(review && hasReviewContent(review));
 
@@ -989,10 +989,10 @@ export default function AssignReviewersDetailPage() {
                                 "text-lg font-black leading-none",
                                 toPercent(review.totalScore) !== "—" &&
                                   parseInt(toPercent(review.totalScore)) >= 70
-                                    ? "text-green-600"
-                                    : parseInt(toPercent(review.totalScore)) >= 50
-                                      ? "text-amber-600"
-                                      : "text-rose-600",
+                                  ? "text-green-600"
+                                  : parseInt(toPercent(review.totalScore)) >= 50
+                                    ? "text-amber-600"
+                                    : "text-rose-600",
                               )}>
                                 {toPercent(review.totalScore)}
                               </p>
@@ -1219,7 +1219,7 @@ export default function AssignReviewersDetailPage() {
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="border-b bg-primary/5 py-3">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Institutional Context
+                Institution
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
@@ -1270,24 +1270,24 @@ export default function AssignReviewersDetailPage() {
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
                   {proposal.createdBy
                     ? getInitials(
-                        [
-                          proposal.createdBy.firstName,
-                          proposal.createdBy.lastName,
-                        ]
-                          .filter(Boolean)
-                          .join(" ") || "U",
-                      )
+                      [
+                        proposal.createdBy.firstName,
+                        proposal.createdBy.lastName,
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || "U",
+                    )
                     : "U"}
                 </div>
                 <div>
                   <p className="text-sm font-semibold">
                     {proposal.createdBy
                       ? [
-                          proposal.createdBy.firstName,
-                          proposal.createdBy.lastName,
-                        ]
-                          .filter(Boolean)
-                          .join(" ") || "Unknown"
+                        proposal.createdBy.firstName,
+                        proposal.createdBy.lastName,
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || "Unknown"
                       : "Unknown creator"}
                   </p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">

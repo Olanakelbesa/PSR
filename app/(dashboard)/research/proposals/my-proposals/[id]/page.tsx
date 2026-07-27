@@ -24,6 +24,7 @@ import {
   Phone,
   RefreshCw,
   Trash2,
+  User,
   Users,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ import {
 import { PageContainer } from "@/components/layout";
 import { ConfirmDialog } from "@/components/shared";
 import { useDeleteProposal } from "@/hooks/useProposals";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -343,6 +345,7 @@ function SkeletonLoading() {
 export default function ProposalDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user: currentUser } = useCurrentUser();
   const proposalId = useMemo(() => {
     const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
     return rawId ? String(rawId) : "";
@@ -504,6 +507,19 @@ export default function ProposalDetailPage() {
   const rejectionFeedback =
     proposal?.rejectionReason || reviewHistoryObject?.decisionRemarks || null;
 
+  const currentUserId = String(currentUser?.id ?? "");
+  const currentUserEmail = (currentUser?.email ?? "").toLowerCase();
+  const createdBy = (proposal?.createdBy || proposal?.created_by) as any;
+  const createdById = String(createdBy?.id ?? createdBy ?? "");
+  const createdByEmail = (createdBy?.email ?? "").toLowerCase();
+
+  const isOwner = Boolean(
+    (currentUserId && createdById === currentUserId) ||
+    (currentUserEmail && createdByEmail === currentUserEmail) ||
+    (proposal as any)?.isOwner ||
+    (proposal as any)?.is_owner
+  );
+
   if (isLoading) {
     return <SkeletonLoading />;
   }
@@ -571,7 +587,7 @@ export default function ProposalDetailPage() {
             </Button>
           )}
 
-          {isDraft && (
+          {isDraft && isOwner && (
             <Button
               variant="destructive"
               className="h-9"
@@ -602,6 +618,23 @@ export default function ProposalDetailPage() {
                   >
                     {statusLabel}
                   </Badge>
+                  {isOwner ? (
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 text-[11px] font-bold gap-1"
+                    >
+                      <User className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                      Owner
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 text-[11px] font-bold gap-1"
+                    >
+                      <Users className="h-3 w-3 text-sky-600 dark:text-sky-400" />
+                      Member
+                    </Badge>
+                  )}
                   {proposal.submittedAt && (
                     <Badge
                       variant="outline"
@@ -1240,11 +1273,11 @@ export default function ProposalDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Institutional Context */}
+          {/* Institutional  */}
           <Card className="shadow-sm border-primary/10">
             <CardHeader className="border-b bg-primary/5 py-4">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Institutional Context
+                Institution
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">

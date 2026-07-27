@@ -22,6 +22,7 @@ import {
   Check,
   Mail,
   User,
+  Users,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 
@@ -38,6 +39,7 @@ import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { ConfirmDialog } from "@/components/shared";
 import { useProposals, useDeleteProposal } from "@/hooks/useProposals";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { toast } from "sonner";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -344,6 +346,8 @@ type ProposalRow = {
   unit?: string;
   team: NormalizedTeamMember[];
   totalTeamCount: number;
+  isOwner: boolean;
+  userRoleLabel: "Owner" | "Member";
 };
 
 function getColumns(onDelete: (proposal: ProposalRow) => void): ColumnDef<ProposalRow>[] {
@@ -362,7 +366,7 @@ function getColumns(onDelete: (proposal: ProposalRow) => void): ColumnDef<Propos
       accessorKey: "title",
       header: "Proposal Title",
       cell: ({ row }) => (
-        <div className="max-w-[320px] min-w-[160px] py-1">
+        <div className="max-w-[320px] min-w-[160px] py-1 space-y-1">
           <Link
             href={`/research/proposals/my-proposals/${row.original.id}`}
             className="font-semibold text-sm line-clamp-2 text-foreground hover:text-primary transition-colors block leading-snug"
@@ -372,6 +376,30 @@ function getColumns(onDelete: (proposal: ProposalRow) => void): ColumnDef<Propos
           </Link>
         </div>
       ),
+    },
+    {
+      accessorKey: "userRoleLabel",
+      header: "Your Role",
+      cell: ({ row }) => {
+        const isOwner = row.original.isOwner;
+        return isOwner ? (
+          <Badge
+            variant="outline"
+            className="text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 gap-1 whitespace-nowrap"
+          >
+            <User className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+            Owner
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="text-[11px] font-semibold bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 gap-1 whitespace-nowrap"
+          >
+            <Users className="h-3 w-3 text-sky-600 dark:text-sky-400" />
+            Member
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "team",
@@ -459,16 +487,18 @@ function getColumns(onDelete: (proposal: ProposalRow) => void): ColumnDef<Propos
                 <DropdownMenuSeparator />
               </>
             )}
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(row.original);
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+            {row.original.isOwner && (
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(row.original);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -480,10 +510,14 @@ function getColumns(onDelete: (proposal: ProposalRow) => void): ColumnDef<Propos
 export default function ProposalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user: currentUser } = useCurrentUser();
   const [proposalToDelete, setProposalToDelete] = useState<ProposalRow | null>(
     null,
   );
   const deleteProposalMutation = useDeleteProposal();
+
+  type RoleScopeFilter = "all" | "owned" | "team";
+  const [roleScopeFilter, setRoleScopeFilter] = useState<RoleScopeFilter>("all");
 
   const columns = useMemo(
     () => getColumns((proposal) => setProposalToDelete(proposal)),
@@ -655,6 +689,16 @@ export default function ProposalsPage() {
         if (ownerPi.id) ownerIds.add(String(ownerPi.id));
       }
 
+      const currentUserId = String(currentUser?.id ?? "");
+      const currentUserEmail = (currentUser?.email ?? "").toLowerCase();
+      const isOwner = Boolean(
+        (currentUserId && ownerIds.has(currentUserId)) ||
+        (currentUserEmail && ownerEmails.has(currentUserEmail)) ||
+        p.isOwner ||
+        p.is_owner
+      );
+      const userRoleLabel: "Owner" | "Member" = isOwner ? "Owner" : "Member";
+
       // Process teamMembers, coInvestigators, externalTeamMembers, and stakeholders
       const rawMembers = [
         ...(p.teamMembers || p.team_members || []),
@@ -675,7 +719,7 @@ export default function ProposalsPage() {
           Boolean(m.stakeholder_name || m.stakeholderName);
 
         // Exclude internal proposal owner / Principal Investigator from team avatars
-        const isOwner =
+        const isMemberOwner =
           !isExternal &&
           ((email && ownerEmails.has(email)) ||
             (memberUserId && ownerIds.has(memberUserId)) ||
@@ -684,7 +728,7 @@ export default function ProposalsPage() {
             m.role_name === "Principal Investigator" ||
             m.roleName === "Principal Investigator");
 
-        if (isOwner) return;
+        if (isMemberOwner) return;
 
         const name =
           m.stakeholderName ||
@@ -764,9 +808,17 @@ export default function ProposalsPage() {
         unit: p.Unit?.name || p.unit?.name || "",
         team: teamList,
         totalTeamCount: teamList.length,
+        isOwner,
+        userRoleLabel,
       };
     });
-  }, [proposals]);
+  }, [proposals, currentUser]);
+
+  const filteredTableData = useMemo(() => {
+    if (roleScopeFilter === "owned") return tableData.filter((r) => r.isOwner);
+    if (roleScopeFilter === "team") return tableData.filter((r) => !r.isOwner);
+    return tableData;
+  }, [tableData, roleScopeFilter]);
 
   const statusOptions = Object.entries(statusConfig).map(
     ([value, { label }]) => ({
@@ -895,7 +947,6 @@ export default function ProposalsPage() {
           </Button>
         </div>
       )}
-
       {/* ── Table ──────────────────────────────────────────────────────────── */}
       <div className="mt-8 w-full max-w-full overflow-hidden">
         {isLoading ? (
@@ -931,32 +982,65 @@ export default function ProposalsPage() {
             </Button>
           </div>
         ) : tableData.length > 0 ? (
-          <DataTable
-            columns={columns}
-            data={tableData}
-            initialColumnVisibility={{ referenceNumber: false }}
-            searchKey="title"
-            searchPlaceholder={
-              activeFilterCopy?.searchPlaceholder ??
-              "Search proposals by title..."
-            }
-            onRowClick={(row) => {
-              router.push(`/research/proposals/my-proposals/${row.id}`);
-            }}
-            filterOptions={
-              queueFilter === "all"
-                ? [
-                    {
-                      key: "status",
-                      label: "Status",
-                      options: statusOptions,
-                    },
-                  ]
-                : []
-            }
-            emptyMessage="No proposals found"
-            emptyDescription="Try adjusting your filters or create a new proposal"
-          />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-2.5 rounded-xl border border-border/60 shadow-2xs">
+              <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/50">
+                <Button
+                  variant={roleScopeFilter === "all" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs font-semibold rounded-md"
+                  onClick={() => setRoleScopeFilter("all")}
+                >
+                  All ({tableData.length})
+                </Button>
+                <Button
+                  variant={roleScopeFilter === "owned" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs font-semibold rounded-md gap-1.5"
+                  onClick={() => setRoleScopeFilter("owned")}
+                >
+                  <User className="h-3.5 w-3.5 text-emerald-500" />
+                  Created by Me ({tableData.filter((r) => r.isOwner).length})
+                </Button>
+                <Button
+                  variant={roleScopeFilter === "team" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs font-semibold rounded-md gap-1.5"
+                  onClick={() => setRoleScopeFilter("team")}
+                >
+                  <Users className="h-3.5 w-3.5 text-sky-500" />
+                  Shared with Me ({tableData.filter((r) => !r.isOwner).length})
+                </Button>
+              </div>
+            </div>
+
+            <DataTable
+              columns={columns}
+              data={filteredTableData}
+              initialColumnVisibility={{ referenceNumber: false }}
+              searchKey="title"
+              searchPlaceholder={
+                activeFilterCopy?.searchPlaceholder ??
+                "Search proposals by title..."
+              }
+              onRowClick={(row) => {
+                router.push(`/research/proposals/my-proposals/${row.id}`);
+              }}
+              filterOptions={
+                queueFilter === "all"
+                  ? [
+                      {
+                        key: "status",
+                        label: "Status",
+                        options: statusOptions,
+                      },
+                    ]
+                  : []
+              }
+              emptyMessage="No proposals found"
+              emptyDescription="Try adjusting your filters or create a new proposal"
+            />
+          </div>
         ) : (
           <Empty className="border-dashed py-24">
             <EmptyMedia variant="icon">

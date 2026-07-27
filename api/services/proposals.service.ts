@@ -30,9 +30,20 @@ function camelize(value: unknown): unknown {
 }
 
 function normalizeProposalPayload(payload: unknown): unknown {
-  const data = payload as unknown;
+  let data = payload as any;
   if (data === null || data === undefined) {
     return data;
+  }
+  if (Array.isArray(data) && data.length > 0) {
+    data = data[0];
+  }
+  if (data && typeof data === "object" && data.proposal) {
+    const screeningId = data.id || data.screeningId || data.screening_id;
+    data = {
+      ...data.proposal,
+      screeningId,
+      screening_id: screeningId,
+    };
   }
   const camelized = camelize(data);
   if (data && typeof data === "object" && !Array.isArray(data)) {

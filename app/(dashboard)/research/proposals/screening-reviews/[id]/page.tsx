@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -11,6 +11,13 @@ import {
   FileText,
   ExternalLink,
   CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Search,
+  Send,
+  MessageSquare,
+  History,
+  Sparkles,
   AlertCircle,
   Clock,
   Users,
@@ -21,9 +28,20 @@ import {
   Calendar,
   Tag,
   Pencil,
+  Wallet,
+  Download,
+  Paperclip,
+  Mail,
+  Phone,
+  User,
+  Shield,
+  Copy,
+  Check,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -66,7 +84,6 @@ import {
   type ReviewHistoryEvent,
 } from "@/api/services";
 import type { Attachment } from "@/lib/types";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   proposalScreeningSchema,
@@ -74,6 +91,9 @@ import {
 } from "@/lib/validations";
 import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 import { PdfViewerDialog } from "@/components/shared";
 
 type ManagedTeamMember = Awaited<
@@ -97,6 +117,24 @@ const STATUS_DISPLAY: Record<
   revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
 };
 
+function getUserAvatarUrl(photoUrl?: string | null): string | undefined {
+  if (!photoUrl || photoUrl === "#") return undefined;
+  if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+    return photoUrl;
+  }
+  const cleanPath = photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`;
+  return `/bff/media/stream/${cleanPath.replace(/^\/media\//, "")}`;
+}
+
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
 function StatusBadge({ status, displayLabel }: { status: string; displayLabel?: string }) {
   const cfg = STATUS_DISPLAY[status] ?? {
     label: displayLabel || status.replace(/_/g, " "),
@@ -112,7 +150,68 @@ function StatusBadge({ status, displayLabel }: { status: string; displayLabel?: 
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+function formatBudget(val: any): string {
+  if (!val) return "N/A";
+  const num = Number(val);
+  if (isNaN(num)) return String(val);
+  return `ETB ${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function EmbeddedViewer({ url, title }: { url: string; title: string }) {
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center bg-card">
+        <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
+        <p className="font-medium text-muted-foreground">No document attached</p>
+      </div>
+    );
+  }
+
+  const resolvedUrl = resolveFileUrl(url) || url;
+  const kind = getConceptNoteAttachmentKind(resolvedUrl);
+
+  if (kind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 shadow-xs bg-card">
+        <PdfViewer url={resolvedUrl} title={title} className="h-[750px] w-full" />
+      </div>
+    );
+  }
+
+  if (kind === "word") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 bg-[#ededed] dark:bg-muted/30 shadow-xs">
+        <WordViewer url={resolvedUrl} title={title} className="h-[750px] w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-card p-16 text-center shadow-2xs">
+      <FileText className="h-12 w-12 text-primary" />
+      <div>
+        <p className="font-semibold text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          This document type cannot be embedded directly in the browser preview.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <Button asChild variant="outline" size="sm">
+          <a href={resolvedUrl} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-2 h-4 w-4" /> Open File
+          </a>
+        </Button>
+        <Button asChild size="sm">
+          <a href={resolvedUrl} download>
+            <Download className="mr-2 h-4 w-4" /> Download
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Page Component ────────────────────────────────────────────────────────────
 export default function ScreeningDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -123,6 +222,29 @@ export default function ScreeningDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStartingReview, setIsStartingReview] = useState(false);
   const [viewingFile, setViewingFile] = useState<{ name: string; url: string } | null>(null);
+  const [activeDocKey, setActiveDocKey] = useState<string>("proposal");
+  const [isCopiedRef, setIsCopiedRef] = useState(false);
+
+  const handleCopyRef = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setIsCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setIsCopiedRef(false), 2000);
+  };
+
+  const documentList = useMemo(() => {
+    if (!proposal) return [];
+    return [
+      { key: "proposal", label: "Proposal Document", filePath: proposal.proposalFile },
+      { key: "updated", label: "Revised Proposal", filePath: proposal.updatedProposal },
+      { key: "supporting", label: "Budget File", filePath: proposal.supportingDocs },
+    ].filter((f) => Boolean(f.filePath));
+  }, [proposal]);
+
+  const activeDoc = useMemo(() => {
+    return documentList.find((d) => d.key === activeDocKey) || documentList[0];
+  }, [documentList, activeDocKey]);
 
   const form = useForm<ProposalScreeningFormData>({
     resolver: zodResolver(proposalScreeningSchema),
@@ -201,7 +323,9 @@ export default function ScreeningDetailPage() {
       abstract: detail.abstract || "",
       principalInvestigator: {
         id: detail.createdBy?.id || "",
-        image: undefined,
+        image: detail.createdBy?.photoUrl || detail.createdBy?.photo_url || detail.createdBy?.photo || undefined,
+        photoUrl: detail.createdBy?.photoUrl || detail.createdBy?.photo_url || detail.createdBy?.photo || undefined,
+        photo_url: detail.createdBy?.photoUrl || detail.createdBy?.photo_url || detail.createdBy?.photo || undefined,
         email: detail.createdBy?.email || "",
         firstName,
         lastName,
@@ -213,6 +337,7 @@ export default function ScreeningDetailPage() {
           detail.createdAt ||
           new Date().toISOString(),
       },
+      createdBy: detail.createdBy || undefined,
       coInvestigators: (detail.teamMembers || [])
         .filter((member: ManagedTeamMember) => {
           const ownerId = String(detail.createdBy?.id || detail.created_by?.id || "");
@@ -480,14 +605,42 @@ export default function ScreeningDetailPage() {
     );
   }
 
-  const coInvestigators = proposal.coInvestigators as Array<{
-    name: string;
-    email: string;
-    institution: string;
-    role: string;
-    roleName: string;
-    memberType: string;
-  }>;
+  const coInvestigators = (proposal.coInvestigators || []) as Array<any>;
+  const rawTeamList = (proposal.teamMembers || proposal.team_members || coInvestigators) as Array<any>;
+
+  const getValidUser = (obj: any) => {
+    if (!obj || typeof obj !== "object") return null;
+    if (obj.id || obj.email || obj.firstName || obj.memberName || obj.name) return obj;
+    return null;
+  };
+
+  const pi =
+    getValidUser(proposal.principalInvestigator) ||
+    getValidUser(proposal.createdBy) ||
+    getValidUser(proposal.pi) ||
+    {};
+
+  const piFirstName = pi.firstName || pi.first_name || pi.memberName?.split(" ")[0] || "";
+  const piLastName = pi.lastName || pi.last_name || pi.memberName?.split(" ").slice(1).join(" ") || "";
+  const piName =
+    [piFirstName, piLastName].filter(Boolean).join(" ") ||
+    pi.name ||
+    pi.memberName ||
+    (pi.email ? pi.email.split("@")[0] : "") ||
+    "Principal Investigator";
+  const piEmail = pi.email || pi.memberEmail || "";
+  const rawPiPhoto =
+    pi.photoUrl ||
+    pi.photo_url ||
+    pi.avatarUrl ||
+    pi.avatar ||
+    pi.photo ||
+    proposal.createdBy?.photoUrl ||
+    proposal.createdBy?.photo_url ||
+    proposal.createdBy?.photo ||
+    proposal.principalInvestigator?.photoUrl ||
+    proposal.principalInvestigator?.photo_url;
+  const piAvatar = resolveFileUrl(rawPiPhoto) || (rawPiPhoto ? (rawPiPhoto.startsWith("http") ? rawPiPhoto : `http://127.0.0.1:8000${rawPiPhoto}`) : undefined);
 
   const hasFiles = proposal.proposalFile || proposal.supportingDocs || proposal.updatedProposal;
   const hasSignature = Boolean(proposal.signature);
@@ -510,7 +663,24 @@ export default function ScreeningDetailPage() {
   return (
     <PageContainer
       title={proposal.title}
-      description={`Reference: ${proposal.referenceNumber || `PRP-${proposal.id}`}`}
+      description={
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
+          <button
+            type="button"
+            onClick={() => handleCopyRef(proposal.referenceNumber || `PRP-${proposal.id}`)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy reference number"
+          >
+            <span>{proposal.referenceNumber || `PRP-${proposal.id}`}</span>
+            {isCopiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+        </div>
+      }
       actions={
         <div className="flex items-center gap-2">
           <Button
@@ -526,30 +696,30 @@ export default function ScreeningDetailPage() {
             proposal.status === "resubmitted" ||
             proposal.status === "screening_approved" ||
             proposal.status === "screening_rejected") && (
-            <Button
-              className={cn(
-                "hover:opacity-90",
-                isAlreadyScreened
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-primary hover:bg-primary/90",
-              )}
-              onClick={handleStartReview}
-              disabled={isStartingReview || isSubmitting}
-            >
-              {isAlreadyScreened ? (
-                <>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit Review
-                </>
-              ) : (
-                <>
-                  <ClipboardCheck className="mr-2 h-4 w-4" />
-                  Review
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
-          )}
+              <Button
+                className={cn(
+                  "hover:opacity-90",
+                  isAlreadyScreened
+                    ? "bg-amber-600 hover:bg-amber-700 text-white"
+                    : "bg-primary hover:bg-primary/90",
+                )}
+                onClick={handleStartReview}
+                disabled={isStartingReview || isSubmitting}
+              >
+                {isAlreadyScreened ? (
+                  <>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit Review
+                  </>
+                ) : (
+                  <>
+                    <ClipboardCheck className="mr-2 h-4 w-4" />
+                    Review
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            )}
         </div>
       }
     >
@@ -557,29 +727,96 @@ export default function ScreeningDetailPage() {
         {/* ── Main Content ──────────────────────────────────────────────── */}
         <div className="space-y-6 min-w-0">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-8">
-              <TabsTrigger
-                value="overview"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Proposal Content
-              </TabsTrigger>
-              <TabsTrigger
-                value="budget"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Team
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none h-12 px-0"
-              >
-                Review History
-              </TabsTrigger>
-            </TabsList>
+            <div className="bg-muted/60 dark:bg-muted/40 p-1.5 rounded-2xl border border-border/40 shadow-xs backdrop-blur-md overflow-x-auto scrollbar-none">
+              <TabsList className="w-full justify-start bg-transparent p-0 gap-1.5 h-auto border-none shadow-none min-w-max">
+                <TabsTrigger
+                  value="overview"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <FileText className="h-4 w-4 shrink-0" />
+                  Proposal Content
+                </TabsTrigger>
+                <TabsTrigger
+                  value="documents"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Paperclip className="h-4 w-4 shrink-0" />
+                  Uploaded Documents
+                  {documentList.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-bold bg-primary/10 text-primary border-none rounded-md">
+                      {documentList.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="team"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Users className="h-4 w-4 shrink-0" />
+                  Research Team
+                  {rawTeamList.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
+                      {rawTeamList.length + 1}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="history"
+                  className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
+                >
+                  <Clock className="h-4 w-4 shrink-0" />
+                  Review History
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* ── Overview Tab ──────────────────────────────────────────── */}
             <TabsContent value="overview" className="pt-6 space-y-6">
+              {/* Requested Budget & Period Summary Banner */}
+              <Card className="shadow-sm border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background overflow-hidden">
+                <CardContent className="p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shrink-0">
+                      <Wallet className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Requested Budget
+                      </p>
+                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                        {formatBudget(proposal.budgetRequested)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {proposal.startDate && proposal.endDate && (
+                    <div className="flex items-center gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 sm:border-l sm:pl-6 border-border/60">
+                      <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+                        <Calendar className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Project Period
+                        </p>
+                        <p className="text-sm font-bold text-foreground">
+                          {new Date(proposal.startDate).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                          {" — "}
+                          {new Date(proposal.endDate).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card className="shadow-sm border-primary/5">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -617,241 +854,496 @@ export default function ScreeningDetailPage() {
               )}
             </TabsContent>
 
-            {/* ── Team Tab ──────────────────────────────────────────────── */}
-            <TabsContent value="budget" className="pt-6 space-y-6">
-              <Card className="shadow-sm border-primary/5">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="h-4 w-4 text-primary" />
-                      Research Team
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* PI */}
-                    <div className="p-3 rounded-lg border border-primary/10 bg-primary/5 flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-black shrink-0 text-sm">
-                        {proposal.principalInvestigator.firstName?.[0] || "U"}
-                        {proposal.principalInvestigator.lastName?.[0] || ""}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold truncate">
-                          {proposal.principalInvestigator.firstName}{" "}
-                          {proposal.principalInvestigator.lastName}
-                        </p>
-                        <p className="text-[10px] text-primary font-bold uppercase tracking-wider">
-                          Principal Investigator
-                        </p>
-                        {proposal.principalInvestigator.email && (
-                          <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                            {proposal.principalInvestigator.email}
-                          </p>
-                        )}
-                      </div>
+            {/* ── Documents Preview Tab ──────────────────────────────────── */}
+            <TabsContent value="documents" className="pt-6 space-y-6">
+              {documentList.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Document Sub-navigation Pills & Action Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-3 rounded-xl border border-border/60 shadow-2xs">
+                    <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50">
+                      {documentList.map((doc) => {
+                        const isActive = doc.key === (activeDoc?.key || documentList[0]?.key);
+                        const resolved = resolveFileUrl(doc.filePath) || doc.filePath || "";
+                        const kind = getConceptNoteAttachmentKind(resolved);
+                        return (
+                          <Button
+                            key={doc.key}
+                            variant={isActive ? "default" : "ghost"}
+                            size="sm"
+                            className="h-8 text-xs font-semibold rounded-md gap-2"
+                            onClick={() => setActiveDocKey(doc.key)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            {doc.label}
+                            <Badge
+                              variant={isActive ? "secondary" : "outline"}
+                              className="text-[9px] uppercase px-1.5 py-0 font-bold"
+                            >
+                              {kind.toUpperCase()}
+                            </Badge>
+                          </Button>
+                        );
+                      })}
                     </div>
 
-                    {/* Team Members */}
-                    {coInvestigators.length > 0 && (
-                      <div className="space-y-2 pt-1">
-                        <h4 className="text-[10px] font-bold uppercase text-muted-foreground px-1">
-                          Team Members ({coInvestigators.length})
+                    {activeDoc?.filePath && (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button asChild variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                          <a
+                            href={resolveFileUrl(activeDoc.filePath) || activeDoc.filePath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Open in New Tab
+                          </a>
+                        </Button>
+                        <Button asChild size="sm" className="h-8 text-xs gap-1.5">
+                          <a
+                            href={resolveFileUrl(activeDoc.filePath) || activeDoc.filePath}
+                            download
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Inline Document Previewer */}
+                  {activeDoc?.filePath ? (
+                    <EmbeddedViewer
+                      url={activeDoc.filePath}
+                      title={activeDoc.label}
+                    />
+                  ) : (
+                    <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                      <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <h3 className="font-bold text-muted-foreground">No Document Selected</h3>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-16 text-center border-2 border-dashed rounded-xl bg-card">
+                  <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <h3 className="font-bold text-muted-foreground">No Uploaded Files</h3>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
+                    No proposal documents or supporting files were attached to this submission.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── Team Tab ──────────────────────────────────────────────── */}
+            <TabsContent value="team" className="pt-6 space-y-6">
+              <Card className="shadow-sm border-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Research Team
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Principal Investigator */}
+                  <div className="p-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-background flex items-center gap-4 shadow-2xs">
+                    <Avatar className="h-14 w-14 border-2 border-primary/40 shadow-xs shrink-0 ring-4 ring-primary/10">
+                      <AvatarImage
+                        src={piAvatar}
+                        alt={piName}
+                        className="object-cover h-full w-full"
+                      />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-black text-base">
+                        {getInitials(piName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-base font-bold text-foreground truncate">
+                          {piName}
+                        </p>
+                        <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider bg-primary">
+                          Principal Investigator
+                        </Badge>
+                      </div>
+                      {piEmail && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                          {piEmail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Team Members List with Avatars */}
+                  {rawTeamList.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Team Members ({rawTeamList.length})
                         </h4>
-                        {coInvestigators.map((member, idx) => {
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2">
+                        {rawTeamList.map((member: any, idx: number) => {
+                          const name =
+                            member.memberName ||
+                            member.stakeholderName ||
+                            member.name ||
+                            [member.user?.firstName, member.user?.lastName].filter(Boolean).join(" ") ||
+                            `Team Member ${idx + 1}`;
+                          const email = member.memberEmail || member.email || member.user?.email || "";
+                          const roleName = member.roleName || member.position || member.role || "Co-Investigator";
                           const isExternal =
                             member.memberType?.toLowerCase() === "external" ||
-                            member.memberType?.toLowerCase() === "stakeholder";
+                            member.member_type?.toLowerCase() === "external" ||
+                            Boolean(member.stakeholderName);
+                          const rawPhoto = member.photoUrl || member.photo_url || member.avatarUrl || member.user?.photoUrl;
+                          const photoUrl = getUserAvatarUrl(rawPhoto);
+                          const initials = getInitials(name);
+
                           return (
                             <div
-                              key={idx}
+                              key={member.id || idx}
                               className={cn(
-                                "flex items-center justify-between p-3 rounded border border-muted/50 hover:bg-muted/30 transition-colors",
-                                isExternal
-                                  ? "border-l-2 border-l-emerald-500"
-                                  : "border-l-2 border-l-blue-500",
+                                "p-3.5 rounded-xl border bg-card hover:bg-muted/30 transition-colors flex items-start gap-3.5 shadow-2xs",
+                                isExternal ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-blue-500",
                               )}
                             >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium truncate">
-                                  {member.name}
-                                </p>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[9px] uppercase px-1.5 py-0"
-                                  >
-                                    {member.roleName}
-                                  </Badge>
-                                  {member.email && (
-                                    <span className="text-[10px] text-muted-foreground truncate">
-                                      {member.email}
-                                    </span>
+                              <Avatar className="h-10 w-10 border border-border/60 shrink-0 shadow-2xs">
+                                <AvatarImage
+                                  src={photoUrl}
+                                  alt={name}
+                                  className="object-cover h-full w-full"
+                                />
+                                <AvatarFallback
+                                  className={cn(
+                                    "text-xs font-bold",
+                                    isExternal
+                                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                                      : "bg-blue-500/15 text-blue-700 dark:text-blue-300"
                                   )}
+                                >
+                                  {initials}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <p className="text-sm font-bold text-foreground truncate">{name}</p>
+                                  <Badge
+                                    variant={isExternal ? "outline" : "secondary"}
+                                    className="text-[9px] uppercase px-1.5 py-0 shrink-0 font-semibold"
+                                  >
+                                    {isExternal ? "External" : "Internal"}
+                                  </Badge>
                                 </div>
+
+                                <p className="text-xs text-primary font-semibold">{roleName}</p>
+
+                                {email && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{email}</span>
+                                  </p>
+                                )}
+                                {member.phoneNumber && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{member.phoneNumber}</span>
+                                  </p>
+                                )}
+                                {member.organizationName && (
+                                  <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                                    <span className="truncate">{member.organizationName}</span>
+                                  </p>
+                                )}
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    )}
-                  </CardContent>
+                    </div>
+                  )}
+                </CardContent>
               </Card>
             </TabsContent>
 
             {/* ── Review History Tab ────────────────────────────────────── */}
             <TabsContent value="history" className="pt-6 space-y-6">
-              <div className="space-y-4">
-                {proposal.reviewTimeline && proposal.reviewTimeline.length > 0 ? (
-                  proposal.reviewTimeline.map((event: any, idx: number) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full bg-primary mt-1.5" />
-                        {idx < proposal.reviewTimeline.length - 1 && (
-                          <div className="w-0.5 flex-1 bg-border mt-2" />
-                        )}
-                      </div>
-                      <div className="flex-1 pb-6">
-                        <Card className="shadow-sm border-primary/5">
-                          <CardContent className="pt-4">
-                            <div className="flex justify-between items-start gap-4">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-bold text-sm text-foreground">
-                                  {event.action}
-                                </p>
-                                {event.comment && (
-                                  <p className="text-sm text-muted-foreground mt-2">
-                                    {event.comment}
-                                  </p>
-                                )}
-                                {event.status && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[9px] mt-2 uppercase"
-                                  >
-                                    {event.status.replace(/_/g, " ")}
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="text-right shrink-0">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                  {event.timestamp
-                                    ? new Date(event.timestamp).toLocaleDateString(
-                                        "en-GB",
-                                        {
+              <Card className="shadow-xs border-border/60 overflow-hidden">
+                <CardHeader className="border-b bg-muted/30 py-4 px-6 flex flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <History className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold">Proposal Audit & Review History</CardTitle>
+                      <p className="text-xs text-muted-foreground">Complete lifecycle activity log and status progression</p>
+                    </div>
+                  </div>
+                  {proposal.reviewTimeline && proposal.reviewTimeline.length > 0 && (
+                    <Badge variant="outline" className="text-xs font-semibold px-2.5 py-1 bg-background border-border/60">
+                      {proposal.reviewTimeline.length} {proposal.reviewTimeline.length === 1 ? "Event" : "Events"}
+                    </Badge>
+                  )}
+                </CardHeader>
+                <CardContent className="p-6">
+                  {proposal.reviewTimeline && proposal.reviewTimeline.length > 0 ? (
+                    <div className="relative pl-3 space-y-8 before:absolute before:left-6 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-primary/40 before:via-border before:to-muted">
+                      {proposal.reviewTimeline.map((event: any, idx: number) => {
+                        const statusStr = (event.status || event.action || "").toLowerCase();
+                        let Icon = Clock;
+                        let nodeStyle = "bg-primary text-primary-foreground shadow-xs ring-4 ring-primary/10";
+                        let borderStyle = "border-l-4 border-l-primary";
+                        let badgeStyle = "bg-primary/10 text-primary border-primary/20";
+                        let statusLabel = event.action || "Status Update";
+
+                        if (statusStr.includes("approved")) {
+                          Icon = CheckCircle2;
+                          nodeStyle = "bg-emerald-600 text-white shadow-emerald-500/20 ring-4 ring-emerald-500/15";
+                          borderStyle = "border-l-4 border-l-emerald-500";
+                          badgeStyle = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+                          statusLabel = "Screening Approved";
+                        } else if (statusStr.includes("rejected")) {
+                          Icon = XCircle;
+                          nodeStyle = "bg-rose-600 text-white shadow-rose-500/20 ring-4 ring-rose-500/15";
+                          borderStyle = "border-l-4 border-l-rose-500";
+                          badgeStyle = "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30";
+                          statusLabel = "Screening Rejected";
+                        } else if (statusStr.includes("revision")) {
+                          Icon = RotateCcw;
+                          nodeStyle = "bg-amber-600 text-white shadow-amber-500/20 ring-4 ring-amber-500/15";
+                          borderStyle = "border-l-4 border-l-amber-500";
+                          badgeStyle = "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
+                          statusLabel = "Revision Requested";
+                        } else if (statusStr.includes("under_review") || statusStr.includes("screening")) {
+                          Icon = Search;
+                          nodeStyle = "bg-blue-600 text-white shadow-blue-500/20 ring-4 ring-blue-500/15";
+                          borderStyle = "border-l-4 border-l-blue-500";
+                          badgeStyle = "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30";
+                          statusLabel = "Under Screening Review";
+                        } else if (statusStr.includes("submitted")) {
+                          Icon = Send;
+                          nodeStyle = "bg-indigo-600 text-white shadow-indigo-500/20 ring-4 ring-indigo-500/15";
+                          borderStyle = "border-l-4 border-l-indigo-500";
+                          badgeStyle = "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30";
+                          statusLabel = "Submitted";
+                        }
+
+                        const commentText = event.comment || event.decisionRemarks || event.remarks;
+
+                        return (
+                          <div key={idx} className="relative flex items-start gap-5 group">
+                            {/* Step Node Icon */}
+                            <div className={cn("relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110", nodeStyle)}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+
+                            {/* Event Card */}
+                            <div className="flex-1 min-w-0">
+                              <div className={cn("rounded-2xl border bg-card p-4 shadow-xs transition-all duration-200 hover:shadow-md", borderStyle)}>
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <h4 className="font-bold text-sm text-foreground truncate">
+                                      {event.action || statusLabel}
+                                    </h4>
+                                    {event.status && (
+                                      <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5", badgeStyle)}>
+                                        {event.status.replace(/_/g, " ")}
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  {/* Timestamp Badge */}
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-lg border border-border/40 shrink-0">
+                                    <Calendar className="h-3 w-3 text-muted-foreground/70" />
+                                    <span className="font-medium">
+                                      {event.timestamp
+                                        ? new Date(event.timestamp).toLocaleDateString("en-US", {
                                           day: "numeric",
                                           month: "short",
                                           year: "numeric",
-                                        },
-                                      )
-                                    : "N/A"}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {event.timestamp
-                                    ? new Date(event.timestamp).toLocaleTimeString(
-                                        "en-GB",
-                                        {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        },
-                                      )
-                                    : ""}
-                                </p>
+                                        })
+                                        : "N/A"}
+                                    </span>
+                                    {event.timestamp && (
+                                      <>
+                                        <span className="text-muted-foreground/40">•</span>
+                                        <Clock className="h-3 w-3 text-muted-foreground/70" />
+                                        <span className="font-medium">
+                                          {new Date(event.timestamp).toLocaleTimeString("en-US", {
+                                            hour: "numeric",
+                                            minute: "2-digit",
+                                            hour12: true,
+                                          })}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Decision Remarks / Comments Section */}
+                                {commentText ? (
+                                  <div className="mt-3 p-3 rounded-xl bg-muted/40 border border-border/50 text-xs space-y-1.5">
+                                    <div className="flex items-center gap-1.5 font-bold text-foreground">
+                                      <MessageSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                                      Reviewer Comments & Remarks
+                                    </div>
+                                    <p className="text-muted-foreground leading-relaxed italic pl-5 border-l-2 border-primary/30">
+                                      "{commentText}"
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="mt-2 text-xs text-muted-foreground/70 italic">
+                                    No additional remarks recorded for this status step.
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))
-                ) : (
-                  <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
-                    <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                    <h3 className="font-bold text-muted-foreground">
-                      No Review History
-                    </h3>
-                    <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
-                      This is the first administrative screening for this proposal.
-                    </p>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="p-16 text-center border-2 border-dashed rounded-2xl bg-muted/10">
+                      <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+                        <History className="h-6 w-6" />
+                      </div>
+                      <h3 className="font-bold text-foreground text-sm">No Review History Recorded</h3>
+                      <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
+                        This proposal is currently in its initial submission stage. Review activity will be logged automatically here as it moves through the screening process.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
 
         {/* ── Sidebar ──────────────────────────────────────────────────── */}
         <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
-          {/* Status & Metadata */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="bg-muted/50 border-b py-4">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          {/* Proposal Details Card */}
+          <Card className="shadow-xs border-border/60 overflow-hidden">
+            <CardHeader className="bg-muted/40 border-b py-3.5 px-5 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-primary" />
                 Proposal Details
               </CardTitle>
+              {proposal.referenceNumber && (
+                <Badge variant="outline" className="font-mono text-[10px] bg-background border-border/60 font-bold px-2 py-0.5">
+                  {proposal.referenceNumber}
+                </Badge>
+              )}
             </CardHeader>
-            <CardContent className="pt-5 space-y-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Status</span>
+            <CardContent className="p-5 space-y-4">
+              {/* Status Badge */}
+              <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Status</span>
                 <StatusBadge
                   status={proposal.status}
                   displayLabel={proposal.statusDisplay}
                 />
               </div>
 
-              {proposal.proposalType && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Type</span>
-                  <span className="text-sm font-semibold">{proposal.proposalType.name}</span>
+              {/* Requested Budget Highlight */}
+              {proposal.budgetRequested && (
+                <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background border border-emerald-500/20 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300 tracking-wider">
+                        Requested Budget
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                    {formatBudget(proposal.budgetRequested)}
+                  </span>
                 </div>
               )}
 
-              {proposal.subProposalType && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Sub Type</span>
-                  <span className="text-sm font-semibold">{proposal.subProposalType.name}</span>
+              {/* Grant Call Info */}
+              {proposal.call && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/15 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-primary tracking-wider">
+                    <Tag className="h-3 w-3" />
+                    Grant Call
+                  </div>
+                  <p className="text-xs font-bold text-foreground leading-snug break-words">
+                    {proposal.call.title}
+                  </p>
                 </div>
               )}
 
-              {proposal.researchArea && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Thematic Area</span>
-                  <Badge variant="outline" className="font-bold border-primary/20 text-xs">
-                    {proposal.researchArea}
-                  </Badge>
-                </div>
-              )}
+              {/* Classification Grid */}
+              <div className="space-y-2.5 text-xs pt-1">
+                {proposal.proposalType && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Type</span>
+                    <span className="font-bold text-foreground text-right">{proposal.proposalType.name}</span>
+                  </div>
+                )}
 
-              {proposal.subThematicArea && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Sub Thematic</span>
-                  <Badge variant="outline" className="font-bold border-primary/20 text-xs">
-                    {proposal.subThematicArea.name}
-                  </Badge>
-                </div>
-              )}
+                {proposal.subProposalType && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Sub Type</span>
+                    <span className="font-semibold text-foreground text-right">{proposal.subProposalType.name}</span>
+                  </div>
+                )}
 
-              {proposal.version && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Version</span>
-                  <Badge variant="outline" className="font-mono text-[10px]">
-                    v{proposal.version}
-                  </Badge>
-                </div>
-              )}
+                {(proposal.thematicAreas?.length > 0 || proposal.researchArea) && (
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-muted-foreground font-medium shrink-0">Thematic Area</span>
+                    <Badge variant="secondary" className="font-bold text-[10px] text-right truncate max-w-[170px] bg-primary/10 text-primary border-none">
+                      {proposal.thematicAreas?.length > 0
+                        ? proposal.thematicAreas.map((t: any) => t.name).join(", ")
+                        : proposal.researchArea}
+                    </Badge>
+                  </div>
+                )}
 
-              <div className="pt-3 border-t space-y-3">
+                {proposal.subThematicArea && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium shrink-0">Sub Thematic</span>
+                    <Badge variant="outline" className="font-semibold text-[10px] text-right truncate max-w-[170px]">
+                      {proposal.subThematicArea.name}
+                    </Badge>
+                  </div>
+                )}
+
+                {proposal.version && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground font-medium">Version</span>
+                    <Badge variant="outline" className="font-mono text-[10px] bg-muted/30">
+                      v{proposal.version}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              {/* Project Period & Submitted Date */}
+              <div className="pt-3.5 border-t border-border/40 space-y-3">
                 {proposal.startDate && proposal.endDate && (
-                  <div className="flex items-center gap-2.5 text-muted-foreground">
-                    <Calendar className="h-4 w-4 shrink-0" />
-                    <div className="text-xs">
-                      <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
                         Project Period
                       </p>
-                      <p className="font-medium">
-                        {new Date(proposal.startDate).toLocaleDateString("en-GB", {
+                      <p className="text-xs font-bold text-foreground mt-0.5">
+                        {new Date(proposal.startDate).toLocaleDateString("en-US", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
                         })}
-                        {" — "}
-                        {new Date(proposal.endDate).toLocaleDateString("en-GB", {
+                        <span className="text-muted-foreground/60 mx-1.5">•</span>
+                        {new Date(proposal.endDate).toLocaleDateString("en-US", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
@@ -861,94 +1353,92 @@ export default function ScreeningDetailPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2.5 text-muted-foreground">
-                  <Clock className="h-4 w-4 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-bold text-foreground uppercase tracking-tighter text-[9px]">
-                      Submitted Date
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/50 flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                      Submitted Date & Time
                     </p>
-                    <p className="font-medium">
-                      {new Date(
-                        proposal.submittedAt || proposal.createdAt,
-                      ).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      <span className="text-xs font-bold text-foreground">
+                        {new Date(proposal.submittedAt || proposal.createdAt).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <span className="text-muted-foreground/40 text-xs">•</span>
+                      <Badge variant="outline" className="text-[10px] font-bold bg-background text-primary border-primary/20 px-1.5 py-0 font-mono">
+                        {new Date(proposal.submittedAt || proposal.createdAt).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Institutional Context */}
-          <Card className="shadow-sm border-primary/10">
-            <CardHeader className="py-4 border-b">
+          {/* Affiliated Institution Card */}
+          <Card className="shadow-xs border-border/60 overflow-hidden">
+            <CardHeader className="py-3.5 px-5 border-b bg-muted/40 flex flex-row items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary shrink-0" />
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Institutional Context
+                Affiliated Institution
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-5 space-y-4">
-              {proposal.call && (
-                <div className="flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <FileText className="h-4 w-4 text-primary" />
+            <CardContent className="p-5 space-y-4">
+              {/* Submitted To (Receiving Office) */}
+              {proposal.receivingOffice && (
+                <div className="flex items-start gap-3 p-3 rounded-xl border bg-muted/20">
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                    <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
-                      Grant Call
+                      Submitted To
                     </p>
-                    <p className="text-sm font-semibold leading-tight truncate">
-                      {proposal.call.title}
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
+                      {proposal.receivingOffice.name}
                     </p>
                   </div>
                 </div>
               )}
 
+              {/* Organization */}
               {proposal.Organization && (
                 <div className="flex items-start gap-3">
                   <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <Building2 className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
-                      Organization
+                      Lead Organization
                     </p>
-                    <p className="text-sm font-semibold leading-tight truncate">
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
                       {proposal.Organization.name}
                     </p>
                   </div>
                 </div>
               )}
 
+              {/* Unit / Department */}
               {proposal.Unit && (
                 <div className="flex items-start gap-3">
                   <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <Layers className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
-                      Unit
+                      Department / Academic Unit
                     </p>
-                    <p className="text-sm font-semibold leading-tight truncate">
+                    <p className="text-xs font-bold text-foreground leading-snug break-words mt-0.5">
                       {proposal.Unit.name}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {proposal.receivingOffice && (
-                <div className="flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <MapPin className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
-                      Receiving Office
-                    </p>
-                    <p className="text-sm font-semibold leading-tight truncate">
-                      {proposal.receivingOffice.name}
                     </p>
                   </div>
                 </div>
@@ -956,59 +1446,20 @@ export default function ScreeningDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Uploaded Files */}
-          {hasFiles && (
-            <Card className="shadow-sm border-primary/10">
-              <CardHeader className="py-4 border-b">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Uploaded Files
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-5 p-0">
-                {fileEntries.map((entry) => {
-                  const resolvedUrl = resolveFileUrl(entry.filePath);
-                  return (
-                    <button
-                      key={entry.key}
-                      onClick={() => {
-                        if (resolvedUrl) {
-                          setViewingFile({ name: entry.label, url: resolvedUrl });
-                        }
-                      }}
-                      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-0 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileText className="h-4 w-4 text-rose-500 group-hover:scale-110 transition-transform shrink-0" />
-                        <div className="text-left min-w-0">
-                          <p className="text-xs font-bold truncate">
-                            {entry.label}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {entry.filePath?.split("/").pop() || "File"}
-                          </p>
-                        </div>
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                    </button>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
           {hasSignature && (
-            <Card className="shadow-sm border-primary/10">
-              <CardHeader className="border-b bg-primary/5 py-3">
+            <Card className="shadow-xs border-border/60 overflow-hidden hover:shadow-md transition-all duration-200">
+              <CardHeader className="border-b bg-muted/40 py-3.5 px-5 flex flex-row items-center gap-2">
+                <Shield className="h-4 w-4 text-primary shrink-0" />
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Digital Signature
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-4">
-                <div className="rounded-xl border p-3 bg-white">
+              <CardContent className="p-4">
+                <div className="rounded-xl border border-border/60 p-4 bg-white dark:bg-muted/30 backdrop-blur-xs flex items-center justify-center shadow-2xs">
                   <img
                     src={resolveFileUrl(proposal.signature) ?? undefined}
                     alt="Proposal signature"
-                    className="h-28 w-full max-w-full object-contain rounded-lg"
+                    className="h-24 w-auto max-w-full object-contain filter drop-shadow-xs dark:invert dark:hue-rotate-180"
                   />
                 </div>
               </CardContent>
@@ -1025,11 +1476,11 @@ export default function ScreeningDetailPage() {
             className={cn(
               "p-6 pb-4 border-b",
               recommendation === "approve" &&
-                "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
+              "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
               recommendation === "under_review" &&
-                "bg-amber-50/60 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20",
+              "bg-amber-50/60 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20",
               recommendation === "reject" &&
-                "bg-red-50/60 dark:bg-red-500/10 border-red-100 dark:border-red-500/20",
+              "bg-red-50/60 dark:bg-red-500/10 border-red-100 dark:border-red-500/20",
             )}
           >
             <DialogHeader>
@@ -1136,11 +1587,11 @@ export default function ScreeningDetailPage() {
                   className={cn(
                     "shadow-sm font-semibold",
                     recommendation === "approve" &&
-                      "bg-emerald-600 hover:bg-emerald-700 text-white",
+                    "bg-emerald-600 hover:bg-emerald-700 text-white",
                     recommendation === "under_review" &&
-                      "bg-amber-600 hover:bg-amber-700 text-white",
+                    "bg-amber-600 hover:bg-amber-700 text-white",
                     recommendation === "reject" &&
-                      "bg-red-600 hover:bg-red-700 text-white",
+                    "bg-red-600 hover:bg-red-700 text-white",
                   )}
                 >
                   {isSubmitting ? (
