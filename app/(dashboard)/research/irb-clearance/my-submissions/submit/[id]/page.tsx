@@ -1,52 +1,46 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  ArrowLeft,
-  FileText,
-  Upload,
-  CheckCircle2,
-  Send,
-  Loader2,
-  Info,
-  X,
-  Paperclip,
   AlertCircle,
-  File,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Copy,
+  Download,
+  FileText,
+  Loader2,
+  Paperclip,
   Save,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  Upload,
+  X,
 } from "lucide-react";
+
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import {
   useEthicalClearance,
   useIRBClearanceTypes,
 } from "@/lib/queries/ethical-clearance";
-import { submitIRBClearance, updateDraftIRBClearance } from "@/api/services/ethical-clearance.service";
+import {
+  submitIRBClearance,
+  updateDraftIRBClearance,
+} from "@/api/services/ethical-clearance.service";
 import type { IRBClearanceSubmitInput } from "@/types/ethical-clearance";
 
 function formatFileSize(bytes: number): string {
@@ -55,21 +49,40 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(filename: string) {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  if (ext === "pdf") return "PDF";
-  if (["doc", "docx"].includes(ext || "")) return "DOC";
-  if (["jpg", "jpeg", "png"].includes(ext || "")) return "IMG";
-  return "FILE";
+function getFileExtension(filename: string): string {
+  const ext = filename.split(".").pop()?.toUpperCase();
+  return ext || "FILE";
 }
 
-const READINESS = [
+const READINESS_STEPS = [
   { key: "type", label: "Clearance type selected" },
   { key: "document", label: "Clearance document uploaded" },
-  { key: "notes", label: "Submission notes added" },
 ];
 
-export default function IRBSubmissionPage() {
+const statusConfig: Record<string, { label: string; className: string }> = {
+  pending_submission: {
+    label: "Pending Submission",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200",
+  },
+  pending_review: {
+    label: "Pending Review",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200",
+  },
+  approved: {
+    label: "Approved",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200",
+  },
+  rejected: {
+    label: "Rejected",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200",
+  },
+  resubmitted: {
+    label: "Resubmitted",
+    className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200",
+  },
+};
+
+export default function RecreatedIRBSubmissionPage() {
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -90,6 +103,7 @@ export default function IRBSubmissionPage() {
     { id: number; filename: string; url: string | null }[]
   >([]);
   const [removedDocIds, setRemovedDocIds] = useState<number[]>([]);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const isResubmission = clearance?.status === "rejected";
   const isEditing =
@@ -104,8 +118,8 @@ export default function IRBSubmissionPage() {
     if (clearance.submissionNotes) {
       setSubmissionNotes(clearance.submissionNotes);
     }
-    if (clearance.files?.clearanceFile) {
-      setExistingFileUrl(clearance.files.clearanceFile);
+    if (clearance.files?.clearanceFile || clearance.clearanceFile) {
+      setExistingFileUrl(clearance.files?.clearanceFile || clearance.clearanceFile || null);
     }
     if (clearance.supportingDocuments && clearance.supportingDocuments.length > 0) {
       setExistingSupportingDocs(
@@ -118,14 +132,23 @@ export default function IRBSubmissionPage() {
     }
   }, [clearance]);
 
+  const handleCopyRef = () => {
+    if (!clearance) return;
+    const refText = clearance.referenceNumber || `IRB-${clearance.id}`;
+    navigator.clipboard.writeText(refText);
+    setCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopiedRef(false), 2000);
+  };
+
   const submitMutation = useMutation({
     mutationFn: (input: IRBClearanceSubmitInput) =>
       submitIRBClearance(clearanceId, input),
     onSuccess: () => {
       toast.success(
         isResubmission
-          ? "IRB clearance resubmitted successfully."
-          : "IRB clearance submitted successfully.",
+          ? "IRB clearance application resubmitted successfully."
+          : "IRB clearance application submitted successfully.",
       );
       queryClient.invalidateQueries({ queryKey: ["ethical-clearances"] });
       queryClient.invalidateQueries({
@@ -134,7 +157,7 @@ export default function IRBSubmissionPage() {
       router.push(`/research/irb-clearance/my-submissions/${clearanceId}`);
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to submit IRB clearance.");
+      toast.error(error.message || "Failed to submit IRB clearance application.");
     },
   });
 
@@ -162,7 +185,7 @@ export default function IRBSubmissionPage() {
 
   const handleSubmit = () => {
     if (!clearanceFile && !hasExistingFile) {
-      toast.error("Please upload a clearance document.");
+      toast.error("Please upload an IRB clearance document before submitting.");
       return;
     }
     submitMutation.mutate({
@@ -175,20 +198,12 @@ export default function IRBSubmissionPage() {
     });
   };
 
-  const handleSaveDraft = () => {
-    saveDraftMutation.mutate();
-  };
-
-  const handleClearanceFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleClearanceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setClearanceFile(file);
   };
 
-  const handleSupportingFilesChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleSupportingFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     setSupportingFiles((prev) => [...prev, ...files]);
     if (supportingInputRef.current) supportingInputRef.current.value = "";
@@ -203,49 +218,31 @@ export default function IRBSubmissionPage() {
     setExistingSupportingDocs((prev) => prev.filter((doc) => doc.id !== docId));
   };
 
-  const statusConfig: Record<string, { label: string; className: string }> = {
-    pending_submission: {
-      label: "Pending Submission",
-      className: "bg-amber-100 text-amber-700 border-amber-200",
-    },
-    pending_review: {
-      label: "Pending Review",
-      className: "bg-blue-100 text-blue-700 border-blue-200",
-    },
-    approved: {
-      label: "Approved",
-      className: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    },
-    rejected: {
-      label: "Rejected",
-      className: "bg-rose-100 text-rose-700 border-rose-200",
-    },
-    resubmitted: {
-      label: "Resubmitted",
-      className: "bg-violet-100 text-violet-700 border-violet-200",
-    },
-  };
-
   const status = clearance?.status;
   const canSubmit = status === "pending_submission" || status === "rejected";
-
-  const resolvedExistingFileUrl = existingFileUrl
-    ? resolveFileUrl(existingFileUrl)
-    : null;
+  const resolvedExistingFileUrl = existingFileUrl ? resolveFileUrl(existingFileUrl) : null;
 
   const readinessMap: Record<string, boolean> = {
-    type: !!selectedTypeId,
-    document: !!clearanceFile || hasExistingFile,
-    notes: submissionNotes.trim().length > 0,
+    type: Boolean(selectedTypeId),
+    document: Boolean(clearanceFile || hasExistingFile),
   };
+
   const completedCount = Object.values(readinessMap).filter(Boolean).length;
-  const isReady = !!clearanceFile || hasExistingFile;
+  const isReady = Boolean(clearanceFile || hasExistingFile);
 
   if (isLoadingClearance) {
     return (
-      <PageContainer title="Submit IRB Clearance">
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <PageContainer title="Edit IRB Clearance Application">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] pb-24">
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-44 w-full rounded-xl" />
+            <Skeleton className="h-44 w-full rounded-xl" />
+            <Skeleton className="h-44 w-full rounded-xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
         </div>
       </PageContainer>
     );
@@ -253,17 +250,14 @@ export default function IRBSubmissionPage() {
 
   if (!clearance) {
     return (
-      <PageContainer title="Submit IRB Clearance">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <FileText className="mb-4 h-12 w-12 text-muted-foreground/50" />
-            <p className="font-semibold">Clearance record not found</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+      <PageContainer title="Edit IRB Clearance Application">
+        <Card className="max-w-lg mx-auto my-16 border-rose-200 bg-rose-50/20 text-center">
+          <CardContent className="flex flex-col items-center justify-center p-12 gap-3">
+            <AlertCircle className="h-10 w-10 text-rose-500" />
+            <p className="font-bold text-slate-800 dark:text-slate-200">Clearance record not found</p>
+            <p className="text-xs text-muted-foreground">The requested IRB submission could not be loaded.</p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => router.push("/research/irb-clearance/my-submissions")}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Go to Submissions
             </Button>
           </CardContent>
         </Card>
@@ -278,44 +272,28 @@ export default function IRBSubmissionPage() {
     };
     return (
       <PageContainer
-        title="Submit IRB Clearance"
+        title="Edit IRB Clearance Application"
         actions={
-          <Button variant="outline" asChild>
-            <Link
-              href={`/research/irb-clearance/my-submissions/${clearanceId}`}
-            >
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/research/irb-clearance/my-submissions/${clearanceId}`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Submission
+              Back to Submissions
             </Link>
           </Button>
         }
       >
-        <Card>
+        <Card className="border border-muted-foreground/15 shadow-sm">
           <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
             <CheckCircle2 className="h-12 w-12 text-blue-500" />
             <div className="space-y-2">
-              <p className="text-lg font-semibold">
-                This clearance is not in a submittable state
-              </p>
+              <p className="text-lg font-bold">This clearance application is not in an editable state</p>
               <p className="text-sm text-muted-foreground">Current status:</p>
-              <Badge
-                className={cn(
-                  "border px-2.5 py-0.5 text-xs font-bold uppercase",
-                  cfg.className,
-                )}
-              >
+              <Badge className={cn("border px-2.5 py-0.5 text-xs font-bold uppercase shadow-none", cfg.className)}>
                 {cfg.label}
               </Badge>
             </div>
-            <Button
-              variant="outline"
-              onClick={() =>
-                router.push(
-                  `/research/irb-clearance/my-submissions/${clearanceId}`,
-                )
-              }
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Submission
+            <Button variant="outline" size="sm" onClick={() => router.push(`/research/irb-clearance/my-submissions/${clearanceId}`)}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> View Submission Details
             </Button>
           </CardContent>
         </Card>
@@ -325,26 +303,29 @@ export default function IRBSubmissionPage() {
 
   return (
     <PageContainer
-      title={
-        isEditing
-          ? isResubmission
-            ? "Resubmit IRB Clearance"
-            : "Edit IRB Clearance"
-          : "Submit IRB Clearance"
-      }
+      title={isResubmission ? "Resubmit IRB Clearance Application" : "Edit IRB Clearance Application"}
       description={
-        isEditing
-          ? isResubmission
-            ? "Your previous application was rejected. Update your documents and resubmit."
-            : "Update your IRB clearance draft before submitting."
-          : "Submit your IRB clearance application with the required documents."
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
+          <button
+            type="button"
+            onClick={handleCopyRef}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy reference number"
+          >
+            <span>{clearance.referenceNumber || `IRB-${clearance.id}`}</span>
+            {copiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+        </div>
       }
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild>
-            <Link
-              href={`/research/irb-clearance/my-submissions/${clearanceId}`}
-            >
+          <Button variant="outline" size="sm" asChild className="shadow-xs">
+            <Link href={`/research/irb-clearance/my-submissions/${clearanceId}`}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Cancel
             </Link>
@@ -352,91 +333,86 @@ export default function IRBSubmissionPage() {
         </div>
       }
     >
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-        {/* Main column */}
-        <div className="space-y-6">
-          {/* Rejection feedback */}
-          {isResubmission &&
-            clearance.reviews &&
-            clearance.reviews.length > 0 && (
-              <Card className="border-rose-200 bg-rose-50/60">
-                <CardContent className="flex items-start gap-3 py-4">
-                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-rose-700">
-                      Rejection Feedback
-                    </p>
-                    <p className="text-sm text-rose-600">
-                      {clearance.reviews[clearance.reviews.length - 1]
-                        .comments || "No comments provided."}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-          {/* Proposal summary */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Proposal Summary</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-5 space-y-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold leading-tight">
-                      {clearance.proposalTitle || "—"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {clearance.referenceNumber || "—"}
-                      {clearance.pi?.fullName &&
-                        ` · PI: ${clearance.pi.fullName}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="shrink-0 text-xs text-muted-foreground">
-                  {clearance.proposalInstitution || ""}
-                </div>
-              </div>
-              {clearance.proposalShortAbstract && (
-                <>
-                  <Separator />
-                  <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                    {clearance.proposalShortAbstract}
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px] pb-24">
+        {/* Main Content Column */}
+        <div className="space-y-6 min-w-0">
+          {/* Rejection Feedback Banner */}
+          {isResubmission && clearance.reviews && clearance.reviews.length > 0 && (
+            <Card className="border-rose-200 bg-rose-50/70 dark:bg-rose-950/20 shadow-xs">
+              <CardContent className="flex items-start gap-3.5 p-4">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-rose-800 dark:text-rose-300">
+                    Committee Reviewer Feedback for Resubmission
                   </p>
-                </>
-              )}
+                  <p className="text-xs text-rose-700 dark:text-rose-400 leading-relaxed">
+                    {clearance.reviews[clearance.reviews.length - 1].comments || "Please update your documents based on committee comments and resubmit."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Card 1: Proposal Information Summary */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <FileText className="h-4.5 w-4.5 text-primary" />
+                Proposal Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-3">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Proposal Title
+                </p>
+                <p className="text-sm font-bold leading-snug text-slate-900 dark:text-slate-100">
+                  {clearance.proposalTitle || "—"}
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Principal Investigator
+                  </p>
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {clearance.pi?.fullName || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Institution
+                  </p>
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {clearance.proposalInstitution || "—"}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Clearance Type */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-4">
+          {/* Card 2: IRB Clearance Type */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
               <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">
-                  IRB Clearance Type{" "}
-                  <span className="text-destructive text-sm font-normal">*</span>
+                <ShieldCheck className="h-4.5 w-4.5 text-primary" />
+                <CardTitle className="text-base font-bold">
+                  IRB Clearance Type <span className="text-destructive text-sm font-normal">*</span>
                 </CardTitle>
               </div>
-              <CardDescription>
-                Select the type of IRB clearance applicable to this proposal.
+              <CardDescription className="text-xs">
+                Select the applicable ethical clearance classification for this protocol.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-5 space-y-5">
+            <CardContent className="pt-5 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="clearanceType">Clearance Type</Label>
+                <Label htmlFor="clearanceType" className="text-xs font-semibold">Clearance Category</Label>
                 <SearchableSelect
                   value={selectedTypeId}
                   onValueChange={setSelectedTypeId}
-                  placeholder="Select clearance type..."
-                  searchPlaceholder="Search clearance type by name or description..."
+                  placeholder="Select clearance category..."
+                  searchPlaceholder="Search clearance type..."
                   additionalOptions={clearanceTypes}
                   getOptionValue={(ct) => String(ct.id)}
                   getOptionLabel={(ct) => ct.name}
@@ -446,73 +422,72 @@ export default function IRBSubmissionPage() {
             </CardContent>
           </Card>
 
-          {/* Primary clearance document */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-4">
+          {/* Card 3: Ethical Clearance Document */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
               <div className="flex items-center gap-2">
-                <Upload className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">
-                  IRB Clearance Document{" "}
-                  <span className="text-destructive text-sm font-normal">*</span>
+                <Upload className="h-4.5 w-4.5 text-primary" />
+                <CardTitle className="text-base font-bold">
+                  Ethical Clearance Document <span className="text-destructive text-sm font-normal">*</span>
                 </CardTitle>
               </div>
-              <CardDescription>
-                Upload the primary IRB clearance document (PDF, DOC, or image).
+              <CardDescription className="text-xs">
+                Upload official IRB clearance certificate or protocol approval document (PDF, DOCX, PNG).
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-5 space-y-5">
+            <CardContent className="pt-5 space-y-4">
               {existingFileUrl && !clearanceFile && resolvedExistingFileUrl && (
-                <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                    <FileText className="h-4 w-4" />
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 px-4 py-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                    <FileText className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-emerald-800">
-                      Current clearance document
+                    <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                      Active Clearance File
                     </p>
                     <a
                       href={resolvedExistingFileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-emerald-600 hover:underline"
+                      className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
                     >
-                      View existing file
+                      Click to view current clearance file
                     </a>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className="border-emerald-200 bg-emerald-100 text-[10px] text-emerald-700"
-                  >
+                  <Badge variant="outline" className="border-emerald-200 bg-emerald-100 text-[10px] font-bold uppercase text-emerald-700 shadow-none">
                     Uploaded
                   </Badge>
                 </div>
               )}
+
               <div
                 className={cn(
-                  "relative rounded-xl border-2 border-dashed p-8 text-center transition-colors",
+                  "relative rounded-xl border-2 border-dashed p-7 text-center transition-colors",
                   clearanceFile
-                    ? "border-emerald-300 bg-emerald-50/30"
-                    : "border-muted-foreground/25 hover:border-muted-foreground/50",
+                    ? "border-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/10"
+                    : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20",
                 )}
               >
                 {clearanceFile ? (
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                      <FileText className="h-6 w-6" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium">
-                        {clearanceFile.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatFileSize(clearanceFile.size)}
-                        {existingFileUrl && " — will replace current file"}
-                      </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 font-bold text-xs">
+                        {getFileExtension(clearanceFile.name)}
+                      </div>
+                      <div className="text-left min-w-0">
+                        <p className="text-xs font-bold truncate">
+                          {clearanceFile.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatFileSize(clearanceFile.size)}
+                          {existingFileUrl && " — Replaces active file"}
+                        </p>
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="ml-4 h-9 w-9 text-muted-foreground hover:text-rose-600"
+                      className="h-8 w-8 text-muted-foreground hover:text-rose-600 shrink-0"
                       onClick={() => setClearanceFile(null)}
                     >
                       <X className="h-4 w-4" />
@@ -520,18 +495,18 @@ export default function IRBSubmissionPage() {
                   </div>
                 ) : (
                   <label className="cursor-pointer block">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                        <Upload className="h-6 w-6 text-primary" />
+                    <div className="flex flex-col items-center gap-2.5">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Upload className="h-5.5 w-5.5" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className="text-xs font-bold text-foreground">
                           {existingFileUrl
-                            ? "Click to replace with a new file"
-                            : "Click to upload or drag and drop"}
+                            ? "Click to upload a replacement clearance document"
+                            : "Click to upload primary clearance document"}
                         </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          PDF, DOC, DOCX, JPG, JPEG, PNG (max 20MB)
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Supports PDF, DOC, DOCX, JPG, PNG (up to 20MB)
                         </p>
                       </div>
                     </div>
@@ -547,24 +522,23 @@ export default function IRBSubmissionPage() {
             </CardContent>
           </Card>
 
-          {/* Supporting documents */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-4">
+          {/* Card 4: Supporting Documents */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
               <div className="flex items-center gap-2">
-                <Paperclip className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">
-                  Supporting Documents
+                <Paperclip className="h-4.5 w-4.5 text-primary" />
+                <CardTitle className="text-base font-bold">
+                  Supporting Documents <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
                 </CardTitle>
               </div>
-              <CardDescription>
-                Upload any additional supporting documents (ethics protocol,
-                consent forms, etc.). You can select multiple files.
+              <CardDescription className="text-xs">
+                Upload ethics protocols, participant consent forms, or supporting files.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-5 space-y-5">
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed p-5 text-sm text-muted-foreground transition-colors hover:border-muted-foreground/50 hover:bg-muted/30">
-                <Upload className="h-4 w-4" />
-                Add supporting documents
+            <CardContent className="pt-5 space-y-4">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed p-4 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:bg-muted/20">
+                <Upload className="h-4 w-4 text-primary" />
+                Add Supporting Files
                 <input
                   ref={supportingInputRef}
                   type="file"
@@ -576,86 +550,78 @@ export default function IRBSubmissionPage() {
               </label>
 
               {existingSupportingDocs.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Current files
+                <div className="space-y-2 pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Active Attachments
                   </p>
                   {existingSupportingDocs.map((doc) => {
                     const resolvedUrl = resolveFileUrl(doc.url);
                     return (
-                    <div
-                      key={doc.id}
-                      className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-3"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                        <FileText className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-emerald-800">
-                          {doc.filename}
-                        </p>
-                        {resolvedUrl && (
-                          <a
-                            href={resolvedUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-emerald-600 hover:underline"
-                          >
-                            View file
-                          </a>
-                        )}
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-200 bg-emerald-100 text-[10px] text-emerald-700"
+                      <div
+                        key={doc.id}
+                        className="flex items-center gap-3 rounded-lg border bg-slate-50/50 dark:bg-slate-900/20 px-3.5 py-2.5"
                       >
-                        Uploaded
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-rose-600"
-                        onClick={() => removeExistingSupportingDoc(doc.id)}
-                        title="Remove file"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">
+                          {getFileExtension(doc.filename)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold">
+                            {doc.filename}
+                          </p>
+                          {resolvedUrl && (
+                            <a
+                              href={resolvedUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-primary hover:underline font-medium"
+                            >
+                              View file
+                            </a>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-600"
+                          onClick={() => removeExistingSupportingDoc(doc.id)}
+                          title="Remove attachment"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     );
                   })}
                 </div>
               )}
 
               {supportingFiles.length > 0 && (
-                <div className="space-y-2">
-                  {existingSupportingDocs.length > 0 && (
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      New files to add
-                    </p>
-                  )}
+                <div className="space-y-2 pt-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    New Files Pending Upload
+                  </p>
                   {supportingFiles.map((file, index) => (
                     <div
                       key={`${file.name}-${index}`}
-                      className="flex items-center gap-3 rounded-lg border bg-muted/20 px-4 py-3"
+                      className="flex items-center gap-3 rounded-lg border bg-slate-50/50 dark:bg-slate-900/20 px-3.5 py-2.5"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[10px] font-bold text-primary">
-                        {getFileIcon(file.name)}
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">
+                        {getFileExtension(file.name)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
+                        <p className="truncate text-xs font-semibold">
                           {file.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[11px] text-muted-foreground">
                           {formatFileSize(file.size)}
                         </p>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-rose-600"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-600"
                         onClick={() => removeSupportingFile(index)}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   ))}
@@ -664,46 +630,43 @@ export default function IRBSubmissionPage() {
             </CardContent>
           </Card>
 
-          {/* Submission notes */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-4">
+          {/* Card 5: Submission Notes */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
               <div className="flex items-center gap-2">
-                <File className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Submission Notes</CardTitle>
+                <FileText className="h-4.5 w-4.5 text-primary" />
+                <CardTitle className="text-base font-bold">
+                  Submission Notes <span className="text-xs font-normal text-muted-foreground">(Optional)</span>
+                </CardTitle>
               </div>
-              <CardDescription>
-                Add any notes or comments for the IRB reviewers.
+              <CardDescription className="text-xs">
+                Add optional notes or comments for the IRB committee reviewers.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-5 space-y-5">
+            <CardContent className="pt-5 space-y-4">
               <Textarea
-                placeholder="Describe the clearance application, mention any specific considerations for the reviewers..."
+                placeholder="Provide optional details or notes for reviewers..."
                 value={submissionNotes}
                 onChange={(e) => setSubmissionNotes(e.target.value)}
-                rows={4}
-                className="resize-none"
+                rows={3}
+                className="resize-none text-xs"
               />
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar */}
-        <aside className="space-y-4 xl:sticky xl:top-5">
-          {/* Readiness tracker */}
-          <Card
-            className={cn(
-              "shadow-sm border",
-              isReady ? "border-primary/10" : "border-primary/20",
-            )}
-          >
-            <CardHeader className="border-b pb-3">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">
+        {/* Sidebar Column */}
+        <aside className="space-y-6">
+          {/* Submission Readiness Card */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="border-b bg-slate-50/80 dark:bg-slate-900/40">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
                 Submission Readiness
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 space-y-3">
-              {/* Progress ring */}
-              <div className="flex items-center justify-center py-2">
+            <CardContent className="pt-5 space-y-4">
+              {/* Progress Ring */}
+              <div className="flex items-center justify-center py-1">
                 <div className="relative">
                   <svg className="h-20 w-20 -rotate-90">
                     <circle
@@ -723,7 +686,7 @@ export default function IRBSubmissionPage() {
                       strokeDasharray={213.6}
                       strokeDashoffset={
                         213.6 -
-                        (213.6 * completedCount) / READINESS.length
+                        (213.6 * completedCount) / READINESS_STEPS.length
                       }
                       strokeLinecap="round"
                       stroke="currentColor"
@@ -733,29 +696,29 @@ export default function IRBSubmissionPage() {
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-black">
-                      {completedCount}/{READINESS.length}
+                    <span className="text-lg font-extrabold">
+                      {completedCount}/{READINESS_STEPS.length}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {READINESS.map((item) => (
+              <div className="space-y-2.5 pt-1">
+                {READINESS_STEPS.map((item) => (
                   <div
                     key={item.key}
                     className="flex items-center gap-2 text-xs"
                   >
                     {readinessMap[item.key] ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                     ) : (
                       <div className="h-4 w-4 shrink-0 rounded-full border-2 border-muted-foreground/30" />
                     )}
                     <span
                       className={
                         readinessMap[item.key]
-                          ? "text-foreground"
-                          : "text-muted-foreground"
+                          ? "text-slate-900 dark:text-slate-100 font-semibold"
+                          : "text-muted-foreground font-medium"
                       }
                     >
                       {item.label}
@@ -765,40 +728,37 @@ export default function IRBSubmissionPage() {
               </div>
 
               {!isReady && (
-                <div className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  Upload a clearance document to submit.
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  Upload your clearance document to submit.
                 </div>
               )}
 
               {isEditing && !isResubmission && (
                 <Button
                   variant="outline"
-                  className="mt-2 w-full"
-                  onClick={handleSaveDraft}
+                  className="mt-2 w-full text-xs font-semibold shadow-xs"
+                  onClick={() => saveDraftMutation.mutate()}
                   disabled={saveDraftMutation.isPending}
                 >
                   {saveDraftMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="mr-2 h-3.5 w-3.5" />
                   )}
                   Save Draft
                 </Button>
               )}
 
               <Button
-                className={cn(
-                  "mt-2 w-full bg-primary hover:bg-primary/90",
-                  isEditing && !isResubmission && "mt-1",
-                )}
+                className="mt-2 w-full text-xs font-bold shadow-xs"
                 onClick={handleSubmit}
                 disabled={submitMutation.isPending || !isReady}
               >
                 {submitMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Send className="mr-2 h-4 w-4" />
+                  <Send className="mr-2 h-3.5 w-3.5" />
                 )}
                 {isEditing
                   ? isResubmission
@@ -809,17 +769,15 @@ export default function IRBSubmissionPage() {
             </CardContent>
           </Card>
 
-          {/* Info card */}
-          <Card className="shadow-sm border-primary/10">
-            <CardContent className="pt-4 pb-4">
+          {/* Guidance Note Card */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  {isEditing
-                    ? isResubmission
-                      ? "After resubmission, the clearance will re-enter the review queue. You will be notified once a decision is made."
-                      : "Saving changes will keep your submission as a draft. You can submit it when ready."
-                    : "Once submitted, the IRB committee will review your application. You will be notified of any decisions."}
+                  {isResubmission
+                    ? "After resubmission, your application will re-enter the review queue for committee evaluation."
+                    : "Once submitted, your clearance application will be routed to the IRB Ethics Committee."}
                 </p>
               </div>
             </CardContent>

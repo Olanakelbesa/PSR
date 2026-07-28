@@ -826,11 +826,19 @@ export default function ReadyForFundingDetailPage() {
                   {/* Document Sub-navigation */}
                   <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-2.5 rounded-xl border border-border/60 shadow-2xs">
                     <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50 w-full sm:w-auto">
-                      {screening.attachments.map((att) => {
+                      {screening.attachments.map((att, idx) => {
                         const isActive = att.id === (activeDoc?.id || screening.attachments[0]?.id);
-                        const fileName = att.name.split("/").pop() || att.name;
                         const resolved = resolveFileUrl(att.url) || att.url || "";
                         const kind = getConceptNoteAttachmentKind(resolved);
+
+                        const lower = (att.name || "").toLowerCase();
+                        let label = "Proposal File";
+                        if (lower.includes("budget") || lower.includes("finance") || lower.includes("supporting") || idx === 1) {
+                          label = "Budget File";
+                        } else if (idx > 1) {
+                          label = `Supporting File ${idx}`;
+                        }
+
                         return (
                           <Button
                             key={att.id}
@@ -840,7 +848,7 @@ export default function ReadyForFundingDetailPage() {
                             onClick={() => setActiveDocKey(att.id)}
                           >
                             <FileText className="h-3.5 w-3.5" />
-                            <span className="truncate max-w-[140px]">{fileName}</span>
+                            <span>{label}</span>
                             <Badge
                               variant={isActive ? "secondary" : "outline"}
                               className="text-[9px] uppercase px-1.5 py-0 font-bold"

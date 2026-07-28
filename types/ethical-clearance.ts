@@ -69,10 +69,14 @@ export interface EthicalClearance {
   approvalDate?: string | null;
   lastReviewedAt?: string | null;
 
+  proposalFile?: string | null;
+  proposal_file?: string | null;
+
   supportingDocuments?: IRBClearanceDocument[];
   reviews?: IRBClearanceReview[];
   files?: {
     clearanceFile: string | null;
+    proposalFile?: string | null;
   };
 }
 

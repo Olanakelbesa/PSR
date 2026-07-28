@@ -2,11 +2,14 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   BarChart3,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   Eye,
   MoreHorizontal,
   ShieldCheck,
@@ -15,8 +18,9 @@ import {
   AlertCircle,
   Upload,
 } from "lucide-react";
+import { toast } from "sonner";
 import { PageContainer } from "@/components/layout";
-import { DataTable } from "@/components/shared/data-table";
+import { DataTable, DataTableViewOptions } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -100,6 +104,49 @@ function mapRow(item: EthicalClearance): Row {
   };
 }
 
+function ReferenceCell({ refNum, id }: { refNum: string; id: number }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!refNum || refNum === "—") return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!refNum || refNum === "—") {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-muted/60 hover:bg-muted dark:bg-muted/40 px-2 py-0.5 rounded-md border border-border/50 transition-colors max-w-fit">
+      <Link
+        href={`/research/irb-clearance/my-submissions/${id}`}
+        className="font-mono text-xs font-semibold text-foreground hover:text-primary transition-colors truncate"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {refNum}
+      </Link>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy reference number"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
 export default function MySubmissionsPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -147,9 +194,7 @@ export default function MySubmissionsPage() {
       accessorKey: "referenceNumber",
       header: "Reference",
       cell: ({ row }) => (
-        <span className="font-bold text-primary">
-          {row.original.referenceNumber}
-        </span>
+        <ReferenceCell refNum={row.original.referenceNumber} id={row.original.id} />
       ),
     },
     {
@@ -237,63 +282,72 @@ export default function MySubmissionsPage() {
             </DropdownMenuItem>
             {(row.original.status === "pending_submission" ||
               row.original.status === "rejected") && (
-              <DropdownMenuItem
-                onClick={() =>
-                  router.push(
-                    `/research/irb-clearance/my-submissions/submit/${row.original.id}`,
-                  )
-                }
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                {row.original.status === "rejected"
-                  ? "Resubmit Application"
-                  : "Edit & Submit Application"}
-              </DropdownMenuItem>
-            )}
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(
+                      `/research/irb-clearance/my-submissions/submit/${row.original.id}`,
+                    )
+                  }
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {row.original.status === "rejected"
+                    ? "Resubmit Application"
+                    : "Edit & Submit Application"}
+                </DropdownMenuItem>
+              )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
   ];
 
-  const toolbar = (
-    <div className="overflow-hidden rounded-2xl border bg-card/95 shadow-sm backdrop-blur">
-      <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_160px] lg:flex-1">
-            <Input
-              placeholder="Search by title or reference..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9"
-            />
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatFilter)}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>All Statuses</SelectItem>
-                {Object.entries(statusConfig).map(([key, cfg]) => (
-                  <SelectItem key={key} value={key}>
-                    {cfg.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+  const renderToolbar = useCallback(
+    (table: any) => (
+      <div className="overflow-hidden rounded-2xl border bg-card/95 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left side: Search & Status Filters */}
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <Input
+                placeholder="Search by title or reference..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 w-full sm:w-[260px]"
+              />
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatFilter)}>
+                <SelectTrigger className="h-9 w-full sm:w-[170px]">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_VALUE}>All Statuses</SelectItem>
+                  {Object.entries(statusConfig).map(([key, cfg]) => (
+                    <SelectItem key={key} value={key}>
+                      {cfg.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Right side: View Options & Clear Filters */}
+            <div className="flex items-center gap-2 shrink-0 justify-end">
+              {activeFilterCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="shrink-0 h-9 text-xs"
+                >
+                  Clear ({activeFilterCount})
+                </Button>
+              )}
+              <DataTableViewOptions table={table} />
+            </div>
           </div>
-          {activeFilterCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearFilters}
-              className="shrink-0"
-            >
-              Clear ({activeFilterCount})
-            </Button>
-          )}
         </div>
       </div>
-    </div>
+    ),
+    [search, statusFilter, activeFilterCount, clearFilters],
   );
 
   const statCards = useMemo(
@@ -355,53 +409,53 @@ export default function MySubmissionsPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i}>
+              <Card key={i}>
+                <CardContent className="flex items-center gap-4 p-5">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-16" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+            : statCards.map((stat) => {
+              const isActive = statusFilter === stat.key;
+              return (
+                <Card
+                  key={stat.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => applyStatusFilter(stat.key)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      applyStatusFilter(stat.key);
+                    }
+                  }}
+                  className={cn(
+                    "cursor-pointer border shadow-sm transition-all hover:shadow-md",
+                    stat.border,
+                    isActive && cn("ring-2 shadow-md", stat.activeRing),
+                  )}
+                >
                   <CardContent className="flex items-center gap-4 p-5">
-                    <Skeleton className="h-11 w-11 rounded-xl" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-7 w-16" />
-                      <Skeleton className="h-3 w-28" />
+                    <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                      <stat.icon className={cn("h-5 w-5", stat.color)} />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-black">{stat.value}</div>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {stat.label}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                        {stat.sub}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            : statCards.map((stat) => {
-                const isActive = statusFilter === stat.key;
-                return (
-                  <Card
-                    key={stat.key}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => applyStatusFilter(stat.key)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        applyStatusFilter(stat.key);
-                      }
-                    }}
-                    className={cn(
-                      "cursor-pointer border shadow-sm transition-all hover:shadow-md",
-                      stat.border,
-                      isActive && cn("ring-2 shadow-md", stat.activeRing),
-                    )}
-                  >
-                    <CardContent className="flex items-center gap-4 p-5">
-                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
-                        <stat.icon className={cn("h-5 w-5", stat.color)} />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-black">{stat.value}</div>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {stat.label}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
-                          {stat.sub}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              );
+            })}
         </div>
 
         {error ? (
@@ -425,7 +479,8 @@ export default function MySubmissionsPage() {
           <DataTable
             columns={columns}
             data={rows}
-            toolbar={toolbar}
+            toolbar={renderToolbar}
+            initialColumnVisibility={{ referenceNumber: false }}
             onRowClick={(row) =>
               router.push(`/research/irb-clearance/my-submissions/${row.id}`)
             }

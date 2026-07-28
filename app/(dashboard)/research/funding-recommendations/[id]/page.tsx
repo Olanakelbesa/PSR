@@ -275,7 +275,7 @@ export default function FundingRecommendationDetailPage() {
                       aria-valuenow={Math.round(
                         ((Number(recommendation.totalAwardAmount ?? recommendation.total_award_amount) || 0) /
                           (Number(requestedAmount) || 1)) *
-                          100,
+                        100,
                       )}
                       aria-valuemin={0}
                       aria-valuemax={100}
@@ -283,11 +283,10 @@ export default function FundingRecommendationDetailPage() {
                       <div
                         className="h-full bg-emerald-500"
                         style={{
-                          width: `${
-                            ((Number(recommendation.totalAwardAmount ?? recommendation.total_award_amount) || 0) /
+                          width: `${((Number(recommendation.totalAwardAmount ?? recommendation.total_award_amount) || 0) /
                               (Number(requestedAmount) || 1)) *
                             100
-                          }%`,
+                            }%`,
                         }}
                       />
                     </div>
@@ -367,8 +366,8 @@ export default function FundingRecommendationDetailPage() {
                   className={fundingDecisionStatus === "approved"
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                     : fundingDecisionStatus === "rejected"
-                    ? "border-rose-200 bg-rose-50 text-rose-700"
-                    : "border-amber-200 bg-amber-50 text-amber-700"
+                      ? "border-rose-200 bg-rose-50 text-rose-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
                   }
                 >
                   {fundingDecisionStatus === "approved" ? (

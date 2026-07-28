@@ -125,9 +125,9 @@ export function DataTableViewOptions<TData>({
         <Button
           variant="outline"
           size="sm"
-          className={cn("h-10 shrink-0 border-muted-foreground/20 bg-background hover:bg-muted/50", className)}
+          className={cn("h-9 shrink-0 border-muted-foreground/20 bg-background hover:bg-muted/50 text-xs font-medium", className)}
         >
-          <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          <Settings2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           View
           <ChevronDown className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
         </Button>
@@ -144,6 +144,9 @@ export function DataTableViewOptions<TData>({
             if (column.id === "referenceNumber") label = "Reference Number";
             if (column.id === "proposalTitle") label = "Proposal Title";
             if (column.id === "proposalType") label = "Research Type";
+            if (column.id === "clearanceType") label = "Clearance Type";
+            if (column.id === "applicationDate") label = "Applied Date";
+            if (column.id === "approvalDate") label = "Approved Date";
             if (column.id === "pi") label = "Principal Investigator (PI)";
             if (column.id === "budgetRequested") label = "Budget Requested";
             if (column.id === "averageScorePercentage") label = "Score Percentage";
@@ -152,9 +155,10 @@ export function DataTableViewOptions<TData>({
             return (
               <DropdownMenuCheckboxItem
                 key={column.id}
-                className="capitalize text-xs"
+                className="capitalize text-xs cursor-pointer"
                 checked={column.getIsVisible()}
                 onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                onSelect={(e) => e.preventDefault()}
               >
                 {label}
               </DropdownMenuCheckboxItem>
@@ -331,7 +335,12 @@ export function DataTable<TData, TValue>({
     </DropdownMenu>
   );
 
-  const renderedToolbar = typeof toolbar === "function" ? toolbar(table) : toolbar;
+  let renderedToolbar: React.ReactNode = null;
+  if (typeof toolbar === "function") {
+    renderedToolbar = (toolbar as (table: Table<TData>) => React.ReactNode)(table);
+  } else if (toolbar && typeof toolbar !== "function") {
+    renderedToolbar = toolbar;
+  }
 
   return (
     <div className="space-y-4 w-full max-w-full">
