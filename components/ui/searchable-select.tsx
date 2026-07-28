@@ -37,6 +37,9 @@ export interface SearchableSelectProps<T = any> {
   onValueChange?: (value: string) => void;
   onOpenChange?: (open: boolean) => void;
 
+  // Direct options array option
+  options?: SearchableSelectOption<T>[] | T[];
+
   // Data fetching
   useQueryHook?: (params?: {
     search?: string;
@@ -96,6 +99,7 @@ export function SearchableSelect<T = any>({
   value,
   onValueChange,
   onOpenChange,
+  options,
   useQueryHook,
   extractData,
   getOptionValue,
@@ -135,7 +139,7 @@ export function SearchableSelect<T = any>({
       if (getOptionValue) {
         return String(getOptionValue(item));
       }
-      return String((item as any)?.id ?? "");
+      return String((item as any)?.value ?? (item as any)?.id ?? "");
     },
     [getOptionValue],
   );
@@ -146,9 +150,9 @@ export function SearchableSelect<T = any>({
         return getOptionLabel(item);
       }
       return (
+        (item as any)?.label ??
         (item as any)?.title ??
         (item as any)?.name ??
-        (item as any)?.label ??
         String(item)
       );
     },
@@ -158,7 +162,9 @@ export function SearchableSelect<T = any>({
   const allOptions = useMemo(() => {
     let result: T[] = [];
 
-    if (rawData) {
+    if (options && Array.isArray(options) && options.length > 0) {
+      result = options as T[];
+    } else if (rawData) {
       if (extractData) {
         result = extractData(rawData);
       } else if (Array.isArray(rawData.results)) {
@@ -188,7 +194,7 @@ export function SearchableSelect<T = any>({
     }
 
     return result;
-  }, [rawData, extractData, additionalOptions, excludeValues, filterOption, getValue]);
+  }, [options, rawData, extractData, additionalOptions, excludeValues, filterOption, getValue]);
 
   const filteredOptions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -250,15 +256,21 @@ export function SearchableSelect<T = any>({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className={cn("w-(--radix-popover-trigger-width) p-0 shadow-md", className)}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        className={cn("w-(--radix-popover-trigger-width) min-w-[280px] p-0 shadow-lg z-50", className)}
       >
-        <Command shouldFilter={false}>
+        <Command shouldFilter={false} className="max-h-[300px]" onWheel={(e) => e.stopPropagation()}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchQuery}
             onValueChange={setSearchQuery}
           />
-          <CommandList className="max-h-60 overflow-y-auto">
+          <CommandList
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            className="max-h-[240px] overflow-y-auto pointer-events-auto touch-auto scrollbar-thin"
+          >
             {isLoading ? (
               <div className="p-4 text-center text-xs text-muted-foreground">
                 {loadingMessage}

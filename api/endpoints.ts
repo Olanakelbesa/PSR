@@ -380,6 +380,7 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/protocols/${id}/`,
     CREATE: "/v1/protocols/",
     UPDATE: (id: string | number) => `/v1/protocols/${id}/`,
+    REVIEW: (id: string | number) => `/v1/protocols/${id}/review/`,
   },
 
   ROLES: {

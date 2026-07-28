@@ -54,46 +54,43 @@ import { PdfViewer } from "@/components/shared/pdf-viewer";
 import { WordViewer } from "@/components/shared/word-viewer";
 import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import { downloadConceptNoteAttachment, getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
-import {
-  useEthicalClearance,
-  useReviewIRBClearance,
-} from "@/lib/queries/ethical-clearance";
+import { useProtocol, useReviewProtocol } from "@/lib/queries/protocol";
 import { useProposal } from "@/lib/queries/proposals";
-import type { IRBClearanceStatus } from "@/types/ethical-clearance";
+import type { ProtocolStatus } from "@/types/protocol";
 
 const statusConfig: Record<
-  IRBClearanceStatus,
+  ProtocolStatus,
   { label: string; className: string; icon: typeof Clock; description: string }
 > = {
   pending_submission: {
     label: "Pending Submission",
     className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     icon: Clock,
-    description: "The applicant has not yet completed and submitted this clearance for review.",
+    description: "The investigator has not yet uploaded the protocol file for review.",
   },
   pending_review: {
     label: "Pending Review",
     className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800",
     icon: ShieldCheck,
-    description: "This application is ready for IRB Ethics Committee evaluation and review decision.",
+    description: "This research protocol is pending PSR review and approval decision.",
   },
   approved: {
     label: "Approved",
     className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
     icon: CheckCircle2,
-    description: "This IRB ethical clearance has been approved and officially granted.",
+    description: "This research protocol has been officially reviewed and approved.",
   },
   rejected: {
     label: "Requires Revision",
     className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     icon: AlertCircle,
-    description: "This application requires revision before approval can be granted. The applicant may resubmit.",
+    description: "This protocol requires revision before approval can be granted. The investigator may resubmit.",
   },
   resubmitted: {
     label: "Resubmitted",
     className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800",
     icon: RefreshCcw,
-    description: "The applicant has resubmitted this application for committee re-evaluation.",
+    description: "The investigator has resubmitted an updated protocol for re-review.",
   },
 };
 
@@ -102,7 +99,7 @@ const DECISION_OPTIONS = [
     value: "approved" as const,
     icon: CheckCircle2,
     label: "Approve",
-    description: "Grant clearance approval",
+    description: "Grant protocol approval",
     selectedBorder: "border-emerald-500",
     selectedBg: "bg-emerald-50 dark:bg-emerald-950/30",
     selectedRing: "ring-emerald-500/25",
@@ -114,7 +111,7 @@ const DECISION_OPTIONS = [
     value: "rejected" as const,
     icon: AlertCircle,
     label: "Request Revision",
-    description: "Return application for modifications",
+    description: "Return protocol for modifications",
     selectedBorder: "border-amber-500",
     selectedBg: "bg-amber-50 dark:bg-amber-950/30",
     selectedRing: "ring-amber-500/25",
@@ -193,20 +190,16 @@ function EmbeddedViewer({ url, title }: { url: string; title: string }) {
   );
 }
 
-export default function ReviewDetailPage() {
+export default function ProtocolReviewDetailPage() {
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const clearanceId = Number(params.id);
+  const protocolId = Number(params.id);
 
-  const { data: clearance, isLoading } = useEthicalClearance(clearanceId);
-  const reviewMutation = useReviewIRBClearance();
+  const { data: protocol, isLoading } = useProtocol(protocolId);
+  const reviewMutation = useReviewProtocol();
 
-  const proposalIdStr = clearance?.proposal
-    ? String(clearance.proposal)
-    : clearance?.proposalId
-      ? String(clearance.proposalId)
-      : "";
+  const proposalIdStr = protocol?.proposal ? String(protocol.proposal) : "";
   const { data: proposalDetail } = useProposal(proposalIdStr);
 
   const [copiedRef, setCopiedRef] = useState(false);
@@ -225,10 +218,8 @@ export default function ReviewDetailPage() {
     reviewComments?: string;
   }>({});
 
-  const status = clearance?.status;
-  const cfg =
-    statusConfig[status ?? "pending_submission"] ??
-    statusConfig.pending_submission;
+  const status = protocol?.status || "pending_review";
+  const cfg = statusConfig[status] || statusConfig.pending_review;
   const StatusIcon = cfg.icon;
 
   const showReviewButton = status !== "pending_submission";
@@ -238,8 +229,8 @@ export default function ReviewDetailPage() {
     : "Submit Review Decision";
 
   const handleCopyRef = () => {
-    if (!clearance) return;
-    const refText = clearance.referenceNumber || `IRB-${clearance.id}`;
+    if (!protocol) return;
+    const refText = protocol.referenceNumber || protocol.reference_number || `PROT-${protocol.id}`;
     navigator.clipboard.writeText(refText);
     setCopiedRef(true);
     toast.success("Reference number copied to clipboard!");
@@ -247,12 +238,10 @@ export default function ReviewDetailPage() {
   };
 
   const handleOpenReviewModal = (overrideDecision?: string, overrideComments?: string) => {
-    const latestReview = clearance?.reviews && clearance.reviews.length > 0 ? clearance.reviews[0] : null;
     const initialDecision =
       overrideDecision ||
-      latestReview?.decision ||
       (status === "approved" || status === "rejected" ? status : "");
-    const initialComments = overrideComments ?? latestReview?.comments ?? "";
+    const initialComments = overrideComments ?? protocol?.decisionRemarks ?? protocol?.decision_remarks ?? "";
 
     setReviewDecision((initialDecision as "approved" | "rejected" | "") || "");
     setReviewComments(initialComments);
@@ -263,8 +252,8 @@ export default function ReviewDetailPage() {
   const handleReview = () => {
     const errors: typeof formErrors = {};
     if (!reviewDecision) errors.reviewDecision = "Please select a decision.";
-    if (!reviewComments.trim())
-      errors.reviewComments = "Comments are required.";
+    if (reviewDecision === "rejected" && !reviewComments.trim())
+      errors.reviewComments = "Comments/remarks are required when requesting revisions or rejecting.";
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -273,121 +262,91 @@ export default function ReviewDetailPage() {
 
     reviewMutation.mutate(
       {
-        id: clearanceId,
+        id: protocolId,
         payload: { decision: reviewDecision, comments: reviewComments },
       },
       {
         onSuccess: () => {
           toast.success(
             isAlreadyReviewed
-              ? "Review decision updated successfully."
+              ? "Protocol review decision updated successfully."
               : reviewDecision === "approved"
-              ? "Clearance approved successfully."
-              : "Clearance rejected successfully.",
+                ? "Protocol approved successfully."
+                : "Protocol rejected successfully.",
           );
-          queryClient.invalidateQueries({
-            queryKey: ["ethical-clearances"],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["ethical-clearance", clearanceId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["irb-clearance-statistics"],
-          });
+          queryClient.invalidateQueries({ queryKey: ["protocols"] });
+          queryClient.invalidateQueries({ queryKey: ["protocol", protocolId] });
           setIsReviewModalOpen(false);
           setReviewDecision("");
           setReviewComments("");
           setFormErrors({});
         },
         onError: (error: Error) => {
-          toast.error(error.message || "Failed to submit review.");
+          toast.error(error.message || "Failed to submit review decision.");
         },
       },
     );
   };
 
   const documentList = useMemo(() => {
-    if (!clearance) return [];
+    if (!protocol) return [];
     const list: { key: string; label: string; filePath?: string | null; filename?: string }[] = [];
 
-    // 1. Proposal File
-    const propFile =
-      (clearance as any).proposalFile ||
-      (clearance as any).proposal_file ||
-      proposalDetail?.proposalFile ||
-      (proposalDetail as any)?.proposal_file;
+    // 1. Primary Protocol File
+    const mainFile = protocol.protocolFile || protocol.protocol_file;
+    if (mainFile) {
+      list.push({
+        key: "protocol-file",
+        label: "Primary Protocol File",
+        filePath: mainFile,
+        filename: "Protocol Document",
+      });
+    }
+
+    // 2. Other Supporting Document
+    const otherDoc = protocol.otherDocument || protocol.other_document;
+    if (otherDoc) {
+      list.push({
+        key: "other-document",
+        label: "Supporting Document",
+        filePath: otherDoc,
+        filename: "Supporting File",
+      });
+    }
+
+    if (protocol.attachments && protocol.attachments.length > 0) {
+      protocol.attachments.forEach((att, idx) => {
+        list.push({
+          key: `attachment-${att.id}`,
+          label: att.filename || `Attachment ${idx + 1}`,
+          filePath: att.file || att.fileUrl || att.file_url,
+          filename: att.filename || `Attachment ${idx + 1}`,
+        });
+      });
+    }
+
+    // 3. Original Proposal Document if available
+    const propFile = protocol.proposalFile || protocol.proposal_file || proposalDetail?.proposalFile || (proposalDetail as any)?.proposal_file;
     if (propFile) {
       list.push({
         key: "proposal-file",
-        label: "Proposal File",
+        label: "Proposal Document",
         filePath: propFile,
         filename: "Proposal Document",
       });
     }
 
-    // 2. Clearance File
-    if (clearance.files?.clearanceFile || clearance.clearanceFile) {
-      list.push({
-        key: "clearance-file",
-        label: "Clearance File",
-        filePath: clearance.files?.clearanceFile || clearance.clearanceFile,
-        filename: "Clearance Document",
-      });
-    }
-
-    // 3. Proposal Attachments / Budget File
-    if (proposalDetail?.attachments && proposalDetail.attachments.length > 0) {
-      proposalDetail.attachments.forEach((att, idx) => {
-        const lower = (att.name || "").toLowerCase();
-        let label = `Supporting File ${idx + 1}`;
-        if (lower.includes("budget") || lower.includes("finance")) {
-          label = "Budget File";
-        } else if (lower.includes("proposal") && !list.some((d) => d.label === "Proposal File")) {
-          label = "Proposal File";
-        }
-        if (!list.some((item) => item.key === `prop-att-${att.id}`)) {
-          list.push({
-            key: `prop-att-${att.id}`,
-            label,
-            filePath: att.url,
-            filename: att.name,
-          });
-        }
-      });
-    }
-
-    // 4. IRB Supporting Documents
-    if (clearance.supportingDocuments && clearance.supportingDocuments.length > 0) {
-      clearance.supportingDocuments.forEach((doc, idx) => {
-        const lower = (doc.originalFilename || "").toLowerCase();
-        let label = `Supporting Document ${idx + 1}`;
-        if (lower.includes("proposal") || lower.includes("concept")) {
-          label = "Proposal File";
-        } else if (lower.includes("budget") || lower.includes("finance")) {
-          label = "Budget File";
-        }
-        if (!list.some((item) => item.key === `supporting-${doc.id}`)) {
-          list.push({
-            key: `supporting-${doc.id}`,
-            label,
-            filePath: doc.fileUrl,
-            filename: doc.originalFilename,
-          });
-        }
-      });
-    }
-
     return list;
-  }, [clearance, proposalDetail]);
+  }, [protocol, proposalDetail]);
 
-  const [activeDocKey, setActiveDocKey] = useState<string>("proposal-file");
+  const [activeDocKey, setActiveDocKey] = useState<string>("protocol-file");
   const activeDoc = useMemo(() => {
     return documentList.find((d) => d.key === activeDocKey) || documentList[0];
   }, [documentList, activeDocKey]);
 
   if (isLoading) {
     return (
-      <PageContainer title="Loading IRB Review...">
+      <PageContainer title="Loading Protocol Review...">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-6">
             <Skeleton className="h-12 w-full" />
@@ -402,13 +361,13 @@ export default function ReviewDetailPage() {
     );
   }
 
-  if (!clearance) {
+  if (!protocol) {
     return (
       <PageContainer
-        title="Review Not Found"
-        description="The requested IRB clearance application could not be loaded."
+        title="Protocol Not Found"
+        description="The requested protocol review record could not be loaded."
         actions={
-          <Button variant="outline" onClick={() => router.push("/research/irb-clearance/reviews")}>
+          <Button variant="outline" onClick={() => router.push("/research/protocol/reviews")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Reviews
           </Button>
@@ -418,9 +377,9 @@ export default function ReviewDetailPage() {
           <CardContent className="p-6 flex items-center gap-4">
             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
             <div>
-              <h3 className="font-bold text-amber-900 dark:text-amber-200">Clearance Record Unavailable</h3>
+              <h3 className="font-bold text-amber-900 dark:text-amber-200">Protocol Record Unavailable</h3>
               <p className="text-sm text-amber-800 dark:text-amber-300">
-                The IRB clearance application details could not be loaded. Please try again or contact support.
+                The protocol submission details could not be loaded. Please try again or return to reviews list.
               </p>
             </div>
           </CardContent>
@@ -429,11 +388,11 @@ export default function ReviewDetailPage() {
     );
   }
 
-  const hasReviews = Boolean(clearance.reviews && clearance.reviews.length > 0);
+  const hasReviewRecord = Boolean(protocol.decisionRemarks || protocol.decision_remarks);
 
   return (
     <PageContainer
-      title={clearance.proposalTitle || "Review IRB Clearance Application"}
+      title={protocol.proposalTitle || protocol.proposal_title || "Review Research Protocol"}
       description={
         <div className="flex flex-wrap items-center gap-2 mt-1">
           <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
@@ -443,7 +402,7 @@ export default function ReviewDetailPage() {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
             title="Click to copy reference number"
           >
-            <span>{clearance.referenceNumber || `IRB-${clearance.id}`}</span>
+            <span>{protocol.referenceNumber || protocol.reference_number || `PROT-${protocol.id}`}</span>
             {copiedRef ? (
               <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
             ) : (
@@ -454,9 +413,9 @@ export default function ReviewDetailPage() {
             <StatusIcon className="h-3 w-3" />
             {cfg.label}
           </Badge>
-          {clearance.applicationDate && (
+          {(protocol.createdAt || protocol.created_at) && (
             <span className="text-xs text-muted-foreground font-medium ml-1">
-              · Applied: {clearance.applicationDate}
+              · Submitted: {new Date(protocol.createdAt || protocol.created_at!).toLocaleDateString()}
             </span>
           )}
         </div>
@@ -464,7 +423,7 @@ export default function ReviewDetailPage() {
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild className="shadow-xs">
-            <Link href="/research/irb-clearance/reviews">
+            <Link href="/research/protocol/reviews">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Reviews
             </Link>
@@ -478,7 +437,7 @@ export default function ReviewDetailPage() {
         </div>
       }
     >
-      {/* ── Main Layout: Standard Grid 2-Column (Mirrored from Submissions Detail) ──────────────── */}
+      {/* ── Main Layout: Standard Grid 2-Column (Mirrored from IRB Reviews Detail) ──────────────── */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Main Content Column */}
         <div className="space-y-6 min-w-0">
@@ -500,9 +459,9 @@ export default function ReviewDetailPage() {
               <TabsTrigger value="reviews" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
                 <MessageSquare className="h-3.5 w-3.5" />
                 Review History
-                {(clearance.reviews?.length ?? 0) > 0 && (
+                {hasReviewRecord && (
                   <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
-                    {clearance.reviews?.length}
+                    1
                   </Badge>
                 )}
               </TabsTrigger>
@@ -525,7 +484,7 @@ export default function ReviewDetailPage() {
                         Proposal Title
                       </p>
                       <p className="text-sm font-semibold leading-snug">
-                        {clearance.proposalTitle || "—"}
+                        {protocol.proposalTitle || protocol.proposal_title || "—"}
                       </p>
                     </div>
                     <div className="space-y-1">
@@ -533,7 +492,7 @@ export default function ReviewDetailPage() {
                         Reference Number
                       </p>
                       <p className="text-sm font-semibold font-mono text-primary">
-                        {clearance.referenceNumber || "—"}
+                        {protocol.referenceNumber || protocol.reference_number || "—"}
                       </p>
                     </div>
                     <div className="space-y-1">
@@ -541,20 +500,20 @@ export default function ReviewDetailPage() {
                         Principal Investigator
                       </p>
                       <p className="text-sm font-semibold">
-                        {clearance.pi?.fullName || "—"}
+                        {protocol.pi?.fullName || protocol.uploadedByName || protocol.uploaded_by_name || "—"}
                       </p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Institution
+                        Institution / Unit
                       </p>
                       <p className="text-sm font-semibold">
-                        {clearance.proposalInstitution || "—"}
+                        {protocol.proposalInstitution || protocol.proposal_institution || "—"}
                       </p>
                     </div>
                   </div>
 
-                  {clearance.proposalShortAbstract && (
+                  {(protocol.proposalShortAbstract || protocol.proposal_short_abstract) && (
                     <>
                       <Separator />
                       <div className="space-y-1.5">
@@ -564,7 +523,7 @@ export default function ReviewDetailPage() {
                         <div
                           className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-900/20 border p-4 rounded-xl [&_p]:mb-2 [&_p:last-child]:mb-0"
                           dangerouslySetInnerHTML={{
-                            __html: clearance.proposalShortAbstract,
+                            __html: protocol.proposalShortAbstract || protocol.proposal_short_abstract || "",
                           }}
                         />
                       </div>
@@ -573,57 +532,44 @@ export default function ReviewDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Clearance Details & Notes Card */}
+              {/* Protocol Details & Notes Card */}
               <Card className="border border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <ShieldCheck className="h-4.5 w-4.5 text-primary" />
-                    Ethical Clearance Details
+                    Protocol Submission Details
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Clearance Type
+                        Submission Status
                       </p>
-                      <p className="text-sm font-semibold">
-                        {clearance.clearanceTypeName || "Standard IRB Clearance"}
-                      </p>
+                      <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border", cfg.className)}>
+                        <StatusIcon className="h-3 w-3" />
+                        {cfg.label}
+                      </Badge>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Application Date
+                        Submission Date
                       </p>
                       <p className="text-sm font-semibold">
-                        {clearance.applicationDate || "—"}
+                        {protocol.createdAt || protocol.created_at ? new Date(protocol.createdAt || protocol.created_at!).toLocaleDateString() : "—"}
                       </p>
                     </div>
-                    {clearance.submittedBy && (
+                    {(protocol.submittedBy || protocol.pi) && (
                       <div className="space-y-1 sm:col-span-2">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           Submitted By
                         </p>
                         <p className="text-sm font-semibold">
-                          {clearance.submittedBy.fullName} ({clearance.submittedBy.email})
+                          {(protocol.submittedBy || protocol.pi)?.fullName} ({(protocol.submittedBy || protocol.pi)?.email})
                         </p>
                       </div>
                     )}
                   </div>
-
-                  {clearance.submissionNotes && (
-                    <>
-                      <Separator />
-                      <div className="space-y-1.5">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Submission Notes
-                        </p>
-                        <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-900/20 border p-4 rounded-xl whitespace-pre-line">
-                          {clearance.submissionNotes}
-                        </p>
-                      </div>
-                    </>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -635,10 +581,10 @@ export default function ReviewDetailPage() {
                   <CardHeader className="pb-3 border-b bg-slate-50/70 dark:bg-slate-900/40">
                     <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-200">
                       <FolderOpen className="h-5 w-5 text-primary" />
-                      Attached Clearance Files
+                      Attached Protocol Files
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Preview attached ethics documents, proposal file, and supporting files inline.
+                      Preview uploaded protocol files, supporting documents, and proposal file inline.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-5 space-y-4">
@@ -691,7 +637,7 @@ export default function ReviewDetailPage() {
                     <FileText className="h-12 w-12 text-muted-foreground/30" />
                     <p className="font-bold text-muted-foreground">No Protocol Files Attached</p>
                     <p className="text-xs text-muted-foreground max-w-sm">
-                      No clearance certificates or supporting protocol documents were uploaded with this application.
+                      No protocol documents or supporting files were uploaded with this application.
                     </p>
                   </CardContent>
                 </Card>
@@ -704,7 +650,7 @@ export default function ReviewDetailPage() {
                 <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30 flex flex-row items-center justify-between">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <MessageSquare className="h-4.5 w-4.5 text-primary" />
-                    IRB Ethics Committee Review Feedback
+                    Protocol Review & Decision History
                   </CardTitle>
                   {showReviewButton && (
                     <Button
@@ -719,63 +665,58 @@ export default function ReviewDetailPage() {
                   )}
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
-                  {hasReviews ? (
-                    clearance.reviews!.map((review) => (
-                      <div
-                        key={review.id}
-                        className="rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/20 p-4 space-y-3"
-                      >
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7 border">
-                              <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                                {review.reviewerName?.slice(0, 2).toUpperCase() || "REV"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                              {review.reviewerName || "Committee Reviewer"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              className={cn(
-                                "border px-2 py-0.5 text-[10px] font-bold uppercase shadow-none",
-                                review.decision === "approved"
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200"
-                                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200",
-                              )}
-                            >
-                              {review.decision}
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs font-semibold text-primary hover:bg-primary/10 gap-1 px-2.5 rounded-lg border border-primary/20"
-                              onClick={() => handleOpenReviewModal(review.decision, review.comments)}
-                            >
-                              Edit
-                            </Button>
-                          </div>
-                        </div>
-
-                        {review.comments && (
-                          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-background border p-3.5 rounded-lg whitespace-pre-line">
-                            {review.comments}
+                  {hasReviewRecord ? (
+                    <div className="rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/20 p-4 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7 border">
+                            <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                              {(protocol.reviewedByName || protocol.reviewed_by_name || "REV").slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                            {protocol.reviewedByName || protocol.reviewed_by_name || "PSR Reviewer"}
                           </p>
-                        )}
-
-                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>Reviewed on: {formatDateTime(review.reviewedAt)}</span>
-                        </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            className={cn(
+                              "border px-2 py-0.5 text-[10px] font-bold uppercase shadow-none",
+                              status === "approved"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200"
+                                : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200",
+                            )}
+                          >
+                            {status}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs font-semibold text-primary hover:bg-primary/10 gap-1 px-2.5 rounded-lg border border-primary/20"
+                            onClick={() => handleOpenReviewModal(status, protocol.decisionRemarks || protocol.decision_remarks || "")}
+                          >
+                            Edit
+                          </Button>
+                        </div>
                       </div>
-                    ))
+
+                      {(protocol.decisionRemarks || protocol.decision_remarks) && (
+                        <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-background border p-3.5 rounded-lg whitespace-pre-line">
+                          {protocol.decisionRemarks || protocol.decision_remarks}
+                        </p>
+                      )}
+
+                      <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>Reviewed on: {formatDateTime(protocol.reviewedAt || protocol.reviewed_at)}</span>
+                      </p>
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
                       <MessageSquare className="h-10 w-10 text-muted-foreground/30" />
-                      <p className="font-bold text-muted-foreground text-sm">No Review Comments Recorded Yet</p>
+                      <p className="font-bold text-muted-foreground text-sm">No Review Decision Recorded Yet</p>
                       <p className="text-xs text-muted-foreground max-w-sm">
-                        Review feedback will appear here as soon as committee members record their decisions.
+                        Review feedback will appear here as soon as a reviewer records an official determination.
                       </p>
                     </div>
                   )}
@@ -785,13 +726,13 @@ export default function ReviewDetailPage() {
           </Tabs>
         </div>
 
-        {/* ── Sidebar Column (Mirrored from Submissions Detail) ──────────────── */}
+        {/* ── Sidebar Column (Mirrored from IRB Reviews Detail) ──────────────── */}
         <aside className="space-y-6">
-          {/* Clearance Status Card */}
+          {/* Protocol Status Card */}
           <Card className="border border-muted-foreground/15 shadow-sm">
             <CardHeader className="border-b bg-slate-50/80 dark:bg-slate-900/40">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                Clearance Status
+                Protocol Review Status
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5 space-y-4 text-sm">
@@ -804,35 +745,26 @@ export default function ReviewDetailPage() {
               </div>
 
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-muted-foreground font-medium">Applied Date</span>
+                <span className="text-muted-foreground font-medium">Submitted Date</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                  {clearance.applicationDate || "—"}
+                  {protocol.createdAt || protocol.created_at ? new Date(protocol.createdAt || protocol.created_at!).toLocaleDateString() : "—"}
                 </span>
               </div>
 
-              {clearance.approvalDate && (
+              {(protocol.approvalDate || protocol.approval_date) && (
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-muted-foreground font-medium">Approval Date</span>
                   <span className="font-semibold text-emerald-600 text-xs">
-                    {clearance.approvalDate}
+                    {protocol.approvalDate || protocol.approval_date}
                   </span>
                 </div>
               )}
 
-              {clearance.clearanceTypeName && (
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-muted-foreground font-medium">Clearance Type</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                    {clearance.clearanceTypeName}
-                  </span>
-                </div>
-              )}
-
-              {clearance.submittedBy && (
+              {(protocol.submittedBy || protocol.pi) && (
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-muted-foreground font-medium">Submitted by</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[150px]">
-                    {clearance.submittedBy.fullName}
+                    {(protocol.submittedBy || protocol.pi)?.fullName}
                   </span>
                 </div>
               )}
@@ -859,8 +791,8 @@ export default function ReviewDetailPage() {
                 </CardTitle>
                 <CardDescription className="text-xs">
                   {isAlreadyReviewed
-                    ? "Modify or update the recorded IRB ethics committee decision and feedback."
-                    : "Record the official IRB ethics committee decision for this application."}
+                    ? "Modify or update the recorded protocol approval decision and comments."
+                    : "Record the official PSR protocol review decision for this submission."}
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-2">
@@ -901,19 +833,19 @@ export default function ReviewDetailPage() {
                 {!reviewDecision && (
                   <ShieldCheck className="h-5 w-5 text-muted-foreground" />
                 )}
-                IRB Review Decision
+                Protocol Review Decision
               </DialogTitle>
               <DialogDescription className="pt-2 text-foreground/80 leading-relaxed space-y-1">
                 <span className="block">
                   {reviewDecision === "approved" &&
-                    "This clearance application will be approved. The applicant will be notified."}
+                    "This research protocol will be approved and promoted to funding recommendation."}
                   {reviewDecision === "rejected" &&
-                    "This clearance application requires revision. The applicant will be notified to make updates and resubmit."}
+                    "This research protocol requires revision. The investigator will be notified to make updates and resubmit."}
                   {!reviewDecision &&
-                    "Select a decision below to record the IRB committee's determination."}
+                    "Select a decision below to record the official protocol review determination."}
                 </span>
                 <span className="block text-xs text-muted-foreground font-medium truncate">
-                  Proposal: {clearance.proposalTitle}
+                  Proposal: {protocol.proposalTitle || protocol.proposal_title}
                 </span>
               </DialogDescription>
             </DialogHeader>
@@ -1000,14 +932,14 @@ export default function ReviewDetailPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold text-foreground">
-                  Review Comments <span className="text-rose-500">*</span>
+                  Review Comments {reviewDecision === "rejected" && <span className="text-rose-500">*</span>}
                 </label>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Required
+                  {reviewDecision === "rejected" ? "Required" : "Optional"}
                 </span>
               </div>
               <Textarea
-                placeholder="Provide detailed comments for the applicant and audit trail..."
+                placeholder="Provide detailed remarks for the investigator and audit trail..."
                 value={reviewComments}
                 onChange={(e) => {
                   setReviewComments(e.target.value);
@@ -1046,7 +978,7 @@ export default function ReviewDetailPage() {
               onClick={handleReview}
               disabled={reviewMutation.isPending}
               className={cn(
-                reviewDecision === "rejected" && "bg-rose-600 hover:bg-rose-700 text-white",
+                reviewDecision === "rejected" && "bg-amber-600 hover:bg-amber-700 text-white",
                 reviewDecision === "approved" && "bg-emerald-600 hover:bg-emerald-700 text-white",
               )}
             >

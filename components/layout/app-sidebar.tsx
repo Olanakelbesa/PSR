@@ -220,9 +220,20 @@ const navigationGroups: NavGroup[] = [
       },
       {
         label: "Protocol",
-        href: "/research/protocol",
         icon: FileCheck2,
-        // permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
+        subItems: [
+          {
+            label: "My Submissions",
+            href: "/research/protocol/my-submissions",
+            icon: Dot,
+          },
+          {
+            label: "Protocol Reviews",
+            href: "/research/protocol/reviews",
+            icon: Dot,
+            permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
+          },
+        ],
       },
       {
         label: "Funding Recommendations",

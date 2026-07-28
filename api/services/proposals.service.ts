@@ -352,7 +352,18 @@ export async function getProposals(
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.LIST, {
     params: filters,
   });
-  return ProposalsListSchema.parse(normalizeProposalPayload(res.data));
+  const raw = res.data;
+  let items: any[] = [];
+  if (raw && typeof raw === "object" && "data" in raw && Array.isArray(raw.data)) {
+    items = raw.data;
+  } else if (Array.isArray(raw)) {
+    items = raw;
+  }
+  const camelizedItems = items.map((item) => camelize(item) as Proposal);
+  return {
+    data: camelizedItems,
+    meta: raw?.meta,
+  };
 }
 
 export async function getManagedProposals(
@@ -361,22 +372,21 @@ export async function getManagedProposals(
   const res = await apiClient.get(API_ENDPOINTS.PROPOSALS.MANAGE, {
     params: filters,
   });
-  const normalized = normalizeProposalPayload(res.data);
-  const result = ManagedProposalsListSchema.safeParse(normalized);
-  if (!result.success) {
-    console.warn("ManagedProposalsListSchema validation warning:", result.error);
-    const dataArray = Array.isArray(normalized?.data)
-      ? normalized.data
-      : Array.isArray(normalized)
-      ? normalized
-      : [];
-    return {
-      success: true,
-      data: dataArray as ManagedProposalQueueItem[],
-      meta: normalized?.meta,
-    };
+  const raw = res.data;
+  let items: any[] = [];
+  if (raw && typeof raw === "object" && "data" in raw && Array.isArray(raw.data)) {
+    items = raw.data;
+  } else if (Array.isArray(raw)) {
+    items = raw;
   }
-  return result.data;
+  const camelizedItems = items.map(
+    (item) => camelize(item) as ManagedProposalQueueItem,
+  );
+  return {
+    success: true,
+    data: camelizedItems,
+    meta: raw?.meta,
+  };
 }
 
 export async function getProposalById(id: string): Promise<Proposal> {
