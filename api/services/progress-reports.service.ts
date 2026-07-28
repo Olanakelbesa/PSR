@@ -85,6 +85,50 @@ export interface ProgressReportApproval {
   reviewer: number;
 }
 
+export interface ProgressReportApprovalLogItem {
+  id: number;
+  reviewer?: number;
+  reviewerName?: string | null;
+  reviewer_name?: string | null;
+  decision: ReportDecision;
+  comment?: string | null;
+  reviewedAt?: string | null;
+  reviewed_at?: string | null;
+}
+
+export interface GroupedProgressReportItem {
+  id: number;
+  reportName: string;
+  mainActivitiesAchieved: string;
+  generalStatus: string;
+  amountUsed: string;
+  startDate: string | null;
+  endDate: string | null;
+  submittedAt: string | null;
+  submittedBy?: any;
+  status: ReportDecision;
+  attachment: string | null;
+  approvals: ProgressReportApprovalLogItem[];
+  latestApproval: ProgressReportApprovalLogItem | null;
+  projectTrackingId?: number;
+}
+
+export interface GroupedProgressReportProposal {
+  proposalId: number | null;
+  title: string;
+  referenceNumber?: string | null;
+  pi?: any;
+  projectTrackingId: number;
+  status: string;
+  statistics: {
+    totalReports: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+  reports: GroupedProgressReportItem[];
+}
+
 export interface ListResponse<T> {
   data: T[];
   meta: {
@@ -220,6 +264,23 @@ function buildFormData<T extends object>(values: T) {
 }
 
 function normalizeProjectTracking(item: any): ProjectTrackingSummary {
+  const rawPi = item.proposal?.pi ?? item.pi ?? item.principalInvestigator ?? null;
+  const pi = rawPi
+    ? {
+        id: rawPi.id,
+        fullName:
+          rawPi.fullName ||
+          rawPi.full_name ||
+          rawPi.name ||
+          rawPi.email ||
+          "PI",
+        email: rawPi.email || "",
+        photoUrl: rawPi.photoUrl || rawPi.photo_url || rawPi.photo || null,
+        photo_url: rawPi.photo_url || rawPi.photoUrl || rawPi.photo || null,
+        photo: rawPi.photo || rawPi.photo_url || rawPi.photoUrl || null,
+      }
+    : null;
+
   return {
     id: item.id ?? item.pk,
     proposal: item.proposal ?? null,
@@ -237,7 +298,7 @@ function normalizeProjectTracking(item: any): ProjectTrackingSummary {
       item.totalAwardAmount ??
       item.total_award_amount ??
       null,
-    pi: item.proposal?.pi ?? item.pi ?? null,
+    pi,
     status: item.status ?? "on_progress",
     generalStatus: item.generalStatus ?? item.general_status ?? "pending",
   };
@@ -541,7 +602,7 @@ export const terminalReportsService = {
 export const progressReportApprovalsService = {
   async getProgressReportApprovals(
     params: Record<string, unknown> = {},
-  ): Promise<ListResponse<ProgressReportApproval>> {
+  ): Promise<ListResponse<GroupedProgressReportProposal>> {
     const { data } = await apiClient.get(
       API_ENDPOINTS.PROGRESS_REPORT_APPROVALS.LIST,
       {
@@ -551,33 +612,155 @@ export const progressReportApprovalsService = {
 
     const list = unwrapListResponse<any>(data);
 
-    const normalized = list.data.map((item: any) => ({
-      id: item.id ?? item.pk,
-      reviewer_name: item.reviewerName ?? item.reviewer_name ?? null,
-      decision: item.decision ?? null,
-      comment: item.comment ?? item.ROCComments ?? item.roc_comments ?? null,
-      reviewed_at: item.reviewedAt ?? item.reviewed_at ?? null,
-      reviewer: item.reviewer ?? null,
-      // Flatten minimal progress report info
-      progress_report:
-        item.progressReport?.reportName ??
-        item.progressReport?.report_name ??
-        item.progress_report ??
-        item.progressReport?.progressReportId ??
-        null,
-      progress_report_id:
-        item.progressReport?.progressReportId ??
-        item.progressReport?.id ??
-        item.progressReport ??
-        null,
-      project_tracking_id:
-        item.projectTrackingId ?? item.project_tracking_id ?? null,
-    }));
+    // If data is array of grouped proposals
+    if (Array.isArray(list.data)) {
+      const normalizedProposals: GroupedProgressReportProposal[] = list.data.map((proposal: any) => ({
+        proposalId: proposal.proposalId ?? proposal.proposal_id ?? null,
+        title: proposal.title ?? `Project Tracking #${proposal.projectTrackingId || proposal.project_tracking_id}`,
+        referenceNumber: proposal.referenceNumber ?? proposal.reference_number ?? null,
+        pi: proposal.pi ?? proposal.principal_investigator ?? null,
+        projectTrackingId: proposal.projectTrackingId ?? proposal.project_tracking_id ?? 0,
+        status: proposal.status ?? "on_progress",
+        statistics: {
+          totalReports: proposal.statistics?.totalReports ?? proposal.reports?.length ?? 0,
+          pending: proposal.statistics?.pending ?? 0,
+          approved: proposal.statistics?.approved ?? 0,
+          rejected: proposal.statistics?.rejected ?? 0,
+        },
+        reports: (proposal.reports || []).map((rep: any) => ({
+          id: rep.id,
+          reportName: rep.reportName || rep.report_name || `Progress Report #${rep.id}`,
+          mainActivitiesAchieved: rep.mainActivitiesAchieved || rep.main_activities_achieved || "",
+          generalStatus: rep.generalStatus || rep.general_status || rep.status || "pending",
+          amountUsed: String(rep.amountUsed || rep.amount_used || "0.00"),
+          startDate: rep.startDate || rep.start_date || null,
+          endDate: rep.endDate || rep.end_date || null,
+          submittedAt: rep.submittedAt || rep.submitted_at || null,
+          submittedBy: rep.submittedBy || rep.submitted_by || proposal.pi || null,
+          status: rep.status || "pending",
+          attachment: rep.attachment || null,
+          approvals: rep.approvals || [],
+          latestApproval: rep.latestApproval || rep.latest_approval || null,
+          projectTrackingId: proposal.projectTrackingId ?? proposal.project_tracking_id,
+        })),
+      }));
+
+      return {
+        data: normalizedProposals,
+        meta: list.meta,
+      };
+    }
 
     return {
-      data: normalized as ProgressReportApproval[],
+      data: [],
       meta: list.meta,
     };
+  },
+
+  async getGroupedProgressReportById(
+    id: string | number,
+  ): Promise<GroupedProgressReportProposal | null> {
+    // Attempt 1: Fetch by project tracking or proposal filter
+    try {
+      const { data } = await apiClient.get(
+        API_ENDPOINTS.PROGRESS_REPORT_APPROVALS.LIST,
+        {
+          params: { project_tracking: id, limit: 100 },
+        },
+      );
+      const list = unwrapListResponse<any>(data);
+      if (Array.isArray(list.data) && list.data.length > 0) {
+        const proposal = list.data[0];
+        return {
+          proposalId: proposal.proposalId ?? proposal.proposal_id ?? null,
+          title: proposal.title ?? `Project Tracking #${proposal.projectTrackingId || proposal.project_tracking_id}`,
+          projectTrackingId: proposal.projectTrackingId ?? proposal.project_tracking_id ?? 0,
+          referenceNumber: proposal.referenceNumber ?? proposal.reference_number ?? null,
+          pi: proposal.pi ?? proposal.principal_investigator ?? null,
+          status: proposal.status ?? "on_progress",
+          statistics: {
+            totalReports: proposal.statistics?.totalReports ?? proposal.reports?.length ?? 0,
+            pending: proposal.statistics?.pending ?? 0,
+            approved: proposal.statistics?.approved ?? 0,
+            rejected: proposal.statistics?.rejected ?? 0,
+          },
+          reports: (proposal.reports || []).map((rep: any) => ({
+            id: rep.id,
+            reportName: rep.reportName || rep.report_name || `Progress Report #${rep.id}`,
+            mainActivitiesAchieved: rep.mainActivitiesAchieved || rep.main_activities_achieved || "",
+            generalStatus: rep.generalStatus || rep.general_status || rep.status || "pending",
+            amountUsed: String(rep.amountUsed || rep.amount_used || "0.00"),
+            startDate: rep.startDate || rep.start_date || null,
+            endDate: rep.endDate || rep.end_date || null,
+            submittedAt: rep.submittedAt || rep.submitted_at || null,
+            submittedBy: rep.submittedBy || rep.submitted_by || proposal.pi || null,
+            status: rep.status || "pending",
+            attachment: rep.attachment || null,
+            approvals: rep.approvals || [],
+            latestApproval: rep.latestApproval || rep.latest_approval || null,
+            projectTrackingId: proposal.projectTrackingId ?? proposal.project_tracking_id,
+          })),
+        };
+      }
+    } catch {
+      // Ignore fallback
+    }
+
+    // Attempt 2: Fetch all and match proposalId or projectTrackingId or contains report id
+    try {
+      const { data } = await apiClient.get(
+        API_ENDPOINTS.PROGRESS_REPORT_APPROVALS.LIST,
+        { params: { limit: 100 } },
+      );
+      const list = unwrapListResponse<any>(data);
+      if (Array.isArray(list.data)) {
+        const idNum = Number(id);
+        const match = list.data.find(
+          (p: any) =>
+            p.projectTrackingId === idNum ||
+            p.project_tracking_id === idNum ||
+            p.proposalId === idNum ||
+            p.proposal_id === idNum ||
+            (p.reports && p.reports.some((r: any) => r.id === idNum)),
+        );
+        if (match) {
+          return {
+            proposalId: match.proposalId ?? match.proposal_id ?? null,
+            title: match.title ?? `Project Tracking #${match.projectTrackingId || match.project_tracking_id}`,
+            projectTrackingId: match.projectTrackingId ?? match.project_tracking_id ?? 0,
+            referenceNumber: match.referenceNumber ?? match.reference_number ?? null,
+            pi: match.pi ?? match.principal_investigator ?? null,
+            status: match.status ?? "on_progress",
+            statistics: {
+              totalReports: match.statistics?.totalReports ?? match.reports?.length ?? 0,
+              pending: match.statistics?.pending ?? 0,
+              approved: match.statistics?.approved ?? 0,
+              rejected: match.statistics?.rejected ?? 0,
+            },
+            reports: (match.reports || []).map((rep: any) => ({
+              id: rep.id,
+              reportName: rep.reportName || rep.report_name || `Progress Report #${rep.id}`,
+              mainActivitiesAchieved: rep.mainActivitiesAchieved || rep.main_activities_achieved || "",
+              generalStatus: rep.generalStatus || rep.general_status || rep.status || "pending",
+              amountUsed: String(rep.amountUsed || rep.amount_used || "0.00"),
+              startDate: rep.startDate || rep.start_date || null,
+              endDate: rep.endDate || rep.end_date || null,
+              submittedAt: rep.submittedAt || rep.submitted_at || null,
+              submittedBy: rep.submittedBy || rep.submitted_by || match.pi || null,
+              status: rep.status || "pending",
+              attachment: rep.attachment || null,
+              approvals: rep.approvals || [],
+              latestApproval: rep.latestApproval || rep.latest_approval || null,
+              projectTrackingId: match.projectTrackingId ?? match.project_tracking_id,
+            })),
+          };
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
+    return null;
   },
 
   async getProgressReportApprovalById(

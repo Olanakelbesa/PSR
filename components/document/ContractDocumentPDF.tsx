@@ -164,19 +164,18 @@ const PageHeader = ({
       <View style={[styles.headerBox, styles.logoBox]}>
         {/* eslint-disable-next-line jsx-a11y/alt-text */}
         <Image
-          src={data.logoPath || "/placeholder-logo.svg"}
+          src={data.logoPath || "/moh_logo.png"}
           style={styles.logoInner}
         />
       </View>
       <View style={[styles.headerBox, styles.orgBox]}>
-        <Text style={styles.orgLabel}>Organization Name:</Text>
-        <Text style={[styles.bold, styles.orgAmharic]}></Text>
+        <Text style={[styles.orgAmharic]}></Text>
         <Text style={[styles.bold, styles.orgName]}>
-          {data.organization_name}
+          {data.organization_name || "Ministry of Health"}
         </Text>
       </View>
       <View style={styles.docNoBox}>
-        <Text style={styles.docNoLabel}>Document No.:</Text>
+        <Text style={styles.docNoLabel}>Document No</Text>
         <Text style={styles.docNoValue}>{data.document_no}</Text>
       </View>
     </View>
@@ -188,11 +187,11 @@ const PageHeader = ({
         </Text>
       </View>
       <View style={styles.issueBox}>
-        <Text style={styles.issueLabel}>Issue No.</Text>
+        <Text style={styles.issueLabel}>Issue No</Text>
         <Text style={styles.issueValue}>{data.issue_no}</Text>
       </View>
       <View style={styles.pageNoBox}>
-        <Text style={styles.pageNoLabel}>Page No.:</Text>
+        <Text style={styles.pageNoLabel}>Page No</Text>
         <Text style={styles.pageNoValue}>
           Page {page} of {total}
         </Text>
@@ -871,7 +870,7 @@ const ContractDocumentPDF: React.FC<{ data: ContractData }> = ({ data }) => {
 
           <View style={{ marginTop: 20 }}>
             <Text>
-              For and on behalf of Office of VPRTT/RCoED {"\t\t"}
+              For and on behalf of Office of PSR {"\t\t"}
               For and on behalf host center of excellence {"\t\t"}
               Principal Investigator
             </Text>

@@ -1,36 +1,49 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft,
-  Calendar,
-  CheckCircle2,
-  ClipboardList,
-  ExternalLink,
-  FileText,
-  Wallet,
-  Clock,
   AlertCircle,
-  XCircle,
-  Hash,
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Download,
+  Eye,
+  FileCheck2,
+  FileText,
+  Filter,
+  FolderOpen,
+  History,
+  MessageSquare,
   Paperclip,
   ShieldCheck,
-  Layers,
-  Download,
-  Building2,
-  MessageSquare,
+  User,
+  UserCheck,
+  Wallet,
+  XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Dialog,
   DialogContent,
@@ -39,53 +52,75 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import {
-  useProgressReport,
-  useProgressReportApproval,
+  useGroupedProgressReport,
   useCreateProgressReportApproval,
 } from "@/hooks";
+import {
+  GroupedProgressReportItem,
+  ReportDecision,
+} from "@/api/services/progress-reports.service";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
-import { toast } from "sonner";
 
-type ApprovalDecision = "pending" | "approved" | "rejected";
+type ApprovalDecision = "approved" | "pending" | "rejected";
 
-function statusBadgeClass(value?: string) {
-  switch (value?.toLowerCase()) {
-    case "approved":
-    case "completed":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800";
-    case "rejected":
-    case "terminated":
-      return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800";
-    case "on_progress":
-    case "active":
-      return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800";
-    default:
-      return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800";
-  }
-}
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; className: string; icon: typeof Clock }
+> = {
+  approved: {
+    label: "Approved",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+    icon: CheckCircle2,
+  },
+  completed: {
+    label: "Completed",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+    icon: CheckCircle2,
+  },
+  rejected: {
+    label: "Rejected",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
+    icon: XCircle,
+  },
+  terminated: {
+    label: "Terminated",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
+    icon: XCircle,
+  },
+  on_progress: {
+    label: "On Progress",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    icon: ShieldCheck,
+  },
+  active: {
+    label: "Active",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+    icon: ShieldCheck,
+  },
+  pending: {
+    label: "Pending Review",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+    icon: Clock,
+  },
+};
 
-function statusIcon(value?: string) {
-  switch (value?.toLowerCase()) {
-    case "approved":
-      return CheckCircle2;
-    case "rejected":
-      return XCircle;
-    default:
-      return Clock;
-  }
-}
-
-function statusLabel(value?: string) {
-  if (!value) return "Pending";
-  const map: Record<string, string> = {
-    approved: "Approved",
-    rejected: "Rejected",
-    pending: "Pending Review",
-    on_progress: "On Progress",
+function getStatusBadge(status?: string) {
+  const key = status?.toLowerCase() || "pending";
+  const cfg = STATUS_CONFIG[key] || {
+    label: status?.replace(/_/g, " ") || "Pending",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+    icon: Clock,
   };
-  return map[value.toLowerCase()] ?? value.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  const Icon = cfg.icon;
+  return (
+    <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border", cfg.className)}>
+      <Icon className="h-3 w-3" />
+      {cfg.label}
+    </Badge>
+  );
 }
 
 function formatDate(value?: string | null) {
@@ -99,6 +134,19 @@ function formatDate(value?: string | null) {
   });
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function formatAmount(value?: string | number | null) {
   if (value === undefined || value === null || value === "") return "ETB 0.00";
   const num = Number(value);
@@ -106,53 +154,92 @@ function formatAmount(value?: string | number | null) {
   return `ETB ${num.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
 }
 
-// ─── Approve Modal ────────────────────────────────────────────────────────────
+function getInitials(name?: string): string {
+  if (!name) return "PI";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
-interface ApproveModalProps {
+function SubmitterAvatar({ user, fallback }: { user?: any; fallback?: any }) {
+  const targetUser = user || fallback || {};
+  const fullName =
+    targetUser.fullName ||
+    targetUser.full_name ||
+    targetUser.name ||
+    (typeof targetUser === "string" ? targetUser : "Investigator");
+  const email = targetUser.email || "";
+  const photo = targetUser.photoUrl || targetUser.photo || targetUser.photo_url;
+  const resolvedPhoto = photo ? resolveFileUrl(photo) : null;
+  const initials = getInitials(fullName);
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative h-10 w-10 rounded-full border-2 border-primary/20 bg-primary/10 overflow-hidden shrink-0 flex items-center justify-center font-bold text-sm text-primary shadow-xs">
+        {resolvedPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={resolvedPhoto} alt={fullName} className="h-full w-full object-cover" />
+        ) : (
+          <span>{initials}</span>
+        )}
+      </div>
+      <div className="flex flex-col min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-foreground truncate">{fullName}</span>
+          <Badge variant="outline" className="text-[9px] font-bold uppercase py-0 px-1.5 border-primary/30 text-primary bg-primary/5">
+            Submitter
+          </Badge>
+        </div>
+        {email && <span className="text-[11px] text-muted-foreground truncate">{email}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Evaluation Decision Modal ────────────────────────────────────────────────
+interface EvaluationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  progressReportId: number;
-  initialDecision?: string;
-  initialComment?: string;
+  report: GroupedProgressReportItem | null;
   onSuccess: () => void;
 }
 
-function ApproveModal({
+function EvaluationModal({
   open,
   onOpenChange,
-  progressReportId,
-  initialDecision,
-  initialComment,
+  report,
   onSuccess,
-}: ApproveModalProps) {
+}: EvaluationModalProps) {
   const [decision, setDecision] = useState<ApprovalDecision>("approved");
   const [comment, setComment] = useState("");
+  const createApproval = useCreateProgressReportApproval();
 
-  useEffect(() => {
-    if (open) {
-      if (initialDecision && ["approved", "pending", "rejected"].includes(initialDecision.toLowerCase())) {
-        setDecision(initialDecision.toLowerCase() as ApprovalDecision);
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && report) {
+      const currentDecision = report.latestApproval?.decision || report.status || "approved";
+      if (["approved", "pending", "rejected"].includes(currentDecision.toLowerCase())) {
+        setDecision(currentDecision.toLowerCase() as ApprovalDecision);
       } else {
         setDecision("approved");
       }
-      setComment(initialComment || "");
+      setComment(report.latestApproval?.comment || "");
     }
-  }, [open, initialDecision, initialComment]);
-
-  const createApproval = useCreateProgressReportApproval();
+    onOpenChange(nextOpen);
+  };
 
   async function handleSubmit() {
+    if (!report) return;
     try {
       await createApproval.mutateAsync({
-        decision,
+        decision: decision as ReportDecision,
         comment: comment.trim() || undefined,
-        progress_report: progressReportId,
+        progress_report: report.id,
       });
-      toast.success(`Approval decision updated for Progress Report #${progressReportId}.`);
+      toast.success(`Evaluation decision recorded for ${report.reportName}.`);
       onSuccess();
       onOpenChange(false);
     } catch {
-      toast.error("Failed to submit approval decision. Please try again.");
+      toast.error("Failed to submit evaluation decision. Please try again.");
     }
   }
 
@@ -162,45 +249,45 @@ function ApproveModal({
     description: string;
     activeClass: string;
   }[] = [
-    {
-      value: "approved",
-      label: "Approve Report",
-      description: "Milestone & budget usage verified clean.",
-      activeClass: "border-emerald-500 bg-emerald-50/60 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200",
-    },
-    {
-      value: "pending",
-      label: "Hold Pending",
-      description: "Requires additional clarification from PI.",
-      activeClass: "border-amber-500 bg-amber-50/60 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200",
-    },
-    {
-      value: "rejected",
-      label: "Reject Report",
-      description: "Report does not satisfy compliance or output standards.",
-      activeClass: "border-rose-500 bg-rose-50/60 text-rose-900 dark:bg-rose-950/40 dark:text-rose-200",
-    },
-  ];
+      {
+        value: "approved",
+        label: "Approve Report",
+        description: "Progress milestones and financial expenditure meet compliance guidelines.",
+        activeClass: "border-emerald-500 bg-emerald-50/60 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200",
+      },
+      {
+        value: "pending",
+        label: "Hold Pending",
+        description: "Requires additional clarification or resubmission from project PI.",
+        activeClass: "border-amber-500 bg-amber-50/60 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200",
+      },
+      {
+        value: "rejected",
+        label: "Reject Report",
+        description: "Report fails to satisfy required research deliverables or compliance rules.",
+        activeClass: "border-rose-500 bg-rose-50/60 text-rose-900 dark:bg-rose-950/40 dark:text-rose-200",
+      },
+    ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            Submit Approval Decision
+            Evaluate Progress Report
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Review and log an official decision for Progress Report #{progressReportId}.
+            Submit an official evaluation decision for &ldquo;{report?.reportName || "this report"}&rdquo;.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Select Decision <span className="text-rose-500">*</span>
+              Evaluation Decision <span className="text-rose-500">*</span>
             </Label>
-            <div className="grid grid-cols-1 gap-2.5">
+            <div className="grid grid-cols-1 gap-2">
               {decisionOptions.map((opt) => {
                 const isSelected = decision === opt.value;
                 return (
@@ -211,7 +298,7 @@ function ApproveModal({
                     className={cn(
                       "flex items-start gap-3 rounded-xl border p-3 text-left transition-all",
                       isSelected
-                        ? opt.activeClass + " shadow-xs ring-1 ring-primary/20"
+                        ? opt.activeClass + " ring-1 ring-primary/20 shadow-xs"
                         : "border-border/70 hover:border-muted-foreground/40 bg-card text-foreground",
                     )}
                   >
@@ -237,16 +324,16 @@ function ApproveModal({
 
           <div className="space-y-1.5">
             <Label
-              htmlFor="approval-comment"
+              htmlFor="eval-comment"
               className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
             >
               Reviewer Remarks / Feedback
             </Label>
             <Textarea
-              id="approval-comment"
+              id="eval-comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Add review notes, comments, or justification…"
+              placeholder="Provide committee comments, feedback, or evaluation justification…"
               className="min-h-[90px] text-xs resize-y"
             />
           </div>
@@ -275,468 +362,824 @@ function ApproveModal({
   );
 }
 
-// ─── Detail Field Component ───────────────────────────────────────────────────
-
-function DetailField({
-  label,
-  value,
-  icon,
-  className,
-}: {
-  label: string;
-  value: React.ReactNode;
-  icon?: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {label}
-      </p>
-      <div className="mt-1 text-sm font-semibold">{value}</div>
-    </div>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function ProgressReportDetailPage() {
+// ─── Main Detail Page ─────────────────────────────────────────────────────────
+export default function ProgressReportApprovalDetailPage() {
   const { id } = useParams();
   const router = useRouter();
 
-  const reportId = useMemo(
+  const targetId = useMemo(
     () => (typeof id === "string" ? id : Array.isArray(id) ? id[0] : undefined),
     [id],
   );
 
   const {
-    data: primaryReport,
-    isLoading: isPrimaryLoading,
-    refetch: refetchPrimary,
-  } = useProgressReport(reportId);
+    data: proposalData,
+    isLoading,
+    refetch,
+  } = useGroupedProgressReport(targetId);
 
-  const {
-    data: fallbackApproval,
-    isLoading: isFallbackLoading,
-    refetch: refetchFallback,
-  } = useProgressReportApproval(!primaryReport && reportId ? reportId : undefined);
+  const [copiedRef, setCopiedRef] = useState(false);
+  const [copiedPt, setCopiedPt] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<GroupedProgressReportItem | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [reportFilter, setReportFilter] = useState<string>("all");
 
-  const report =
-    primaryReport ||
-    (fallbackApproval as any)?.progressReport ||
-    (fallbackApproval as any)?.progress_report_detail ||
-    fallbackApproval;
+  // Document Preview Viewer state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [previewTitle, setPreviewTitle] = useState<string>("");
 
-  const isLoading = isPrimaryLoading || (isFallbackLoading && !primaryReport);
+  // Review action sidebar state
+  const [sidebarReportId, setSidebarReportId] = useState<number | null>(null);
+  const [sidebarDecision, setSidebarDecision] = useState<ApprovalDecision>("approved");
+  const [sidebarComment, setSidebarComment] = useState("");
+  const createApproval = useCreateProgressReportApproval();
 
-  const refetch = () => {
-    refetchPrimary();
-    refetchFallback();
+  const refNumber = proposalData?.referenceNumber || `PT-${proposalData?.projectTrackingId || targetId}`;
+  const trackingIdStr = `#${proposalData?.projectTrackingId || targetId}`;
+
+  const handleCopyRef = () => {
+    navigator.clipboard.writeText(refNumber);
+    setCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopiedRef(false), 2000);
   };
 
-  const [approveOpen, setApproveOpen] = useState(false);
+  const handleCopyPt = () => {
+    navigator.clipboard.writeText(String(proposalData?.projectTrackingId || targetId));
+    setCopiedPt(true);
+    toast.success("Tracking ID copied to clipboard!");
+    setTimeout(() => setCopiedPt(false), 2000);
+  };
 
-  // ── Loading Skeleton ─────────────────────────────────────────────────────────
+  const handleOpenModal = (report: GroupedProgressReportItem) => {
+    setSelectedReport(report);
+    setModalOpen(true);
+  };
+
+  const handlePreviewDocument = (fileUrl: string, title?: string) => {
+    if (!fileUrl) return;
+    const resolved = resolveFileUrl(fileUrl);
+    setPreviewUrl(resolved);
+    setPreviewTitle(title || "Progress Report Document");
+    setPreviewOpen(true);
+  };
+
+  const handleSidebarSubmit = async () => {
+    const reportId = sidebarReportId || (proposalData?.reports?.[0]?.id);
+    if (!reportId) {
+      toast.error("Please select a report to evaluate.");
+      return;
+    }
+    try {
+      await createApproval.mutateAsync({
+        decision: sidebarDecision as ReportDecision,
+        comment: sidebarComment.trim() || undefined,
+        progress_report: reportId,
+      });
+      toast.success("Evaluation decision submitted successfully.");
+      setSidebarComment("");
+      refetch();
+    } catch {
+      toast.error("Failed to submit decision. Please try again.");
+    }
+  };
+
   if (isLoading) {
     return (
-      <PageContainer title="Loading Progress Report Review Workspace...">
-        <div className="space-y-6 max-w-7xl mx-auto">
+      <PageContainer title="Loading Progress Report Review Workspace…">
+        <div className="space-y-6 w-full">
           <Skeleton className="h-28 w-full rounded-2xl" />
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
-            <Skeleton className="h-24 rounded-xl" />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <Skeleton className="h-96 w-full rounded-2xl" />
+            <Skeleton className="h-96 w-full rounded-2xl" />
           </div>
-          <Skeleton className="h-[400px] w-full rounded-2xl" />
         </div>
       </PageContainer>
     );
   }
 
-  // ── Report Not Found ─────────────────────────────────────────────────────────
-  if (!report) {
+  if (!proposalData) {
     return (
-      <PageContainer title="Report Not Found">
-        <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed p-12 text-center bg-card max-w-xl mx-auto my-12">
-          <div className="p-4 bg-amber-50 text-amber-600 rounded-full">
-            <AlertCircle className="h-10 w-10" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="font-bold text-lg">Progress Report Unavailable</h3>
-            <p className="text-sm text-muted-foreground">
-              This progress report record could not be found or you do not have permission to view it.
-            </p>
-          </div>
-          <Button
-            onClick={() => router.push("/research/monitoring/progress-report-approval")}
-            variant="outline"
-            className="mt-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Return to Progress Report Approvals
-          </Button>
+      <PageContainer title="Progress Report Approval Workspace">
+        <div className="space-y-6 w-full">
+          <Card className="border border-dashed p-12 text-center">
+            <CardContent className="space-y-3">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-bold">Proposal Progress Reports Not Found</h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                No progress report records were found for project identifier #{targetId}.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => router.push("/research/monitoring/progress-report-approval")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Progress Report Approvals
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </PageContainer>
     );
   }
 
-  // Handle camelCase & snake_case API payload fields
-  const reportObj = report as any;
-  const reportName =
-    reportObj.reportName ??
-    reportObj.report_name ??
-    `Progress Report #${report.id}`;
+  const reports = proposalData.reports || [];
+  const filteredReports = reports.filter((r) => {
+    if (reportFilter === "all") return true;
+    return r.status?.toLowerCase() === reportFilter;
+  });
 
-  const projectTrackingObj =
-    reportObj.projectTracking ??
-    (typeof reportObj.project_tracking === "object" ? reportObj.project_tracking : null);
-
-  const projectTrackingId =
-    projectTrackingObj?.projectTrackingId ??
-    projectTrackingObj?.id ??
-    (typeof reportObj.project_tracking === "number" || typeof reportObj.project_tracking === "string"
-      ? reportObj.project_tracking
-      : null);
-
-  const proposalId = projectTrackingObj?.proposalId ?? projectTrackingObj?.proposal;
-
-  const projectTitle =
-    projectTrackingObj?.title ??
-    reportObj.project_tracking_title ??
-    (projectTrackingId ? `Project Tracking #${projectTrackingId}` : "—");
-
-  const mainActivities =
-    reportObj.mainActivitiesAchieved ??
-    reportObj.main_activities_achieved;
-
-  const amountUsed =
-    reportObj.amountUsed ??
-    reportObj.amount_used;
-
-  const startDate = reportObj.startDate ?? reportObj.start_date;
-  const endDate = reportObj.endDate ?? reportObj.end_date;
-  const submittedAt = reportObj.submittedAt ?? reportObj.submitted_at;
-  const statusVal = reportObj.status ?? "pending";
-  const generalStatusVal = reportObj.generalStatus ?? reportObj.general_status ?? statusVal;
-
-  const latestApproval =
-    reportObj.latest_approval ||
-    reportObj.latestApproval ||
-    (Array.isArray(reportObj.approvals) && reportObj.approvals.length > 0
-      ? reportObj.approvals[0]
-      : Array.isArray(reportObj.approval_list) && reportObj.approval_list.length > 0
-      ? reportObj.approval_list[0]
-      : null);
-
-  const existingDecision = latestApproval?.decision || statusVal;
-  const existingComment =
-    latestApproval?.comment ??
-    latestApproval?.remarks ??
-    reportObj.comment ??
-    reportObj.remarks ??
-    "";
-  const reviewerName =
-    latestApproval?.reviewer_name ??
-    latestApproval?.reviewerName ??
-    (typeof latestApproval?.reviewer === "object"
-      ? latestApproval.reviewer?.fullName || latestApproval.reviewer?.name
-      : null);
-
-  const StatusIconComp = statusIcon(statusVal);
+  const totalAmountUsed = reports.reduce(
+    (acc, r) => acc + (Number(r.amountUsed) || 0),
+    0,
+  );
+  const reviewsCount = reports.reduce(
+    (acc, r) => acc + (r.approvals?.length || 0),
+    0,
+  );
 
   return (
     <PageContainer
-      title={reportName}
-      description={`Project: ${projectTitle}`}
+      title={proposalData.title}
+      description={
+        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+          {/* Reference Copy Pill */}
+          <button
+            type="button"
+            onClick={handleCopyRef}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy proposal reference number"
+          >
+            <span className="text-[10px] uppercase text-muted-foreground font-sans">Ref:</span>
+            <span>{refNumber}</span>
+            {copiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+
+          {/* Tracking ID Copy Pill */}
+          <button
+            type="button"
+            onClick={handleCopyPt}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/5 hover:bg-primary/10 font-mono text-xs font-bold text-primary border border-primary/20 transition-all duration-200 group cursor-pointer shadow-2xs active:scale-95"
+            title="Click to copy tracking ID"
+          >
+            <span className="text-[10px] uppercase text-primary/70 font-sans">Track:</span>
+            <span>{trackingIdStr}</span>
+            {copiedPt ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+
+          {getStatusBadge(proposalData.status)}
+
+          <Badge variant="secondary" className="text-[10px] font-bold">
+            {reports.length} Reports
+          </Badge>
+
+          {proposalData.statistics.pending > 0 && (
+            <Badge className="bg-amber-500 text-white font-bold text-[10px] animate-pulse">
+              {proposalData.statistics.pending} Pending Review
+            </Badge>
+          )}
+        </div>
+      }
       actions={
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/research/monitoring/progress-report-approval")}
-          >
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-            Approvals Directory
+          <Button variant="outline" size="sm" asChild className="shadow-xs text-xs">
+            <Link href="/research/monitoring/progress-report-approval">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to List
+            </Link>
           </Button>
-          {projectTrackingId && (
-            <Button variant="outline" size="sm" asChild className="hidden sm:flex">
-              <Link href={`/research/monitoring/progress-report/${projectTrackingId}`}>
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                Project Workspace
-              </Link>
+          {reports.length > 0 && (
+            <Button
+              size="sm"
+              className="shadow-xs text-xs"
+              onClick={() => handleOpenModal(reports[0])}
+            >
+              <ShieldCheck className="mr-1.5 h-4 w-4" />
+              Evaluate Report
             </Button>
           )}
-          {proposalId && (
-            <Button variant="outline" size="sm" asChild className="hidden md:flex">
-              <Link href={`/research/proposals/my-proposals/${proposalId}`}>
-                <FileText className="mr-1.5 h-3.5 w-3.5" />
-                View Proposal
-              </Link>
-            </Button>
-          )}
-          <Button
-            size="sm"
-            className="shadow-xs bg-primary hover:bg-primary/90"
-            onClick={() => setApproveOpen(true)}
-          >
-            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-            {existingDecision && existingDecision !== "pending" ? "Edit Approval Decision" : "Review & Approve"}
-          </Button>
         </div>
       }
     >
-      <div className="space-y-6">
-        {/* Status & Context Header Card */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl border bg-card shadow-xs">
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <Badge variant="outline" className="font-mono text-xs bg-muted/50">
-              <Hash className="mr-1 h-3 w-3 opacity-60" />
-              Report #{report.id}
-            </Badge>
-            <Separator orientation="vertical" className="h-4" />
-            <div className="flex items-center gap-1.5 font-medium text-foreground">
-              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{projectTitle}</span>
+      {/* ── Top Hero: Principal Investigator & Summary Metrics Bar ──────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        {/* Principal Investigator Card */}
+        <Card className="sm:col-span-2 border border-border/80 shadow-2xs bg-card">
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <SubmitterAvatar user={proposalData.pi} />
+            <div className="text-right shrink-0">
+              <Badge variant="outline" className="text-[10px] font-bold uppercase border-primary/30 text-primary bg-primary/5">
+                Principal Investigator
+              </Badge>
+              <p className="text-[10px] text-muted-foreground mt-1">Project Leader</p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", statusBadgeClass(statusVal))}>
-              <StatusIconComp className="mr-1.5 h-3 w-3" />
-              Decision: {statusLabel(statusVal)}
-            </Badge>
-            <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", statusBadgeClass(generalStatusVal))}>
-              <Clock className="mr-1.5 h-3 w-3" />
-              General: {statusLabel(generalStatusVal)}
-            </Badge>
-          </div>
-        </div>
+        {/* Total Funds Used */}
+        <Card className="border border-border/80 shadow-2xs bg-card">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Expenditure</p>
+              <p className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {formatAmount(totalAmountUsed)}
+              </p>
+            </div>
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center shrink-0">
+              <Wallet className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Financial & Timeline Metrics Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="shadow-xs border bg-card">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
-                <Wallet className="h-5 w-5" />
+        {/* Reports Breakdown */}
+        <Card className="border border-border/80 shadow-2xs bg-card">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reports Status</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs font-bold text-amber-600">{proposalData.statistics.pending} Pending</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-xs font-bold text-emerald-600">{proposalData.statistics.approved} Appr</span>
               </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Amount Expended
-                </p>
-                <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5 font-mono">
-                  {formatAmount(amountUsed)}
-                </h3>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+              <FolderOpen className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-          <Card className="shadow-xs border bg-card">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
-                <Calendar className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Activity Start Date
-                </p>
-                <h3 className="text-base font-bold tracking-tight text-foreground mt-0.5">
-                  {formatDate(startDate)}
-                </h3>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ── Main Layout: Standard 2-Column Workspace Grid ──────────────────────── */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Main Content Column */}
+        <div className="space-y-6 min-w-0">
+          <Tabs defaultValue="reports" className="w-full">
+            <TabsList className="w-full flex flex-wrap sm:flex-nowrap justify-start h-auto sm:h-11 bg-muted/60 p-1 border border-border/50 rounded-xl gap-1 overflow-x-auto">
+              <TabsTrigger value="reports" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <FolderOpen className="h-3.5 w-3.5" />
+                Submitted Reports
+                {reports.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
+                    {reports.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
 
-          <Card className="shadow-xs border bg-card">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
-                <Calendar className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Activity End Date
-                </p>
-                <h3 className="text-base font-bold tracking-tight text-foreground mt-0.5">
-                  {formatDate(endDate)}
-                </h3>
-              </div>
-            </CardContent>
-          </Card>
+              <TabsTrigger value="overview" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <FileText className="h-3.5 w-3.5" />
+                Project Details
+              </TabsTrigger>
 
-          <Card className="shadow-xs border bg-card">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Submitted On
-                </p>
-                <h3 className="text-base font-bold tracking-tight text-foreground mt-0.5">
-                  {formatDate(submittedAt)}
-                </h3>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <TabsTrigger value="reviews" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <History className="h-3.5 w-3.5" />
+                Review History
+                {reviewsCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
+                    {reviewsCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Main Content Layout */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Main Content (Activities & Deliverables) */}
-          <div className="space-y-6 lg:col-span-2">
-            <Card className="shadow-xs border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-primary" />
-                  Main Activities Achieved
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Detailed progress description provided by the project lead.
-                </CardDescription>
-              </CardHeader>
-              <Separator />
-              <CardContent className="p-6">
-                <div className="rounded-xl border bg-muted/20 p-5 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-                  {mainActivities && mainActivities !== "string"
-                    ? mainActivities
-                    : "No specific activities listed for this progress report."}
+            {/* ── Progress Reports Tab Content (Single-Expand Accordion Mode) ─── */}
+            <TabsContent value="reports" className="pt-4 space-y-4">
+              {/* Premium Segmented Filter Control Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-border/80 shadow-2xs">
+                <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-0.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1 shrink-0 flex items-center gap-1">
+                    <Filter className="h-3.5 w-3.5 text-primary" />
+                    Filter:
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setReportFilter("all")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 shrink-0 cursor-pointer",
+                      reportFilter === "all"
+                        ? "bg-background text-foreground shadow-xs border border-border ring-1 ring-primary/20"
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+                    )}
+                  >
+                    <span>All Reports</span>
+                    <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0 h-4">
+                      {reports.length}
+                    </Badge>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReportFilter("pending")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 shrink-0 cursor-pointer",
+                      reportFilter === "pending"
+                        ? "bg-amber-500 text-white shadow-xs ring-2 ring-amber-500/30"
+                        : "text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30",
+                    )}
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Pending</span>
+                    <Badge className={cn("text-[10px] font-bold px-1.5 py-0 h-4", reportFilter === "pending" ? "bg-white/20 text-white" : "bg-amber-100 text-amber-800")}>
+                      {proposalData.statistics.pending}
+                    </Badge>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReportFilter("approved")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 shrink-0 cursor-pointer",
+                      reportFilter === "approved"
+                        ? "bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-600/30"
+                        : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30",
+                    )}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Approved</span>
+                    <Badge className={cn("text-[10px] font-bold px-1.5 py-0 h-4", reportFilter === "approved" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800")}>
+                      {proposalData.statistics.approved}
+                    </Badge>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReportFilter("rejected")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 shrink-0 cursor-pointer",
+                      reportFilter === "rejected"
+                        ? "bg-rose-600 text-white shadow-xs ring-2 ring-rose-600/30"
+                        : "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30",
+                    )}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Rejected</span>
+                    <Badge className={cn("text-[10px] font-bold px-1.5 py-0 h-4", reportFilter === "rejected" ? "bg-white/20 text-white" : "bg-rose-100 text-rose-800")}>
+                      {proposalData.statistics.rejected}
+                    </Badge>
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Supporting Attachment Banner */}
-            {report.attachment && (
-              <Card className="shadow-xs border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Paperclip className="h-4 w-4 text-primary" />
-                    Supporting Attachment
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Verification documents, receipts, or technical logs attached to this report.
-                  </CardDescription>
-                </CardHeader>
-                <Separator />
-                <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-3 bg-primary/10 text-primary rounded-lg shrink-0">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold truncate">
-                          {typeof report.attachment === "string"
-                            ? report.attachment.split("/").pop()
-                            : "Progress_Report_Attachment.pdf"}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          Attached Verification Document
-                        </p>
-                      </div>
-                    </div>
+              {filteredReports.length === 0 ? (
+                <Card className="border border-dashed p-8 text-center">
+                  <CardContent className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      No progress reports found matching status filter &ldquo;{reportFilter}&rdquo;.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                /* Single-Expand Accordion: collapsing other report rows when expanding a new one */
+                <Accordion
+                  type="single"
+                  collapsible
+                  defaultValue={filteredReports[0] ? String(filteredReports[0].id) : undefined}
+                  className="space-y-4"
+                >
+                  {filteredReports.map((report, idx) => {
+                    const submitter = report.submittedBy || report.submitted_by || proposalData.pi;
+                    const submitterName =
+                      submitter?.fullName ||
+                      submitter?.full_name ||
+                      submitter?.name ||
+                      (typeof submitter === "string" ? submitter : "Investigator");
 
-                    <Button size="sm" variant="outline" asChild className="shrink-0">
-                      <a
-                        href={resolveFileUrl(report.attachment) ?? "#"}
-                        target="_blank"
-                        rel="noreferrer"
+                    return (
+                      <AccordionItem
+                        key={report.id}
+                        value={String(report.id)}
+                        className={cn(
+                          "rounded-2xl border overflow-hidden bg-card transition-all",
+                          report.status?.toLowerCase() === "pending"
+                            ? "border-amber-300 dark:border-amber-800 shadow-xs"
+                            : "border-border/80",
+                        )}
                       >
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                        Download / View Document
-                      </a>
-                    </Button>
+                        {/* ENTIRE ROW IS A CLICKABLE ACCORDION TRIGGER */}
+                        <AccordionTrigger className="w-full p-4 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 border-b cursor-pointer transition-colors hover:no-underline text-left [&[data-state=open]>svg]:rotate-180">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="space-y-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] font-bold text-muted-foreground">
+                                  Report #{idx + 1}
+                                </span>
+                                {getStatusBadge(report.status)}
+                              </div>
+                              <h3 className="text-sm font-bold text-foreground truncate">
+                                {report.reportName}
+                              </h3>
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-0.5">
+                                <User className="h-3 w-3 text-primary shrink-0" />
+                                <span>Submitted by <strong className="text-foreground">{submitterName}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0 ml-auto">
+                            <div className="text-right">
+                              <p className="text-[10px] font-bold uppercase text-muted-foreground">Amount Used</p>
+                              <p className="text-xs font-bold font-mono text-primary">
+                                {formatAmount(report.amountUsed)}
+                              </p>
+                            </div>
+
+                            {/* Styled Action Control (div role=button prevents nested button HTML validation error) */}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenModal(report);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.stopPropagation();
+                                  handleOpenModal(report);
+                                }
+                              }}
+                              className="inline-flex items-center justify-center rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition-colors cursor-pointer shrink-0"
+                            >
+                              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                              Evaluate
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+
+                        <AccordionContent className="p-5 space-y-5">
+                          {/* Submitter Info & Submission Timestamps */}
+                          <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-xl bg-muted/40 border">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                                <User className="h-3 w-3 text-primary" />
+                                Report Submitter Info
+                              </p>
+                              <SubmitterAvatar user={submitter} fallback={proposalData.pi} />
+                            </div>
+
+                            <div className="space-y-2 text-xs">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Calendar className="h-4 w-4 text-primary shrink-0" />
+                                <div>
+                                  <span className="font-semibold text-foreground">Reporting Period: </span>
+                                  <span>
+                                    {formatDate(report.startDate)} – {formatDate(report.endDate)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Clock className="h-4 w-4 text-primary shrink-0" />
+                                <div>
+                                  <span className="font-semibold text-foreground">Submitted Date & Time: </span>
+                                  <span>{formatDateTime(report.submittedAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Activities Achieved */}
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Main Activities & Achievements
+                            </p>
+                            <div className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-900/20 border p-4 rounded-xl whitespace-pre-line">
+                              {report.mainActivitiesAchieved || "No activities description provided."}
+                            </div>
+                          </div>
+
+                          {/* File Attachment & Document Preview */}
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Report Document Attachment
+                            </p>
+                            {report.attachment ? (
+                              <div className="flex flex-wrap items-center justify-between p-3.5 rounded-xl border bg-card gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <Paperclip className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold truncate text-foreground">
+                                      {report.attachment.split("/").pop()}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">Attached Document File</p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Document Viewer Preview Button */}
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handlePreviewDocument(report.attachment!, report.reportName)}
+                                    className="text-xs h-8 shadow-2xs cursor-pointer"
+                                  >
+                                    <Eye className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                                    Preview Document
+                                  </Button>
+
+                                  {/* Direct Download Button */}
+                                  <Button variant="outline" size="sm" asChild className="text-xs h-8 shadow-2xs">
+                                    <a
+                                      href={resolveFileUrl(report.attachment)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Download className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                                      Download
+                                    </a>
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-3.5 rounded-xl border border-dashed text-xs text-muted-foreground text-center">
+                                No document file attached for this report.
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Latest Approval Note */}
+                          {report.latestApproval && (
+                            <div className="p-4 rounded-xl bg-muted/50 border text-xs space-y-1.5">
+                              <div className="flex items-center justify-between font-semibold">
+                                <span className="flex items-center gap-1.5 text-foreground font-bold">
+                                  <UserCheck className="h-4 w-4 text-primary" />
+                                  Last Evaluated by {report.latestApproval.reviewerName || report.latestApproval.reviewer_name || "Staff Reviewer"}
+                                </span>
+                                {getStatusBadge(report.latestApproval.decision)}
+                              </div>
+                              {report.latestApproval.comment && (
+                                <p className="text-slate-700 dark:text-slate-300 text-xs italic mt-1 bg-background/80 p-3 rounded-lg border">
+                                  &ldquo;{report.latestApproval.comment}&rdquo;
+                                </p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground font-mono text-right pt-1">
+                                Reviewed at {formatDateTime(report.latestApproval.reviewedAt || report.latestApproval.reviewed_at)}
+                              </p>
+                            </div>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              )}
+            </TabsContent>
+
+            {/* ── Project Details Tab Content ─────────────────────────────────── */}
+            <TabsContent value="overview" className="pt-4 space-y-6">
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <FileText className="h-4.5 w-4.5 text-primary" />
+                    Proposal & Project Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Proposal Title
+                      </p>
+                      <p className="text-sm font-semibold leading-snug text-foreground">
+                        {proposalData.title}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Proposal Reference Number
+                      </p>
+                      <p className="text-sm font-semibold font-mono text-foreground">
+                        {refNumber}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Project Tracking ID
+                      </p>
+                      <p className="text-sm font-semibold font-mono text-primary">
+                        {trackingIdStr}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Overall Proposal Status
+                      </p>
+                      <div>{getStatusBadge(proposalData.status)}</div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Principal Investigator
+                    </p>
+                    <SubmitterAvatar user={proposalData.pi} />
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
+            </TabsContent>
 
-          {/* Sidebar (Decision Box & Project Context) */}
-          <div className="space-y-6">
-            <Card className="shadow-xs border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Approval Decision
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Review status and take administrative action.
-                </CardDescription>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-5 space-y-4">
-                <DetailField
-                  label="Current Status"
-                  value={
-                    <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", statusBadgeClass(statusVal))}>
-                      <StatusIconComp className="mr-1.5 h-3 w-3" />
-                      {statusLabel(statusVal)}
-                    </Badge>
-                  }
-                />
-
-                {existingComment && (
-                  <div className="rounded-xl border bg-muted/40 p-3.5 text-xs space-y-1.5">
-                    <p className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3 text-primary" />
-                      Review Remarks
+            {/* ── Review History Tab Content ──────────────────────────────────── */}
+            <TabsContent value="reviews" className="pt-4 space-y-4">
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <History className="h-4.5 w-4.5 text-primary" />
+                    Review History & Decision Logs
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  {reports.every((r) => !r.approvals || r.approvals.length === 0) ? (
+                    <p className="text-xs text-muted-foreground text-center py-6">
+                      No review decisions logged yet.
                     </p>
-                    <p className="text-foreground leading-relaxed italic">{existingComment}</p>
-                    {reviewerName && (
-                      <p className="text-[10px] text-muted-foreground text-right font-medium">— {reviewerName}</p>
-                    )}
-                  </div>
-                )}
-
-                <Button
-                  className="w-full shadow-xs bg-primary hover:bg-primary/90 mt-2"
-                  onClick={() => setApproveOpen(true)}
-                >
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                  {existingDecision && existingDecision !== "pending" ? "Edit Approval Decision" : "Submit Approval Decision"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-xs border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Quick Navigation
-                </CardTitle>
-              </CardHeader>
-              <Separator />
-              <CardContent className="pt-4 space-y-2 text-xs">
-                {projectTrackingId && (
-                  <Button variant="ghost" size="sm" asChild className="w-full justify-start text-xs font-medium">
-                    <Link href={`/research/monitoring/progress-report/${projectTrackingId}`}>
-                      <Layers className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                      Project Tracking Workspace
-                    </Link>
-                  </Button>
-                )}
-                {proposalId && (
-                  <Button variant="ghost" size="sm" asChild className="w-full justify-start text-xs font-medium">
-                    <Link href={`/research/proposals/my-proposals/${proposalId}`}>
-                      <FileText className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                      Associated Research Proposal
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  ) : (
+                    reports.flatMap((r) =>
+                      (r.approvals || []).map((app) => ({
+                        ...app,
+                        reportName: r.reportName,
+                      })),
+                    ).map((log, idx) => (
+                      <div
+                        key={log.id || idx}
+                        className="flex items-start gap-3 p-4 rounded-xl border bg-card text-xs"
+                      >
+                        <div className="mt-0.5">
+                          {log.decision === "approved" ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          ) : log.decision === "rejected" ? (
+                            <XCircle className="h-4 w-4 text-rose-500" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-amber-500" />
+                          )}
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-foreground">
+                              {log.reviewerName || log.reviewer_name || "Staff Reviewer"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {formatDateTime(log.reviewedAt || log.reviewed_at)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground">
+                              Decision for &ldquo;{log.reportName}&rdquo;:
+                            </span>
+                            {getStatusBadge(log.decision)}
+                          </div>
+                          {log.comment && (
+                            <p className="text-slate-700 dark:text-slate-300 bg-slate-50/60 dark:bg-slate-900/30 p-3 rounded-xl text-[11px] mt-2 border">
+                              {log.comment}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        <ApproveModal
-          open={approveOpen}
-          onOpenChange={setApproveOpen}
-          progressReportId={report.id}
-          initialDecision={existingDecision}
-          initialComment={existingComment}
-          onSuccess={() => refetch()}
-        />
+        {/* ── Sidebar Column: Review Action Panel (Sticky) ──────────────────────── */}
+        <div className="space-y-6">
+          <Card className="border border-muted-foreground/15 shadow-sm sticky top-6">
+            <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <ShieldCheck className="h-4.5 w-4.5 text-primary" />
+                Review Action Panel
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Submit committee decisions for progress reports.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Target Progress Report <span className="text-rose-500">*</span>
+                </Label>
+                <select
+                  value={sidebarReportId || reports[0]?.id || ""}
+                  onChange={(e) => setSidebarReportId(Number(e.target.value))}
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  {reports.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.reportName} ({r.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Decision <span className="text-rose-500">*</span>
+                </Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button
+                    type="button"
+                    variant={sidebarDecision === "approved" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSidebarDecision("approved")}
+                    className={cn(
+                      "text-[11px] h-9 font-bold",
+                      sidebarDecision === "approved" && "bg-emerald-600 hover:bg-emerald-700 text-white",
+                    )}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={sidebarDecision === "pending" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSidebarDecision("pending")}
+                    className={cn(
+                      "text-[11px] h-9 font-bold",
+                      sidebarDecision === "pending" && "bg-amber-600 hover:bg-amber-700 text-white",
+                    )}
+                  >
+                    Hold
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={sidebarDecision === "rejected" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSidebarDecision("rejected")}
+                    className={cn(
+                      "text-[11px] h-9 font-bold",
+                      sidebarDecision === "rejected" && "bg-rose-600 hover:bg-rose-700 text-white",
+                    )}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="sidebar-comment"
+                  className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+                >
+                  Reviewer Remarks / Feedback
+                </Label>
+                <Textarea
+                  id="sidebar-comment"
+                  value={sidebarComment}
+                  onChange={(e) => setSidebarComment(e.target.value)}
+                  placeholder="Enter evaluation remarks or justification feedback..."
+                  className="min-h-[100px] text-xs resize-y rounded-xl"
+                />
+              </div>
+
+              <Button
+                onClick={handleSidebarSubmit}
+                disabled={createApproval.isPending}
+                className="w-full shadow-xs"
+              >
+                {createApproval.isPending ? "Submitting Decision..." : "Submit Evaluation Decision"}
+              </Button>
+
+              <Separator />
+
+              <div className="space-y-2 text-xs">
+                <p className="font-bold text-muted-foreground uppercase text-[10px]">Evaluation Guidelines</p>
+                <ul className="space-y-1.5 text-muted-foreground text-[11px] list-disc pl-4 leading-relaxed">
+                  <li>Approved reports validate milestone progress and financial accountability.</li>
+                  <li>Rejections or holds notify the PI to submit revisions.</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Evaluation Modal */}
+      <EvaluationModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        report={selectedReport}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Document Viewer Modal */}
+      <PdfViewerDialog
+        isOpen={previewOpen}
+        onOpenChange={setPreviewOpen}
+        url={previewUrl}
+        title={previewTitle}
+      />
     </PageContainer>
   );
 }

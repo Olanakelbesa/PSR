@@ -10,7 +10,7 @@ import type {
 } from "@/types/funding-recommendation";
 
 const DEFAULT_ORGANIZATION =
-  "ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY";
+  "Ministry of Health";
 
 function resolvePublicAsset(path: string) {
   if (typeof window !== "undefined") {
@@ -134,11 +134,11 @@ export function mapFundingRecommendationToAwardData(
     (recommendation.amountEnglishInWords ?? recommendation.amount_english_in_words)?.trim() ||
     formatAmount(totalAward);
 
-  const organizationName =
-    readNestedName(context, "organization") || DEFAULT_ORGANIZATION;
+  const organizationName = DEFAULT_ORGANIZATION;
   const unitName = readNestedName(context, "unit");
   const proposalTypeName = readNestedName(context, "proposalType") ||
     readNestedName(context, "proposal_type");
+  const piInstitution = readNestedName(context, "organization");
 
   return {
     organization_name: organizationName,
@@ -154,10 +154,10 @@ export function mapFundingRecommendationToAwardData(
     percentageAmountWords: amountWords,
     percentage: "100",
     agreementDeadline: formatPdfDate(agreementDeadline),
-    logoPath: resolvePublicAsset("/placeholder-logo.svg"),
+    logoPath: resolvePublicAsset("/moh_logo.png"),
     second_level_office_name_en:
       proposalTypeName || "Research and Technology Transfer",
-    submitting_office_name_en: unitName || organizationName,
+    submitting_office_name_en: piInstitution || unitName || organizationName,
   };
 }
 
@@ -184,20 +184,20 @@ export function mapFundingRecommendationToContractData(
     `FR-${recommendation.id}`;
 
   const now = new Date();
-  const organizationName =
-    readNestedName(context, "organization") || DEFAULT_ORGANIZATION;
+  const organizationName = DEFAULT_ORGANIZATION;
   const unitName = readNestedName(context, "unit");
+  const piInstitution = readNestedName(context, "organization");
 
   return {
     organization_name: organizationName,
-    logoPath: resolvePublicAsset("/placeholder-logo.svg"),
-    document_no: `CONTRACT/${referenceNumber}`,
-    issue_no: "01",
+    logoPath: resolvePublicAsset("/moh_logo.png"),
+    document_no: `${referenceNumber}`,
+    issue_no: "____",
     principal_investigator: piDisplayName(pi),
     co_investigators: [],
     proposal_title: proposalTitle,
     project_duration_years: "1",
-    college: unitName || "—",
+    college: piInstitution || unitName || "—",
     department: readNestedName(context, "proposalType") || "—",
     center_of_excellence: "—",
     email: piEmail(pi) || "—",
@@ -221,7 +221,8 @@ export async function downloadAwardLetterFromData(
   );
   const finalData: AwardData = {
     ...data,
-    logoPath: data.logoPath || resolvePublicAsset("/placeholder-logo.svg"),
+    organization_name: "Ministry of Health",
+    logoPath: resolvePublicAsset("/moh_logo.png"),
   };
   const blob = await pdf(createElement(AwardLetterPDF, { data: finalData }) as any).toBlob();
   const ref = sanitizeFilename(referenceForFilename || finalData.refNo || "award");
@@ -239,7 +240,8 @@ export async function downloadAgreementFromData(
   );
   const finalData: ContractData = {
     ...data,
-    logoPath: data.logoPath || resolvePublicAsset("/placeholder-logo.svg"),
+    organization_name: "Ministry of Health",
+    logoPath: resolvePublicAsset("/moh_logo.png"),
   };
   const blob = await pdf(createElement(ContractDocumentPDF, { data: finalData }) as any).toBlob();
   const ref = sanitizeFilename(
@@ -261,8 +263,8 @@ export async function downloadFundingRecommendationAwardPdf(
   const blob = await pdf(createElement(AwardLetterPDF, { data }) as any).toBlob();
   const ref = sanitizeFilename(
     recommendation.reference_number ||
-      recommendation.referenceNumber ||
-      `FR-${recommendation.id}`,
+    recommendation.referenceNumber ||
+    `FR-${recommendation.id}`,
   );
 
   savePdfBlob(blob, `Award-Letter-${ref}.pdf`);
@@ -280,8 +282,8 @@ export async function downloadFundingRecommendationAgreementPdf(
   const blob = await pdf(createElement(ContractDocumentPDF, { data }) as any).toBlob();
   const ref = sanitizeFilename(
     recommendation.reference_number ||
-      recommendation.referenceNumber ||
-      `FR-${recommendation.id}`,
+    recommendation.referenceNumber ||
+    `FR-${recommendation.id}`,
   );
 
   savePdfBlob(blob, `Agreement-${ref}.pdf`);

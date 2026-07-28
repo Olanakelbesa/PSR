@@ -160,6 +160,17 @@ export function useProgressReportApproval(id: string | number | undefined) {
   });
 }
 
+export function useGroupedProgressReport(id: string | number | undefined) {
+  return useQuery({
+    queryKey: ["grouped-progress-report", String(id ?? "")],
+    queryFn: () =>
+      progressReportApprovalsService.getGroupedProgressReportById(
+        id as string | number,
+      ),
+    enabled: !!id,
+  });
+}
+
 export function useUpdateProgressReportApproval() {
   const queryClient = useQueryClient();
 

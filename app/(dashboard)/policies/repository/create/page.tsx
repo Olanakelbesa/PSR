@@ -96,7 +96,7 @@ export default function CreateRepositoryEntryPage() {
         ...prev,
         title: draft.title,
         type: draft.docType?.name || "",
-        organization: draft.organization?.name || "Addis Ababa Science and Technology University",
+        organization: draft.organization?.name || "Ministry of Health",
         sourceDraft: String(draft.id),
         description: `Executive summary for approved draft policy: ${draft.title}.`,
       }));
@@ -442,7 +442,7 @@ export default function CreateRepositoryEntryPage() {
                   />
 
                   {!selectedFile ? (
-                    <div 
+                    <div
                       className="rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5 p-8 text-center transition-colors hover:border-primary/40 hover:bg-muted/10 relative cursor-pointer"
                       onClick={() => fileInputRef.current?.click()}
                     >

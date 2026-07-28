@@ -152,21 +152,20 @@ const PageHeader = ({
     <View style={styles.headerRow}>
       <View style={[styles.headerBox, styles.logoBox]}>
         <PdfImage
-          src={data.logoPath || "/placeholder-logo.svg"}
+          src={data.logoPath || "/moh_logo.png"}
           style={styles.logoInner}
         />
       </View>
       <View style={[styles.headerBox, styles.orgBox]}>
-        <Text style={styles.orgLabel}>Organization Name:</Text>
+        {/* <Text style={styles.orgLabel}>Organization Name:</Text> */}
         <Text style={[styles.bold, styles.orgName]}>
-          {data.organization_name ||
-            "ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY"}
+          {data.organization_name || "MINISTRY OF HEALTH"}
         </Text>
       </View>
       <View style={styles.docNoBox}>
         <Text style={styles.docNoLabel}>Document No.</Text>
         <Text style={styles.docNoValue}>
-          {data.document_no || "VP/RCS/___/___"}
+          {data.document_no || "MoH/PSR/___/___"}
         </Text>
       </View>
     </View>

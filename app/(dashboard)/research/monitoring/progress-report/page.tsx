@@ -3,8 +3,10 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   BarChart3,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   XCircle,
   PlayCircle,
   Search,
@@ -18,6 +20,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -37,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/dist/client/components/navigation";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 
 const statusLabels = {
@@ -54,6 +58,118 @@ const statusClasses = {
 type StatFilter = "all" | "on_progress" | "completed" | "terminated" | "ready_for_tracking";
 
 const ALL_VALUE = "all";
+
+function ReferenceCell({ refNum }: { refNum: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!refNum || refNum === "-") return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!refNum || refNum === "-") {
+    return <span className="text-xs text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-muted/60 hover:bg-muted dark:bg-muted/40 px-2 py-0.5 rounded-md border border-border/50 transition-colors max-w-fit">
+      <span className="font-mono text-xs font-bold text-primary truncate">
+        {refNum}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy reference number"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function TrackingIdCell({ id }: { id: string | number }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!id) return;
+    const valueToCopy = String(id).replace(/^#/, "");
+    navigator.clipboard.writeText(valueToCopy);
+    setCopied(true);
+    toast.success("Tracking ID copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!id) return <span className="text-xs text-muted-foreground">-</span>;
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 transition-colors max-w-fit">
+      <span className="font-mono text-xs font-bold text-primary truncate">
+        #{id}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-3.5 w-3.5 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy tracking ID"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function PICell({ pi }: { pi: any }) {
+  if (!pi) return <span className="text-xs text-muted-foreground">-</span>;
+  const name =
+    typeof pi === "string"
+      ? pi
+      : pi.fullName || pi.full_name || pi.name || pi.email || "PI";
+  const email = typeof pi === "object" ? pi.email : null;
+  const rawPhoto =
+    typeof pi === "object"
+      ? pi.photo || pi.photo_url || pi.photoUrl || pi.avatarUrl
+      : null;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+  const initials = name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "PI";
+
+  return (
+    <div className="flex items-center gap-2.5 min-w-[170px]">
+      <Avatar className="h-8 w-8 border border-border/60 shrink-0">
+        {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col min-w-0">
+        <span className="text-xs font-bold text-foreground truncate">{name}</span>
+        {email && <span className="text-[10px] text-muted-foreground truncate">{email}</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function ProgressReportListPage() {
   const [search, setSearch] = useState("");
@@ -80,6 +196,7 @@ export default function ProgressReportListPage() {
     () => ({
       page: 1,
       limit: 100,
+      scope: "my",
       search: search || undefined,
       status: statusFilter !== ALL_VALUE && statusFilter !== "ready_for_tracking" ? statusFilter : undefined,
     }),
@@ -91,6 +208,21 @@ export default function ProgressReportListPage() {
   const stats = (data?.meta as Record<string, unknown>)?.statistics as
     | { total: number; onProgress: number; completed: number; terminated: number }
     | undefined;
+
+  const filteredTrackingRecords = useMemo(() => {
+    let list = trackingRecords;
+    const query = search.trim().toLowerCase();
+    if (query) {
+      list = list.filter((r: any) => {
+        const title = (r.proposalTitle || r.proposal?.title || "").toLowerCase();
+        const ref = (r.referenceNumber || r.reference_number || r.proposal?.reference_number || "").toLowerCase();
+        const piName = (r.pi?.fullName || r.pi?.full_name || r.pi?.name || r.pi?.email || "").toLowerCase();
+        const idStr = String(r.id || "");
+        return title.includes(query) || ref.includes(query) || piName.includes(query) || idStr.includes(query);
+      });
+    }
+    return list;
+  }, [trackingRecords, search]);
 
   const filteredReadyProjects = useMemo(() => {
     if (!readyProjects) return [];
@@ -181,13 +313,23 @@ export default function ProgressReportListPage() {
 
   const columns = [
     {
+      accessorKey: "referenceNumber",
+      header: "Reference",
+      cell: ({ row }: any) => (
+        <ReferenceCell
+          refNum={
+            row.original.referenceNumber ||
+            row.original.reference_number ||
+            row.original.proposal?.reference_number ||
+            "-"
+          }
+        />
+      ),
+    },
+    {
       accessorKey: "id",
       header: "Tracking ID",
-      cell: ({ row }: any) => (
-        <span className="font-mono text-[11px] font-semibold text-primary/80">
-          #{row.original.id}
-        </span>
-      ),
+      cell: ({ row }: any) => <TrackingIdCell id={row.original.id} />,
     },
     {
       accessorKey: "proposalTitle",
@@ -198,23 +340,22 @@ export default function ProgressReportListPage() {
             {row.original.proposalTitle || row.original.proposal?.title || "-"}
           </div>
           <div className="text-[11px] text-muted-foreground truncate">
-            {row.original.referenceNumber || "-"}
+            {row.original.referenceNumber || row.original.reference_number || "-"}
           </div>
         </div>
       ),
     },
     {
       accessorKey: "pi",
-      header: "PI",
+      header: "Principal Investigator",
       cell: ({ row }: any) => (
-        <div className="max-w-60">
-          <div className="font-semibold truncate">
-            {row.original.pi?.fullName || "-"}
-          </div>
-          <div className="text-[11px] text-muted-foreground truncate">
-            {row.original.pi?.email || "-"}
-          </div>
-        </div>
+        <PICell
+          pi={
+            row.original.pi ||
+            row.original.principalInvestigator ||
+            row.original.proposal?.created_by
+          }
+        />
       ),
     },
     {
@@ -484,10 +625,15 @@ export default function ProgressReportListPage() {
 
         <DataTable
           columns={columns}
+          searchKey="proposalTitle"
+          searchPlaceholder="Search project title, reference, or PI..."
+          searchValue={search}
+          onSearchChange={setSearch}
+          initialColumnVisibility={{ referenceNumber: false }}
           onRowClick={(row) =>
             router.push(`/research/monitoring/progress-report/${row.id}`)
           }
-          data={trackingRecords}
+          data={filteredTrackingRecords}
           emptyMessage="No project tracking records found"
           emptyDescription="Try changing your search text or status filter."
         />

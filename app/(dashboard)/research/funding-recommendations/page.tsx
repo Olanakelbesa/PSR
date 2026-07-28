@@ -9,8 +9,10 @@ import {
   Award,
   BadgeCheck,
   Banknote,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   FileCheck2,
   FileText,
   MoreHorizontal,
@@ -18,12 +20,14 @@ import {
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import {
   DataTable,
   type FilterOptionConfig,
 } from "@/components/shared/data-table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +41,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { fundingRecommendationRoutes } from "@/lib/routes/funding-recommendations";
 import {
   useFundingRecommendationCandidates,
@@ -131,6 +136,69 @@ function piName(pi?: FundingRecommendationPi | string | null) {
   if (typeof pi === "string") return pi;
 
   return pi.full_name || pi.fullName || pi.email || "-";
+}
+
+function ReferenceCell({ refNum }: { refNum: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!refNum || refNum === "-") return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!refNum || refNum === "-") {
+    return <span className="text-xs text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-muted/60 hover:bg-muted dark:bg-muted/40 px-2 py-0.5 rounded-md border border-border/50 transition-colors max-w-fit">
+      <span className="font-mono text-xs font-bold text-primary truncate">
+        {refNum}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy reference number"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function PICell({ pi }: { pi: FundingRecommendationPi | string | null }) {
+  if (!pi) return <span className="text-xs text-muted-foreground">-</span>;
+  const name = typeof pi === "string" ? pi : pi.full_name || pi.fullName || pi.email || "-";
+  const email = typeof pi === "object" ? pi.email : null;
+  const rawPhoto = typeof pi === "object" ? (pi.photo || pi.photo_url || pi.photoUrl) : null;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+  const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "PI";
+
+  return (
+    <div className="flex items-center gap-2.5 min-w-[170px]">
+      <Avatar className="h-8 w-8 border border-border/60 shrink-0">
+        {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col min-w-0">
+        <span className="text-xs font-bold text-foreground truncate">{name}</span>
+        {email && <span className="text-[10px] text-muted-foreground truncate">{email}</span>}
+      </div>
+    </div>
+  );
 }
 
 function StatusBadge({
@@ -594,18 +662,6 @@ export default function FundingRecommendationsPage() {
       isActive: selectedPipelineStage === "pending",
     },
     {
-      title: "Total Requested",
-      value: formatCurrency(totalRequested),
-      caption: "Budget requested across recommendations",
-      icon: FileText,
-      accent: {
-        iconBg: "bg-slate-100",
-        iconColor: "text-slate-700",
-        border: "border-slate-200",
-        activeRing: "ring-slate-500/50 border-slate-300",
-      },
-    },
-    {
       title: "Total Awarded",
       value: formatCurrency(totalAwarded),
       caption: "Across submitted recommendations",
@@ -708,6 +764,45 @@ export default function FundingRecommendationsPage() {
 
   const pipelineColumns: ColumnDef<PipelineRow>[] = [
     {
+      accessorKey: "reference",
+      header: "Reference",
+      cell: ({ row }) => <ReferenceCell refNum={row.original.reference} />,
+    },
+    {
+      accessorKey: "proposalTitle",
+      header: "Proposal",
+      cell: ({ row }) => (
+        <div className="max-w-105">
+          <p className="line-clamp-2 text-sm font-bold">
+            {row.original.proposalTitle || "Untitled proposal"}
+          </p>
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            {row.original.callTitle} · {row.original.proposalTypeName}
+          </p>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            {row.original.organizationName}
+          </p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "principalInvestigator",
+      header: "Principal Investigator",
+      cell: ({ row }) => <PICell pi={row.original.principalInvestigator} />,
+    },
+    {
+      accessorKey: "requestedAmount",
+      header: "Budget Requested",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-900">
+            {formatCurrency(row.original.requestedAmount)}
+          </span>
+          <span className="text-[10px] text-muted-foreground">Requested</span>
+        </div>
+      ),
+    },
+    {
       accessorKey: "stage",
       header: "Stage",
       cell: ({ row }) => (
@@ -734,54 +829,6 @@ export default function FundingRecommendationsPage() {
         ) : (
           <span className="text-muted-foreground">-</span>
         )
-      ),
-    },
-    {
-      accessorKey: "reference",
-      header: "Reference",
-      cell: ({ row }) => (
-        <span className="font-bold text-primary">{row.original.reference}</span>
-      ),
-    },
-    {
-      accessorKey: "proposalTitle",
-      header: "Proposal",
-      cell: ({ row }) => (
-        <div className="max-w-105">
-          <p className="line-clamp-2 text-sm font-bold">
-            {row.original.proposalTitle || "Untitled proposal"}
-          </p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            {row.original.callTitle} · {row.original.proposalTypeName}
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            {row.original.organizationName}
-          </p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "principalInvestigator",
-      header: "Principal Investigator",
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-bold">{piName(row.original.principalInvestigator)}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {row.original.principalInvestigatorEmail}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "requestedAmount",
-      header: "Budget Requested",
-      cell: ({ row }) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-900">
-            {formatCurrency(row.original.requestedAmount)}
-          </span>
-          <span className="text-[10px] text-muted-foreground">Requested</span>
-        </div>
       ),
     },
     {
@@ -906,9 +953,9 @@ export default function FundingRecommendationsPage() {
       }
     >
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {isLoading
-            ? Array.from({ length: 5 }).map((_, index) => (
+            ? Array.from({ length: 4 }).map((_, index) => (
               <Skeleton key={index} className="h-[7.5rem] rounded-xl" />
             ))
             : stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
@@ -953,6 +1000,7 @@ export default function FundingRecommendationsPage() {
             searchKey="proposalTitle"
             searchPlaceholder="Search proposals..."
             filterOptions={filterOptions}
+            initialColumnVisibility={{ reference: false }}
             onRowClick={(row) => {
               if (row.recommendationId) {
                 router.push(

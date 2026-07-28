@@ -4,27 +4,30 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  Paperclip,
-  Upload,
-  Calendar,
-  Wallet,
   Activity,
-  User,
-  Hash,
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
+  Award,
+  Calendar,
+  Check,
+  CheckCircle2,
   Clock,
-  ShieldCheck,
-  ShieldAlert,
-  Building2,
-  Mail,
-  PlusCircle,
+  Copy,
   ExternalLink,
-  PieChart,
+  FileText,
+  FolderOpen,
+  Hash,
   Layers,
+  Mail,
+  Paperclip,
+  PieChart,
+  PlusCircle,
+  ShieldAlert,
+  ShieldCheck,
+  Upload,
+  User,
+  Wallet,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/layout";
@@ -32,14 +35,15 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -60,17 +64,19 @@ import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { toast } from "sonner";
 
-type ReportStatus = "pending" | "approved" | "rejected";
-
 function formatDate(value?: string | null) {
-  if (!value) return "-";
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
+    day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function formatCurrency(amount: number) {
+  return `ETB ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function statusConfig(status: string) {
@@ -79,7 +85,7 @@ function statusConfig(status: string) {
     case "completed":
       return {
         label: "Approved",
-        color: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+        color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
         icon: CheckCircle2,
       };
     case "rejected":
@@ -87,14 +93,14 @@ function statusConfig(status: string) {
     case "terminated":
       return {
         label: "Terminated / Rejected",
-        color: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
+        color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
         icon: AlertCircle,
       };
     case "on_progress":
     case "active":
       return {
         label: "On Progress",
-        color: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800",
+        color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 border-sky-200 dark:border-sky-800",
         icon: Activity,
       };
     default:
@@ -102,7 +108,7 @@ function statusConfig(status: string) {
         label: status
           ? status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
           : "Pending",
-        color: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+        color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
         icon: Clock,
       };
   }
@@ -111,6 +117,8 @@ function statusConfig(status: string) {
 export default function ProjectTrackingDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const [copiedRef, setCopiedRef] = useState(false);
+
   const projectTrackingId = useMemo(
     () => (typeof id === "string" ? id : Array.isArray(id) ? id[0] : undefined),
     [id],
@@ -160,6 +168,19 @@ export default function ProjectTrackingDetailPage() {
   const [progressEndDate, setProgressEndDate] = useState("");
   const [progressAttachment, setProgressAttachment] = useState<File | null>(null);
 
+  const referenceNumber =
+    projectTracking?.referenceNumber ||
+    projectTracking?.proposal?.referenceNumber ||
+    (projectTracking?.id ? `PT-${projectTracking.id}` : "—");
+
+  const handleCopyRef = () => {
+    if (!referenceNumber || referenceNumber === "—") return;
+    navigator.clipboard.writeText(referenceNumber);
+    setCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopiedRef(false), 2000);
+  };
+
   async function submitProgressReport() {
     if (!projectTracking) {
       toast.error("Project tracking details are still loading.");
@@ -198,16 +219,16 @@ export default function ProjectTrackingDetailPage() {
 
   if (isProjectLoading) {
     return (
-      <PageContainer title="Loading Project Tracking Workspace...">
-        <div className="space-y-6 max-w-7xl mx-auto">
-          <Skeleton className="h-32 w-full rounded-2xl" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Skeleton className="h-28 rounded-xl" />
-            <Skeleton className="h-28 rounded-xl" />
-            <Skeleton className="h-28 rounded-xl" />
-            <Skeleton className="h-28 rounded-xl" />
+      <PageContainer title="Loading Project Tracking...">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
           </div>
-          <Skeleton className="h-[400px] w-full rounded-2xl" />
+          <div className="space-y-6">
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
         </div>
       </PageContainer>
     );
@@ -215,38 +236,41 @@ export default function ProjectTrackingDetailPage() {
 
   if (!projectTracking) {
     return (
-      <PageContainer title="Tracking Record Not Found">
-        <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed p-12 text-center bg-card max-w-xl mx-auto my-12">
-          <div className="p-4 bg-amber-50 text-amber-600 rounded-full">
-            <AlertCircle className="h-10 w-10" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="font-bold text-lg">Project Tracking Unavailable</h3>
-            <p className="text-sm text-muted-foreground">
-              The project tracking record could not be found or you do not have permission to view it.
-            </p>
-          </div>
+      <PageContainer
+        title="Tracking Record Not Found"
+        description="The requested project tracking workspace could not be loaded."
+        actions={
           <Button
-            onClick={() => router.push("/research/monitoring/progress-report")}
             variant="outline"
-            className="mt-4"
+            onClick={() => router.push("/research/monitoring/progress-report")}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Return to Project Directory
+            Back to Directory
           </Button>
-        </div>
+        }
+      >
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <h3 className="font-bold text-amber-900 dark:text-amber-200">
+                Project Tracking Unavailable
+              </h3>
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                The project tracking record could not be found or you do not have permission to view it.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </PageContainer>
     );
   }
 
   const projStatus = statusConfig(projectTracking.status);
   const generalStatusInfo = statusConfig(projectTracking.generalStatus || "pending");
+  const StatusIcon = projStatus.icon;
 
   const proposalObj = projectTracking.proposal;
-  const referenceNumber =
-    projectTracking.referenceNumber ||
-    proposalObj?.referenceNumber ||
-    `#${projectTracking.id}`;
   const proposalTitle =
     projectTracking.proposalTitle ||
     proposalObj?.title ||
@@ -255,242 +279,253 @@ export default function ProjectTrackingDetailPage() {
   const hasEthicalClearance =
     proposalObj?.hasEthicalClearanceApproval ?? false;
 
+  const rawPhoto = piInfo ? (piInfo.photoUrl || piInfo.photo_url || piInfo.photo) : null;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+  const piName = piInfo?.fullName || piInfo?.full_name || piInfo?.email || "Principal Investigator";
+  const piInitials = piName
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "PI";
+
   return (
     <PageContainer
       title={proposalTitle}
-      description={`Project Tracking Workspace · Ref #${referenceNumber}`}
+      description={
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
+          <button
+            type="button"
+            onClick={handleCopyRef}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy reference number"
+          >
+            <span>{referenceNumber}</span>
+            {copiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+          <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border ml-1", projStatus.color)}>
+            <StatusIcon className="h-3 w-3" />
+            {projStatus.label}
+          </Badge>
+          <span className="text-xs text-muted-foreground font-medium ml-1">
+            · Tracking ID: #{projectTracking.id}
+          </span>
+        </div>
+      }
       actions={
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/research/monitoring/progress-report")}
-          >
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-            Directory
+          <Button variant="outline" size="sm" asChild className="shadow-xs">
+            <Link href="/research/monitoring/progress-report">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Directory
+            </Link>
           </Button>
+          {proposalObj?.fundingRecommendationId && (
+            <Button variant="outline" size="sm" asChild className="hidden md:flex shadow-xs">
+              <Link href={`/research/funding-recommendations/${proposalObj.fundingRecommendationId}`}>
+                <Award className="mr-2 h-4 w-4 text-emerald-600" />
+                Award Details
+              </Link>
+            </Button>
+          )}
           {proposalObj?.proposalId && (
-            <Button variant="outline" size="sm" asChild className="hidden sm:flex">
+            <Button variant="outline" size="sm" asChild className="hidden sm:flex shadow-xs">
               <Link href={`/research/proposals/my-proposals/${proposalObj.proposalId}`}>
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                <ExternalLink className="mr-2 h-4 w-4" />
                 View Proposal
               </Link>
             </Button>
           )}
           <Button
             size="sm"
+            className="shadow-xs"
             onClick={() => setIsProgressDialogOpen(true)}
-            className="shadow-xs bg-primary hover:bg-primary/90"
           >
-            <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+            <PlusCircle className="mr-2 h-4 w-4" />
             Submit Report
           </Button>
         </div>
       }
     >
-      <div className="space-y-6">
-        {/* Status Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border bg-card shadow-xs">
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <Badge variant="outline" className="font-mono text-xs bg-muted/50">
-              <Hash className="mr-1 h-3 w-3 opacity-60" />
-              {referenceNumber}
-            </Badge>
-            {piInfo && (
-              <div className="flex items-center gap-1.5 font-medium text-foreground">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>PI: {piInfo.fullName}</span>
-                {piInfo.email && (
-                  <span className="text-muted-foreground font-normal">
-                    ({piInfo.email})
+      {/* ── Main Layout: Exact Mirror of IRB Submissions Detail View ──────────────── */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Main Content Column */}
+        <div className="space-y-6 min-w-0">
+          {/* Overbudget Warning Banner */}
+          {isOverBudget && (
+            <Card className="border-l-4 border-l-rose-500 bg-rose-50 dark:bg-rose-950/20 shadow-xs">
+              <CardContent className="p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1 text-xs space-y-0.5">
+                  <span className="font-bold text-sm block text-rose-900 dark:text-rose-200">
+                    Budget Allocation Exceeded
                   </span>
+                  <p className="text-rose-800 dark:text-rose-300">
+                    Total progress expenditures (<span className="font-bold font-mono">{formatCurrency(totalAmountUsed)}</span>) exceed the allocated award budget (<span className="font-bold font-mono">{formatCurrency(totalAward)}</span>) by <span className="font-extrabold font-mono text-rose-700 dark:text-rose-300">{formatCurrency(overBudgetAmount)}</span> ({rawPercentage - 100}% overrun).
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* KPI Stats Bar */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border border-muted-foreground/15 shadow-sm">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shrink-0 dark:bg-blue-950/40 dark:border-blue-900">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Award Budget
+                  </p>
+                  <p className="text-base font-extrabold tracking-tight text-foreground truncate mt-0.5">
+                    {formatCurrency(totalAward)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-muted-foreground/15 shadow-sm">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100 shrink-0 dark:bg-amber-950/40 dark:border-amber-900">
+                  <Activity className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Amount Used
+                  </p>
+                  <p className="text-base font-extrabold tracking-tight text-foreground truncate mt-0.5">
+                    {formatCurrency(totalAmountUsed)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className={cn("border border-muted-foreground/15 shadow-sm", isOverBudget && "border-rose-200 bg-rose-50/20")}>
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className={cn("p-2.5 rounded-xl border shrink-0", isOverBudget ? "bg-rose-100 text-rose-600 border-rose-200" : "bg-emerald-50 text-emerald-600 border-emerald-100")}>
+                  {isOverBudget ? <AlertTriangle className="h-5 w-5" /> : <PieChart className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+                      {isOverBudget ? "Overrun" : "Remaining"}
+                    </p>
+                    <span className={cn("text-[10px] font-bold", isOverBudget ? "text-rose-600" : "text-emerald-600")}>
+                      {isOverBudget ? `${rawPercentage}%` : `${100 - progressPercentage}%`}
+                    </span>
+                  </div>
+                  <p className={cn("text-base font-extrabold tracking-tight truncate mt-0.5", isOverBudget ? "text-rose-700 dark:text-rose-400" : "text-foreground")}>
+                    {isOverBudget
+                      ? `-${formatCurrency(overBudgetAmount)}`
+                      : formatCurrency(remainingAmount)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-muted-foreground/15 shadow-sm">
+              <CardContent className="p-4 flex items-center gap-3.5">
+                <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100 shrink-0 dark:bg-indigo-950/40 dark:border-indigo-900">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Reports Filed
+                  </p>
+                  <p className="text-base font-extrabold tracking-tight text-foreground truncate mt-0.5">
+                    {progressReports.length} {progressReports.length === 1 ? "Report" : "Reports"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Standard Tabs Navigation */}
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="w-full flex flex-wrap sm:flex-nowrap justify-start h-auto sm:h-11 bg-muted/60 p-1 border border-border/50 rounded-xl gap-1 overflow-x-auto">
+              <TabsTrigger value="overview" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <Layers className="h-3.5 w-3.5" />
+                Overview & Details
+              </TabsTrigger>
+              <TabsTrigger value="progress-reports" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <FolderOpen className="h-3.5 w-3.5" />
+                Progress Reports Timeline
+                {progressReports.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
+                    {progressReports.length}
+                  </Badge>
                 )}
-              </div>
-            )}
-          </div>
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", projStatus.color)}>
-              <projStatus.icon className="mr-1.5 h-3 w-3" />
-              Tracking: {projStatus.label}
-            </Badge>
-            <Badge variant="outline" className={cn("px-2.5 py-0.5 font-medium", generalStatusInfo.color)}>
-              <Clock className="mr-1.5 h-3 w-3" />
-              General: {generalStatusInfo.label}
-            </Badge>
-          </div>
-        </div>
-
-      {/* Overbudget Warning Banner */}
-      {isOverBudget && (
-        <div className="flex items-start gap-3 p-4 rounded-xl border border-rose-200 bg-rose-50/80 dark:bg-rose-950/40 dark:border-rose-900 text-rose-900 dark:text-rose-200 shadow-xs">
-          <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-          <div className="flex-1 text-xs space-y-0.5">
-            <span className="font-bold text-sm block text-rose-700 dark:text-rose-300">
-              Budget Allocation Exceeded
-            </span>
-            <p>
-              Total progress expenditures (<span className="font-bold font-mono">ETB {totalAmountUsed.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>) exceed the allocated award budget (<span className="font-bold font-mono">ETB {totalAward.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>) by <span className="font-extrabold font-mono text-rose-700 dark:text-rose-300">ETB {overBudgetAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> ({rawPercentage - 100}% overrun).
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* KPI Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-xs border bg-card">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
-              <Wallet className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Total Award Amount
-              </p>
-              <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">
-                ETB {totalAward > 0 ? totalAward.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-xs border bg-card">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
-              <Activity className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Total Amount Used
-              </p>
-              <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">
-                ETB {totalAmountUsed.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={cn("shadow-xs border bg-card", isOverBudget && "border-rose-200 bg-rose-50/20")}>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className={cn("p-3 rounded-xl border", isOverBudget ? "bg-rose-100 text-rose-600 border-rose-200" : "bg-emerald-50 text-emerald-600 border-emerald-100")}>
-              {isOverBudget ? <AlertTriangle className="h-5 w-5" /> : <PieChart className="h-5 w-5" />}
-            </div>
-            <div className="w-full">
-              <div className="flex justify-between items-center mb-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {isOverBudget ? "Budget Overrun" : "Remaining Balance"}
-                </p>
-                <span className={cn("text-xs font-bold", isOverBudget ? "text-rose-600" : "text-emerald-600")}>
-                  {isOverBudget ? `${rawPercentage}% Used` : `${100 - progressPercentage}%`}
-                </span>
-              </div>
-              <h3 className={cn("text-xl font-bold tracking-tight", isOverBudget ? "text-rose-700 dark:text-rose-400" : "text-foreground")}>
-                {isOverBudget
-                  ? `-ETB ${overBudgetAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                  : `ETB ${remainingAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
-              </h3>
-              <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all duration-500", isOverBudget ? "bg-rose-500" : "bg-emerald-500")}
-                  style={{ width: `${progressPercentage}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-xs border bg-card">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Reports Logged
-              </p>
-              <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">
-                {progressReports.length} {progressReports.length === 1 ? "Report" : "Reports"}
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="mb-4 h-11 p-1 bg-muted/40 w-full sm:w-auto overflow-x-auto justify-start inline-flex rounded-xl">
-          <TabsTrigger
-            value="overview"
-            className="h-9 px-4 rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
-          >
-            Overview & Specifications
-          </TabsTrigger>
-          <TabsTrigger
-            value="progress-reports"
-            className="h-9 px-4 rounded-lg text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
-          >
-            Progress Reports
-            <Badge
-              variant="secondary"
-              className="ml-2 bg-primary/10 text-primary hover:bg-primary/15 rounded-full px-2 py-0 text-[11px]"
-            >
-              {progressReports.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="shadow-xs border lg:col-span-2">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Project Specifications
-                </CardTitle>
-                <CardDescription>
-                  Operational tracking metrics and compliance approvals.
-                </CardDescription>
-              </CardHeader>
-              <Separator />
-              <CardContent className="p-0">
-                <dl className="grid sm:grid-cols-2 text-sm divide-y sm:divide-y-0 sm:divide-x border-b">
-                  <div className="p-5 space-y-1">
-                    <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <Hash className="h-3.5 w-3.5 text-muted-foreground" /> Reference Number
-                    </dt>
-                    <dd className="font-semibold text-foreground font-mono text-sm">
-                      {referenceNumber}
-                    </dd>
-                  </div>
-                  <div className="p-5 space-y-1">
-                    <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      {hasEthicalClearance ? (
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
-                      )}
-                      Ethical Clearance
-                    </dt>
-                    <dd className="font-semibold flex items-center gap-1.5 text-sm">
-                      {hasEthicalClearance ? (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                          <CheckCircle2 className="mr-1 h-3 w-3" /> IRB Approved
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                          <AlertCircle className="mr-1 h-3 w-3" /> Not Required / Pending
-                        </Badge>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="p-6 bg-muted/20">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* ── Overview Tab Content ────────────────────────────────────────── */}
+            <TabsContent value="overview" className="pt-5 space-y-6">
+              {/* Proposal Information Card */}
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <FileText className="h-4.5 w-4.5 text-primary" />
+                    Proposal Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1">
-                      <h4 className="text-sm font-semibold">Ready to log project progress?</h4>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Proposal Title
+                      </p>
+                      <p className="text-sm font-semibold leading-snug">
+                        {proposalTitle}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Reference Number
+                      </p>
+                      <p className="text-sm font-semibold font-mono text-primary">
+                        {referenceNumber}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Principal Investigator
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {piName}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Ethical Clearance Status
+                      </p>
+                      <div>
+                        {hasEthicalClearance ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-bold py-0.5">
+                            <CheckCircle2 className="mr-1 h-3 w-3" /> IRB Approved
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs font-bold py-0.5">
+                            <AlertCircle className="mr-1 h-3 w-3" /> Pending / N/A
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="p-4 bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-border/50 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-0.5">
+                      <h4 className="text-sm font-bold text-foreground">File a Progress Report</h4>
                       <p className="text-xs text-muted-foreground">
-                        File milestones, activities achieved, and attach supporting budget receipts.
+                        Log milestones, activities achieved, and attach budget receipts for review.
                       </p>
                     </div>
                     <Button
@@ -502,181 +537,235 @@ export default function ProjectTrackingDetailPage() {
                       Submit Report
                     </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-            <div className="space-y-6">
-              <Card className="shadow-xs border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <User className="h-4 w-4 text-primary" />
-                    Principal Investigator
-                  </CardTitle>
+            {/* ── Progress Reports Tab Content ────────────────────────────────── */}
+            <TabsContent value="progress-reports" className="pt-5 space-y-6">
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30 flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <FolderOpen className="h-4.5 w-4.5 text-primary" />
+                      Progress Reports Timeline
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      All progress report submissions logged under this project.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setIsProgressDialogOpen(true)}
+                    className="gap-1.5 shadow-xs"
+                  >
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    New Report
+                  </Button>
                 </CardHeader>
-                <Separator />
-                <CardContent className="pt-4">
-                  {piInfo ? (
-                    <div className="flex items-center gap-3">
-                      <div className="h-11 w-11 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-inner shrink-0">
-                        {piInfo.fullName?.charAt(0).toUpperCase() || "P"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{piInfo.fullName}</p>
-                        {piInfo.email && (
-                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                            <Mail className="h-3 w-3 shrink-0" />
-                            {piInfo.email}
-                          </p>
-                        )}
-                      </div>
+                <CardContent className="pt-5 space-y-4">
+                  {isReportsLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="flex gap-4">
+                          <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                          <div className="space-y-2 w-full">
+                            <Skeleton className="h-4 w-1/3" />
+                            <Skeleton className="h-3 w-2/3" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : progressReports.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                      <FileText className="h-10 w-10 text-muted-foreground/30" />
+                      <p className="font-bold text-muted-foreground text-sm">No Progress Reports Filed Yet</p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        No progress reports have been filed under this tracking record. Click below to submit your first update.
+                      </p>
+                      <Button size="sm" onClick={() => setIsProgressDialogOpen(true)} className="mt-2">
+                        <Upload className="mr-1.5 h-3.5 w-3.5" />
+                        Submit First Report
+                      </Button>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic">
-                      No PI details available.
-                    </p>
+                    <div className="space-y-4">
+                      {progressReports.map((report, index) => {
+                        const rStatus = statusConfig(report.status);
+                        const ReportIcon = rStatus.icon;
+                        return (
+                          <div
+                            key={report.id}
+                            className="rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/20 p-4 space-y-3"
+                          >
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={cn(
+                                    "h-8 w-8 rounded-full flex items-center justify-center border shrink-0",
+                                    rStatus.color,
+                                  )}
+                                >
+                                  <ReportIcon className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                    {report.report_name || `Progress Report #${report.id}`}
+                                  </h4>
+                                  <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>Submitted on: {formatDate(report.submitted_at)}</span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  className={cn("border px-2.5 py-0.5 text-[10px] font-bold uppercase shadow-none", rStatus.color)}
+                                >
+                                  {rStatus.label}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300 bg-background border p-3.5 rounded-lg space-y-1">
+                              <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground block">
+                                Main Activities Achieved
+                              </span>
+                              <p className="whitespace-pre-line text-xs font-normal">
+                                {report.main_activities_achieved || "No activities described."}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                              <div className="flex items-center gap-1.5 font-bold bg-background border px-3 py-1 rounded-lg text-foreground">
+                                <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+                                {formatCurrency(Number(report.amount_used || 0))} Used
+                              </div>
+
+                              {(report.start_date || report.end_date) && (
+                                <div className="flex items-center gap-1.5 bg-muted/60 px-3 py-1 rounded-lg text-muted-foreground font-medium">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {formatDate(report.start_date)} - {formatDate(report.end_date)}
+                                </div>
+                              )}
+
+                              {report.attachment && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs font-semibold ml-auto"
+                                  asChild
+                                >
+                                  <a
+                                    href={resolveFileUrl(report.attachment) ?? "#"}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    <Paperclip className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                                    View Attachment
+                                  </a>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </CardContent>
               </Card>
-            </div>
-          </div>
-        </TabsContent>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-        <TabsContent value="progress-reports" className="mt-0 focus-visible:outline-none">
-          <Card className="shadow-xs border">
-            <CardHeader className="border-b bg-muted/20 px-6 py-4 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold">Progress Timeline & Reports</CardTitle>
-                <CardDescription className="text-xs">
-                  All progress report submissions logged under this project.
-                </CardDescription>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => setIsProgressDialogOpen(true)}
-                className="gap-1.5"
-              >
-                <PlusCircle className="h-3.5 w-3.5" />
-                New Report
-              </Button>
+        {/* ── Sidebar Column: Exact Mirror of IRB Submissions Detail View ──────────────── */}
+        <aside className="space-y-6">
+          {/* Tracking Status Card */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="border-b bg-slate-50/80 dark:bg-slate-900/40 py-3.5">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Tracking Status
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              {isReportsLoading ? (
-                <div className="p-6 space-y-4">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="flex gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-                      <div className="space-y-2 w-full">
-                        <Skeleton className="h-4 w-1/3" />
-                        <Skeleton className="h-3 w-2/3" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : progressReports.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="h-14 w-14 bg-muted rounded-full flex items-center justify-center mb-3">
-                    <FileText className="h-7 w-7 text-muted-foreground/60" />
-                  </div>
-                  <h3 className="font-semibold text-base">No Progress Reports Yet</h3>
-                  <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-5">
-                    No progress reports have been filed under this tracking ID. Click below to file the first report.
-                  </p>
-                  <Button size="sm" onClick={() => setIsProgressDialogOpen(true)}>
-                    <Upload className="mr-1.5 h-3.5 w-3.5" />
-                    Submit First Report
-                  </Button>
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {progressReports.map((report, index) => {
-                    const rStatus = statusConfig(report.status);
-                    return (
-                      <div
-                        key={report.id}
-                        className="p-6 hover:bg-muted/10 transition-colors flex flex-col sm:flex-row gap-5"
-                      >
-                        <div className="flex flex-col items-center sm:w-12 shrink-0 pt-1">
-                          <div
-                            className={cn(
-                              "h-9 w-9 rounded-full flex items-center justify-center shadow-xs border",
-                              rStatus.color,
-                            )}
-                          >
-                            <rStatus.icon className="h-4 w-4" />
-                          </div>
-                          {index !== progressReports.length - 1 && (
-                            <div className="h-full w-px bg-border/60 my-2 hidden sm:block" />
-                          )}
-                        </div>
+            <CardContent className="pt-4 space-y-3.5 text-xs">
+              <div className="flex justify-between items-center py-1.5 border-b">
+                <span className="text-muted-foreground font-medium">Tracking Status</span>
+                <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border", projStatus.color)}>
+                  <StatusIcon className="h-3 w-3" />
+                  {projStatus.label}
+                </Badge>
+              </div>
 
-                        <div className="flex-1 space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                            <div>
-                              <h4 className="text-base font-semibold">
-                                {report.report_name || `Progress Report #${report.id}`}
-                              </h4>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-                                <Calendar className="h-3.5 w-3.5" />
-                                Submitted on {formatDate(report.submitted_at)}
-                              </p>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={cn("px-2.5 py-0.5 whitespace-nowrap text-xs font-medium", rStatus.color)}
-                            >
-                              {rStatus.label}
-                            </Badge>
-                          </div>
+              <div className="flex justify-between items-center py-1.5 border-b">
+                <span className="text-muted-foreground font-medium">General Status</span>
+                <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border", generalStatusInfo.color)}>
+                  <Clock className="h-3 w-3" />
+                  {generalStatusInfo.label}
+                </Badge>
+              </div>
 
-                          <div className="text-xs text-foreground/80 leading-relaxed bg-muted/30 p-4 rounded-xl border border-border/40">
-                            <span className="font-semibold text-foreground block mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-                              Main Activities Achieved
-                            </span>
-                            {report.main_activities_achieved || "No activities described."}
-                          </div>
+              <div className="flex justify-between items-center py-1.5 border-b">
+                <span className="text-muted-foreground font-medium">Tracking ID</span>
+                <span className="font-mono font-bold text-foreground text-xs">
+                  #{projectTracking.id}
+                </span>
+              </div>
 
-                          <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
-                            <div className="flex items-center gap-1.5 font-medium bg-muted px-2.5 py-1 rounded-lg">
-                              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-                              ETB {Number(report.amount_used || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })} Used
-                            </div>
-
-                            {(report.start_date || report.end_date) && (
-                              <div className="flex items-center gap-1.5 bg-muted/60 px-2.5 py-1 rounded-lg text-muted-foreground">
-                                <Clock className="h-3.5 w-3.5" />
-                                {formatDate(report.start_date)} - {formatDate(report.end_date)}
-                              </div>
-                            )}
-
-                            {report.attachment && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs ml-auto"
-                                asChild
-                              >
-                                <a
-                                  href={resolveFileUrl(report.attachment) ?? "#"}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  <Paperclip className="mr-1.5 h-3.5 w-3.5" />
-                                  Attachment
-                                </a>
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-muted-foreground font-medium">Ethics Clearance</span>
+                <Badge
+                  className={cn(
+                    "border shadow-none text-[10px] font-bold uppercase",
+                    hasEthicalClearance
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      : "border-slate-200 bg-slate-50 text-slate-700 dark:bg-slate-900/40 dark:text-slate-400",
+                  )}
+                >
+                  {hasEthicalClearance ? (
+                    <>
+                      <ShieldCheck className="mr-1 h-3 w-3 text-emerald-600" />
+                      Approved
+                    </>
+                  ) : (
+                    "Pending / N/A"
+                  )}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          {/* Principal Investigator Card */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="border-b bg-slate-50/80 dark:bg-slate-900/40 py-3.5">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Principal Investigator
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-3">
+              <div className="flex gap-3 items-center">
+                <Avatar className="h-10 w-10 border shrink-0">
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt={piName} />}
+                  <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                    {piInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm text-foreground truncate">
+                    {piName}
+                  </p>
+                  {piInfo?.email && (
+                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5 mt-0.5">
+                      <Mail className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{piInfo.email}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
 
       {/* Submit Progress Report Dialog */}
       <Dialog
@@ -750,14 +839,14 @@ export default function ProjectTrackingDetailPage() {
                     <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50/90 text-amber-900 text-xs mt-1.5">
                       <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                       <span>
-                        This report brings total expenditure to <strong className="font-mono">ETB {projectedTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>, exceeding the award budget by <strong className="font-mono text-rose-700">ETB {projectedOverrun.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>.
+                        This report brings total expenditure to <strong className="font-mono">{formatCurrency(projectedTotal)}</strong>, exceeding the award budget by <strong className="font-mono text-rose-700">{formatCurrency(projectedOverrun)}</strong>.
                       </span>
                     </div>
                   );
                 }
                 return (
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Projected total after this report: <span className="font-mono font-medium">ETB {projectedTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span> (Remaining: <span className="font-mono font-medium">ETB {Math.max(0, totalAward - projectedTotal).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>).
+                    Projected total after this report: <span className="font-mono font-medium">{formatCurrency(projectedTotal)}</span> (Remaining: <span className="font-mono font-medium">{formatCurrency(Math.max(0, totalAward - projectedTotal))}</span>).
                   </p>
                 );
               })()}
@@ -827,7 +916,6 @@ export default function ProjectTrackingDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  </PageContainer>
+    </PageContainer>
   );
 }
