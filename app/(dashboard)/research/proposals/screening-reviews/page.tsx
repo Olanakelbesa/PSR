@@ -112,9 +112,9 @@ const QUEUE_FILTER_COPY: Record<
   screening_rejected: {
     banner:
       "Showing proposals that did not pass the initial screening process.",
-    emptyTitle: "No rejected proposals",
+    emptyTitle: "No not accepted proposals",
     emptyDescription: "There are no proposals that failed screening.",
-    searchPlaceholder: "Search rejected proposals...",
+    searchPlaceholder: "Search not accepted proposals...",
   },
 };
 
@@ -142,7 +142,7 @@ const statusConfig: Record<
     icon: CheckCircle2,
   },
   screening_rejected: {
-    label: "Screening Rejected",
+    label: "Screening Not Accepted",
     variant: "destructive",
     icon: XCircle,
   },
@@ -152,7 +152,7 @@ const statusConfig: Record<
     icon: ClipboardCheck,
   },
   approved: { label: "Approved", variant: "secondary", icon: CheckCircle2 },
-  rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
+  rejected: { label: "Not Accepted", variant: "destructive", icon: XCircle },
   revision_requested: {
     label: "Revision Requested",
     variant: "outline",
@@ -509,7 +509,7 @@ export default function ScreeningReviewsPage() {
   const searchParams = useSearchParams();
 
   const initialQueue = ((): ScreeningQueueFilter => {
-    const param = searchParams.get("queue");
+    const param = searchParams?.get("queue");
     if (param && VALID_QUEUE_KEYS.includes(param)) {
       return param as ScreeningQueueFilter;
     }
@@ -797,7 +797,7 @@ export default function ScreeningReviewsPage() {
     },
     {
       key: "screening_rejected",
-      label: "Screening Rejected",
+      label: "Screening Not Accepted",
       value: statistics.rejected,
       icon: <XCircle className="h-4 w-4 text-red-500" />,
       iconBg: "bg-red-100",
@@ -977,7 +977,7 @@ export default function ScreeningReviewsPage() {
                         },
                         {
                           value: "screening_rejected",
-                          label: "Screening Rejected",
+                          label: "Screening Not Accepted",
                         },
                       ],
                     },

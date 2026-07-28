@@ -108,9 +108,9 @@ function formatApiError(error: any, fallback: string) {
 export default function AssignReviewersDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const screeningId = Array.isArray(params.id)
+  const screeningId = Array.isArray(params?.id)
     ? params.id[0]
-    : String(params.id || "");
+    : String(params?.id || "");
 
   const [screening, setScreening] = useState<Screening | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);

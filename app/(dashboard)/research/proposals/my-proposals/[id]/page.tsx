@@ -85,8 +85,8 @@ const STATUS_DISPLAY: Record<
   screening_under_review: { label: "Screening Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
   approved: { label: "Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   screening_approved: { label: "Screening Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
-  screening_rejected: { label: "Screening Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  rejected: { label: "Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  screening_rejected: { label: "Screening Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
   revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
   revision_required: { label: "Revision Required", className: "bg-orange-100 text-orange-700 border-orange-200" },
   protocol_stage: { label: "Protocol Stage", className: "bg-violet-100 text-violet-700 border-violet-200" },
@@ -195,9 +195,9 @@ export default function ProposalDetailPage() {
   const { user: currentUser } = useCurrentUser();
 
   const proposalId = useMemo(() => {
-    const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id;
     return rawId ? String(rawId) : "";
-  }, [params.id]);
+  }, [params?.id]);
 
   const [proposal, setProposal] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -266,14 +266,14 @@ export default function ProposalDetailPage() {
       const statusLabels: Record<string, string> = {
         screening_under_review: "Screening Under Review",
         screening_approved: "Screening Approved",
-        screening_rejected: "Screening Rejected",
+        screening_rejected: "Screening Not Accepted",
         resubmitted: "Resubmitted",
         submitted: "Submitted",
         revision_requested: "Revision Requested",
         revision_required: "Revision Required",
         protocol_stage: "Protocol Stage",
         approved: "Approved",
-        rejected: "Rejected",
+        rejected: "Not Accepted",
       };
       reviewTimeline.push({
         action: statusLabels[detail.status] || `Status: ${detail.status}`,

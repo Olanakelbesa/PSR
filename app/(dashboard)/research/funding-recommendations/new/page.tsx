@@ -241,11 +241,16 @@ export default function NewFundingRecommendationPage() {
       }
 
       // Auto pre-populate ethical clearance approval:
-      // True if IRB is not required, OR if IRB is required and status is 'approved'
+      // True if IRB is not required, OR if post-funding IRB is allowed, OR if status is 'approved'
       const needsIrb = Boolean(
         candidate.needIrbEthicalClearance ??
         candidate.need_irb_ethical_clearance ??
         false
+      );
+      const allowPostFunding = Boolean(
+        candidate.allowPostFundingIrb ??
+        candidate.allow_post_funding_irb ??
+        candidate.ethicalClearanceRequirement === "required_post_funding"
       );
       const ethicalStatus = String(
         candidate.ethicalClearanceStatus ??
@@ -253,7 +258,7 @@ export default function NewFundingRecommendationPage() {
         ""
       ).toLowerCase();
 
-      const isEthicalApproved = !needsIrb || ethicalStatus === "approved";
+      const isEthicalApproved = !needsIrb || allowPostFunding || ethicalStatus === "approved";
       form.setValue("has_ethical_clearance_approval", isEthicalApproved);
     }
   }, [selectedProposalId, candidates, form]);
@@ -423,6 +428,11 @@ export default function NewFundingRecommendationPage() {
                         selectedCandidate?.need_irb_ethical_clearance ??
                         false
                       );
+                      const allowPostFunding = Boolean(
+                        selectedCandidate?.allowPostFundingIrb ??
+                        selectedCandidate?.allow_post_funding_irb ??
+                        selectedCandidate?.ethicalClearanceRequirement === "required_post_funding"
+                      );
                       const ethicalStatus = String(
                         selectedCandidate?.ethicalClearanceStatus ??
                         selectedCandidate?.ethical_clearance_status ??
@@ -443,6 +453,11 @@ export default function NewFundingRecommendationPage() {
                                 ) : !needsIrb ? (
                                   <span className="text-emerald-700 font-semibold">
                                     IRB Clearance Not Required
+                                  </span>
+                                ) : allowPostFunding ? (
+                                  <span className="text-blue-700 font-semibold flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    IRB Required (Allowed Post-Funding — Pending IRB Status)
                                   </span>
                                 ) : ethicalStatus === "approved" ? (
                                   <span className="text-emerald-700 font-semibold">

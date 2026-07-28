@@ -91,8 +91,8 @@ const STATUS_DISPLAY: Record<
   screening_under_review: { label: "Screening Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
   approved: { label: "Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   screening_approved: { label: "Screening Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
-  screening_rejected: { label: "Screening Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  rejected: { label: "Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  screening_rejected: { label: "Screening Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
   revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
   revision_required: { label: "Revision Required", className: "bg-orange-100 text-orange-700 border-orange-200" },
 };
@@ -256,14 +256,15 @@ function groupResponsesByCategory(
 
 // ── Page Component ────────────────────────────────────────────────────────────
 export default function AssignReviewersDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : undefined;
   const router = useRouter();
   const screeningId = useMemo(() => {
     const rawId = Array.isArray(id) ? id[0] : id;
     return rawId ? String(rawId) : "";
   }, [id]);
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab");
+  const tabParam = searchParams?.get("tab");
   const [activeTab, setActiveTab] = useState<string>(tabParam || "overview");
 
   useEffect(() => {

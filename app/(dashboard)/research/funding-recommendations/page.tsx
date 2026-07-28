@@ -403,6 +403,12 @@ export default function FundingRecommendationsPage() {
         raw.needIrbEthicalClearance ?? raw.need_irb_ethical_clearance,
       );
 
+      const allowPostFundingIrb = Boolean(
+        raw.allowPostFundingIrb ??
+        raw.allow_post_funding_irb ??
+        raw.ethicalClearanceRequirement === "required_post_funding"
+      );
+
       const rawEthicalStatus = String(
         raw.ethicalClearanceStatus ?? raw.ethical_clearance_status ?? "",
       ) || null;
@@ -414,14 +420,17 @@ export default function FundingRecommendationsPage() {
 
       const isEthicsCleared =
         !needIrbEthicalClearance ||
+        allowPostFundingIrb ||
         hasRecommendationEthicsApproval ||
         rawEthicalStatus === "approved";
 
       const ethicalClearanceStatus = !needIrbEthicalClearance
         ? "not_required"
-        : isEthicsCleared
-          ? "approved"
-          : rawEthicalStatus || "pending_submission";
+        : allowPostFundingIrb && rawEthicalStatus !== "approved"
+          ? "pending_post_funding"
+          : isEthicsCleared
+            ? "approved"
+            : rawEthicalStatus || "pending_submission";
 
       return {
         id: `pipeline-${String(raw.screeningId ?? raw.screening_id ?? item.rank)}`,

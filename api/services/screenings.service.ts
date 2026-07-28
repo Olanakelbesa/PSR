@@ -227,6 +227,11 @@ const ApprovedPendingFundingPrincipalInvestigatorSchema = z.object({
   lastName: z.string().optional().default(""),
   email: z.string().optional().default(""),
   phone: z.string().optional().default(""),
+  photoUrl: z.string().nullable().optional(),
+  photo_url: z.string().nullable().optional(),
+  photo: z.string().nullable().optional(),
+  avatarUrl: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
 });
 
 const ApprovedPendingFundingAttachmentSchema = z.object({

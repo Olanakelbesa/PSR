@@ -138,7 +138,7 @@ const statusConfig: Record<
   resubmitted: { label: "Resubmitted", variant: "default", icon: RefreshCw },
   under_review: { label: "Under Review", variant: "outline", icon: Clock },
   approved: { label: "Approved", variant: "default", icon: CheckCircle2 },
-  rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
+  rejected: { label: "Not Accepted", variant: "destructive", icon: XCircle },
   contracted: { label: "Contracted", variant: "default", icon: CheckCircle2 },
   in_progress: { label: "In Progress", variant: "outline", icon: Clock },
   completed: { label: "Completed", variant: "default", icon: CheckCircle2 },
@@ -169,7 +169,7 @@ const statusConfig: Record<
     icon: CheckCircle2,
   },
   screening_rejected: {
-    label: "Screening Rejected",
+    label: "Screening Not Accepted",
     variant: "destructive",
     icon: XCircle,
   },
@@ -525,7 +525,7 @@ export default function ProposalsPage() {
   );
 
   const initialQueue = ((): ManageQueueFilter => {
-    const param = searchParams.get("queue");
+    const param = searchParams?.get("queue");
     if (
       param &&
       VALID_QUEUE_KEYS.includes(param)

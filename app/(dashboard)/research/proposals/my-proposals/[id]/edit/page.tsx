@@ -6,9 +6,9 @@ import { ProposalWizard } from "@/components/research/proposal/ProposalWizard";
 export default function EditProposalPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
-  const proposalId = searchParams.get("edit") ?? params?.id;
-  const callId = searchParams.get("callId") ?? undefined;
-  const isResubmitMode = searchParams.get("mode") === "resubmit";
+  const proposalId = searchParams?.get("edit") ?? params?.id;
+  const callId = searchParams?.get("callId") ?? undefined;
+  const isResubmitMode = searchParams?.get("mode") === "resubmit";
 
   return (
     <div className="space-y-8 rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm backdrop-blur sm:p-8">

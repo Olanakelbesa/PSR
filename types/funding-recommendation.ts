@@ -59,10 +59,14 @@ export interface FundingRecommendationCandidate {
   fundingDecisionId: number | null;
   fundingRemark?: string | null;
   needIrbEthicalClearance?: boolean;
+  allowPostFundingIrb?: boolean;
+  allow_post_funding_irb?: boolean;
+  ethicalClearanceRequirement?: string | null;
   fundingDecisionStatus?:
     | "pending"
     | "approved"
     | "rejected"
+    | "not_accepted"
     | "deferred"
     | null;
   ethicalClearanceId?: number | null;

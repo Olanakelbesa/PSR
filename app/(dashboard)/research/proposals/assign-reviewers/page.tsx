@@ -644,7 +644,7 @@ export default function AssignReviewersPage() {
   const { hasPermission } = useCurrentUser();
 
   const initialQueue = ((): AssignQueueFilter => {
-    const param = searchParams.get("queue");
+    const param = searchParams?.get("queue");
     if (param && VALID_QUEUE_KEYS.includes(param)) {
       return param as AssignQueueFilter;
     }

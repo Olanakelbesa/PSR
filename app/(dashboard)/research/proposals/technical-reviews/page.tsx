@@ -92,10 +92,10 @@ const QUEUE_FILTER_COPY: Record<
   screening_rejected: {
     banner:
       "Showing reviews for proposals that did not pass screening.",
-    emptyTitle: "No rejected screening reviews",
+    emptyTitle: "No not accepted screening reviews",
     emptyDescription:
-      "There are no reviews for screening-rejected proposals.",
-    searchPlaceholder: "Search rejected reviews...",
+      "There are no reviews for screening not-accepted proposals.",
+    searchPlaceholder: "Search not accepted reviews...",
   },
 };
 
@@ -133,7 +133,7 @@ const proposalStatusConfig: Record<
     icon: Microscope,
   },
   screening_rejected: {
-    label: "Screening Rejected",
+    label: "Screening Not Accepted",
     variant: "destructive",
     icon: XCircle,
   },
@@ -377,7 +377,7 @@ export default function TechnicalReviewsPage() {
   const searchParams = useSearchParams();
 
   const initialQueue = (() => {
-    const param = searchParams.get("queue");
+    const param = searchParams?.get("queue");
     if (param && VALID_QUEUE_KEYS.includes(param)) {
       return param as ReviewQueueFilter;
     }
@@ -436,7 +436,6 @@ export default function TechnicalReviewsPage() {
         page: 1,
         limit: 100,
         ordering: "-id",
-        all: "true",
       });
       setReviews((response.data || []).map(mapToReviewRow));
     } catch (error: any) {
@@ -531,7 +530,7 @@ export default function TechnicalReviewsPage() {
     },
     {
       key: "screening_rejected",
-      label: "Screening Rejected",
+      label: "Screening Not Accepted",
       value: statistics.screeningRejected,
       icon: <XCircle className="h-4 w-4 text-red-500" />,
       iconBg: "bg-red-100",
@@ -724,7 +723,7 @@ export default function TechnicalReviewsPage() {
                         },
                         {
                           value: "screening_rejected",
-                          label: "Screening Rejected",
+                          label: "Screening Not Accepted",
                         },
                       ],
                     },

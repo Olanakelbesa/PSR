@@ -112,8 +112,8 @@ const STATUS_DISPLAY: Record<
   screening_under_review: { label: "Screening Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
   approved: { label: "Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   screening_approved: { label: "Screening Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
-  screening_rejected: { label: "Screening Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  rejected: { label: "Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  screening_rejected: { label: "Screening Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
   revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
 };
 
@@ -213,7 +213,8 @@ function EmbeddedViewer({ url, title }: { url: string; title: string }) {
 
 // ── Page Component ────────────────────────────────────────────────────────────
 export default function ScreeningDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : undefined;
   const router = useRouter();
   const [proposal, setProposal] = useState<any>(null);
   const [screeningId, setScreeningId] = useState<string | null>(null);
@@ -301,7 +302,7 @@ export default function ScreeningDetailPage() {
       const statusLabels: Record<string, string> = {
         screening_under_review: "Screening Under Review",
         screening_approved: "Screening Approved",
-        screening_rejected: "Screening Rejected",
+        screening_rejected: "Screening Not Accepted",
         resubmitted: "Resubmitted",
         submitted: "Submitted",
       };
@@ -1478,7 +1479,7 @@ export default function ScreeningDetailPage() {
                 {recommendation === "under_review" &&
                   "This proposal will remain under screening review for further evaluation."}
                 {recommendation === "reject" &&
-                  "This proposal will be rejected and the submitter will be notified."}
+                  "This proposal will be marked as Not Accepted and the submitter will be notified."}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -1486,43 +1487,56 @@ export default function ScreeningDetailPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <div className="p-6 space-y-5 bg-background">
-                {/* Decision Select */}
+                {/* Decision Choice Buttons */}
                 <FormField
                   control={form.control}
                   name="recommendation"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="space-y-2">
                       <FormLabel className="text-sm font-semibold">Decision</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder="Select a decision" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="approve" className="py-2.5">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                              <span>Approve</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="under_review" className="py-2.5">
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-amber-600" />
-                              <span>Under Review</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="reject" className="py-2.5">
-                            <div className="flex items-center gap-2">
-                              <AlertCircle className="h-4 w-4 text-red-600" />
-                              <span>Reject</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("approve")}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 gap-1.5 cursor-pointer text-center group",
+                            field.value === "approve"
+                              ? "border-emerald-600 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold shadow-xs ring-1 ring-emerald-500/30"
+                              : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-border"
+                          )}
+                        >
+                          <CheckCircle2 className={cn("h-5 w-5 transition-transform duration-200 group-hover:scale-110", field.value === "approve" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")} />
+                          <span className="text-xs font-semibold">Approve</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("under_review")}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 gap-1.5 cursor-pointer text-center group",
+                            field.value === "under_review"
+                              ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold shadow-xs ring-1 ring-amber-500/30"
+                              : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-border"
+                          )}
+                        >
+                          <Clock className={cn("h-5 w-5 transition-transform duration-200 group-hover:scale-110", field.value === "under_review" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
+                          <span className="text-xs font-semibold">Under Review</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => field.onChange("reject")}
+                          className={cn(
+                            "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 gap-1.5 cursor-pointer text-center group",
+                            field.value === "reject"
+                              ? "border-rose-600 bg-rose-500/10 text-rose-700 dark:text-rose-400 font-bold shadow-xs ring-1 ring-rose-500/30"
+                              : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground hover:border-border"
+                          )}
+                        >
+                          <XCircle className={cn("h-5 w-5 transition-transform duration-200 group-hover:scale-110", field.value === "reject" ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")} />
+                          <span className="text-xs font-semibold">Not Accepted</span>
+                        </button>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

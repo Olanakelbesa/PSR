@@ -24,12 +24,15 @@ export interface ReadyForFundingItem {
   hasFundingDecision: boolean;
   fundingDecisionStatus: string | null;
   needIrbEthicalClearance: boolean;
+  allowPostFundingIrb?: boolean;
+  ethicalClearanceRequirement?: string | null;
   averageScore: number;
   averageScorePercentage: number;
   pi: {
     id: number;
     fullName: string;
     email: string;
+    photoUrl?: string | null;
   } | null;
 }
 
@@ -83,6 +86,10 @@ function transformApiResponse(data: any): ReadyForFundingItem {
     data.funding_decision_status ?? data.fundingDecisionStatus ?? null;
   const needIrbEthicalClearance =
     data.need_irb_ethical_clearance ?? data.needIrbEthicalClearance ?? false;
+  const allowPostFundingIrb =
+    data.allow_post_funding_irb ?? data.allowPostFundingIrb ?? false;
+  const ethicalClearanceRequirement =
+    data.ethical_clearance_requirement ?? data.ethicalClearanceRequirement ?? null;
   const averageScore = data.average_score ?? data.averageScore ?? 0;
   const averageScorePercentage =
     data.average_score_percentage ?? data.averageScorePercentage ?? 0;
@@ -109,6 +116,8 @@ function transformApiResponse(data: any): ReadyForFundingItem {
     hasFundingDecision,
     fundingDecisionStatus,
     needIrbEthicalClearance,
+    allowPostFundingIrb,
+    ethicalClearanceRequirement,
     averageScore: Number(averageScore),
     averageScorePercentage: Number(averageScorePercentage),
     pi: data.pi
@@ -116,6 +125,7 @@ function transformApiResponse(data: any): ReadyForFundingItem {
           id: Number(data.pi.id),
           fullName: data.pi.full_name ?? data.pi.fullName ?? "",
           email: data.pi.email ?? "",
+          photoUrl: data.pi.photo_url ?? data.pi.photoUrl ?? data.pi.photo ?? null,
         }
       : null,
   };
@@ -183,7 +193,9 @@ export const readyForFundingService = {
     payload: {
       Remark: string;
       need_irb_ethical_clearance?: boolean;
-      decision_status?: "pending" | "approved" | "rejected" | "deferred";
+      allow_post_funding_irb?: boolean;
+      ethical_clearance_requirement?: string;
+      decision_status?: "pending" | "approved" | "rejected" | "not_accepted" | "deferred";
     },
   ) {
     const res = await apiClient.post(
@@ -199,7 +211,9 @@ export const readyForFundingService = {
     payload: {
       Remark: string;
       need_irb_ethical_clearance?: boolean;
-      decision_status?: "pending" | "approved" | "rejected" | "deferred";
+      allow_post_funding_irb?: boolean;
+      ethical_clearance_requirement?: string;
+      decision_status?: "pending" | "approved" | "rejected" | "not_accepted" | "deferred";
       status?: string;
     },
   ) {

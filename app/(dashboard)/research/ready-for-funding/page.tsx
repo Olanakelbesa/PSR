@@ -3,7 +3,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, Table } from "@tanstack/react-table";
+import Link from "next/link";
+import { toast } from "sonner";
 import {
   MoreHorizontal,
   Eye,
@@ -17,10 +19,13 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCcw,
+  Check,
+  Copy,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageContainer } from "@/components/layout";
-import { DataTable } from "@/components/shared/data-table";
+import { DataTable, DataTableViewOptions } from "@/components/shared/data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Accordion,
@@ -48,6 +53,7 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   useOrganizations,
@@ -60,6 +66,77 @@ import {
   readyForFundingService,
   type ReadyForFundingItem,
 } from "@/api/services/ready-for-funding.service";
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function ReferenceCell({ refNum }: { refNum: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!refNum) return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success(`Reference ${refNum} copied to clipboard!`);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/60 hover:bg-muted text-[11px] font-mono text-muted-foreground border border-border/50 cursor-pointer group/ref transition-colors shrink-0"
+      onClick={handleCopy}
+      title="Click to copy reference number"
+    >
+      <span className="font-semibold text-foreground/80">{refNum}</span>
+      {copied ? (
+        <Check className="h-3 w-3 text-green-600 shrink-0" />
+      ) : (
+        <Copy className="h-3 w-3 text-muted-foreground/70 group-hover/ref:text-primary shrink-0" />
+      )}
+    </div>
+  );
+}
+
+function PiUserCell({ pi }: { pi: any }) {
+  const name = pi?.fullName || [pi?.first_name, pi?.last_name].filter(Boolean).join(" ") || "—";
+  const email = pi?.email || "";
+  const rawPhoto = pi?.photoUrl || pi?.photo_url || pi?.avatarUrl || pi?.photo || pi?.avatar;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+  const initials = getInitials(name);
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar className="h-8 w-8 border border-border shrink-0 shadow-2xs">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt={name} /> : null}
+        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary flex items-center justify-center size-full">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-semibold text-foreground truncate max-w-[160px]" title={name}>
+          {name}
+        </span>
+        {email && (
+          <span className="text-[11px] text-muted-foreground truncate max-w-[160px]" title={email}>
+            {email}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ============================================================================
 // Constants
@@ -340,9 +417,7 @@ export default function ReadyForFundingPage() {
           </Button>
         ),
         cell: ({ row }) => (
-          <span className="font-bold text-primary">
-            {row.original.referenceNumber}
-          </span>
+          <ReferenceCell refNum={row.original.referenceNumber || "—"} />
         ),
       },
       {
@@ -359,13 +434,13 @@ export default function ReadyForFundingPage() {
           </Button>
         ),
         cell: ({ row }) => (
-          <div className="min-w-[200px] max-w-[360px] py-1">
-            <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+          <div className="min-w-[220px] max-w-[380px] py-1">
+            <Link
+              href={`/research/ready-for-funding/${row.original.screeningId}`}
+              className="line-clamp-2 text-sm font-semibold leading-snug text-foreground hover:text-primary transition-colors"
+            >
               {row.original.proposalTitle}
-            </p>
-            <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
-              {row.original.organization || "—"}
-            </p>
+            </Link>
           </div>
         ),
       },
@@ -410,16 +485,7 @@ export default function ReadyForFundingPage() {
       {
         accessorKey: "pi",
         header: "PI",
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="text-sm font-bold">
-              {row.original.pi?.fullName || "—"}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {row.original.pi?.email || ""}
-            </span>
-          </div>
-        ),
+        cell: ({ row }) => <PiUserCell pi={row.original.pi} />,
       },
       {
         accessorKey: "budgetRequested",
@@ -474,18 +540,19 @@ export default function ReadyForFundingPage() {
         ),
         cell: ({ row }) => {
           const status = row.original.fundingDecisionStatus || "pending";
+          const isNotAccepted = status === "rejected" || status === "not_accepted";
           return (
             <Badge
               className={cn(
-                "text-[10px] font-bold",
+                "text-[10px] font-bold capitalize",
                 status === "approved"
                   ? "border border-green-200 bg-green-100 text-green-700 hover:bg-green-100"
-                  : status === "rejected"
+                  : isNotAccepted
                     ? "border border-red-200 bg-red-100 text-red-700 hover:bg-red-100"
                     : "border border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-100",
               )}
             >
-              {status.replace(/_/g, " ")}
+              {isNotAccepted ? "Not Accepted" : status.replace(/_/g, " ")}
             </Badge>
           );
         },
@@ -528,8 +595,8 @@ export default function ReadyForFundingPage() {
   );
 
   // --- Toolbar ---
-  const toolbar = useMemo(
-    () => (
+  const renderToolbar = useCallback(
+    (table: Table<ReadyForFundingItem>) => (
       <div className="flex flex-col gap-4 bg-card p-4 rounded-xl border shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -580,10 +647,11 @@ export default function ReadyForFundingPage() {
                 <SelectItem value={ALL_VALUE}>All decisions</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="deferred">Deferred</SelectItem>
+                <SelectItem value="rejected">Not Accepted</SelectItem>
               </SelectContent>
             </Select>
+
+            <DataTableViewOptions table={table} />
 
             {activeFilterCount > 0 && (
               <>
@@ -818,7 +886,8 @@ export default function ReadyForFundingPage() {
           <DataTable
             columns={columns}
             data={rows}
-            toolbar={toolbar}
+            toolbar={renderToolbar}
+            initialColumnVisibility={{ referenceNumber: false }}
             onRowClick={(row) =>
               router.push(`/research/ready-for-funding/${row.screeningId}`)
             }

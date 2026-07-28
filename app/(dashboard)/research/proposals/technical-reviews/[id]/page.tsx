@@ -60,8 +60,8 @@ const STATUS_DISPLAY: Record<
   screening_under_review: { label: "Screening Under Review", className: "bg-amber-100 text-amber-700 border-amber-200" },
   approved: { label: "Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   screening_approved: { label: "Screening Approved", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
-  screening_rejected: { label: "Screening Rejected", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  rejected: { label: "Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
+  screening_rejected: { label: "Screening Not Accepted", className: "bg-rose-100 text-rose-700 border-rose-200" },
   revision_requested: { label: "Revision Requested", className: "bg-amber-50 text-amber-600 border-amber-200" },
   revision_required: { label: "Revision Required", className: "bg-orange-100 text-orange-700 border-orange-200" },
   protocol_stage: { label: "Protocol Stage", className: "bg-violet-100 text-violet-700 border-violet-200" },
@@ -161,7 +161,8 @@ type GroupedCategoryResponse = {
 };
 
 export default function TechnicalReviewDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : undefined;
   const router = useRouter();
   const [review, setReview] = useState<IndividualReviewDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);

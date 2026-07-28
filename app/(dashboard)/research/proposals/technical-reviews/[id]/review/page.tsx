@@ -197,7 +197,8 @@ function ReviewQuestionRow({
 }
 
 export default function TechnicalReviewPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : undefined;
   const router = useRouter();
 
   const { data: questionsRes, isLoading: qLoading } = useReviewQuestions();

@@ -12,6 +12,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  Table,
 } from "@tanstack/react-table";
 import {
   ChevronDown,
@@ -104,11 +105,64 @@ interface DataTableProps<TData, TValue> {
   selectedActions?: React.ReactNode;
   emptyMessage?: string;
   emptyDescription?: string;
-  toolbar?: React.ReactNode;
+  toolbar?: React.ReactNode | ((table: Table<TData>) => React.ReactNode);
   initialColumnVisibility?: VisibilityState;
   initialColumnFilters?: ColumnFiltersState;
   showRowNumber?: boolean;
   rowNumberLabel?: string;
+}
+
+export function DataTableViewOptions<TData>({
+  table,
+  className,
+}: {
+  table: Table<TData>;
+  className?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("h-10 shrink-0 border-muted-foreground/20 bg-background hover:bg-muted/50", className)}
+        >
+          <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          View
+          <ChevronDown className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[200px]">
+        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Toggle Columns</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {table
+          .getAllColumns()
+          .filter((column) => column.getCanHide())
+          .map((column) => {
+            let label = column.id.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim();
+            if (column.id === "rowNumber") label = "No.";
+            if (column.id === "referenceNumber") label = "Reference Number";
+            if (column.id === "proposalTitle") label = "Proposal Title";
+            if (column.id === "proposalType") label = "Research Type";
+            if (column.id === "pi") label = "Principal Investigator (PI)";
+            if (column.id === "budgetRequested") label = "Budget Requested";
+            if (column.id === "averageScorePercentage") label = "Score Percentage";
+            if (column.id === "fundingDecisionStatus") label = "Decision Status";
+
+            return (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                className="capitalize text-xs"
+                checked={column.getIsVisible()}
+                onCheckedChange={(value) => column.toggleVisibility(!!value)}
+              >
+                {label}
+              </DropdownMenuCheckboxItem>
+            );
+          })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function DataTable<TData, TValue>({
@@ -277,10 +331,12 @@ export function DataTable<TData, TValue>({
     </DropdownMenu>
   );
 
+  const renderedToolbar = typeof toolbar === "function" ? toolbar(table) : toolbar;
+
   return (
     <div className="space-y-4 w-full max-w-full">
-      {toolbar ? (
-        toolbar
+      {renderedToolbar ? (
+        renderedToolbar
       ) : (
         <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

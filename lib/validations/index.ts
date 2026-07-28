@@ -176,7 +176,7 @@ export const userSchema = z.object({
     "system_admin",
     "psr_officer",
     "leo_officer",
-     "user",
+    "user",
     "roc_reviewer",
     "director",
     "institutional_partner",
@@ -465,13 +465,13 @@ export const fundingDecisionSchema = z.object({
   fundingDecision: z
     .string()
     .min(1, "Funding decision is required")
-    .refine((value) => ["approved", "deferred", "rejected"].includes(value), {
+    .refine((value) => ["approved", "rejected", "not_accepted"].includes(value), {
       message: "Select a valid funding decision",
     }),
   requiresEthicalClearance: z
     .string()
     .min(1, "Ethical clearance requirement is required")
-    .refine((value) => value === "yes" || value === "no", {
+    .refine((value) => ["yes", "no", "required_post_funding"].includes(value), {
       message: "Select whether ethical clearance is required",
     }),
   committeeRemarks: z
