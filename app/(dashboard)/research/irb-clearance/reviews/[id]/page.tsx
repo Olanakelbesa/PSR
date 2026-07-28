@@ -1,34 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   ArrowLeft,
+  BadgeCheck,
+  Building2,
+  Calendar,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
+  Download,
   Eye,
+  FileCheck2,
   FileText,
+  FolderOpen,
   Loader2,
   MessageSquare,
-  Send,
-  ShieldCheck,
-  XCircle,
-  RefreshCcw,
-  Download,
   Paperclip,
-  AlertCircle,
+  RefreshCcw,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  User,
+  XCircle,
 } from "lucide-react";
+
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -40,14 +45,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
 import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
-import { downloadConceptNoteAttachment } from "@/lib/utils/concept-note-attachments";
+import { downloadConceptNoteAttachment, getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 import {
   useEthicalClearance,
   useReviewIRBClearance,
 } from "@/lib/queries/ethical-clearance";
+import { useProposal } from "@/lib/queries/proposals";
 import type { IRBClearanceStatus } from "@/types/ethical-clearance";
 
 const statusConfig: Record<
@@ -56,33 +67,33 @@ const statusConfig: Record<
 > = {
   pending_submission: {
     label: "Pending Submission",
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     icon: Clock,
-    description: "The applicant has not yet submitted this clearance for review.",
+    description: "The applicant has not yet completed and submitted this clearance for review.",
   },
   pending_review: {
     label: "Pending Review",
-    className: "bg-blue-100 text-blue-700 border-blue-200",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800",
     icon: ShieldCheck,
-    description: "This application is ready for IRB review.",
+    description: "This application is ready for IRB Ethics Committee evaluation and review decision.",
   },
   approved: {
     label: "Approved",
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
     icon: CheckCircle2,
-    description: "This clearance has been approved. No further action required.",
+    description: "This IRB ethical clearance has been approved and officially granted.",
   },
   rejected: {
     label: "Rejected",
-    className: "bg-rose-100 text-rose-700 border-rose-200",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
     icon: XCircle,
-    description: "This clearance was rejected. The applicant may resubmit.",
+    description: "This application was rejected by the IRB committee. The applicant may resubmit.",
   },
   resubmitted: {
     label: "Resubmitted",
-    className: "bg-violet-100 text-violet-700 border-violet-200",
+    className: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800",
     icon: RefreshCcw,
-    description: "This application has been resubmitted. Awaiting review.",
+    description: "The applicant has resubmitted this application for committee re-evaluation.",
   },
 };
 
@@ -91,27 +102,96 @@ const DECISION_OPTIONS = [
     value: "approved" as const,
     icon: CheckCircle2,
     label: "Approve",
-    description: "Clear the application",
+    description: "Grant clearance approval",
     selectedBorder: "border-emerald-500",
-    selectedBg: "bg-emerald-50",
+    selectedBg: "bg-emerald-50 dark:bg-emerald-950/30",
     selectedRing: "ring-emerald-500/25",
-    selectedText: "text-emerald-700",
+    selectedText: "text-emerald-700 dark:text-emerald-300",
     iconColor: "text-emerald-600",
-    iconBg: "bg-emerald-100",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
   },
   {
     value: "rejected" as const,
     icon: AlertCircle,
     label: "Reject",
-    description: "Decline the application",
+    description: "Decline application clearance",
     selectedBorder: "border-red-500",
-    selectedBg: "bg-red-50",
+    selectedBg: "bg-red-50 dark:bg-red-950/30",
     selectedRing: "ring-red-500/25",
-    selectedText: "text-red-700",
+    selectedText: "text-red-700 dark:text-red-300",
     iconColor: "text-red-600",
-    iconBg: "bg-red-100",
+    iconBg: "bg-red-100 dark:bg-red-900/40",
   },
 ];
+
+function formatDateTime(dateStr?: string | null) {
+  if (!dateStr) return "—";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function EmbeddedViewer({ url, title }: { url: string; title: string }) {
+  if (!url) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center bg-card">
+        <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
+        <p className="font-medium text-muted-foreground text-sm">No document available for preview</p>
+      </div>
+    );
+  }
+
+  const resolvedUrl = resolveFileUrl(url) || url;
+  const kind = getConceptNoteAttachmentKind(resolvedUrl);
+
+  if (kind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 shadow-xs bg-card">
+        <PdfViewer url={resolvedUrl} title={title} className="h-[650px] w-full" />
+      </div>
+    );
+  }
+
+  if (kind === "word") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-primary/20 bg-[#ededed] dark:bg-muted/30 shadow-xs">
+        <WordViewer url={resolvedUrl} title={title} className="h-[650px] w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 rounded-xl border bg-card p-12 text-center shadow-xs">
+      <FileText className="h-10 w-10 text-primary" />
+      <div>
+        <p className="font-semibold text-foreground text-sm">{title}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          This document type cannot be embedded directly in the browser preview.
+        </p>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-xs"
+        onClick={() => downloadConceptNoteAttachment(resolvedUrl, title)}
+      >
+        <Download className="mr-2 h-3.5 w-3.5" />
+        Download File
+      </Button>
+    </div>
+  );
+}
 
 export default function ReviewDetailPage() {
   const params = useParams();
@@ -121,6 +201,19 @@ export default function ReviewDetailPage() {
 
   const { data: clearance, isLoading } = useEthicalClearance(clearanceId);
   const reviewMutation = useReviewIRBClearance();
+
+  const proposalIdStr = clearance?.proposal
+    ? String(clearance.proposal)
+    : clearance?.proposalId
+      ? String(clearance.proposalId)
+      : "";
+  const { data: proposalDetail } = useProposal(proposalIdStr);
+
+  const [copiedRef, setCopiedRef] = useState(false);
+  const [viewerDocument, setViewerDocument] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewDecision, setReviewDecision] = useState<
@@ -136,12 +229,33 @@ export default function ReviewDetailPage() {
   const cfg =
     statusConfig[status ?? "pending_submission"] ??
     statusConfig.pending_submission;
+  const StatusIcon = cfg.icon;
 
-  const showReviewButton = status === "pending_review";
+  const showReviewButton = status !== "pending_submission";
+  const isAlreadyReviewed = status === "approved" || status === "rejected";
+  const reviewButtonLabel = isAlreadyReviewed
+    ? "Edit Review Decision"
+    : "Submit Review Decision";
 
-  const handleOpenReviewModal = () => {
-    setReviewDecision("");
-    setReviewComments("");
+  const handleCopyRef = () => {
+    if (!clearance) return;
+    const refText = clearance.referenceNumber || `IRB-${clearance.id}`;
+    navigator.clipboard.writeText(refText);
+    setCopiedRef(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopiedRef(false), 2000);
+  };
+
+  const handleOpenReviewModal = (overrideDecision?: string, overrideComments?: string) => {
+    const latestReview = clearance?.reviews && clearance.reviews.length > 0 ? clearance.reviews[0] : null;
+    const initialDecision =
+      overrideDecision ||
+      latestReview?.decision ||
+      (status === "approved" || status === "rejected" ? status : "");
+    const initialComments = overrideComments ?? latestReview?.comments ?? "";
+
+    setReviewDecision((initialDecision as "approved" | "rejected" | "") || "");
+    setReviewComments(initialComments);
     setFormErrors({});
     setIsReviewModalOpen(true);
   };
@@ -165,7 +279,9 @@ export default function ReviewDetailPage() {
       {
         onSuccess: () => {
           toast.success(
-            reviewDecision === "approved"
+            isAlreadyReviewed
+              ? "Review decision updated successfully."
+              : reviewDecision === "approved"
               ? "Clearance approved successfully."
               : "Clearance rejected successfully.",
           );
@@ -190,20 +306,97 @@ export default function ReviewDetailPage() {
     );
   };
 
-  const [viewerDocument, setViewerDocument] = useState<{
-    url: string;
-    title: string;
-  } | null>(null);
+  const documentList = useMemo(() => {
+    if (!clearance) return [];
+    const list: { key: string; label: string; filePath?: string | null; filename?: string }[] = [];
 
-  const resolvedClearanceUrl = clearance?.files?.clearanceFile
-    ? resolveFileUrl(clearance.files.clearanceFile)
-    : null;
+    // 1. Proposal File
+    const propFile =
+      (clearance as any).proposalFile ||
+      (clearance as any).proposal_file ||
+      proposalDetail?.proposalFile ||
+      (proposalDetail as any)?.proposal_file;
+    if (propFile) {
+      list.push({
+        key: "proposal-file",
+        label: "Proposal File",
+        filePath: propFile,
+        filename: "Proposal Document",
+      });
+    }
+
+    // 2. Clearance File
+    if (clearance.files?.clearanceFile || clearance.clearanceFile) {
+      list.push({
+        key: "clearance-file",
+        label: "Clearance File",
+        filePath: clearance.files?.clearanceFile || clearance.clearanceFile,
+        filename: "Clearance Document",
+      });
+    }
+
+    // 3. Proposal Attachments / Budget File
+    if (proposalDetail?.attachments && proposalDetail.attachments.length > 0) {
+      proposalDetail.attachments.forEach((att, idx) => {
+        const lower = (att.name || "").toLowerCase();
+        let label = `Supporting File ${idx + 1}`;
+        if (lower.includes("budget") || lower.includes("finance")) {
+          label = "Budget File";
+        } else if (lower.includes("proposal") && !list.some((d) => d.label === "Proposal File")) {
+          label = "Proposal File";
+        }
+        if (!list.some((item) => item.key === `prop-att-${att.id}`)) {
+          list.push({
+            key: `prop-att-${att.id}`,
+            label,
+            filePath: att.url,
+            filename: att.name,
+          });
+        }
+      });
+    }
+
+    // 4. IRB Supporting Documents
+    if (clearance.supportingDocuments && clearance.supportingDocuments.length > 0) {
+      clearance.supportingDocuments.forEach((doc, idx) => {
+        const lower = (doc.originalFilename || "").toLowerCase();
+        let label = `Supporting Document ${idx + 1}`;
+        if (lower.includes("proposal") || lower.includes("concept")) {
+          label = "Proposal File";
+        } else if (lower.includes("budget") || lower.includes("finance")) {
+          label = "Budget File";
+        }
+        if (!list.some((item) => item.key === `supporting-${doc.id}`)) {
+          list.push({
+            key: `supporting-${doc.id}`,
+            label,
+            filePath: doc.fileUrl,
+            filename: doc.originalFilename,
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [clearance, proposalDetail]);
+
+  const [activeDocKey, setActiveDocKey] = useState<string>("proposal-file");
+  const activeDoc = useMemo(() => {
+    return documentList.find((d) => d.key === activeDocKey) || documentList[0];
+  }, [documentList, activeDocKey]);
 
   if (isLoading) {
     return (
-      <PageContainer title="Review IRB Clearance">
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <PageContainer title="Loading IRB Review...">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-48 w-full rounded-xl" />
+          </div>
         </div>
       </PageContainer>
     );
@@ -211,397 +404,473 @@ export default function ReviewDetailPage() {
 
   if (!clearance) {
     return (
-      <PageContainer title="Review IRB Clearance">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground/50" />
-            <p className="font-semibold">Clearance record not found</p>
-            <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-            </Button>
+      <PageContainer
+        title="Review Not Found"
+        description="The requested IRB clearance application could not be loaded."
+        actions={
+          <Button variant="outline" onClick={() => router.push("/research/irb-clearance/reviews")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Reviews
+          </Button>
+        }
+      >
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="p-6 flex items-center gap-4">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <h3 className="font-bold text-amber-900 dark:text-amber-200">Clearance Record Unavailable</h3>
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                The IRB clearance application details could not be loaded. Please try again or contact support.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </PageContainer>
     );
   }
 
-  const hasReviews = clearance.reviews && clearance.reviews.length > 0;
+  const hasReviews = Boolean(clearance.reviews && clearance.reviews.length > 0);
 
   return (
     <PageContainer
-      title="Review IRB Clearance"
-      description={`${clearance.referenceNumber || ""} · ${clearance.proposalTitle || "Unknown Proposal"}`}
+      title={clearance.proposalTitle || "Review IRB Clearance Application"}
+      description={
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          <span className="text-xs font-semibold text-muted-foreground">Reference:</span>
+          <button
+            type="button"
+            onClick={handleCopyRef}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted font-mono text-xs font-bold text-foreground border border-border/60 transition-all duration-200 group cursor-pointer shadow-2xs hover:border-primary/40 active:scale-95"
+            title="Click to copy reference number"
+          >
+            <span>{clearance.referenceNumber || `IRB-${clearance.id}`}</span>
+            {copiedRef ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+            )}
+          </button>
+          <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border ml-1", cfg.className)}>
+            <StatusIcon className="h-3 w-3" />
+            {cfg.label}
+          </Badge>
+          {clearance.applicationDate && (
+            <span className="text-xs text-muted-foreground font-medium ml-1">
+              · Applied: {clearance.applicationDate}
+            </span>
+          )}
+        </div>
+      }
       actions={
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild className="shadow-sm">
+          <Button variant="outline" size="sm" asChild className="shadow-xs">
             <Link href="/research/irb-clearance/reviews">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Reviews
+              Back to Reviews
             </Link>
           </Button>
           {showReviewButton && (
-            <Button className="shadow-sm" onClick={handleOpenReviewModal}>
+            <Button size="sm" className="shadow-xs" onClick={() => handleOpenReviewModal()}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Review Decision
+              {reviewButtonLabel}
             </Button>
           )}
         </div>
       }
     >
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-        {/* ── Main content ─────────────────────────────────────────────── */}
-        <div className="space-y-6">
-          {/* Proposal info */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">
-                  Proposal Information
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Title
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {clearance.proposalTitle || "—"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Reference
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {clearance.referenceNumber || "—"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Principal Investigator
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {clearance.pi?.fullName || "—"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Institution
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {clearance.proposalInstitution || "—"}
-                  </p>
-                </div>
-              </div>
-              {clearance.proposalShortAbstract && (
-                <>
-                  <Separator />
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Abstract
-                    </p>
-                    <div
-                      className="text-sm leading-relaxed text-muted-foreground [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_em]:italic"
-                      dangerouslySetInnerHTML={{
-                        __html: clearance.proposalShortAbstract,
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Clearance details */}
-          <Card className="shadow-sm border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30 pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">
-                  Clearance Details
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Clearance Type
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {clearance.clearanceTypeName || "Not specified"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Application Date
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {clearance.applicationDate}
-                  </p>
-                </div>
-                {clearance.submittedBy && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Submitted By
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {clearance.submittedBy.fullName}
-                    </p>
-                  </div>
+      {/* ── Main Layout: Standard Grid 2-Column (Mirrored from Submissions Detail) ──────────────── */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Main Content Column */}
+        <div className="space-y-6 min-w-0">
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="w-full flex flex-wrap sm:flex-nowrap justify-start h-auto sm:h-11 bg-muted/60 p-1 border border-border/50 rounded-xl gap-1 overflow-x-auto">
+              <TabsTrigger value="overview" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <FileText className="h-3.5 w-3.5" />
+                Overview & Details
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <FolderOpen className="h-3.5 w-3.5" />
+                Uploaded Documents
+                {documentList.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
+                    {documentList.length}
+                  </Badge>
                 )}
-              </div>
-              {clearance.submissionNotes && (
-                <>
-                  <Separator />
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Submission Notes
-                    </p>
-                    <p className="text-sm leading-relaxed">
-                      {clearance.submissionNotes}
-                    </p>
-                  </div>
-                </>
-              )}
-              {resolvedClearanceUrl && (
-                <>
-                  <Separator />
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Clearance Document
-                    </p>
-                    <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">
-                        CLR
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          Clearance Document
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Uploaded clearance file
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 gap-1.5 px-2.5"
-                          onClick={() =>
-                            setViewerDocument({
-                              url: resolvedClearanceUrl,
-                              title: "Clearance Document",
-                            })
-                          }
-                          title="Preview"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="hidden sm:inline">Preview</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 gap-1.5 px-2.5"
-                          onClick={() =>
-                            downloadConceptNoteAttachment(
-                              resolvedClearanceUrl,
-                              "Clearance Document",
-                            )
-                          }
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+              </TabsTrigger>
+              <TabsTrigger value="reviews" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
+                <MessageSquare className="h-3.5 w-3.5" />
+                Review History
+                {(clearance.reviews?.length ?? 0) > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
+                    {clearance.reviews?.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Supporting documents */}
-          {clearance.supportingDocuments &&
-            clearance.supportingDocuments.length > 0 && (
-              <Card className="shadow-sm border-primary/10 overflow-hidden">
-                <CardHeader className="border-b bg-muted/30 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Paperclip className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">
-                      Supporting Documents
-                    </CardTitle>
-                  </div>
+            {/* ── Overview Tab Content ────────────────────────────────────────── */}
+            <TabsContent value="overview" className="pt-5 space-y-6">
+              {/* Proposal Information Card */}
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <FileText className="h-4.5 w-4.5 text-primary" />
+                    Proposal Information
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-4 space-y-2">
-                  {clearance.supportingDocuments.map((doc) => {
-                    const resolvedUrl = resolveFileUrl(doc.fileUrl);
-                    return (
-                    <div
-                      key={doc.id}
-                      className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">
-                        {doc.documentType === "clearance" ? "CLR" : "SUP"}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {doc.originalFilename}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {doc.fileSize
-                            ? doc.fileSize < 1024 * 1024
-                              ? `${(doc.fileSize / 1024).toFixed(1)} KB`
-                              : `${(doc.fileSize / (1024 * 1024)).toFixed(1)} MB`
-                            : ""}
-                          {doc.uploadedAt &&
-                            ` · Uploaded ${doc.uploadedAt}`}
-                        </p>
-                      </div>
-                      {resolvedUrl && (
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 gap-1.5 px-2.5"
-                            onClick={() =>
-                              setViewerDocument({
-                                url: resolvedUrl,
-                                title: doc.originalFilename,
-                              })
-                            }
-                            title="Preview"
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="hidden sm:inline">Preview</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 gap-1.5 px-2.5"
-                            onClick={() =>
-                              downloadConceptNoteAttachment(
-                                resolvedUrl,
-                                doc.originalFilename,
-                              )
-                            }
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                <CardContent className="pt-5 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Proposal Title
+                      </p>
+                      <p className="text-sm font-semibold leading-snug">
+                        {clearance.proposalTitle || "—"}
+                      </p>
                     </div>
-                    );
-                  })}
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Reference Number
+                      </p>
+                      <p className="text-sm font-semibold font-mono text-primary">
+                        {clearance.referenceNumber || "—"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Principal Investigator
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {clearance.pi?.fullName || "—"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Institution
+                      </p>
+                      <p className="text-sm font-semibold">
+                        {clearance.proposalInstitution || "—"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {clearance.proposalShortAbstract && (
+                    <>
+                      <Separator />
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Abstract Summary
+                        </p>
+                        <div
+                          className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-900/20 border p-4 rounded-xl [&_p]:mb-2 [&_p:last-child]:mb-0"
+                          dangerouslySetInnerHTML={{
+                            __html: clearance.proposalShortAbstract,
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
-            )}
 
-          {/* Reviews history */}
-          {hasReviews && (
-            <Card className="shadow-sm border-primary/10 overflow-hidden">
-              <CardHeader className="border-b bg-muted/30 pb-3">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-base">
-                    Review History
+              {/* Clearance Details & Notes Card */}
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <ShieldCheck className="h-4.5 w-4.5 text-primary" />
+                    Ethical Clearance Details
                   </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-3">
-                {clearance.reviews!.map((review) => (
-                  <div
-                    key={review.id}
-                    className="rounded-lg border border-border/60 bg-muted/20 p-3.5"
-                  >
-                    <div className="flex items-center justify-between">
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Clearance Type
+                      </p>
                       <p className="text-sm font-semibold">
-                        {review.reviewerName}
+                        {clearance.clearanceTypeName || "Standard IRB Clearance"}
                       </p>
-                      <Badge
-                        className={cn(
-                          "border px-2 text-[10px] font-bold uppercase shadow-none",
-                          review.decision === "approved"
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                            : "bg-rose-100 text-rose-700 border-rose-200",
-                        )}
-                      >
-                        {review.decision}
-                      </Badge>
                     </div>
-                    {review.comments && (
-                      <p className="mt-1.5 text-sm text-muted-foreground">
-                        {review.comments}
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Application Date
                       </p>
+                      <p className="text-sm font-semibold">
+                        {clearance.applicationDate || "—"}
+                      </p>
+                    </div>
+                    {clearance.submittedBy && (
+                      <div className="space-y-1 sm:col-span-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Submitted By
+                        </p>
+                        <p className="text-sm font-semibold">
+                          {clearance.submittedBy.fullName} ({clearance.submittedBy.email})
+                        </p>
+                      </div>
                     )}
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      {review.reviewedAt}
-                    </p>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+
+                  {clearance.submissionNotes && (
+                    <>
+                      <Separator />
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Submission Notes
+                        </p>
+                        <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-900/20 border p-4 rounded-xl whitespace-pre-line">
+                          {clearance.submissionNotes}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── Documents Tab Content ────────────────────────────────────────── */}
+            <TabsContent value="documents" className="pt-5 space-y-6">
+              {documentList.length > 0 ? (
+                <Card className="border border-muted-foreground/15 shadow-sm overflow-hidden">
+                  <CardHeader className="pb-3 border-b bg-slate-50/70 dark:bg-slate-900/40">
+                    <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-200">
+                      <FolderOpen className="h-5 w-5 text-primary" />
+                      Attached Clearance Files
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Preview attached ethics documents, proposal file, and supporting files inline.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-5 space-y-4">
+                    {/* Document Sub-navigation Pills */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-2.5 rounded-xl border border-border/60 shadow-2xs">
+                      <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg border border-border/50 w-full sm:w-auto">
+                        {documentList.map((doc) => {
+                          const isActive = doc.key === (activeDoc?.key || documentList[0]?.key);
+                          const resolved = resolveFileUrl(doc.filePath) || doc.filePath || "";
+                          const kind = getConceptNoteAttachmentKind(resolved);
+                          return (
+                            <Button
+                              key={doc.key}
+                              variant={isActive ? "default" : "ghost"}
+                              size="sm"
+                              className="h-8 text-xs font-semibold rounded-md gap-2"
+                              onClick={() => setActiveDocKey(doc.key)}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>{doc.label}</span>
+                              <Badge
+                                variant={isActive ? "secondary" : "outline"}
+                                className="text-[9px] uppercase px-1.5 py-0 font-bold"
+                              >
+                                {kind.toUpperCase()}
+                              </Badge>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Embedded Document Viewer */}
+                    {activeDoc?.filePath ? (
+                      <EmbeddedViewer
+                        url={activeDoc.filePath}
+                        title={activeDoc.label}
+                      />
+                    ) : (
+                      <div className="p-12 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                        <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                        <h3 className="font-bold text-muted-foreground text-sm">No Document Selected</h3>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-dashed py-16 text-center">
+                  <CardContent className="flex flex-col items-center justify-center gap-3">
+                    <FileText className="h-12 w-12 text-muted-foreground/30" />
+                    <p className="font-bold text-muted-foreground">No Protocol Files Attached</p>
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      No clearance certificates or supporting protocol documents were uploaded with this application.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* ── Review History Tab Content ──────────────────────────────────── */}
+            <TabsContent value="reviews" className="pt-5 space-y-6">
+              <Card className="border border-muted-foreground/15 shadow-sm">
+                <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30 flex flex-row items-center justify-between">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <MessageSquare className="h-4.5 w-4.5 text-primary" />
+                    IRB Ethics Committee Review Feedback
+                  </CardTitle>
+                  {showReviewButton && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold gap-1.5 shadow-2xs"
+                      onClick={() => handleOpenReviewModal()}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {reviewButtonLabel}
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent className="pt-5 space-y-4">
+                  {hasReviews ? (
+                    clearance.reviews!.map((review) => (
+                      <div
+                        key={review.id}
+                        className="rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/20 p-4 space-y-3"
+                      >
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7 border">
+                              <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                                {review.reviewerName?.slice(0, 2).toUpperCase() || "REV"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                              {review.reviewerName || "Committee Reviewer"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              className={cn(
+                                "border px-2 py-0.5 text-[10px] font-bold uppercase shadow-none",
+                                review.decision === "approved"
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200"
+                                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200",
+                              )}
+                            >
+                              {review.decision}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs font-semibold text-primary hover:bg-primary/10 gap-1 px-2.5 rounded-lg border border-primary/20"
+                              onClick={() => handleOpenReviewModal(review.decision, review.comments)}
+                            >
+                              Edit
+                            </Button>
+                          </div>
+                        </div>
+
+                        {review.comments && (
+                          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-background border p-3.5 rounded-lg whitespace-pre-line">
+                            {review.comments}
+                          </p>
+                        )}
+
+                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>Reviewed on: {formatDateTime(review.reviewedAt)}</span>
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                      <MessageSquare className="h-10 w-10 text-muted-foreground/30" />
+                      <p className="font-bold text-muted-foreground text-sm">No Review Comments Recorded Yet</p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        Review feedback will appear here as soon as committee members record their decisions.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* ── Sidebar ──────────────────────────────────────────────────── */}
-        <aside className="space-y-6 text-sm lg:sticky lg:top-20">
-          {/* Status card */}
-          <Card className="border-primary/20 shadow-sm">
-            <CardHeader className="border-b bg-primary/5 pb-3 text-left">
-              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-primary">
-                Review Status
+        {/* ── Sidebar Column (Mirrored from Submissions Detail) ──────────────── */}
+        <aside className="space-y-6">
+          {/* Clearance Status Card */}
+          <Card className="border border-muted-foreground/15 shadow-sm">
+            <CardHeader className="border-b bg-slate-50/80 dark:bg-slate-900/40">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Clearance Status
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-muted-foreground">
-                  Status
-                </span>
-                <Badge
-                  className={cn(
-                    "text-[10px] font-bold uppercase",
-                    cfg.className,
-                  )}
-                >
+            <CardContent className="pt-5 space-y-4 text-sm">
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-muted-foreground font-medium">Status</span>
+                <Badge className={cn("text-[10px] font-bold uppercase gap-1 shadow-none border", cfg.className)}>
+                  <StatusIcon className="h-3 w-3" />
                   {cfg.label}
                 </Badge>
               </div>
-              <Separator />
-              <div className="space-y-2.5 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>Applied</span>
-                  <span className="font-semibold text-foreground">
-                    {clearance.applicationDate || "—"}
+
+              <div className="flex justify-between items-center py-2 border-b">
+                <span className="text-muted-foreground font-medium">Applied Date</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                  {clearance.applicationDate || "—"}
+                </span>
+              </div>
+
+              {clearance.approvalDate && (
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground font-medium">Approval Date</span>
+                  <span className="font-semibold text-emerald-600 text-xs">
+                    {clearance.approvalDate}
                   </span>
                 </div>
-                {clearance.approvalDate && (
-                  <div className="flex justify-between">
-                    <span>Approved</span>
-                    <span className="font-semibold text-foreground">
-                      {clearance.approvalDate}
-                    </span>
-                  </div>
-                )}
-                {clearance.submittedBy && (
-                  <div className="flex justify-between">
-                    <span>Submitted by</span>
-                    <span className="font-semibold text-foreground">
-                      {clearance.submittedBy.fullName}
-                    </span>
-                  </div>
-                )}
+              )}
+
+              {clearance.clearanceTypeName && (
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground font-medium">Clearance Type</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                    {clearance.clearanceTypeName}
+                  </span>
+                </div>
+              )}
+
+              {clearance.submittedBy && (
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground font-medium">Submitted by</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[150px]">
+                    {clearance.submittedBy.fullName}
+                  </span>
+                </div>
+              )}
+
+              <div className="rounded-xl border p-3.5 bg-slate-50/70 dark:bg-slate-900/30 space-y-1.5 mt-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <ShieldAlert className="h-3.5 w-3.5 text-primary" />
+                  Guidance Note
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {cfg.description}
+                </p>
               </div>
-              <Separator />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {cfg.description}
-              </p>
             </CardContent>
           </Card>
+
+          {/* Action CTA Card for Reviewers */}
+          {showReviewButton && (
+            <Card className="border border-primary/20 bg-primary/5 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  {isAlreadyReviewed ? "Edit Review Determination" : "Review Determination"}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {isAlreadyReviewed
+                    ? "Modify or update the recorded IRB ethics committee decision and feedback."
+                    : "Record the official IRB ethics committee decision for this application."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <Button className="w-full shadow-xs gap-2" onClick={() => handleOpenReviewModal()}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  {reviewButtonLabel}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </div>
 
@@ -615,9 +884,9 @@ export default function ReviewDetailPage() {
             className={cn(
               "p-6 pb-4 border-b transition-colors duration-200",
               reviewDecision === "approved" &&
-                "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
+              "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
               reviewDecision === "rejected" &&
-                "bg-red-50/60 dark:bg-red-500/10 border-red-100 dark:border-red-500/20",
+              "bg-red-50/60 dark:bg-red-500/10 border-red-100 dark:border-red-500/20",
               !reviewDecision && "bg-muted/30 border-border",
             )}
           >
@@ -681,15 +950,15 @@ export default function ReviewDetailPage() {
                         }
                       }}
                       className={cn(
-                        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all duration-200 text-center",
+                        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all duration-200 text-center cursor-pointer",
                         isSelected
                           ? cn(
-                              option.selectedBorder,
-                              option.selectedBg,
-                              "ring-2",
-                              option.selectedRing,
-                              "shadow-sm",
-                            )
+                            option.selectedBorder,
+                            option.selectedBg,
+                            "ring-2",
+                            option.selectedRing,
+                            "shadow-xs",
+                          )
                           : "border-border hover:border-border/80 hover:bg-muted/30 ring-2 ring-transparent",
                       )}
                     >
@@ -749,11 +1018,10 @@ export default function ReviewDetailPage() {
                     }));
                   }
                 }}
+                rows={4}
                 className={cn(
-                  "min-h-[100px] resize-none focus-visible:ring-primary/50 shadow-sm",
-                  formErrors.reviewComments
-                    ? "border-rose-500 focus-visible:ring-rose-500"
-                    : "",
+                  "resize-none text-sm leading-relaxed",
+                  formErrors.reviewComments && "border-rose-500 focus-visible:ring-rose-500",
                 )}
               />
               {formErrors.reviewComments && (
@@ -764,47 +1032,37 @@ export default function ReviewDetailPage() {
             </div>
           </div>
 
-          {/* Footer */}
-          <DialogFooter className="p-4 border-t gap-2 sm:gap-0 bg-muted/10">
+          <DialogFooter className="p-6 pt-0 bg-background flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
             <Button
-              variant="ghost"
+              type="button"
+              variant="outline"
               onClick={() => setIsReviewModalOpen(false)}
               disabled={reviewMutation.isPending}
-              className="hover:bg-muted/50 font-medium"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               onClick={handleReview}
-              disabled={reviewMutation.isPending || !reviewDecision}
+              disabled={reviewMutation.isPending}
               className={cn(
-                "shadow-sm font-semibold",
-                reviewDecision === "approved" &&
-                  "bg-emerald-600 hover:bg-emerald-700 text-white",
-                reviewDecision === "rejected" &&
-                  "bg-red-600 hover:bg-red-700 text-white",
-                !reviewDecision && "bg-primary hover:bg-primary/90",
+                reviewDecision === "rejected" && "bg-rose-600 hover:bg-rose-700 text-white",
+                reviewDecision === "approved" && "bg-emerald-600 hover:bg-emerald-700 text-white",
               )}
             >
               {reviewMutation.isPending ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                  Submitting...
-                </div>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting Decision...
+                </>
               ) : (
-                <div className="flex items-center gap-2">
-                  <Send className="h-4 w-4" />
-                  {reviewDecision === "approved"
-                    ? "Confirm Approval"
-                    : reviewDecision === "rejected"
-                      ? "Confirm Rejection"
-                      : "Submit Review"}
-                </div>
+                "Submit Review Decision"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <PdfViewerDialog
         isOpen={!!viewerDocument}
         onOpenChange={(open) => !open && setViewerDocument(null)}

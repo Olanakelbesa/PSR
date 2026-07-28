@@ -2,19 +2,23 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { type ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
+import { type ColumnDef, type Table } from "@tanstack/react-table";
 import {
   BarChart3,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   Eye,
   MoreHorizontal,
   ShieldCheck,
   XCircle,
   AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { PageContainer } from "@/components/layout";
-import { DataTable } from "@/components/shared/data-table";
+import { DataTable, DataTableViewOptions } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,8 +39,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   useEthicalClearances,
@@ -45,7 +51,7 @@ import type { EthicalClearance, IRBClearanceStatus } from "@/types/ethical-clear
 
 const ALL_VALUE = "all";
 
-type StatFilter = "all" | "pending_review" | "approved" | "rejected";
+type StatFilter = "all" | "pending_submission" | "pending_review" | "approved" | "rejected";
 
 const statusConfig: Record<
   IRBClearanceStatus,
@@ -83,7 +89,7 @@ interface Row {
   proposalTitle: string;
   referenceNumber: string;
   pi: string;
-  institution: string;
+  piUser?: any;
   clearanceType: string;
   status: IRBClearanceStatus;
   applicationDate: string;
@@ -96,12 +102,94 @@ function mapRow(item: EthicalClearance): Row {
     proposalTitle: item.proposalTitle || "—",
     referenceNumber: item.referenceNumber || "—",
     pi: item.pi?.fullName || "—",
-    institution: item.proposalInstitution || "—",
+    piUser: item.pi,
     clearanceType: item.clearanceTypeName || "—",
     status: item.status,
     applicationDate: item.applicationDate,
     approvalDate: item.approvalDate,
   };
+}
+
+function ReferenceCell({ refNum, id }: { refNum: string; id: number }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!refNum || refNum === "—") return;
+    navigator.clipboard.writeText(refNum);
+    setCopied(true);
+    toast.success("Reference number copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!refNum || refNum === "—") {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 bg-muted/60 hover:bg-muted dark:bg-muted/40 px-2 py-0.5 rounded-md border border-border/50 transition-colors max-w-fit">
+      <Link
+        href={`/research/irb-clearance/reviews/${id}`}
+        className="font-mono text-xs font-semibold text-foreground hover:text-primary transition-colors truncate"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {refNum}
+      </Link>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-4 w-4 p-0 text-muted-foreground hover:text-foreground shrink-0"
+        onClick={handleCopy}
+        title="Copy reference number"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function PICell({ name, user }: { name: string; user?: any }) {
+  const getInitials = (str: string) => {
+    if (!str || str === "—") return "U";
+    const parts = str.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return str.slice(0, 2).toUpperCase();
+  };
+
+  const initials = getInitials(name);
+  const rawPhoto = user
+    ? user.photo_url ||
+      user.photoUrl ||
+      user.photo ||
+      user.avatarUrl ||
+      user.avatar ||
+      user.profilePhoto ||
+      user.user?.photo_url ||
+      user.user?.photoUrl ||
+      user.user?.avatar
+    : undefined;
+  const avatarUrl = resolveFileUrl(rawPhoto) || undefined;
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Avatar className="h-7 w-7 border border-border shrink-0 shadow-xs">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt={name} /> : null}
+        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary flex items-center justify-center size-full">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-sm font-medium text-foreground truncate max-w-[170px]">
+        {name}
+      </span>
+    </div>
+  );
 }
 
 export default function IRBReviewsPage() {
@@ -140,19 +228,17 @@ export default function IRBReviewsPage() {
     statusFilter !== ALL_VALUE,
   ].filter(Boolean).length;
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearch("");
     setStatusFilter(ALL_VALUE);
-  };
+  }, []);
 
   const columns: ColumnDef<Row>[] = [
     {
       accessorKey: "referenceNumber",
       header: "Reference",
       cell: ({ row }) => (
-        <span className="font-bold text-primary">
-          {row.original.referenceNumber}
-        </span>
+        <ReferenceCell refNum={row.original.referenceNumber} id={row.original.id} />
       ),
     },
     {
@@ -170,7 +256,7 @@ export default function IRBReviewsPage() {
       accessorKey: "pi",
       header: "Principal Investigator",
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.pi}</span>
+        <PICell name={row.original.pi} user={row.original.piUser} />
       ),
     },
     {
@@ -243,7 +329,9 @@ export default function IRBReviewsPage() {
               }
             >
               <Eye className="mr-2 h-4 w-4" />
-              View & Review
+              {row.original.status === "approved" || row.original.status === "rejected"
+                ? "View / Edit Review"
+                : "View & Review"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -251,44 +339,53 @@ export default function IRBReviewsPage() {
     },
   ];
 
-  const toolbar = (
-    <div className="overflow-hidden rounded-2xl border bg-card/95 shadow-sm backdrop-blur">
-      <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_160px] lg:flex-1">
-            <Input
-              placeholder="Search by title, reference, or PI name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9"
-            />
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatFilter)}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>All Statuses</SelectItem>
-                {Object.entries(statusConfig).map(([key, cfg]) => (
-                  <SelectItem key={key} value={key}>
-                    {cfg.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+  const renderToolbar = useCallback(
+    (table: Table<Row>) => (
+      <div className="overflow-hidden rounded-2xl border bg-card/95 shadow-sm backdrop-blur">
+        <div className="flex flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left side: Search & Status Filters */}
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <Input
+                placeholder="Search by title, reference, or PI name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 w-full sm:w-[280px]"
+              />
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatFilter)}>
+                <SelectTrigger className="h-9 w-full sm:w-[170px]">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_VALUE}>All Statuses</SelectItem>
+                  {Object.entries(statusConfig).map(([key, cfg]) => (
+                    <SelectItem key={key} value={key}>
+                      {cfg.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Right side: View Options & Clear Filters */}
+            <div className="flex items-center gap-2 shrink-0 justify-end">
+              {activeFilterCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="shrink-0 h-9 text-xs"
+                >
+                  Clear ({activeFilterCount})
+                </Button>
+              )}
+              <DataTableViewOptions table={table} />
+            </div>
           </div>
-          {activeFilterCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearFilters}
-              className="shrink-0"
-            >
-              Clear ({activeFilterCount})
-            </Button>
-          )}
         </div>
       </div>
-    </div>
+    ),
+    [search, statusFilter, activeFilterCount, clearFilters],
   );
 
   const statCards = useMemo(
@@ -305,13 +402,24 @@ export default function IRBReviewsPage() {
         sub: "All IRB clearance applications",
       },
       {
+        key: "pending_submission" as StatFilter,
+        label: "Pending Submission",
+        value: stats?.byStatus?.pendingSubmission ?? stats?.byStatus?.pending_submission ?? 0,
+        icon: Clock,
+        color: "text-amber-600",
+        bg: "bg-amber-50 dark:bg-amber-950/30",
+        border: "border-amber-200 dark:border-amber-800",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Awaiting applicant submission",
+      },
+      {
         key: "pending_review" as StatFilter,
         label: "Pending Review",
-        value: stats?.byStatus?.pendingReview ?? 0,
+        value: stats?.byStatus?.pendingReview ?? stats?.byStatus?.pending_review ?? 0,
         icon: ShieldCheck,
         color: "text-blue-600",
-        bg: "bg-blue-50",
-        border: "border-blue-200",
+        bg: "bg-blue-50 dark:bg-blue-950/30",
+        border: "border-blue-200 dark:border-blue-800",
         activeRing: "ring-blue-500/60 border-blue-300",
         sub: "Awaiting your review",
       },
@@ -321,8 +429,8 @@ export default function IRBReviewsPage() {
         value: stats?.byStatus?.approved ?? 0,
         icon: CheckCircle2,
         color: "text-emerald-600",
-        bg: "bg-emerald-50",
-        border: "border-emerald-200",
+        bg: "bg-emerald-50 dark:bg-emerald-950/30",
+        border: "border-emerald-200 dark:border-emerald-800",
         activeRing: "ring-emerald-500/60 border-emerald-300",
         sub: "Successfully approved clearances",
       },
@@ -332,8 +440,8 @@ export default function IRBReviewsPage() {
         value: stats?.byStatus?.rejected ?? 0,
         icon: XCircle,
         color: "text-rose-600",
-        bg: "bg-rose-50",
-        border: "border-rose-200",
+        bg: "bg-rose-50 dark:bg-rose-950/30",
+        border: "border-rose-200 dark:border-rose-800",
         activeRing: "ring-rose-500/60 border-rose-300",
         sub: "Not accepted applications",
       },
@@ -347,9 +455,9 @@ export default function IRBReviewsPage() {
       description="Review and manage IRB clearance applications from researchers."
     >
       <div className="space-y-6">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {isLoading
-            ? Array.from({ length: 4 }).map((_, i) => (
+            ? Array.from({ length: 5 }).map((_, i) => (
                 <Card key={i}>
                   <CardContent className="flex items-center gap-4 p-5">
                     <Skeleton className="h-11 w-11 rounded-xl" />
@@ -420,7 +528,8 @@ export default function IRBReviewsPage() {
           <DataTable
             columns={columns}
             data={rows}
-            toolbar={toolbar}
+            toolbar={renderToolbar}
+            initialColumnVisibility={{ referenceNumber: false }}
             onRowClick={(row) =>
               router.push(`/research/irb-clearance/reviews/${row.id}`)
             }
@@ -432,3 +541,4 @@ export default function IRBReviewsPage() {
     </PageContainer>
   );
 }
+

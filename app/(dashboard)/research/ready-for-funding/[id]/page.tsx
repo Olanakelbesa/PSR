@@ -1222,7 +1222,7 @@ export default function ReadyForFundingDetailPage() {
                   value: screening.reviewStatus?.technicalReview,
                 },
                 {
-                  label: "Ethics Review",
+                  label: "IRB Review",
                   value: screening.reviewStatus?.ethicsReview,
                 },
                 {

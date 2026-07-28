@@ -49,12 +49,16 @@ export interface EthicalClearance {
     id: number;
     fullName: string;
     email: string;
+    photoUrl?: string | null;
+    photo_url?: string | null;
   };
 
   submittedBy?: {
     id: number;
     fullName: string;
     email: string;
+    photoUrl?: string | null;
+    photo_url?: string | null;
   } | null;
 
   needIrbEthicalClearance: boolean;
