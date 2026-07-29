@@ -445,53 +445,53 @@ export default function ProgressReportApprovalListPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
           {isLoading
             ? Array.from({ length: 5 }).map((_, index) => (
-                <Card key={index} className="border-none shadow-sm">
+              <Card key={index} className="border-none shadow-sm">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <Skeleton className="h-11 w-11 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-16" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+            : statCards.map((stat) => {
+              const isActive = statusFilter === stat.key;
+              return (
+                <Card
+                  key={stat.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => applyStatusFilter(stat.key)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      applyStatusFilter(stat.key);
+                    }
+                  }}
+                  className={cn(
+                    "cursor-pointer border shadow-xs transition-all hover:shadow-md",
+                    stat.border,
+                    isActive && cn("ring-2 shadow-md", stat.activeRing),
+                  )}
+                >
                   <CardContent className="flex items-center gap-4 p-5">
-                    <Skeleton className="h-11 w-11 rounded-xl" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-7 w-16" />
-                      <Skeleton className="h-3 w-28" />
+                    <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
+                      <stat.icon className={cn("h-5 w-5", stat.color)} />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-black">{stat.value}</div>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {stat.label}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                        {stat.sub}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            : statCards.map((stat) => {
-                const isActive = statusFilter === stat.key;
-                return (
-                  <Card
-                    key={stat.key}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => applyStatusFilter(stat.key)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        applyStatusFilter(stat.key);
-                      }
-                    }}
-                    className={cn(
-                      "cursor-pointer border shadow-xs transition-all hover:shadow-md",
-                      stat.border,
-                      isActive && cn("ring-2 shadow-md", stat.activeRing),
-                    )}
-                  >
-                    <CardContent className="flex items-center gap-4 p-5">
-                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
-                        <stat.icon className={cn("h-5 w-5", stat.color)} />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-black">{stat.value}</div>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {stat.label}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
-                          {stat.sub}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              );
+            })}
         </div>
 
         {/* ── Search & Filter Controls (Includes Columns Toggle Dropdown) ──── */}
@@ -854,77 +854,107 @@ export default function ProgressReportApprovalListPage() {
                                     </div>
 
                                     <div className="overflow-x-auto w-full">
-                                      <Table className="border rounded-xl w-full">
-                                        <TableHeader className="bg-muted/50">
-                                          <TableRow>
-                                            <TableHead className="font-bold text-[11px]">Report Name</TableHead>
-                                            <TableHead className="font-bold text-[11px]">Submitted By</TableHead>
-                                            <TableHead className="font-bold text-[11px]">Reporting Period</TableHead>
-                                            <TableHead className="font-bold text-[11px]">Amount Used</TableHead>
-                                            <TableHead className="font-bold text-[11px]">Submitted Date</TableHead>
-                                            <TableHead className="font-bold text-[11px] text-center">Status</TableHead>
-                                            <TableHead className="font-bold text-[11px] text-right">Actions</TableHead>
-                                          </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                          {[...proposal.reports]
-                                            .sort((a, b) => {
-                                              const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
-                                              const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
-                                              if (timeA !== timeB) return timeB - timeA;
-                                              return Number(b.id) - Number(a.id);
-                                            })
-                                            .map((report, idx) => (
-                                              <TableRow key={report.id} className="hover:bg-muted/30">
-                                                <TableCell>
-                                                  <span className="font-bold text-xs text-foreground">
-                                                    #{idx + 1}. {report.reportName}
-                                                  </span>
-                                                </TableCell>
-                                                <TableCell>
-                                                  <PICell
-                                                    pi={report.submittedBy || proposal.pi}
-                                                    fallbackName={
-                                                      (proposal as any).piName ||
-                                                      (proposal as any).principalInvestigator
-                                                    }
-                                                  />
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground font-medium whitespace-nowrap">
-                                                  {formatDate(report.startDate)} – {formatDate(report.endDate)}
-                                                </TableCell>
+                                      {(() => {
+                                        const sortedAscendingReports = [...proposal.reports].sort((a, b) => {
+                                          const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                                          const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+                                          if (timeA !== timeB) return timeA - timeB;
+                                          return Number(a.id) - Number(b.id);
+                                        });
 
-                                                <TableCell className="font-mono text-xs font-semibold text-primary whitespace-nowrap">
-                                                  {formatAmount(report.amountUsed)}
-                                                </TableCell>
+                                        const chronologicalMap = new Map<number, number>();
+                                        sortedAscendingReports.forEach((r, index) => {
+                                          chronologicalMap.set(r.id, index + 1);
+                                        });
 
-                                                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                                  {formatDateTime(report.submittedAt)}
-                                                </TableCell>
+                                        const displayedReports = [...proposal.reports].sort((a, b) => {
+                                          const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+                                          const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+                                          if (timeA !== timeB) return timeB - timeA;
+                                          return Number(b.id) - Number(a.id);
+                                        });
 
-                                                <TableCell className="text-center">
-                                                  <Badge
-                                                    variant="outline"
-                                                    className={cn(
-                                                      "text-[10px] font-bold uppercase",
-                                                      statusClasses[report.status as keyof typeof statusClasses] || statusClasses.pending,
-                                                    )}
-                                                  >
-                                                    {report.status}
-                                                  </Badge>
-                                                </TableCell>
-
-                                                <TableCell className="text-right">
-                                                  <Button size="sm" variant="secondary" asChild className="h-7 text-xs shadow-2xs">
-                                                    <Link href={`/research/monitoring/progress-report-approval/${targetId}`}>
-                                                      Evaluate
-                                                    </Link>
-                                                  </Button>
-                                                </TableCell>
+                                        return (
+                                          <Table className="border rounded-xl w-full">
+                                            <TableHeader className="bg-muted/50">
+                                              <TableRow>
+                                                <TableHead className="font-bold text-[11px]">Report</TableHead>
+                                                <TableHead className="font-bold text-[11px]">Submitted By</TableHead>
+                                                <TableHead className="font-bold text-[11px]">Reporting Period</TableHead>
+                                                <TableHead className="font-bold text-[11px]">Amount Used</TableHead>
+                                                <TableHead className="font-bold text-[11px]">Submitted Date</TableHead>
+                                                <TableHead className="font-bold text-[11px] text-center">Status</TableHead>
+                                                <TableHead className="font-bold text-[11px] text-right">Actions</TableHead>
                                               </TableRow>
-                                            ))}
-                                        </TableBody>
-                                      </Table>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {displayedReports.map((report, idx) => {
+                                                const reportSeqNum = chronologicalMap.get(report.id) ?? (proposal.reports.length - idx);
+
+                                                return (
+                                                  <TableRow key={report.id} className="hover:bg-muted/30">
+                                                    <TableCell>
+                                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span className="text-xs font-bold font-mono text-muted-foreground">
+                                                          Report #{reportSeqNum}
+                                                        </span>
+                                                        {reportSeqNum === proposal.reports.length && proposal.reports.length > 1 && (
+                                                          <Badge variant="outline" className="text-[9px] font-bold py-0 px-1.5 text-primary border-primary/30 bg-primary/5">
+                                                            Latest
+                                                          </Badge>
+                                                        )}
+                                                        <span className="text-xs font-bold text-foreground">
+                                                          {report.reportName}
+                                                        </span>
+                                                      </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      <PICell
+                                                        pi={report.submittedBy || proposal.pi}
+                                                        fallbackName={
+                                                          (proposal as any).piName ||
+                                                          (proposal as any).principalInvestigator
+                                                        }
+                                                      />
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+                                                      {formatDate(report.startDate)} – {formatDate(report.endDate)}
+                                                    </TableCell>
+
+                                                    <TableCell className="font-mono text-xs font-semibold text-primary whitespace-nowrap">
+                                                      {formatAmount(report.amountUsed)}
+                                                    </TableCell>
+
+                                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                                      {formatDateTime(report.submittedAt)}
+                                                    </TableCell>
+
+                                                    <TableCell className="text-center">
+                                                      <Badge
+                                                        variant="outline"
+                                                        className={cn(
+                                                          "text-[10px] font-bold uppercase",
+                                                          statusClasses[report.status as keyof typeof statusClasses] || statusClasses.pending,
+                                                        )}
+                                                      >
+                                                        {report.status}
+                                                      </Badge>
+                                                    </TableCell>
+
+                                                    <TableCell className="text-right">
+                                                      <Button size="sm" variant="secondary" asChild className="h-7 text-xs shadow-2xs">
+                                                        <Link href={`/research/monitoring/progress-report-approval/${targetId}`}>
+                                                          Evaluate
+                                                        </Link>
+                                                      </Button>
+                                                    </TableCell>
+                                                  </TableRow>
+                                                );
+                                              })}
+                                            </TableBody>
+                                          </Table>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 </div>

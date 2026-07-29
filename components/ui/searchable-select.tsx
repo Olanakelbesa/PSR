@@ -89,6 +89,10 @@ export interface SearchableSelectProps<T = any> {
   // Styling
   className?: string;
   triggerClassName?: string;
+
+  // Custom Rendering
+  renderOption?: (item: T, isSelected: boolean) => React.ReactNode;
+  renderTriggerValue?: (selectedItem: T | null) => React.ReactNode;
 }
 
 /**
@@ -119,6 +123,8 @@ export function SearchableSelect<T = any>({
   filterOption,
   className,
   triggerClassName,
+  renderOption,
+  renderTriggerValue,
 }: SearchableSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -248,8 +254,12 @@ export function SearchableSelect<T = any>({
             triggerClassName,
           )}
         >
-          <span className="truncate">
-            {currentDisplayLabel || placeholder}
+          <span className="truncate flex items-center gap-2 w-full min-w-0">
+            {renderTriggerValue ? (
+              renderTriggerValue(selectedItem)
+            ) : (
+              currentDisplayLabel || placeholder
+            )}
           </span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -297,13 +307,19 @@ export function SearchableSelect<T = any>({
                       onSelect={() => handleSelect(itemVal)}
                       className="flex items-center justify-between cursor-pointer px-3 py-2 text-sm"
                     >
-                      <span className="truncate">{itemLabel}</span>
-                      <Check
-                        className={cn(
-                          "ml-2 h-4 w-4 shrink-0 text-primary transition-opacity",
-                          isSelected ? "opacity-100" : "opacity-0",
-                        )}
-                      />
+                      {renderOption ? (
+                        renderOption(item, isSelected)
+                      ) : (
+                        <>
+                          <span className="truncate">{itemLabel}</span>
+                          <Check
+                            className={cn(
+                              "ml-2 h-4 w-4 shrink-0 text-primary transition-opacity",
+                              isSelected ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                        </>
+                      )}
                     </CommandItem>
                   );
                 })}
