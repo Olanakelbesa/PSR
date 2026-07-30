@@ -188,3 +188,148 @@ export function hasAllPermissions(
   if (!userPermissions.length) return false;
   return required.every((perm) => userPermissions.includes(perm));
 }
+
+export interface RoutePermissionRule {
+  prefix: string;
+  permissions: readonly PermissionValue[];
+}
+
+export const ROUTE_PERMISSIONS: readonly RoutePermissionRule[] = [
+  // Policies - Concept Notes
+  {
+    prefix: "/policies/concept-notes/manage-concept-notes",
+    permissions: PERMISSION_GROUPS.CONCEPT_NOTE_MANAGE,
+  },
+  {
+    prefix: "/policies/concept-notes/review-concept-note",
+    permissions: PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW,
+  },
+
+  // Policies - Drafts
+  {
+    prefix: "/policies/drafts/manage-drafts",
+    permissions: PERMISSION_GROUPS.DRAFT_MANAGE,
+  },
+  {
+    prefix: "/policies/drafts/review-draft",
+    permissions: PERMISSION_GROUPS.DRAFT_REVIEW,
+  },
+
+  // Policies - Repository
+  {
+    prefix: "/policies/repository",
+    permissions: [PERMISSIONS.POLICY_VIEW_REPOSITORY],
+  },
+
+  // Research - Grants
+  {
+    prefix: "/research/manage-grants",
+    permissions: [PERMISSIONS.SETTING_VIEW_GRANTSETTING],
+  },
+
+  // Research - Proposals
+  {
+    prefix: "/research/proposals/screening-reviews",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_SCREENING],
+  },
+  {
+    prefix: "/research/proposals/assign-reviewers",
+    permissions: PERMISSION_GROUPS.PROPOSAL_ASSIGN_REVIEWERS,
+  },
+  {
+    prefix: "/research/proposals/technical-reviews",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_INDIVIDUAL_REVIEW],
+  },
+
+  // Research - Ready for funding
+  {
+    prefix: "/research/ready-for-funding",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_READY_FOR_FUNDING],
+  },
+
+  // Research - IRB Clearance
+  {
+    prefix: "/research/irb-clearance/reviews",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_ETHICAL_CLEARANCE],
+  },
+
+  // Research - Protocol
+  {
+    prefix: "/research/protocol/reviews",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_PROTOCOL],
+  },
+
+  // Research - Funding recommendations
+  {
+    prefix: "/research/funding-recommendations",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_FUNDING_RECOMMENDATION],
+  },
+
+  // Research - Monitoring
+  {
+    prefix: "/research/monitoring/progress-report-approval",
+    permissions: [PERMISSIONS.MONITORING_VIEW_PROGRESS_REPORT_APPROVAL],
+  },
+
+  // Research - Final Report
+  {
+    prefix: "/research/final-report/final-report-approval",
+    permissions: [PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT_APPROVAL],
+  },
+
+  // Research - Repository
+  {
+    prefix: "/research/repository",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_FINAL_SUBMISSION],
+  },
+
+  // Research - Minutes & Attachments
+  {
+    prefix: "/research/minutes",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_MINUTES],
+  },
+  {
+    prefix: "/research/attachments",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_ATTACHMENTS],
+  },
+
+  // Research - External Research Approval
+  {
+    prefix: "/research/external-research/external-research-approval",
+    permissions: [PERMISSIONS.RESEARCH_VIEW_EXTERNAL_RESEARCH_APPROVAL],
+  },
+
+  // Administration
+  {
+    prefix: "/organizations",
+    permissions: [PERMISSIONS.SETTING_VIEW_ORGANIZATION],
+  },
+  {
+    prefix: "/settings/access-control",
+    permissions: PERMISSION_GROUPS.USER_MANAGEMENT,
+  },
+  {
+    prefix: "/users",
+    permissions: PERMISSION_GROUPS.USER_MANAGEMENT,
+  },
+  {
+    prefix: "/settings/audit-logs",
+    permissions: PERMISSION_GROUPS.AUDIT_LOGS,
+  },
+  {
+    prefix: "/settings/taxonomy",
+    permissions: PERMISSION_GROUPS.SETTINGS_ACCESS,
+  },
+];
+
+export function getRequiredPermissionsForRoute(
+  pathname: string,
+): readonly PermissionValue[] | null {
+  for (const rule of ROUTE_PERMISSIONS) {
+    if (pathname === rule.prefix || pathname.startsWith(rule.prefix + "/")) {
+      return rule.permissions;
+    }
+  }
+  return null;
+}
+

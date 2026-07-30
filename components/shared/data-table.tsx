@@ -187,9 +187,22 @@ export function DataTable<TData, TValue>({
   showRowNumber = true,
   rowNumberLabel = "No.",
 }: DataTableProps<TData, TValue>) {
+  const defaultVisibilityFromMeta = useMemo(() => {
+    const hidden: VisibilityState = {};
+    columns.forEach((col: any) => {
+      if (col.meta?.defaultHidden) {
+        const key = (col.accessorKey || col.id) as string;
+        if (key) {
+          hidden[key] = false;
+        }
+      }
+    });
+    return { ...hidden, ...initialColumnVisibility };
+  }, [columns, initialColumnVisibility]);
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialColumnFilters);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(defaultVisibilityFromMeta);
   const [rowSelection, setRowSelection] = useState({});
 
   const tableColumns = useMemo(() => {

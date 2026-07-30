@@ -82,7 +82,10 @@ const handler = auth(async (req, context) => {
 
   // Safely await params as required by Next.js 15+
   const { path } = (await (context as any).params) as { path: string[] };
-  const apiPath = `/${path.join("/")}`;
+  let apiPath = `/${path.join("/")}`;
+  if (req.nextUrl.pathname.endsWith("/") && !apiPath.endsWith("/")) {
+    apiPath = `${apiPath}/`;
+  }
   const queryString = req.nextUrl.search;
 
   // ── SSRF Protection: target is always the fixed API_BASE_URL ────────────────

@@ -214,8 +214,8 @@ export function SearchableSelect<T = any>({
   }, [allOptions, searchQuery, getLabel, getValue]);
 
   const selectedItem = useMemo(() => {
-    if (!value) return null;
-    return allOptions.find((item) => getValue(item) === value) ?? null;
+    if (value === undefined || value === null || value === "") return null;
+    return allOptions.find((item) => String(getValue(item)) === String(value)) ?? null;
   }, [allOptions, value, getValue]);
 
   const currentDisplayLabel = useMemo(() => {
@@ -224,19 +224,25 @@ export function SearchableSelect<T = any>({
     return null;
   }, [selectedLabel, selectedItem, getLabel]);
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen);
-    onOpenChange?.(nextOpen);
-    if (!nextOpen) {
-      setSearchQuery("");
-    }
-  };
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+      if (!nextOpen) {
+        setSearchQuery("");
+      }
+    },
+    [onOpenChange]
+  );
 
-  const handleSelect = (itemValue: string) => {
-    onValueChange?.(itemValue);
-    setSearchQuery("");
-    setOpen(false);
-  };
+  const handleSelect = useCallback(
+    (itemValue: string) => {
+      onValueChange?.(itemValue);
+      setSearchQuery("");
+      setOpen(false);
+    },
+    [onValueChange]
+  );
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -268,7 +274,7 @@ export function SearchableSelect<T = any>({
         align="start"
         onWheel={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
-        className={cn("w-(--radix-popover-trigger-width) min-w-[280px] p-0 shadow-lg z-50", className)}
+        className={cn("w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0 shadow-lg z-50", className)}
       >
         <Command shouldFilter={false} className="max-h-[300px]" onWheel={(e) => e.stopPropagation()}>
           <CommandInput
@@ -303,7 +309,7 @@ export function SearchableSelect<T = any>({
                   return (
                     <CommandItem
                       key={itemVal || index}
-                      value={itemVal}
+                      value={`${itemVal} ${itemLabel}`}
                       onSelect={() => handleSelect(itemVal)}
                       className="flex items-center justify-between cursor-pointer px-3 py-2 text-sm"
                     >

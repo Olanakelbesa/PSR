@@ -155,6 +155,31 @@ export interface ProjectTrackingFormValues {
   proposal: number;
 }
 
+export interface TerminalReportGrade {
+  id: number;
+  name: string;
+  description: string;
+  score_value: number;
+  is_active: boolean;
+}
+
+export interface TerminalReportItem {
+  id: number;
+  terminal_type: number;
+  terminal_type_name?: string | null;
+  file?: string | null;
+  external_link?: string | null;
+  grade?: number | null;
+  grade_name?: string | null;
+  grade_comments?: string | null;
+}
+
+export interface TerminalReportItemFormValue {
+  terminal_type: number;
+  file?: File | null;
+  external_link?: string;
+}
+
 export interface TerminalReportFormValues {
   project_tracking: number;
   report_name?: string;
@@ -162,8 +187,12 @@ export interface TerminalReportFormValues {
   attachment?: File | null;
   is_published?: boolean;
   publication_link?: string;
+  data_center?: number;
+  custom_data_center?: string;
+  data_sharing_checklist_completed?: boolean;
   status?: ReportDecision;
   terminal_type?: number[];
+  items?: TerminalReportItemFormValue[];
 }
 
 export interface ProgressReportApprovalUpdateValues {
@@ -178,11 +207,48 @@ export interface ProgressReportApprovalCreateValues {
   progress_report: number;
 }
 
+export interface TerminalReportTeamMember {
+  id: number;
+  member_type: "internal" | "external";
+  full_name: string;
+  email: string | null;
+  photo_url: string | null;
+  role: string | null;
+  organization?: string | null;
+  position?: string | null;
+}
+
+export interface TerminalReportApprovalRecord {
+  id: number;
+  reviewer_id: number | null;
+  reviewer_name: string | null;
+  decision: "approved" | "rejected" | "pending";
+  ROC_Comments: string;
+  reviewed_at: string | null;
+}
+
 export interface TerminalReportSummary {
   id: number;
   project_tracking_id: number | null;
   project_tracking_title: string | null;
   project_tracking_status: string | null;
+  project_tracking?: {
+    project_tracking_id: number | null;
+    proposal_id: number | null;
+    reference_number: string | null;
+    title: string | null;
+    status: string | null;
+    pi: {
+      id: number;
+      full_name: string;
+      email: string | null;
+      photo_url: string | null;
+      department?: string | null;
+    } | null;
+    team_members?: TerminalReportTeamMember[];
+  } | null;
+  proposal_id: number | null;
+  reference_number: string | null;
   general_status: string;
   submitted_by_name: string | null;
   report_name: string | null;
@@ -192,8 +258,34 @@ export interface TerminalReportSummary {
   publication_link: string | null;
   status: ReportDecision;
   submitted_at: string;
+  updated_at?: string | null;
   submitted_by: number | null;
   terminal_type: number[];
+  data_center_id?: number | null;
+  data_center?: { id: number; name: string } | null;
+  data_center_name?: string | null;
+  custom_data_center?: string | null;
+  data_sharing_checklist_completed?: boolean;
+  reviewer_comments?: string | null;
+  approvals?: TerminalReportApprovalRecord[];
+  items?: Array<{
+    id: number;
+    terminal_type: number;
+    terminal_type_name: string | null;
+    file: string | null;
+    external_link: string | null;
+    grade: number | null;
+    grade_name: string | null;
+    grade_comments: string | null;
+  }>;
+  pi?: {
+    id: number;
+    full_name: string;
+    email: string | null;
+    photo_url: string | null;
+    department?: string | null;
+  } | null;
+  team_members?: TerminalReportTeamMember[];
 }
 
 export interface TerminalReportApproval {
@@ -307,18 +399,60 @@ function normalizeProjectTracking(item: any): ProjectTrackingSummary {
 export const progressReportsService = {
   async getProgressReports(
     params: Record<string, unknown> = {},
-  ): Promise<ListResponse<ProgressReportSummary>> {
+  ): Promise<ListResponse<any>> {
     const { data } = await apiClient.get(API_ENDPOINTS.PROGRESS_REPORTS.LIST, {
       params,
     });
 
     const list = unwrapListResponse<any>(data);
 
-    // Normalize possible camelCase payload keys to the UI expected shape
+    // If data contains grouped proposals schema
+    if (
+      Array.isArray(list.data) &&
+      list.data.length > 0 &&
+      ("reports" in list.data[0] || "proposalId" in list.data[0] || "projectTrackingId" in list.data[0])
+    ) {
+      const normalizedProposals: GroupedProgressReportProposal[] = list.data.map((proposal: any) => ({
+        proposalId: proposal.proposalId ?? proposal.proposal_id ?? null,
+        title: proposal.title ?? proposal.proposalTitle ?? `Project Tracking #${proposal.projectTrackingId || proposal.project_tracking_id}`,
+        referenceNumber: proposal.referenceNumber ?? proposal.reference_number ?? null,
+        pi: proposal.pi ?? proposal.principal_investigator ?? null,
+        projectTrackingId: proposal.projectTrackingId ?? proposal.project_tracking_id ?? 0,
+        status: proposal.status ?? "on_progress",
+        statistics: {
+          totalReports: proposal.statistics?.totalReports ?? proposal.reports?.length ?? 0,
+          pending: proposal.statistics?.pending ?? 0,
+          approved: proposal.statistics?.approved ?? 0,
+          rejected: proposal.statistics?.rejected ?? 0,
+        },
+        reports: (proposal.reports || []).map((rep: any) => ({
+          id: rep.id,
+          reportName: rep.reportName || rep.report_name || `Progress Report #${rep.id}`,
+          mainActivitiesAchieved: rep.mainActivitiesAchieved || rep.main_activities_achieved || "",
+          generalStatus: rep.generalStatus || rep.general_status || rep.status || "pending",
+          amountUsed: String(rep.amountUsed || rep.amount_used || "0.00"),
+          startDate: rep.startDate || rep.start_date || null,
+          endDate: rep.endDate || rep.end_date || null,
+          submittedAt: rep.submittedAt || rep.submitted_at || null,
+          submittedBy: rep.submittedBy || rep.submitted_by || proposal.pi || null,
+          status: rep.status || rep.generalStatus || rep.general_status || "pending",
+          attachment: rep.attachment || rep.file || null,
+          approvals: rep.approvals || [],
+          latestApproval: rep.latestApproval || rep.latest_approval || null,
+          projectTrackingId: proposal.projectTrackingId ?? proposal.project_tracking_id,
+        })),
+      }));
+
+      return {
+        data: normalizedProposals,
+        meta: list.meta,
+      };
+    }
+
+    // Fallback for flat progress report summary list
     const normalized = list.data.map((item: any) => ({
       ...item,
       id: item.id ?? item.pk,
-      // Keep numeric project_tracking id for form submissions, also expose title
       project_tracking:
         Number(
           item.project_tracking ??
@@ -472,9 +606,9 @@ export const progressReportsService = {
   },
 
   async createTerminalReport(
-    values: TerminalReportFormValues,
+    values: TerminalReportFormValues | FormData,
   ): Promise<unknown> {
-    const formData = buildFormData(values);
+    const formData = values instanceof FormData ? values : buildFormData(values);
     const { data } = await apiClient.post(
       API_ENDPOINTS.TERMINAL_REPORTS.CREATE,
       formData,
@@ -484,6 +618,32 @@ export const progressReportsService = {
     );
 
     return unwrapDetailResponse<unknown>(data);
+  },
+
+  async updateTerminalReport(
+    id: string | number,
+    values: TerminalReportFormValues | FormData,
+  ): Promise<unknown> {
+    const formData = values instanceof FormData ? values : buildFormData(values);
+    const { data } = await apiClient.patch(
+      API_ENDPOINTS.TERMINAL_REPORTS.DETAIL(id),
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+
+    return unwrapDetailResponse<unknown>(data);
+  },
+
+  async getEligibleForTerminalReport(
+    params?: Record<string, unknown>,
+  ): Promise<any[]> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.PROJECT_TRACKING.ELIGIBLE_FOR_TERMINAL_REPORT,
+      { params },
+    );
+    return data?.data ?? data?.results ?? [];
   },
 
   async getReadyForTracking(): Promise<ReadyForTrackingProject[]> {
@@ -525,32 +685,74 @@ export const terminalReportsService = {
 
     const list = unwrapListResponse<any>(data);
 
-    const normalized = list.data.map((item: any) => ({
-      id: item.id ?? item.pk,
-      project_tracking_id:
-        item.projectTracking?.projectTrackingId ??
-        item.projectTracking?.id ??
+    const normalized = list.data.map((item: any) => {
+      const pt = item.projectTracking || item.project_tracking || {};
+      const ptId =
+        pt.projectTrackingId ??
+        pt.project_tracking_id ??
+        pt.id ??
         item.project_tracking ??
-        null,
-      project_tracking_title:
-        item.projectTracking?.title ?? item.project_tracking_title ?? null,
-      project_tracking_status:
-        item.projectTracking?.status ?? item.project_tracking_status ?? null,
-      general_status: item.generalStatus ?? item.general_status ?? "pending",
-      submitted_by_name:
-        item.submittedByName ?? item.submitted_by_name ?? null,
-      report_name: item.reportName ?? item.report_name ?? null,
-      main_deliverables:
-        item.mainDeliverables ?? item.main_deliverables ?? "",
-      attachment: item.attachment ?? null,
-      is_published: item.isPublished ?? item.is_published ?? false,
-      publication_link:
-        item.publicationLink ?? item.publication_link ?? null,
-      status: item.status ?? "pending",
-      submitted_at: item.submittedAt ?? item.submitted_at ?? "",
-      submitted_by: item.submittedBy ?? item.submitted_by ?? null,
-      terminal_type: item.terminalType ?? item.terminal_type ?? [],
-    }));
+        null;
+      const propId =
+        pt.proposalId ?? pt.proposal_id ?? pt.proposal ?? item.proposal_id ?? null;
+      const refNum =
+        pt.referenceNumber ??
+        pt.reference_number ??
+        item.referenceNumber ??
+        item.reference_number ??
+        (propId ? `PROP-${propId}` : `PT-${ptId}`);
+
+      return {
+        id: item.id ?? item.pk,
+        project_tracking_id: ptId,
+        proposal_id: propId,
+        reference_number: refNum,
+        project_tracking_title:
+          pt.title ??
+          item.project_tracking_title ??
+          item.reportName ??
+          item.report_name ??
+          `Terminal Report #${item.id}`,
+        project_tracking_status: pt.status ?? item.project_tracking_status ?? null,
+        project_tracking: {
+          project_tracking_id: ptId,
+          proposal_id: propId,
+          reference_number: refNum,
+          title: pt.title ?? item.project_tracking_title ?? item.reportName ?? item.report_name,
+          status: pt.status ?? item.project_tracking_status,
+        },
+        general_status:
+          item.generalStatus ?? item.general_status ?? item.status ?? "pending",
+        submitted_by_name:
+          item.submittedByName ?? item.submitted_by_name ?? null,
+        report_name: item.reportName ?? item.report_name ?? null,
+        main_deliverables:
+          item.mainDeliverables ?? item.main_deliverables ?? "",
+        attachment: item.attachment ?? null,
+        is_published: item.isPublished ?? item.is_published ?? false,
+        publication_link:
+          item.publicationLink ?? item.publication_link ?? null,
+        data_center_name:
+          item.dataCenterName ??
+          item.data_center_name ??
+          item.customDataCenter ??
+          item.custom_data_center ??
+          null,
+        custom_data_center:
+          item.customDataCenter ?? item.custom_data_center ?? null,
+        data_sharing_checklist_completed:
+          item.dataSharingChecklistCompleted ??
+          item.data_sharing_checklist_completed ??
+          false,
+        reviewer_comments:
+          item.reviewerComments ?? item.reviewer_comments ?? item.comment ?? null,
+        items: item.items ?? [],
+        status: item.status ?? item.generalStatus ?? item.general_status ?? "pending",
+        submitted_at: item.submittedAt ?? item.submitted_at ?? "",
+        submitted_by: item.submittedBy ?? item.submitted_by ?? null,
+        terminal_type: item.terminalType ?? item.terminal_type ?? [],
+      };
+    });
 
     return {
       data: normalized as TerminalReportSummary[],
@@ -566,22 +768,80 @@ export const terminalReportsService = {
     );
 
     const payload = unwrapDetailResponse<any>(data);
+    const pt = payload.projectTracking || payload.project_tracking || {};
+    const ptId =
+      pt.projectTrackingId ??
+      pt.project_tracking_id ??
+      pt.id ??
+      payload.project_tracking ??
+      null;
+    const propId =
+      pt.proposalId ?? pt.proposal_id ?? pt.proposal ?? payload.proposal_id ?? null;
+    const refNum =
+      pt.referenceNumber ??
+      pt.reference_number ??
+      payload.referenceNumber ??
+      payload.reference_number ??
+      (propId ? `PROP-${propId}` : `PT-${ptId}`);
+
+    const rawPi = pt.pi ?? payload.pi ?? null;
+    const normalizedPi = rawPi ? {
+      id: rawPi.id,
+      full_name: rawPi.full_name ?? rawPi.fullName ?? rawPi.name ?? null,
+      email: rawPi.email ?? null,
+      photo_url: rawPi.photo_url ?? rawPi.photoUrl ?? rawPi.photo ?? null,
+      department: rawPi.department ?? rawPi.departmentName ?? null,
+    } : null;
+
+    const rawTeam: any[] = pt.team_members ?? pt.teamMembers ?? payload.team_members ?? payload.teamMembers ?? [];
+    const normalizedTeam = rawTeam.map((tm: any) => ({
+      id: tm.id,
+      member_type: tm.member_type ?? tm.memberType ?? "internal",
+      full_name: tm.full_name ?? tm.fullName ?? tm.name ?? "Team Member",
+      email: tm.email ?? null,
+      photo_url: tm.photo_url ?? tm.photoUrl ?? tm.photo ?? null,
+      role: tm.role ?? tm.roleName ?? null,
+      organization: tm.organization ?? tm.organizationName ?? tm.organization_name ?? null,
+      position: tm.position ?? null,
+    }));
+
+    const rawItems: any[] = payload.items ?? [];
+    const normalizedItems = rawItems.map((it: any) => ({
+      id: it.id,
+      terminal_type: it.terminal_type ?? it.terminalType,
+      terminal_type_name: it.terminal_type_name ?? it.terminalTypeName ?? null,
+      file: it.file ?? null,
+      external_link: it.external_link ?? it.externalLink ?? null,
+      grade: it.grade ?? null,
+      grade_name: it.grade_name ?? it.gradeName ?? null,
+      grade_comments: it.grade_comments ?? it.gradeComments ?? null,
+    }));
 
     return {
       id: payload.id ?? payload.pk,
-      project_tracking_id:
-        payload.projectTracking?.projectTrackingId ??
-        payload.projectTracking?.id ??
-        payload.project_tracking ??
-        null,
+      project_tracking_id: ptId,
+      proposal_id: propId,
+      reference_number: refNum,
       project_tracking_title:
-        payload.projectTracking?.title ?? payload.project_tracking_title ?? null,
-      project_tracking_status:
-        payload.projectTracking?.status ??
-        payload.project_tracking_status ??
-        null,
+        pt.title ??
+        payload.project_tracking_title ??
+        payload.reportName ??
+        payload.report_name ??
+        `Terminal Report #${payload.id}`,
+      project_tracking_status: pt.status ?? payload.project_tracking_status ?? null,
+      project_tracking: {
+        project_tracking_id: ptId,
+        proposal_id: propId,
+        reference_number: refNum,
+        title: pt.title ?? payload.project_tracking_title ?? payload.reportName ?? payload.report_name,
+        status: pt.status ?? payload.project_tracking_status,
+        pi: normalizedPi,
+        team_members: normalizedTeam,
+      },
+      pi: normalizedPi,
+      team_members: normalizedTeam,
       general_status:
-        payload.generalStatus ?? payload.general_status ?? "pending",
+        payload.generalStatus ?? payload.general_status ?? payload.status ?? "pending",
       submitted_by_name:
         payload.submittedByName ?? payload.submitted_by_name ?? null,
       report_name: payload.reportName ?? payload.report_name ?? null,
@@ -591,11 +851,78 @@ export const terminalReportsService = {
       is_published: payload.isPublished ?? payload.is_published ?? false,
       publication_link:
         payload.publicationLink ?? payload.publication_link ?? null,
-      status: payload.status ?? "pending",
+      data_center_id:
+        payload.dataCenterId ??
+        payload.data_center_id ??
+        (typeof payload.data_center === "object"
+          ? payload.data_center?.id
+          : payload.data_center) ??
+        null,
+      data_center:
+        typeof payload.data_center === "object"
+          ? payload.data_center
+          : payload.data_center
+            ? { id: payload.data_center, name: payload.data_center_name }
+            : null,
+      data_center_name:
+        payload.dataCenterName ??
+        payload.data_center_name ??
+        payload.customDataCenter ??
+        payload.custom_data_center ??
+        null,
+      custom_data_center:
+        payload.customDataCenter ?? payload.custom_data_center ?? null,
+      data_sharing_checklist_completed:
+        payload.dataSharingChecklistCompleted ??
+        payload.data_sharing_checklist_completed ??
+        false,
+      reviewer_comments:
+        payload.reviewerComments ?? payload.reviewer_comments ?? payload.comment ?? null,
+      approvals: payload.approvals ?? [],
+      items: normalizedItems,
+      status: payload.status ?? payload.generalStatus ?? payload.general_status ?? "pending",
       submitted_at: payload.submittedAt ?? payload.submitted_at ?? "",
+      updated_at: payload.updatedAt ?? payload.updated_at ?? null,
       submitted_by: payload.submittedBy ?? payload.submitted_by ?? null,
       terminal_type: payload.terminalType ?? payload.terminal_type ?? [],
     } as TerminalReportSummary;
+  },
+
+  async getTerminalReportGrades(): Promise<TerminalReportGrade[]> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.TERMINAL_REPORT_GRADES.LIST,
+    );
+    const list = unwrapListResponse<TerminalReportGrade>(data);
+    return list.data ?? [];
+  },
+
+  async getGradedForRepository(): Promise<any[]> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.FINAL_SUBMISSIONS.ELIGIBLE_FOR_REPOSITORY,
+    );
+    return data?.data ?? data?.results ?? [];
+  },
+
+  async createTerminalReport(payload: FormData): Promise<any> {
+    const { data } = await apiClient.post(
+      API_ENDPOINTS.TERMINAL_REPORTS.CREATE,
+      payload,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    return data;
+  },
+
+  async updateTerminalReport(id: string | number, payload: FormData): Promise<any> {
+    const { data } = await apiClient.patch(
+      API_ENDPOINTS.TERMINAL_REPORTS.DETAIL(id),
+      payload,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    return data;
   },
 };
 

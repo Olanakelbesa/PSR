@@ -270,7 +270,7 @@ export default function ProgressReportListPage() {
 
   const router = useRouter();
 
-  const { data: readyProjects } = useReadyForTracking();
+  const { data: readyProjects } = useReadyForTracking({ scope: "my" });
   const createMutation = useCreateProjectTracking();
 
   const { data: response, isLoading } = useProgressReportApprovals({

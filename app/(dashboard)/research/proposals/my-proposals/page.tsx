@@ -596,77 +596,77 @@ export default function ProposalsPage() {
     activeRing: string;
     sub: string;
   }> = [
-    {
-      key: "all",
-      label: "Total Proposals",
-      value: stats.total,
-      icon: <FileText className="h-4 w-4 text-primary" />,
-      iconBg: "bg-primary/10",
-      border: "border-primary/10",
-      activeRing: "ring-primary/50 border-primary/40",
-      sub: "Across all categories",
-    },
-    {
-      key: "drafts",
-      label: "Drafts",
-      value: stats.drafts,
-      icon: <Edit className="h-4 w-4 text-slate-600" />,
-      iconBg: "bg-slate-100",
-      border: "border-slate-200/70 bg-slate-50/20",
-      activeRing: "ring-slate-500/60 border-slate-300",
-      sub: "Not yet submitted",
-    },
-    {
-      key: "submitted",
-      label: "Submitted",
-      value: stats.submitted,
-      icon: <Inbox className="h-4 w-4 text-violet-600" />,
-      iconBg: "bg-violet-100",
-      border: "border-violet-200/70 bg-violet-50/20",
-      activeRing: "ring-violet-500/60 border-violet-300",
-      sub: "Awaiting PSR review",
-    },
-    {
-      key: "under_review",
-      label: "Under Review",
-      value: stats.underReview,
-      icon: <Clock className="h-4 w-4 text-blue-500" />,
-      iconBg: "bg-blue-100",
-      border: "border-blue-100/50 bg-blue-50/10",
-      activeRing: "ring-blue-500/60 border-blue-300",
-      sub: "Being evaluated",
-    },
-    {
-      key: "resubmitted",
-      label: "Resubmitted",
-      value: stats.resubmitted,
-      icon: <RefreshCw className="h-4 w-4 text-purple-600" />,
-      iconBg: "bg-purple-100",
-      border: "border-purple-200/70 bg-purple-50/20",
-      activeRing: "ring-purple-500/60 border-purple-300",
-      sub: "Revised and resent",
-    },
-    {
-      key: "revision_requested",
-      label: "Revision Required",
-      value: stats.revisionRequested,
-      icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
-      iconBg: "bg-amber-100",
-      border: "border-amber-100/50 bg-amber-50/10",
-      activeRing: "ring-amber-500/60 border-amber-300",
-      sub: "Needs your updates",
-    },
-    {
-      key: "approved",
-      label: "Approved",
-      value: stats.approved,
-      icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-      iconBg: "bg-green-100",
-      border: "border-green-100/50 bg-green-50/10",
-      activeRing: "ring-green-500/60 border-green-300",
-      sub: "Ready for next stage",
-    },
-  ];
+      {
+        key: "all",
+        label: "Total Proposals",
+        value: stats.total,
+        icon: <FileText className="h-4 w-4 text-primary" />,
+        iconBg: "bg-primary/10",
+        border: "border-primary/10",
+        activeRing: "ring-primary/50 border-primary/40",
+        sub: "Across all categories",
+      },
+      {
+        key: "drafts",
+        label: "Drafts",
+        value: stats.drafts,
+        icon: <Edit className="h-4 w-4 text-slate-600" />,
+        iconBg: "bg-slate-100",
+        border: "border-slate-200/70 bg-slate-50/20",
+        activeRing: "ring-slate-500/60 border-slate-300",
+        sub: "Not yet submitted",
+      },
+      {
+        key: "submitted",
+        label: "Submitted",
+        value: stats.submitted,
+        icon: <Inbox className="h-4 w-4 text-violet-600" />,
+        iconBg: "bg-violet-100",
+        border: "border-violet-200/70 bg-violet-50/20",
+        activeRing: "ring-violet-500/60 border-violet-300",
+        sub: "Awaiting PSR review",
+      },
+      {
+        key: "under_review",
+        label: "Under Review",
+        value: stats.underReview,
+        icon: <Clock className="h-4 w-4 text-blue-500" />,
+        iconBg: "bg-blue-100",
+        border: "border-blue-100/50 bg-blue-50/10",
+        activeRing: "ring-blue-500/60 border-blue-300",
+        sub: "Being evaluated",
+      },
+      {
+        key: "resubmitted",
+        label: "Resubmitted",
+        value: stats.resubmitted,
+        icon: <RefreshCw className="h-4 w-4 text-purple-600" />,
+        iconBg: "bg-purple-100",
+        border: "border-purple-200/70 bg-purple-50/20",
+        activeRing: "ring-purple-500/60 border-purple-300",
+        sub: "Revised and resent",
+      },
+      {
+        key: "revision_requested",
+        label: "Revision Required",
+        value: stats.revisionRequested,
+        icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
+        iconBg: "bg-amber-100",
+        border: "border-amber-100/50 bg-amber-50/10",
+        activeRing: "ring-amber-500/60 border-amber-300",
+        sub: "Needs your updates",
+      },
+      {
+        key: "approved",
+        label: "Approved",
+        value: stats.approved,
+        icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+        iconBg: "bg-green-100",
+        border: "border-green-100/50 bg-green-50/10",
+        activeRing: "ring-green-500/60 border-green-300",
+        sub: "Ready for next stage",
+      },
+    ];
 
   // ── Table row data mapping ─────────────────────────────────────────────────
   const tableData: ProposalRow[] = useMemo(() => {
@@ -858,77 +858,77 @@ export default function ProposalsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7">
         {isLoading
           ? Array.from({ length: 7 }).map((_, i) => (
-              <Card
-                key={i}
-                className="overflow-hidden border-none shadow-md"
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-12" />
-                  <Skeleton className="mt-1 h-3 w-20" />
-                </CardContent>
-              </Card>
-            ))
+            <Card
+              key={i}
+              className="overflow-hidden border-none shadow-md"
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-12" />
+                <Skeleton className="mt-1 h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))
           : statCards.map(
-              ({
-                key,
-                label,
-                value,
-                icon,
-                iconBg,
-                border,
-                activeRing,
-                sub,
-              }) => {
-                const isActive = queueFilter === key;
+            ({
+              key,
+              label,
+              value,
+              icon,
+              iconBg,
+              border,
+              activeRing,
+              sub,
+            }) => {
+              const isActive = queueFilter === key;
 
-                return (
-                  <Card
-                    key={key}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => applyQueueFilter(key)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        applyQueueFilter(key);
-                      }
-                    }}
-                    className={cn(
-                      border,
-                      "cursor-pointer transition-all hover:shadow-md",
-                      isActive && cn("ring-2 shadow-md", activeRing),
-                    )}
-                  >
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        {label}
-                      </CardTitle>
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full ${iconBg}`}
-                      >
-                        {icon}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">
-                        {isLoading ? (
-                          <Skeleton className="h-8 w-12" />
-                        ) : (
-                          value
-                        )}
-                      </div>
-                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">
-                        {sub}
-                      </p>
-                    </CardContent>
-                  </Card>
-                );
-              },
-            )}
+              return (
+                <Card
+                  key={key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => applyQueueFilter(key)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      applyQueueFilter(key);
+                    }
+                  }}
+                  className={cn(
+                    border,
+                    "cursor-pointer transition-all hover:shadow-md",
+                    isActive && cn("ring-2 shadow-md", activeRing),
+                  )}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {label}
+                    </CardTitle>
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${iconBg}`}
+                    >
+                      {icon}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {isLoading ? (
+                        <Skeleton className="h-8 w-12" />
+                      ) : (
+                        value
+                      )}
+                    </div>
+                    <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                      {sub}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            },
+          )}
       </div>
 
       {/* ── Filter banner ─────────────────────────────────────────────────── */}
@@ -1029,12 +1029,12 @@ export default function ProposalsPage() {
               filterOptions={
                 queueFilter === "all"
                   ? [
-                      {
-                        key: "status",
-                        label: "Status",
-                        options: statusOptions,
-                      },
-                    ]
+                    {
+                      key: "status",
+                      label: "Status",
+                      options: statusOptions,
+                    },
+                  ]
                   : []
               }
               emptyMessage="No proposals found"

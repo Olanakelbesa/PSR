@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar, AppHeader } from "@/components/layout";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getRequiredPermissionsForRoute } from "@/lib/permissions";
+import { AccessDenied } from "@/components/shared/access-denied";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session, status } = useSession();
+  const { hasAny, isLoading: permissionsLoading } = useCurrentUser();
 
   const isLoading = status === "loading";
   const isAuthenticated =
@@ -51,15 +56,29 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const requiredPermissions = getRequiredPermissionsForRoute(pathname);
+  const isForbidden =
+    !!requiredPermissions &&
+    !permissionsLoading &&
+    !hasAny(requiredPermissions);
+
   return (
     <SidebarProvider className="h-dvh max-h-dvh overflow-hidden">
       <AppSidebar />
       <SidebarInset className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <AppHeader />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pb-10">
-          {children}
+          {requiredPermissions && permissionsLoading ? (
+            <div className="flex flex-1 items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isForbidden ? (
+            <AccessDenied />
+          ) : (
+            children
+          )}
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
-}
+}

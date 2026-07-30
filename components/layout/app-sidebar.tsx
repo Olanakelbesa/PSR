@@ -72,6 +72,19 @@ interface SubNavItem {
   href: string;
   icon?: React.ComponentType<{ className?: string }>;
   permissions?: PermissionValue[];
+  matchPrefixes?: string[];
+}
+
+function isSubItemMatch(sub: SubNavItem, pathname: string): boolean {
+  if (pathname === sub.href || pathname.startsWith(sub.href + "/")) {
+    return true;
+  }
+  if (sub.matchPrefixes) {
+    return sub.matchPrefixes.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+    );
+  }
+  return false;
 }
 
 interface NavItem {
@@ -103,6 +116,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Concept Note",
             href: "/policies/concept-notes/my-concept-note",
             icon: Dot,
+            matchPrefixes: [
+              "/policies/concept-notes/new",
+              "/policies/concept-notes/create",
+            ],
           },
           {
             label: "Manage Concept Notes",
@@ -114,8 +131,7 @@ const navigationGroups: NavGroup[] = [
             label: "Review Concept Note",
             href: "/policies/concept-notes/review-concept-note",
             icon: Dot,
-            // permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
-            // permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
+            permissions: [...PERMISSION_GROUPS.CONCEPT_NOTE_REVIEW],
           },
         ],
       },
@@ -127,6 +143,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Drafts",
             href: "/policies/drafts/my-drafts",
             icon: Dot,
+            matchPrefixes: [
+              "/policies/drafts/new",
+              "/policies/drafts/create",
+            ],
           },
           {
             label: "Manage Drafts",
@@ -138,8 +158,7 @@ const navigationGroups: NavGroup[] = [
             label: "Review Draft",
             href: "/policies/drafts/review-draft",
             icon: Dot,
-            // permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
-            // permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
+            permissions: [...PERMISSION_GROUPS.DRAFT_REVIEW],
           },
         ],
       },
@@ -174,6 +193,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Proposals",
             href: "/research/proposals/my-proposals",
             icon: Dot,
+            matchPrefixes: [
+              "/research/proposals/new",
+              "/research/proposals/create",
+            ],
           },
           {
             label: "Screening",
@@ -209,6 +232,7 @@ const navigationGroups: NavGroup[] = [
             label: "My Submissions",
             href: "/research/irb-clearance/my-submissions",
             icon: Dot,
+            matchPrefixes: ["/research/irb-clearance/submit"],
           },
           {
             label: "IRB Reviews",
@@ -226,6 +250,7 @@ const navigationGroups: NavGroup[] = [
             label: "My Submissions",
             href: "/research/protocol/my-submissions",
             icon: Dot,
+            matchPrefixes: ["/research/protocol/submit"],
           },
           {
             label: "Protocol Reviews",
@@ -268,14 +293,10 @@ const navigationGroups: NavGroup[] = [
             label: "My Final Reports",
             href: "/research/final-report/my-final-reports",
             icon: Dot,
-            // permissions: [
-            //   PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
-            //   PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
-            // ],
-            // permissions: [
-            //   PERMISSIONS.MONITORING_VIEW_TERMINAL_REPORT,
-            //   PERMISSIONS.MONITORING_SUBMIT_TERMINAL_REPORT,
-            // ],
+            matchPrefixes: [
+              "/research/final-report/new",
+              "/research/final-report/create",
+            ],
           },
           {
             label: "Final Report Approval",
@@ -311,6 +332,9 @@ const navigationGroups: NavGroup[] = [
             label: "External Research",
             href: "/research/external-research/my-external-research",
             icon: Dot,
+            matchPrefixes: [
+              "/research/external-research/my-external-research/add",
+            ],
           },
           {
             label: "External Research Approval",
@@ -347,6 +371,7 @@ const navigationGroups: NavGroup[] = [
             href: "/settings/access-control/users",
             icon: Users,
             permissions: [...PERMISSION_GROUPS.USER_MANAGEMENT],
+            matchPrefixes: ["/users"],
           },
           {
             label: "Audit Logs",
@@ -411,9 +436,7 @@ export function AppSidebar() {
     navigationGroups.forEach((g) =>
       g.items.forEach((i) => {
         if (i.subItems) {
-          map[i.label] = i.subItems.some(
-            (s) => pathname === s.href || pathname.startsWith(s.href + "/"),
-          );
+          map[i.label] = i.subItems.some((s) => isSubItemMatch(s, pathname));
         }
       }),
     );
@@ -435,8 +458,8 @@ export function AppSidebar() {
 
         if (visibleSubItems.length === 0) return;
 
-        nextOpenMap[item.label] = visibleSubItems.some(
-          (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/"),
+        nextOpenMap[item.label] = visibleSubItems.some((sub) =>
+          isSubItemMatch(sub, pathname),
         );
       });
     });
@@ -516,21 +539,15 @@ export function AppSidebar() {
                     }
 
                     if (validSubItems && validSubItems.length > 0) {
-                      const parentActive = validSubItems.some(
-                        (sub) =>
-                          pathname === sub.href ||
-                          pathname.startsWith(sub.href + "/"),
+                      const parentActive = validSubItems.some((sub) =>
+                        isSubItemMatch(sub, pathname),
                       );
 
                       // Only the most specific (longest) matching sibling is
                       // active, so e.g. "/research/external-research" doesn't
                       // light up on "/research/external-research/approval".
                       const activeSubHref = validSubItems
-                        .filter(
-                          (sub) =>
-                            pathname === sub.href ||
-                            pathname.startsWith(sub.href + "/"),
-                        )
+                        .filter((sub) => isSubItemMatch(sub, pathname))
                         .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
                       const parentButtonClassName = `

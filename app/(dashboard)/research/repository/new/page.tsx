@@ -44,7 +44,9 @@ import {
   useDataCenters,
   useOutputTypes,
   useReadyForFinalSubmissionFundingRecommendations,
+  useGradedForRepository,
 } from "@/hooks";
+import { progressReportsService } from "@/api/services/progress-reports.service";
 import type {
   FinalSubmissionCreateInput,
   FinalSubmissionStatus,
@@ -162,13 +164,7 @@ export default function NewRepositorySubmissionPage() {
     supplementary_document: null as File | null,
   });
 
-  const readySubmissionQuery = useReadyForFinalSubmissionFundingRecommendations(
-    {
-      page: 1,
-      limit: 100,
-      ordering: "-recommended_at",
-    },
-  );
+  const gradedRepositoryQuery = useGradedForRepository();
   const outputTypesQuery = useOutputTypes({
     page: 1,
     limit: 100,
@@ -180,7 +176,7 @@ export default function NewRepositorySubmissionPage() {
     ordering: "name",
   });
 
-  const readyFundingRecommendations = readySubmissionQuery.data?.data ?? [];
+  const gradedProposals = gradedRepositoryQuery.data ?? [];
   const outputTypes = outputTypesQuery.data?.data ?? [];
   const dataCenters = dataCentersQuery.data?.data ?? [];
 
@@ -236,16 +232,35 @@ export default function NewRepositorySubmissionPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleFundedProposalChange(value: string) {
-    const selected = readyFundingRecommendations.find(
-      (item) => String(item.id) === value,
-    );
+  async function handleFundedProposalChange(value: string) {
+    setForm((prev) => ({ ...prev, fundedproposal: value }));
 
-    setForm((prev) => ({
-      ...prev,
-      fundedproposal: value,
-      title: selected?.proposal_title || prev.title,
-    }));
+    try {
+      const prefill = await progressReportsService.getPrefillFinalSubmission(value);
+      if (prefill) {
+        setForm((prev) => ({
+          ...prev,
+          fundedproposal: value,
+          title: prefill.title || prev.title,
+          data_center: prefill.data_center ? String(prefill.data_center) : prev.data_center,
+          data_sharing_checklist_completed: prefill.data_sharing_checklist_completed ?? true,
+          external_link: prefill.publication_link || (prefill.items && prefill.items[0]?.external_link) || prev.external_link,
+        }));
+
+        toast.success("Pre-filled details from Graded Terminal Report!", {
+          description: "Title, Data Center, external link, and checklist status filled automatically.",
+        });
+      }
+    } catch {
+      const selected = readyFundingRecommendations.find(
+        (item) => String(item.id) === value,
+      );
+      setForm((prev) => ({
+        ...prev,
+        fundedproposal: value,
+        title: selected?.proposal_title || prev.title,
+      }));
+    }
   }
 
   async function handleSubmit() {
@@ -287,7 +302,7 @@ export default function NewRepositorySubmissionPage() {
   }
 
   const isLookupLoading =
-    readySubmissionQuery.isLoading ||
+    gradedRepositoryQuery.isLoading ||
     outputTypesQuery.isLoading ||
     dataCentersQuery.isLoading;
 
@@ -331,13 +346,13 @@ export default function NewRepositorySubmissionPage() {
                 Submission Identity
               </CardTitle>
               <CardDescription>
-                Select the funded proposal and define the core output details.
+                Select a proposal with a fully graded terminal report to register output.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 p-6 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="fundedproposal">
-                  Funded Proposal <span className="text-destructive">*</span>
+                  Funded Proposal (Graded Terminal Report Required) <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={form.fundedproposal}
@@ -351,29 +366,29 @@ export default function NewRepositorySubmissionPage() {
                     <SelectValue
                       placeholder={
                         isLookupLoading
-                          ? "Loading funded proposals..."
-                          : "Choose a funded proposal"
+                          ? "Loading eligible graded proposals..."
+                          : "Choose an eligible graded proposal"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {readyFundingRecommendations.length > 0 ? (
-                      readyFundingRecommendations.map((item) => (
-                        <SelectItem key={item.id} value={String(item.id)}>
-                          <div className="flex flex-col py-1 text-left">
-                            <span className="font-semibold">
-                              {proposalLabel(item)}
-                            </span>
-                            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                              PI: {piName(item.pi)} · Award:{" "}
-                              {formatCurrency(item.total_award_amount)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))
+                    {gradedProposals.length > 0 ? (
+                      gradedProposals.map((item: any) => {
+                        const proposalIdVal = String(item.proposal_id || item.project_tracking_id);
+                        return (
+                          <SelectItem key={proposalIdVal} value={proposalIdVal}>
+                            <div className="flex flex-col py-1 text-left">
+                              <span className="font-semibold">{item.title}</span>
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                Ref: {item.reference_number || `PT-${item.project_tracking_id}`} · Data Center: {item.data_center_name || "Repository"}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })
                     ) : (
                       <div className="p-4 text-center text-xs text-muted-foreground">
-                        No funded proposals are ready for final submission.
+                        No proposals with fully graded terminal reports are available for repository registration.
                       </div>
                     )}
                   </SelectContent>

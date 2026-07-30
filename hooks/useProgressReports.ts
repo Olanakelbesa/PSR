@@ -238,10 +238,39 @@ export function useUpdateTerminalReportApproval() {
   });
 }
 
-export function useReadyForTracking() {
+export function useTerminalReportGrades() {
   return useQuery({
-    queryKey: ["ready-project-tracking"],
-    queryFn: () => progressReportsService.getReadyForTracking(),
+    queryKey: ["terminal-report-grades"],
+    queryFn: () => terminalReportsService.getTerminalReportGrades(),
+  });
+}
+
+export function useEligibleForTerminalReport(params?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: ["eligible-for-terminal-report", params],
+    queryFn: () => progressReportsService.getEligibleForTerminalReport(params),
+  });
+}
+
+export function useReadyForTracking(params: Record<string, unknown> = {}) {
+  return useQuery({
+    queryKey: ["ready-for-tracking", params],
+    queryFn: () => progressReportsService.getReadyForTracking(params),
+  });
+}
+
+export function useGradedForRepository() {
+  return useQuery({
+    queryKey: ["graded-for-repository"],
+    queryFn: () => terminalReportsService.getGradedForRepository(),
+  });
+}
+
+export function usePrefillFinalSubmission(proposalId: string | number | undefined) {
+  return useQuery({
+    queryKey: ["prefill-final-submission", String(proposalId)],
+    queryFn: () => terminalReportsService.getPrefillFinalSubmission(proposalId as string | number),
+    enabled: !!proposalId,
   });
 }
 

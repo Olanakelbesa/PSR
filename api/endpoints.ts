@@ -252,10 +252,15 @@ export const API_ENDPOINTS = {
     LIST: "/v1/terminal-reports/",
     DETAIL: (id: string | number) => `/v1/terminal-reports/${id}/`,
     CREATE: "/v1/terminal-reports/",
+    GRADED_FOR_REPOSITORY: "/v1/terminal-reports/graded-for-repository/",
   },
 
   TERMINAL_REPORT_TYPES: {
     LIST: "/v1/terminalreporttypes/",
+  },
+
+  TERMINAL_REPORT_GRADES: {
+    LIST: "/v1/terminal-report-grades/",
   },
 
   // ── Grants ────────────────────────────────────────────────────────────────
@@ -312,6 +317,7 @@ export const API_ENDPOINTS = {
     CREATE: "/v1/project-tracking/",
     DETAIL: (id: string | number) => `/v1/project-tracking/${id}/`,
     READY_FOR_TRACKING: "/v1/project-tracking/ready-for-tracking/",
+    ELIGIBLE_FOR_TERMINAL_REPORT: "/v1/project-tracking/eligible-for-terminal-report/",
   },
 
   // ── Funding Recommendations ───────────────────────────────────────────────
@@ -332,6 +338,9 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/final-submissions/${id}/`,
     UPDATE: (id: string | number) => `/v1/final-submissions/${id}/`,
     DOWNLOAD: (id: string | number) => `/v1/final-submissions/${id}/download/`,
+    SUBMIT: (id: string | number) => `/v1/final-submissions/${id}/submit/`,
+    ELIGIBLE_FOR_REPOSITORY: "/v1/final-submissions/eligible-for-repository/",
+    PREFILL_DATA: "/v1/final-submissions/prefill-data/",
   },
 
   OUTPUT_TYPES: {

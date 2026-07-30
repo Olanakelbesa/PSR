@@ -318,7 +318,7 @@ export default function ProtocolReviewDetailPage() {
       protocol.attachments.forEach((att, idx) => {
         list.push({
           key: `attachment-${att.id}`,
-          label: att.filename || `Attachment ${idx + 1}`,
+          label: "Supporting Documents",
           filePath: att.file || att.fileUrl || att.file_url,
           filename: att.filename || `Attachment ${idx + 1}`,
         });

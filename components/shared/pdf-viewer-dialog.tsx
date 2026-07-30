@@ -9,18 +9,25 @@ import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachmen
 import { WordViewer } from "@/components/shared/word-viewer";
 
 interface PdfViewerDialogProps {
-  isOpen: boolean;
+  isOpen?: boolean;
+  open?: boolean;
   onOpenChange: (open: boolean) => void;
-  url: string;
+  url?: string;
+  pdfUrl?: string;
   title?: string;
 }
 
 export function PdfViewerDialog({
   isOpen,
+  open,
   onOpenChange,
   url,
+  pdfUrl,
   title = "Document preview",
 }: PdfViewerDialogProps) {
+  const activeOpen = isOpen ?? open ?? false;
+  const activeUrl = url || pdfUrl || "";
+
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -30,12 +37,12 @@ export function PdfViewerDialog({
     };
   }, [blobUrl]);
 
-  if (!url) return null;
+  if (!activeUrl) return null;
 
-  const attachmentKind = getConceptNoteAttachmentKind(url);
+  const attachmentKind = getConceptNoteAttachmentKind(activeUrl);
   if (attachmentKind === "unsupported") return null;
 
-  const safeUrl = encodeURI(url);
+  const safeUrl = encodeURI(activeUrl);
 
   const handleOpenInNewTab = () => {
     window.open(safeUrl, "_blank", "noopener,noreferrer");
@@ -68,7 +75,7 @@ export function PdfViewerDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={activeOpen} onOpenChange={onOpenChange}>
       <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0">
         <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
           <div className="min-w-0">
@@ -100,7 +107,7 @@ export function PdfViewerDialog({
               onError={handleIframeError}
             />
           ) : (
-            <WordViewer url={url} title={title} className="h-full" hideHeader />
+            <WordViewer url={activeUrl} title={title} className="h-full" hideHeader />
           )}
         </div>
       </DialogContent>

@@ -53,6 +53,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { GradeTerminalReportModal } from "@/components/features/terminal-report/GradeTerminalReportModal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   useGroupedProgressReport,
@@ -480,6 +481,26 @@ export default function ProgressReportApprovalDetailPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [previewTitle, setPreviewTitle] = useState<string>("");
+  const [gradeModalOpen, setGradeModalOpen] = useState(false);
+
+  const reports = useMemo(() => proposalData?.reports || [], [proposalData]);
+
+  // Compute 1-based chronological report sequence numbers (1 = earliest/initial report, N = latest report)
+  const chronologicalOrderMap = useMemo(() => {
+    if (!reports.length) return new Map<number, number>();
+    const sortedAscending = [...reports].sort((a, b) => {
+      const timeA = new Date(a.submittedAt || a.submitted_at || 0).getTime();
+      const timeB = new Date(b.submittedAt || b.submitted_at || 0).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.id || 0) - (b.id || 0);
+    });
+
+    const map = new Map<number, number>();
+    sortedAscending.forEach((rep, index) => {
+      map.set(rep.id, index + 1);
+    });
+    return map;
+  }, [reports]);
 
   const refNumber = proposalData?.referenceNumber || `PT-${proposalData?.projectTrackingId || targetId}`;
   const trackingIdStr = `#${proposalData?.projectTrackingId || targetId}`;
@@ -549,27 +570,10 @@ export default function ProgressReportApprovalDetailPage() {
     );
   }
 
-  const reports = proposalData.reports || [];
   const filteredReports = reports.filter((r) => {
     if (reportFilter === "all") return true;
     return r.status?.toLowerCase() === reportFilter;
   });
-
-  // Compute 1-based chronological report sequence numbers (1 = earliest/initial report, N = latest report)
-  const chronologicalOrderMap = useMemo(() => {
-    const sortedAscending = [...reports].sort((a, b) => {
-      const timeA = new Date(a.submittedAt || a.submitted_at || 0).getTime();
-      const timeB = new Date(b.submittedAt || b.submitted_at || 0).getTime();
-      if (timeA !== timeB) return timeA - timeB;
-      return (a.id || 0) - (b.id || 0);
-    });
-
-    const map = new Map<number, number>();
-    sortedAscending.forEach((rep, index) => {
-      map.set(rep.id, index + 1);
-    });
-    return map;
-  }, [reports]);
 
   const totalAmountUsed = reports.reduce(
     (acc, r) => acc + (Number(r.amountUsed) || 0),
@@ -583,6 +587,15 @@ export default function ProgressReportApprovalDetailPage() {
   return (
     <PageContainer
       title={proposalData.title}
+      action={
+        <Button
+          onClick={() => setGradeModalOpen(true)}
+          className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-semibold flex items-center gap-2"
+        >
+          <FileCheck2 className="w-4 h-4" />
+          Grade & Evaluate Terminal Report
+        </Button>
+      }
       description={
         <div className="flex flex-wrap items-center gap-2 mt-1.5">
           {/* Reference Copy Pill */}
@@ -1263,10 +1276,23 @@ export default function ProgressReportApprovalDetailPage() {
 
       {/* Document Viewer Modal */}
       <PdfViewerDialog
-        isOpen={previewOpen}
+        open={previewOpen}
         onOpenChange={setPreviewOpen}
-        url={previewUrl}
+        pdfUrl={previewUrl}
         title={previewTitle}
+      />
+
+      {/* Grade & Evaluate Terminal Report Modal */}
+      <GradeTerminalReportModal
+        isOpen={gradeModalOpen}
+        onClose={() => setGradeModalOpen(false)}
+        terminalReport={{
+          id: Number(targetId),
+          report_name: proposalData?.title,
+          project_tracking_title: proposalData?.title,
+          submitted_by_name: typeof proposalData?.pi === "string" ? proposalData.pi : proposalData?.pi?.fullName,
+          items: [],
+        }}
       />
     </PageContainer>
   );
