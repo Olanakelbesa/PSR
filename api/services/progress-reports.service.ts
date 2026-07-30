@@ -251,6 +251,8 @@ export interface TerminalReportSummary {
   reference_number: string | null;
   general_status: string;
   submitted_by_name: string | null;
+  submitted_by_photo_url?: string | null;
+  submitted_by_email?: string | null;
   report_name: string | null;
   main_deliverables: string;
   attachment: string | null;
@@ -359,18 +361,18 @@ function normalizeProjectTracking(item: any): ProjectTrackingSummary {
   const rawPi = item.proposal?.pi ?? item.pi ?? item.principalInvestigator ?? null;
   const pi = rawPi
     ? {
-        id: rawPi.id,
-        fullName:
-          rawPi.fullName ||
-          rawPi.full_name ||
-          rawPi.name ||
-          rawPi.email ||
-          "PI",
-        email: rawPi.email || "",
-        photoUrl: rawPi.photoUrl || rawPi.photo_url || rawPi.photo || null,
-        photo_url: rawPi.photo_url || rawPi.photoUrl || rawPi.photo || null,
-        photo: rawPi.photo || rawPi.photo_url || rawPi.photoUrl || null,
-      }
+      id: rawPi.id,
+      fullName:
+        rawPi.fullName ||
+        rawPi.full_name ||
+        rawPi.name ||
+        rawPi.email ||
+        "PI",
+      email: rawPi.email || "",
+      photoUrl: rawPi.photoUrl || rawPi.photo_url || rawPi.photo || null,
+      photo_url: rawPi.photo_url || rawPi.photoUrl || rawPi.photo || null,
+      photo: rawPi.photo || rawPi.photo_url || rawPi.photoUrl || null,
+    }
     : null;
 
   return {
@@ -456,10 +458,10 @@ export const progressReportsService = {
       project_tracking:
         Number(
           item.project_tracking ??
-            item.projectTracking?.projectTrackingId ??
-            item.projectTracking?.id ??
-            item.projectTracking?.proposalId ??
-            null,
+          item.projectTracking?.projectTrackingId ??
+          item.projectTracking?.id ??
+          item.projectTracking?.proposalId ??
+          null,
         ) || null,
       project_tracking_title:
         item.projectTracking?.title ??
@@ -510,9 +512,9 @@ export const progressReportsService = {
       project_tracking:
         Number(
           payload.project_tracking ??
-            payload.projectTracking?.projectTrackingId ??
-            payload.projectTracking?.id ??
-            null,
+          payload.projectTracking?.projectTrackingId ??
+          payload.projectTracking?.id ??
+          null,
         ) || null,
       project_tracking_title:
         payload.projectTracking?.title ??
@@ -702,6 +704,39 @@ export const terminalReportsService = {
         item.reference_number ??
         (propId ? `PROP-${propId}` : `PT-${ptId}`);
 
+      const rawPi = pt.pi ?? item.pi ?? null;
+      const normalizedPi = rawPi ? {
+        id: rawPi.id,
+        full_name: rawPi.full_name ?? rawPi.fullName ?? rawPi.name ?? null,
+        email: rawPi.email ?? null,
+        photo_url: rawPi.photo_url ?? rawPi.photoUrl ?? rawPi.photo ?? null,
+        department: rawPi.department ?? rawPi.departmentName ?? null,
+      } : null;
+
+      const rawTeam: any[] = pt.team_members ?? pt.teamMembers ?? item.team_members ?? item.teamMembers ?? [];
+      const normalizedTeam = rawTeam.map((tm: any) => ({
+        id: tm.id,
+        member_type: tm.member_type ?? tm.memberType ?? "internal",
+        full_name: tm.full_name ?? tm.fullName ?? tm.name ?? "Team Member",
+        email: tm.email ?? null,
+        photo_url: tm.photo_url ?? tm.photoUrl ?? tm.photo ?? null,
+        role: tm.role ?? tm.roleName ?? null,
+        organization: tm.organization ?? tm.organizationName ?? tm.organization_name ?? null,
+        position: tm.position ?? null,
+      }));
+
+      const rawItems: any[] = item.items ?? [];
+      const normalizedItems = rawItems.map((it: any) => ({
+        id: it.id,
+        terminal_type: it.terminal_type ?? it.terminalType,
+        terminal_type_name: it.terminal_type_name ?? it.terminalTypeName ?? null,
+        file: it.file ?? null,
+        external_link: it.external_link ?? it.externalLink ?? null,
+        grade: it.grade ?? null,
+        grade_name: it.grade_name ?? it.gradeName ?? null,
+        grade_comments: it.grade_comments ?? it.gradeComments ?? null,
+      }));
+
       return {
         id: item.id ?? item.pk,
         project_tracking_id: ptId,
@@ -720,11 +755,19 @@ export const terminalReportsService = {
           reference_number: refNum,
           title: pt.title ?? item.project_tracking_title ?? item.reportName ?? item.report_name,
           status: pt.status ?? item.project_tracking_status,
+          pi: normalizedPi,
+          team_members: normalizedTeam,
         },
+        pi: normalizedPi,
+        team_members: normalizedTeam,
         general_status:
           item.generalStatus ?? item.general_status ?? item.status ?? "pending",
         submitted_by_name:
           item.submittedByName ?? item.submitted_by_name ?? null,
+        submitted_by_photo_url:
+          item.submittedByPhotoUrl ?? item.submitted_by_photo_url ?? null,
+        submitted_by_email:
+          item.submittedByEmail ?? item.submitted_by_email ?? null,
         report_name: item.reportName ?? item.report_name ?? null,
         main_deliverables:
           item.mainDeliverables ?? item.main_deliverables ?? "",
@@ -746,9 +789,11 @@ export const terminalReportsService = {
           false,
         reviewer_comments:
           item.reviewerComments ?? item.reviewer_comments ?? item.comment ?? null,
-        items: item.items ?? [],
+        approvals: item.approvals ?? [],
+        items: normalizedItems,
         status: item.status ?? item.generalStatus ?? item.general_status ?? "pending",
         submitted_at: item.submittedAt ?? item.submitted_at ?? "",
+        updated_at: item.updatedAt ?? item.updated_at ?? null,
         submitted_by: item.submittedBy ?? item.submitted_by ?? null,
         terminal_type: item.terminalType ?? item.terminal_type ?? [],
       };
@@ -844,6 +889,10 @@ export const terminalReportsService = {
         payload.generalStatus ?? payload.general_status ?? payload.status ?? "pending",
       submitted_by_name:
         payload.submittedByName ?? payload.submitted_by_name ?? null,
+      submitted_by_photo_url:
+        payload.submittedByPhotoUrl ?? payload.submitted_by_photo_url ?? null,
+      submitted_by_email:
+        payload.submittedByEmail ?? payload.submitted_by_email ?? null,
       report_name: payload.reportName ?? payload.report_name ?? null,
       main_deliverables:
         payload.mainDeliverables ?? payload.main_deliverables ?? "",
@@ -900,7 +949,42 @@ export const terminalReportsService = {
     const { data } = await apiClient.get(
       API_ENDPOINTS.FINAL_SUBMISSIONS.ELIGIBLE_FOR_REPOSITORY,
     );
-    return data?.data ?? data?.results ?? [];
+    const items: any[] = data?.data ?? data?.results ?? [];
+    return items.map((item: any) => {
+      const rawPi = item.pi ?? item.pi_info ?? null;
+      const pi = rawPi
+        ? {
+            id: rawPi.id,
+            full_name: rawPi.full_name ?? rawPi.fullName,
+            fullName: rawPi.full_name ?? rawPi.fullName,
+            email: rawPi.email,
+            photo_url: rawPi.photo_url ?? rawPi.photoUrl,
+            photoUrl: rawPi.photo_url ?? rawPi.photoUrl,
+            name: rawPi.name ?? rawPi.full_name ?? rawPi.fullName,
+          }
+        : null;
+
+      return {
+        ...item,
+        proposalId: item.proposalId ?? item.proposal_id,
+        proposal_id: item.proposalId ?? item.proposal_id,
+        projectTrackingId: item.projectTrackingId ?? item.project_tracking_id,
+        project_tracking_id: item.projectTrackingId ?? item.project_tracking_id,
+        title: item.title,
+        referenceNumber: item.referenceNumber ?? item.reference_number ?? null,
+        reference_number: item.referenceNumber ?? item.reference_number ?? null,
+        dataCenterName: item.dataCenterName ?? item.data_center_name ?? null,
+        data_center_name: item.dataCenterName ?? item.data_center_name ?? null,
+        terminalReportId: item.terminalReportId ?? item.terminal_report_id,
+        terminal_report_id: item.terminalReportId ?? item.terminal_report_id,
+        itemsCount: item.itemsCount ?? item.items_count ?? 0,
+        items_count: item.itemsCount ?? item.items_count ?? 0,
+        pi,
+        pi_info: pi,
+        totalAwardAmount: item.totalAwardAmount ?? item.total_award_amount ?? null,
+        total_award_amount: item.totalAwardAmount ?? item.total_award_amount ?? null,
+      };
+    });
   },
 
   async createTerminalReport(payload: FormData): Promise<any> {
@@ -1170,9 +1254,9 @@ export const terminalReportApprovalsService = {
       terminal_report:
         Number(
           item.terminalReport?.terminalReportId ??
-            item.terminalReport?.id ??
-            item.terminal_report ??
-            null,
+          item.terminalReport?.id ??
+          item.terminal_report ??
+          null,
         ) || undefined,
       terminal_report_id:
         item.terminalReport?.terminalReportId ??
@@ -1206,9 +1290,9 @@ export const terminalReportApprovalsService = {
       terminal_report:
         Number(
           payload.terminalReport?.terminalReportId ??
-            payload.terminalReport?.id ??
-            payload.terminal_report ??
-            null,
+          payload.terminalReport?.id ??
+          payload.terminal_report ??
+          null,
         ) || undefined,
       terminal_report_id:
         payload.terminalReport?.terminalReportId ??

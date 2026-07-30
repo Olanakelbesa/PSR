@@ -5,15 +5,23 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Award,
   CheckCircle2,
+  ChevronDown,
+  Download,
+  ExternalLink,
   FileText,
   FolderUp,
+  Globe,
+  Link2,
   Loader2,
+  Paperclip,
   Save,
   ShieldCheck,
   Upload,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
@@ -25,33 +33,26 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import {
   useDataCenters,
   useFinalSubmission,
-  useOutputTypes,
   useUpdateFinalSubmission,
 } from "@/hooks";
+import { finalSubmissionsService } from "@/api/services/final-submissions.service";
+import { resolveFileUrl, downloadRemoteFile, extractFileName } from "@/lib/utils/resolve-file-url";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import type {
   FinalSubmissionStatus,
-  FinalSubmissionUpdateInput,
 } from "@/types/final-submission";
 import { canEditFinalSubmission } from "@/types/final-submission";
-import { extractFileName } from "@/lib/utils/resolve-file-url";
 
 const statusLabels: Record<FinalSubmissionStatus, string> = {
   draft: "Draft",
@@ -62,29 +63,51 @@ const statusLabels: Record<FinalSubmissionStatus, string> = {
   rejected: "Rejected",
 };
 
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function formatCurrency(value?: string | number | null) {
+  const amount = Number(value ?? 0);
+  return `ETB ${Number.isFinite(amount) ? amount.toLocaleString() : "0"}`;
+}
+
+function piName(pi?: any) {
+  if (!pi) return "PSR Investigator";
+  if (typeof pi === "string") return pi;
+  return pi.full_name || pi.fullName || pi.name || pi.email || "PSR Investigator";
+}
+
+function proposalLabel(item: any) {
+  return `${item.referenceNumber || item.reference_number || `PT-${item.projectTrackingId || item.project_tracking_id || item.proposalId || item.proposal_id}`} · ${item.title || "Untitled proposal"}`;
+}
+
 function FileField({
   id,
   label,
   helperText,
   file,
-  existingFile,
+  existingUrl,
   onFileChange,
 }: {
   id: string;
   label: string;
   helperText: string;
   file: File | null;
-  existingFile?: string | null;
+  existingUrl?: string | null;
   onFileChange: (file: File | null) => void;
 }) {
-  const existingName = existingFile ? extractFileName(existingFile) : null;
-
   return (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium">
         {label}
       </Label>
-      <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 p-4">
+      <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50/60 dark:bg-slate-900/40 p-4">
         <input
           id={id}
           type="file"
@@ -94,44 +117,47 @@ function FileField({
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-1">
-            <p className="break-all text-sm font-semibold text-slate-900">
-              {file ? file.name : existingName || "No file selected"}
-            </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm font-semibold text-foreground">
               {file
-                ? "New file selected · will replace the current upload"
-                : existingName
-                  ? "Current file · choose a new file to replace"
-                  : helperText}
+                ? file.name
+                : existingUrl
+                  ? extractFileName(existingUrl)
+                  : "No file selected"}
             </p>
+            <p className="text-xs text-muted-foreground">{helperText}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {file ? (
-              <Badge className="border-emerald-200 bg-emerald-50 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                New file
+          <div className="flex items-center gap-2">
+            {file && (
+              <Badge
+                variant="secondary"
+                className="border-none bg-emerald-50 text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+              >
+                Selected
               </Badge>
-            ) : existingName ? (
-              <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider">
-                Uploaded
-              </Badge>
-            ) : null}
-            {file ? (
+            )}
+            {!file && existingUrl && (
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onClick={() => onFileChange(null)}
+                className="h-8 text-xs gap-1.5"
+                onClick={() => {
+                  const url = resolveFileUrl(existingUrl);
+                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                }}
               >
-                Clear
+                <Download className="h-3.5 w-3.5" />
+                View File
               </Button>
-            ) : null}
+            )}
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => document.getElementById(id)?.click()}
             >
-              <Upload className="mr-2 h-4 w-4" />
-              {existingName || file ? "Replace" : "Choose File"}
+              <Upload className="mr-2 h-3.5 w-3.5" />
+              {file ? "Change File" : "Choose File"}
             </Button>
           </div>
         </div>
@@ -149,11 +175,6 @@ export default function EditRepositorySubmissionPage() {
   const { data: submission, isLoading } = useFinalSubmission(id);
   const updateMutation = useUpdateFinalSubmission();
 
-  const outputTypesQuery = useOutputTypes({
-    page: 1,
-    limit: 100,
-    ordering: "name",
-  });
   const dataCentersQuery = useDataCenters({
     page: 1,
     limit: 100,
@@ -167,9 +188,6 @@ export default function EditRepositorySubmissionPage() {
     external_link: "",
     doi: "",
     ndmc_submission_reference: "",
-    data_sharing_checklist_completed: false,
-    status: "draft" as FinalSubmissionStatus,
-    output_type: "",
     data_center: "",
   });
   const [files, setFiles] = useState({
@@ -177,6 +195,36 @@ export default function EditRepositorySubmissionPage() {
     policy_brief: null as File | null,
     supplementary_document: null as File | null,
   });
+  const [prefillItems, setPrefillItems] = useState<any[]>([]);
+  const [prefillData, setPrefillData] = useState<any | null>(null);
+
+  const dataCenters = dataCentersQuery.data?.data ?? [];
+  const isEditable = submission ? canEditFinalSubmission(submission.status) : false;
+
+  const [pendingAction, setPendingAction] = useState<"draft" | "submitted" | null>(null);
+
+  const selectedProposal = useMemo(() => {
+    if (!submission) return null;
+    const detail = submission.fundedproposal_detail;
+    return {
+      ...detail,
+      pi: submission.pi,
+      total_award_amount: detail?.total_award_amount,
+      proposal_id: detail?.proposal_id,
+      project_tracking_id: detail?.proposal_id,
+      projectTrackingId: detail?.proposal_id,
+      title: detail?.title,
+      referenceNumber: detail?.reference_number,
+      reference_number: detail?.reference_number,
+    };
+  }, [submission]);
+
+  function setFormField<K extends keyof typeof form>(
+    field: K,
+    value: (typeof form)[K],
+  ) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
 
   useEffect(() => {
     if (!submission) return;
@@ -188,10 +236,6 @@ export default function EditRepositorySubmissionPage() {
       external_link: submission.external_link ?? "",
       doi: submission.doi ?? "",
       ndmc_submission_reference: submission.ndmc_submission_reference ?? "",
-      data_sharing_checklist_completed:
-        submission.data_sharing_checklist_completed ?? false,
-      status: submission.status,
-      output_type: String(submission.output_type ?? ""),
       data_center: submission.data_center ? String(submission.data_center) : "",
     });
     setFiles({
@@ -199,85 +243,119 @@ export default function EditRepositorySubmissionPage() {
       policy_brief: null,
       supplementary_document: null,
     });
-  }, [submission]);
 
-  const outputTypes = outputTypesQuery.data?.data ?? [];
-  const dataCenters = dataCentersQuery.data?.data ?? [];
-  const isEditable = submission ? canEditFinalSubmission(submission.status) : false;
-
-  const fundingProposalLabel = useMemo(() => {
-    const detail = submission?.fundedproposal_detail;
-    if (!detail) {
-      return submission?.fundedproposal
-        ? `Funding proposal #${submission.fundedproposal}`
-        : "No funding proposal linked";
+    if (submission.items && submission.items.length > 0) {
+      setPrefillItems(submission.items);
+      setPrefillData({ items: submission.items });
     }
 
-    return detail.reference_number
-      ? `${detail.reference_number}${detail.title ? ` · ${detail.title}` : ""}`
-      : detail.title || `Funding proposal #${submission?.fundedproposal}`;
+    const proposalId = submission.fundedproposal_detail?.proposal_id || submission.fundedproposal;
+    if (proposalId) {
+      finalSubmissionsService
+        .getPrefillData(proposalId)
+        .then((prefill) => {
+          setPrefillData(prefill);
+          setPrefillItems(prefill.items || submission.items || []);
+        })
+        .catch(() => {
+          if (submission.items) {
+            setPrefillItems(submission.items);
+            setPrefillData({ items: submission.items });
+          }
+        });
+    }
   }, [submission]);
 
-  const checklist = [
-    { key: "title", label: "Submission title", done: !!form.title.trim() },
-    {
-      key: "output_type",
-      label: "Output type selected",
-      done: !!form.output_type,
-    },
-    {
-      key: "full_report",
-      label: "Full report attached",
-      done: !!files.full_report || !!submission?.full_report,
-    },
-  ];
+  const requiredReady = !!form.title.trim() && !!submission;
 
-  function setFormField<K extends keyof typeof form>(
-    field: K,
-    value: (typeof form)[K],
-  ) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  async function handleSubmit() {
-    if (!submission || !id) return;
-
-    if (!form.title.trim() || !form.output_type) {
-      toast.error("Title and output type are required.");
+  async function handleSubmit(targetStatus: FinalSubmissionStatus) {
+    if (!requiredReady) {
+      toast.error("Please enter a submission title before saving.");
       return;
     }
 
-    const payload: FinalSubmissionUpdateInput = {
+    let rawExternalLink = form.external_link.trim();
+    if (rawExternalLink && !/^https?:\/\//i.test(rawExternalLink)) {
+      rawExternalLink = `https://${rawExternalLink}`;
+    }
+
+    if (rawExternalLink) {
+      try {
+        new URL(rawExternalLink);
+      } catch {
+        toast.error("Enter a valid URL for External Link / Publication URL (e.g. https://example.com).");
+        return;
+      }
+    }
+
+    setPendingAction(targetStatus as "draft" | "submitted");
+
+    const payload = {
       title: form.title.trim(),
       abstract: form.abstract.trim(),
       executive_summary: form.executive_summary.trim(),
-      external_link: form.external_link.trim(),
+      full_report: files.full_report,
+      policy_brief: files.policy_brief,
+      supplementary_document: files.supplementary_document,
+      external_link: rawExternalLink,
       doi: form.doi.trim(),
       ndmc_submission_reference: form.ndmc_submission_reference.trim(),
-      data_sharing_checklist_completed: form.data_sharing_checklist_completed,
-      status: form.status,
-      output_type: Number(form.output_type),
+      status: targetStatus,
       data_center: form.data_center ? Number(form.data_center) : null,
     };
 
-    if (files.full_report) payload.full_report = files.full_report;
-    if (files.policy_brief) payload.policy_brief = files.policy_brief;
-    if (files.supplementary_document) {
-      payload.supplementary_document = files.supplementary_document;
-    }
-
     try {
-      await updateMutation.mutateAsync({ id, values: payload });
-      toast.success("Final submission updated successfully.");
+      await updateMutation.mutateAsync({ id: id!, values: payload });
+      toast.success(
+        targetStatus === "submitted"
+          ? "Final submission submitted."
+          : "Draft saved.",
+      );
       router.push(`/research/repository/${id}`);
     } catch (error: any) {
+      const errData = error?.response?.data?.error;
+      const details = errData?.details;
+      if (details && typeof details === "object") {
+        const fieldMessages = Object.values(details).flat().filter(Boolean).join("; ");
+        if (fieldMessages) {
+          toast.error(fieldMessages);
+          setPendingAction(null);
+          return;
+        }
+      }
       const message =
+        errData?.message ||
         error?.response?.data?.message ||
         error?.message ||
-        "Failed to update the final submission.";
+        "Failed to save the final submission.";
       toast.error(message);
+      setPendingAction(null);
     }
   }
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
+
+  const checklist = [
+    { key: "fundedproposal", label: "Graded proposal selected", required: true, done: !!submission },
+    { key: "title", label: "Submission title entered", required: true, done: !!form.title.trim() },
+    { key: "prefill", label: "Terminal report data prefilled", required: false, done: !!submission },
+    { key: "terminal_items", label: "Deliverable items loaded", required: false, done: true },
+    { key: "data_center", label: "Data center selected", required: false, done: !!form.data_center },
+  ];
+
+  const checklistTotal = checklist.length;
+  const checklistDone = checklist.filter((item) => item.done).length;
+
+  const existingFileEntries = useMemo(() => {
+    if (!submission) return [];
+    return [
+      { key: "full_report", label: "Full Report", url: submission.full_report },
+      { key: "policy_brief", label: "Policy Brief", url: submission.policy_brief },
+      { key: "supplementary_document", label: "Supplementary Document", url: submission.supplementary_document },
+    ].filter((e) => e.url);
+  }, [submission]);
 
   if (isLoading) {
     return (
@@ -331,7 +409,7 @@ export default function EditRepositorySubmissionPage() {
   return (
     <PageContainer
       title="Edit Final Submission"
-      description={`Updating ${submission.ndmc_submission_reference || `FS-${submission.id}`}`}
+      description="Update an existing final submission entry."
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
@@ -341,16 +419,31 @@ export default function EditRepositorySubmissionPage() {
             </Link>
           </Button>
           <Button
-            type="submit"
-            form="edit-final-submission-form"
-            disabled={updateMutation.isPending}
+            type="button"
+            variant="outline"
+            className="rounded-xl px-5 font-bold uppercase tracking-widest"
+            disabled={!!pendingAction}
+            onClick={() => handleSubmit("draft")}
           >
-            {updateMutation.isPending ? (
+            {pendingAction === "draft" ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            {pendingAction === "draft" ? "Saving..." : "Save as Draft"}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl px-5 font-bold uppercase tracking-widest"
+            disabled={!!pendingAction}
+            onClick={() => handleSubmit("submitted")}
+          >
+            {pendingAction === "submitted" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            )}
+            {pendingAction === "submitted" ? "Saving..." : "Submit"}
           </Button>
         </div>
       }
@@ -361,11 +454,11 @@ export default function EditRepositorySubmissionPage() {
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            void handleSubmit();
           }}
         >
+          {/* Section 1: Submission Identity */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-4 w-4 text-primary" />
                 Submission Identity
@@ -376,292 +469,502 @@ export default function EditRepositorySubmissionPage() {
             </CardHeader>
             <CardContent className="grid gap-5 p-6 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
-                <Label>Funded Proposal</Label>
-                <Input
-                  value={fundingProposalLabel}
-                  disabled
-                  className="h-11 rounded-xl bg-muted/40"
-                />
+                <Label htmlFor="fundedproposal">
+                  Proposal <span className="text-destructive">*</span>
+                </Label>
+                <div className="flex h-11 items-center rounded-xl border border-muted-foreground/20 bg-muted/30 px-4 text-sm font-medium text-muted-foreground">
+                  {selectedProposal?.title || `Proposal #${submission.fundedproposal}`}
+                  <Badge variant="secondary" className="ml-2 text-[10px] font-bold uppercase tracking-wider border-none">
+                    Locked
+                  </Badge>
+                </div>
               </div>
 
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="title">
-                  Title <span className="text-destructive">*</span>
+                  Submission Title <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="title"
                   value={form.title}
                   onChange={(event) => setFormField("title", event.target.value)}
+                  placeholder="Enter the final submission title"
                   className="h-11 rounded-xl"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="output_type">
-                  Output Type <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={form.output_type}
-                  onValueChange={(value) => setFormField("output_type", value)}
-                >
-                  <SelectTrigger id="output_type" className="h-11 rounded-xl">
-                    <SelectValue placeholder="Choose output type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {outputTypes.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(value) =>
-                    setFormField("status", value as FinalSubmissionStatus)
-                  }
-                >
-                  <SelectTrigger id="status" className="h-11 rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="data_center">Data Center</Label>
-                <Select
-                  value={form.data_center || "none"}
-                  onValueChange={(value) =>
-                    setFormField("data_center", value === "none" ? "" : value)
+                <SearchableSelect
+                  value={form.data_center}
+                  onValueChange={(value) => setFormField("data_center", value)}
+                  disabled={dataCentersQuery.isLoading}
+                  placeholder={
+                    dataCentersQuery.isLoading
+                      ? "Loading data centers..."
+                      : "Choose data center"
                   }
-                >
-                  <SelectTrigger id="data_center" className="h-11 rounded-xl">
-                    <SelectValue placeholder="Choose data center" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Not set</SelectItem>
-                    {dataCenters.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={dataCenters}
+                  getOptionValue={(item: any) => String(item.id)}
+                  getOptionLabel={(item: any) => item.name}
+                />
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="ndmc_reference">NDMC Submission Reference</Label>
+                <Label htmlFor="ndmc_reference">
+                  NDMC Submission Reference
+                </Label>
                 <Input
                   id="ndmc_reference"
                   value={form.ndmc_submission_reference}
                   onChange={(event) =>
                     setFormField("ndmc_submission_reference", event.target.value)
                   }
+                  placeholder="Reference number or tracking code (optional)"
                   className="h-11 rounded-xl"
                 />
               </div>
             </CardContent>
           </Card>
 
+          {/* Section 2: Narrative Details */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Users className="h-4 w-4 text-primary" />
                 Narrative Details
               </CardTitle>
+              <CardDescription>
+                Provide the abstract and executive summary describing the final output.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 p-6">
               <div className="space-y-2">
-                <Label htmlFor="abstract">Abstract</Label>
+                <Label htmlFor="abstract">Abstract / Main Deliverables</Label>
                 <Textarea
                   id="abstract"
                   value={form.abstract}
-                  onChange={(event) =>
-                    setFormField("abstract", event.target.value)
-                  }
+                  onChange={(event) => setFormField("abstract", event.target.value)}
+                  placeholder="Summarize the final submission and main deliverables..."
                   className="min-h-[140px] rounded-xl"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="executive_summary">Executive Summary</Label>
                 <Textarea
                   id="executive_summary"
                   value={form.executive_summary}
-                  onChange={(event) =>
-                    setFormField("executive_summary", event.target.value)
-                  }
-                  className="min-h-[140px] rounded-xl"
+                  onChange={(event) => setFormField("executive_summary", event.target.value)}
+                  placeholder="Write a short executive summary..."
+                  className="min-h-[120px] rounded-xl"
                 />
               </div>
             </CardContent>
           </Card>
 
+          {/* Section 3: Deliverables, Files & Links */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FolderUp className="h-4 w-4 text-primary" />
-                Supporting Files & Links
+                Deliverables, Files & Links
               </CardTitle>
               <CardDescription>
-                Replace files only when you need to upload a new version.
+                Graded deliverables and files loaded from the approved terminal report and submission.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-5 p-6">
-              <FileField
-                id="full_report"
-                label="Full Report"
-                helperText="Attach the main report document."
-                file={files.full_report}
-                existingFile={submission.full_report}
-                onFileChange={(file) =>
-                  setFiles((prev) => ({ ...prev, full_report: file }))
-                }
-              />
-              <FileField
-                id="policy_brief"
-                label="Policy Brief"
-                helperText="Attach the policy brief or executive brief."
-                file={files.policy_brief}
-                existingFile={submission.policy_brief}
-                onFileChange={(file) =>
-                  setFiles((prev) => ({ ...prev, policy_brief: file }))
-                }
-              />
-              <FileField
-                id="supplementary_document"
-                label="Supplementary Document"
-                helperText="Attach any supplementary material or annex."
-                file={files.supplementary_document}
-                existingFile={submission.supplementary_document}
-                onFileChange={(file) =>
-                  setFiles((prev) => ({
-                    ...prev,
-                    supplementary_document: file,
-                  }))
-                }
-              />
+            <CardContent className="space-y-6 p-6">
+              {/* Graded Deliverables from Terminal Report items */}
+              {prefillItems && prefillItems.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Graded Deliverables (Terminal Report)
+                    </p>
+                    <Badge variant="outline" className="text-[10px] font-semibold gap-1">
+                      <Award className="h-3 w-3" />
+                      {prefillItems.length} {prefillItems.length === 1 ? "Deliverable" : "Deliverables"}
+                    </Badge>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 overflow-hidden">
+                    {prefillItems.map((item: any, idx: number) => {
+                      const itemFile = item.file;
+                      const itemLink = item.externalLink || item.external_link;
+                      const typeName =
+                        item.terminalTypeName ||
+                        item.terminal_type_name ||
+                        `Deliverable #${item.terminalType || item.terminal_type || idx + 1}`;
+                      const gradeName = item.gradeName || item.grade_name;
+
+                      const gradeColor = (() => {
+                        const g = (gradeName || "").toLowerCase();
+                        if (g.includes("excellent"))
+                          return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300";
+                        if (g.includes("very good"))
+                          return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300";
+                        if (g.includes("good"))
+                          return "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300";
+                        if (g.includes("satisfactory"))
+                          return "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300";
+                        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+                      })();
+
+                      return (
+                        <div
+                          key={`item-${item.id ?? idx}`}
+                          className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${idx > 0 ? "border-t border-border/40" : ""}`}
+                        >
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5">
+                              {itemLink && !itemFile ? (
+                                <Globe className="h-4.5 w-4.5 text-primary" />
+                              ) : (
+                                <FileText className="h-4.5 w-4.5 text-primary" />
+                              )}
+                            </div>
+                            <div className="min-w-0 space-y-1.5">
+                              <p className="text-sm font-semibold text-foreground leading-tight">
+                                {typeName}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {gradeName && (
+                                  <Badge
+                                    variant="secondary"
+                                    className={`border-none text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 ${gradeColor}`}
+                                  >
+                                    <Award className="h-3 w-3 mr-0.5" />
+                                    {gradeName}
+                                  </Badge>
+                                )}
+                                {itemFile && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <Paperclip className="h-3 w-3" />
+                                    File attached
+                                  </span>
+                                )}
+                                {itemLink && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <Link2 className="h-3 w-3" />
+                                    External link
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                            {itemFile && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 rounded-lg"
+                                  onClick={() => {
+                                    const url = resolveFileUrl(itemFile);
+                                    if (url) {
+                                      setPreviewUrl(url);
+                                      setPreviewTitle(typeName);
+                                      setPreviewOpen(true);
+                                    }
+                                  }}
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  View
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 rounded-lg"
+                                  onClick={() =>
+                                    downloadRemoteFile(itemFile, extractFileName(itemFile))
+                                  }
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download
+                                </Button>
+                              </>
+                            )}
+                            {itemLink && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 rounded-lg"
+                                onClick={() =>
+                                  window.open(itemLink, "_blank", "noopener,noreferrer")
+                                }
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Open Link
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Existing Submission Files */}
+              {existingFileEntries.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Submission Attachments</p>
+                    <Badge variant="outline" className="text-[10px] font-semibold gap-1">
+                      <Paperclip className="h-3 w-3" />
+                      {existingFileEntries.length} {existingFileEntries.length === 1 ? "File" : "Files"}
+                    </Badge>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 overflow-hidden">
+                    {existingFileEntries.map((entry, idx) => (
+                      <div key={entry.key}
+                        className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${idx > 0 ? "border-t border-border/40" : ""}`}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5">
+                            <FileText className="h-4.5 w-4.5 text-primary" />
+                          </div>
+                          <div className="min-w-0 space-y-1.5">
+                            <p className="text-sm font-semibold text-foreground leading-tight">{entry.label}</p>
+                            <p className="text-xs text-muted-foreground truncate">{extractFileName(entry.url!)}</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg"
+                            onClick={() => {
+                              const url = resolveFileUrl(entry.url!);
+                              if (url) { setPreviewUrl(url); setPreviewTitle(entry.label); setPreviewOpen(true); }
+                            }}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" /> View
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="h-8 text-xs gap-1.5 rounded-lg"
+                            onClick={() => downloadRemoteFile(entry.url!, extractFileName(entry.url!))}
+                          >
+                            <Download className="h-3.5 w-3.5" /> Download
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(!prefillItems || prefillItems.length === 0) && existingFileEntries.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50/50 dark:bg-slate-900/30 p-8 text-center">
+                  <FolderUp className="mx-auto h-8 w-8 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No files attached</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Use the section below to upload files for this submission.</p>
+                </div>
+              )}
+
+              {/* Attach Additional Files — collapsible */}
+              <details className="group">
+                <summary className="flex cursor-pointer items-center gap-2 rounded-xl px-1 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  {files.full_report || files.policy_brief || files.supplementary_document
+                    ? "Replace or Add Files (optional)"
+                    : "Upload New Files (optional)"}
+                </summary>
+                <div className="mt-3 space-y-4 rounded-2xl border border-dashed border-muted-foreground/15 bg-slate-50/40 dark:bg-slate-900/20 p-4">
+                  <FileField
+                    id="full_report"
+                    label="Full Report"
+                    helperText="Upload a new report document to replace the current file."
+                    file={files.full_report}
+                    existingUrl={submission.full_report}
+                    onFileChange={(file) =>
+                      setFiles((prev) => ({ ...prev, full_report: file }))
+                    }
+                  />
+                  <FileField
+                    id="policy_brief"
+                    label="Policy Brief"
+                    helperText="Upload a new policy brief to replace the current file."
+                    file={files.policy_brief}
+                    existingUrl={submission.policy_brief}
+                    onFileChange={(file) =>
+                      setFiles((prev) => ({ ...prev, policy_brief: file }))
+                    }
+                  />
+                  <FileField
+                    id="supplementary_document"
+                    label="Supplementary Document"
+                    helperText="Upload new supplementary material to replace the current file."
+                    file={files.supplementary_document}
+                    existingUrl={submission.supplementary_document}
+                    onFileChange={(file) =>
+                      setFiles((prev) => ({
+                        ...prev,
+                        supplementary_document: file,
+                      }))
+                    }
+                  />
+                </div>
+              </details>
 
               <Separator />
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="external_link">External Link</Label>
+                  <Label htmlFor="external_link">External Link / Publication URL</Label>
                   <Input
                     id="external_link"
                     type="url"
                     value={form.external_link}
-                    onChange={(event) =>
-                      setFormField("external_link", event.target.value)
-                    }
+                    onChange={(event) => setFormField("external_link", event.target.value)}
+                    placeholder="https://..."
                     className="h-11 rounded-xl"
                   />
                 </div>
+
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="doi">DOI</Label>
+                  <Label htmlFor="doi">DOI (optional)</Label>
                   <Input
                     id="doi"
                     value={form.doi}
                     onChange={(event) => setFormField("doi", event.target.value)}
+                    placeholder="10.xxxx/xxxxx"
                     className="h-11 rounded-xl"
                   />
-                </div>
-                <div className="flex items-start gap-3 rounded-2xl border border-muted-foreground/10 bg-slate-50 p-4 sm:col-span-2">
-                  <Checkbox
-                    id="data_sharing"
-                    checked={form.data_sharing_checklist_completed}
-                    onCheckedChange={(checked) =>
-                      setFormField(
-                        "data_sharing_checklist_completed",
-                        Boolean(checked),
-                      )
-                    }
-                  />
-                  <div className="space-y-1">
-                    <Label htmlFor="data_sharing" className="text-sm font-semibold">
-                      Data sharing checklist completed
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Confirm that the data-sharing checklist has been completed.
-                    </p>
-                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </form>
 
+        {/* Sidebar Summary & Checklist */}
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Submission Snapshot
+                Selected Proposal
               </CardTitle>
+              <CardDescription>
+                Review the proposal record backing this final submission.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 p-6 text-sm">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Reference
-                </p>
-                <p className="mt-1 font-semibold text-slate-900">
-                  {submission.ndmc_submission_reference || `FS-${submission.id}`}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Version
-                </p>
-                <p className="mt-1 font-semibold text-slate-900">
-                  {submission.version ?? 1}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Downloads
-                </p>
-                <p className="mt-1 font-semibold tabular-nums text-slate-900">
-                  {submission.download_count ?? 0}
-                </p>
-              </div>
+            <CardContent className="space-y-4 p-6">
+              {selectedProposal ? (
+                <>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Reference Number
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {proposalLabel(selectedProposal)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Principal Investigator
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Avatar className="h-7 w-7 border shrink-0">
+                        {selectedProposal.pi?.photo_url ? (
+                          <AvatarImage
+                            src={resolveFileUrl(selectedProposal.pi.photo_url) ?? undefined}
+                            alt={piName(selectedProposal.pi)}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                          {getInitials(piName(selectedProposal.pi))}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-semibold text-foreground truncate">
+                        {piName(selectedProposal.pi)}
+                      </span>
+                    </div>
+                  </div>
+                  {selectedProposal.total_award_amount && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Award Amount
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatCurrency(selectedProposal.total_award_amount)}
+                      </p>
+                    </div>
+                  )}
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 p-4 text-xs text-emerald-800 dark:text-emerald-300">
+                    This proposal has an approved final submission record. Changes will be saved as a new version.
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 dark:bg-slate-900/40 p-4 text-xs text-muted-foreground">
+                  Loading proposal details...
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <CheckCircle2 className={`h-4 w-4 ${checklistDone === checklistTotal ? "text-emerald-600" : "text-primary"}`} />
                 Readiness Checklist
               </CardTitle>
+              <CardDescription>
+                <span>{checklistDone} of {checklistTotal} completed</span>
+              </CardDescription>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-primary"}`}
+                  style={{ width: `${(checklistDone / checklistTotal) * 100}%` }}
+                />
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3 p-6">
+            <CardContent className="space-y-2 p-6">
               {checklist.map((item) => (
                 <div
                   key={item.key}
-                  className="flex items-center gap-3 rounded-2xl border border-muted-foreground/10 p-3"
+                  className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${item.done
+                      ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                      : "border-muted-foreground/10"
+                    }`}
                 >
-                  <CheckCircle2
+                  <div
                     className={
-                      item.done ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-muted-foreground"
+                      item.done ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                     }
-                  />
-                  <p className="text-sm font-medium text-slate-900">{item.label}</p>
+                  >
+                    {item.done ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className={`text-xs font-semibold truncate ${item.done ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}>
+                      {item.label}
+                    </span>
+                    {item.required && (
+                      <span className="shrink-0 text-[10px] font-bold uppercase text-destructive">*Required</span>
+                    )}
+                  </div>
                 </div>
               ))}
+              {checklistDone === checklistTotal && (
+                <div className="flex items-center gap-2 rounded-2xl bg-emerald-100 dark:bg-emerald-950/40 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  All checks passed
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <PdfViewerDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        pdfUrl={previewUrl ?? undefined}
+        title={previewTitle}
+      />
     </PageContainer>
   );
 }

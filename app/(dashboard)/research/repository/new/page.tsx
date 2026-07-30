@@ -1,19 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Award,
   CheckCircle2,
+  ChevronDown,
+  Download,
+  ExternalLink,
   FileText,
   FolderUp,
   Globe,
+  Link2,
+  Loader2,
+  Paperclip,
   Save,
   ShieldCheck,
   Upload,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
@@ -25,61 +33,51 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import {
   useCreateFinalSubmission,
   useDataCenters,
   useOutputTypes,
-  useReadyForFinalSubmissionFundingRecommendations,
   useGradedForRepository,
+  useFinalSubmission,
+  useUpdateFinalSubmission,
 } from "@/hooks";
-import { progressReportsService } from "@/api/services/progress-reports.service";
+import { finalSubmissionsService } from "@/api/services/final-submissions.service";
+import { resolveFileUrl, downloadRemoteFile, extractFileName } from "@/lib/utils/resolve-file-url";
+import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import type {
   FinalSubmissionCreateInput,
   FinalSubmissionStatus,
 } from "@/types/final-submission";
-import type {
-  FundingRecommendation,
-  FundingRecommendationPi,
-} from "@/types/funding-recommendation";
 
-const statusLabels: Record<FinalSubmissionStatus, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  under_review: "Under Review",
-  revision_requested: "Revision Requested",
-  approved: "Approved",
-  rejected: "Rejected",
-};
+function getInitials(name?: string | null): string {
+  if (!name) return "U";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
 
 function formatCurrency(value?: string | number | null) {
   const amount = Number(value ?? 0);
-
   return `ETB ${Number.isFinite(amount) ? amount.toLocaleString() : "0"}`;
 }
 
-function piName(pi?: FundingRecommendationPi | string | null) {
-  if (!pi) return "-";
+function piName(pi?: any) {
+  if (!pi) return "PSR Investigator";
   if (typeof pi === "string") return pi;
-
-  return pi.full_name || pi.fullName || pi.email || "-";
+  return pi.full_name || pi.fullName || pi.name || pi.email || "PSR Investigator";
 }
 
-function proposalLabel(item: FundingRecommendation) {
-  return `${item.reference_number || `FR-${item.id}`} · ${item.proposal_title || "Untitled proposal"}`;
+function proposalLabel(item: any) {
+  return `${item.referenceNumber || item.reference_number || `PT-${item.projectTrackingId || item.project_tracking_id || item.proposalId || item.proposal_id}`} · ${item.title || "Untitled proposal"}`;
 }
 
 function FileField({
@@ -87,12 +85,14 @@ function FileField({
   label,
   helperText,
   file,
+  existingUrl,
   onFileChange,
 }: {
   id: string;
   label: string;
   helperText: string;
   file: File | null;
+  existingUrl?: string | null;
   onFileChange: (file: File | null) => void;
 }) {
   return (
@@ -100,7 +100,7 @@ function FileField({
       <Label htmlFor={id} className="text-sm font-medium">
         {label}
       </Label>
-      <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 p-4">
+      <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50/60 dark:bg-slate-900/40 p-4">
         <input
           id={id}
           type="file"
@@ -110,8 +110,12 @@ function FileField({
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-slate-900">
-              {file ? file.name : "No file selected"}
+            <p className="text-sm font-semibold text-foreground">
+              {file
+                ? file.name
+                : existingUrl
+                  ? "File prefilled from Terminal Report"
+                  : "No file selected"}
             </p>
             <p className="text-xs text-muted-foreground">{helperText}</p>
           </div>
@@ -119,18 +123,34 @@ function FileField({
             {file && (
               <Badge
                 variant="secondary"
-                className="border-none bg-emerald-50 text-[10px] font-bold uppercase tracking-widest text-emerald-700"
+                className="border-none bg-emerald-50 text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
               >
                 Selected
               </Badge>
             )}
+            {!file && existingUrl && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => {
+                  const url = resolveFileUrl(existingUrl);
+                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                View File
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => document.getElementById(id)?.click()}
             >
-              <Upload className="mr-2 h-4 w-4" />
-              Choose File
+              <Upload className="mr-2 h-3.5 w-3.5" />
+              {file ? "Change File" : "Choose File"}
             </Button>
           </div>
         </div>
@@ -146,7 +166,6 @@ const initialForm = {
   external_link: "",
   doi: "",
   ndmc_submission_reference: "",
-  data_sharing_checklist_completed: false,
   status: "draft" as FinalSubmissionStatus,
   fundedproposal: "",
   output_type: "",
@@ -155,7 +174,19 @@ const initialForm = {
 
 export default function NewRepositorySubmissionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const editId = searchParams?.get("id") || null;
+  const isEditMode = !!editId;
+
   const createMutation = useCreateFinalSubmission();
+  const { data: existingSubmission, isLoading: isExistingLoading } = useFinalSubmission(editId);
+  const updateMutation = useUpdateFinalSubmission();
+
+  const initialProposalParam =
+    searchParams?.get("proposal_id") ||
+    searchParams?.get("tracking_id") ||
+    searchParams?.get("funded_proposal_id");
 
   const [form, setForm] = useState(initialForm);
   const [files, setFiles] = useState({
@@ -163,6 +194,10 @@ export default function NewRepositorySubmissionPage() {
     policy_brief: null as File | null,
     supplementary_document: null as File | null,
   });
+  const [prefillItems, setPrefillItems] = useState<any[]>([]);
+  const [prefillData, setPrefillData] = useState<any | null>(null);
+  const [isPrefilling, setIsPrefilling] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"draft" | "submitted" | null>(null);
 
   const gradedRepositoryQuery = useGradedForRepository();
   const outputTypesQuery = useOutputTypes({
@@ -181,49 +216,30 @@ export default function NewRepositorySubmissionPage() {
   const dataCenters = dataCentersQuery.data?.data ?? [];
 
   const selectedProposal = useMemo(
-    () =>
-      readyFundingRecommendations.find(
-        (item) => String(item.id) === form.fundedproposal,
-      ),
-    [form.fundedproposal, readyFundingRecommendations],
+    () => {
+      if (isEditMode && existingSubmission) {
+        const detail = existingSubmission.fundedproposal_detail;
+        return {
+          ...detail,
+          pi: existingSubmission.pi,
+          total_award_amount: detail?.total_award_amount,
+          proposal_id: detail?.proposal_id,
+          project_tracking_id: detail?.proposal_id,
+          projectTrackingId: detail?.proposal_id,
+          title: detail?.title,
+          referenceNumber: detail?.reference_number,
+          reference_number: detail?.reference_number,
+        };
+      }
+      return gradedProposals.find(
+        (item: any) =>
+          String(item.proposal_id) === form.fundedproposal ||
+          String(item.project_tracking_id) === form.fundedproposal ||
+          String(item.id) === form.fundedproposal,
+      );
+    },
+    [form.fundedproposal, gradedProposals, isEditMode, existingSubmission],
   );
-
-  const selectedOutputType = useMemo(
-    () => outputTypes.find((item) => String(item.id) === form.output_type),
-    [form.output_type, outputTypes],
-  );
-
-  const selectedDataCenter = useMemo(
-    () => dataCenters.find((item) => String(item.id) === form.data_center),
-    [dataCenters, form.data_center],
-  );
-
-  const checklist = [
-    { key: "title", label: "Submission title", done: !!form.title.trim() },
-    {
-      key: "fundedproposal",
-      label: "Funded proposal selected",
-      done: !!form.fundedproposal,
-    },
-    {
-      key: "output_type",
-      label: "Output type selected",
-      done: !!form.output_type,
-    },
-    {
-      key: "full_report",
-      label: "Full report attached",
-      done: !!files.full_report,
-    },
-    {
-      key: "policy_brief",
-      label: "Policy brief attached",
-      done: !!files.policy_brief,
-    },
-  ];
-
-  const requiredReady =
-    !!form.title.trim() && !!form.fundedproposal && !!form.output_type;
 
   function setFormField<K extends keyof typeof initialForm>(
     field: K,
@@ -232,74 +248,253 @@ export default function NewRepositorySubmissionPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleFundedProposalChange(value: string) {
-    setForm((prev) => ({ ...prev, fundedproposal: value }));
+  async function handleFundedProposalChange(proposalVal: string) {
+    setForm((prev) => ({ ...prev, fundedproposal: proposalVal }));
 
+    if (!proposalVal || !/^\d+$/.test(proposalVal)) return;
+
+    setIsPrefilling(true);
     try {
-      const prefill = await progressReportsService.getPrefillFinalSubmission(value);
+      const selected = gradedProposals.find(
+        (item: any) =>
+          String(item.proposal_id) === proposalVal ||
+          String(item.project_tracking_id) === proposalVal ||
+          String(item.terminal_report_id) === proposalVal ||
+          String(item.id) === proposalVal,
+      );
+
+      const targetProposalId = selected?.proposal_id || proposalVal;
+
+      let prefill: any = null;
+      try {
+        prefill = await finalSubmissionsService.getPrefillData(targetProposalId);
+      } catch {
+        if (selected?.project_tracking_id) {
+          try {
+            prefill = await finalSubmissionsService.getPrefillData(
+              selected.project_tracking_id,
+            );
+          } catch {
+            // Ignore fallback
+          }
+        }
+      }
+
       if (prefill) {
+        setPrefillData(prefill);
+        setPrefillItems(prefill.items ?? []);
+
+        const rawDataCenter =
+          prefill.dataCenter ??
+          prefill.data_center ??
+          prefill.data_center_id ??
+          (selected?.data_center_id ? String(selected.data_center_id) : "") ??
+          (dataCenters[0]?.id ? String(dataCenters[0].id) : "");
+
+        const pubLink =
+          prefill.publicationLink ?? prefill.publication_link ?? "";
+
+        const abstractText =
+          prefill.abstract ?? prefill.main_deliverables ?? "";
+
+        const outputTypeVal =
+          prefill.outputType ?? prefill.output_type ?? "";
+
         setForm((prev) => ({
           ...prev,
-          fundedproposal: value,
-          title: prefill.title || prev.title,
-          data_center: prefill.data_center ? String(prefill.data_center) : prev.data_center,
-          data_sharing_checklist_completed: prefill.data_sharing_checklist_completed ?? true,
-          external_link: prefill.publication_link || (prefill.items && prefill.items[0]?.external_link) || prev.external_link,
+          fundedproposal: proposalVal,
+          title: prefill.title || selected?.title || prev.title,
+          abstract: abstractText || prev.abstract,
+          executive_summary: abstractText || prev.executive_summary,
+          data_center: rawDataCenter
+            ? String(rawDataCenter)
+            : dataCenters[0]?.id
+              ? String(dataCenters[0].id)
+              : prev.data_center,
+          external_link: pubLink || prev.external_link,
+          output_type: outputTypeVal ? String(outputTypeVal) : prev.output_type,
         }));
 
-        toast.success("Pre-filled details from Graded Terminal Report!", {
-          description: "Title, Data Center, external link, and checklist status filled automatically.",
+        toast.success("Details prefilled from Terminal Report!", {
+          description:
+            "Title, Data Center, narrative, deliverables, and links populated automatically.",
         });
+      } else if (selected) {
+        setForm((prev) => ({
+          ...prev,
+          fundedproposal: proposalVal,
+          title: selected.title || prev.title,
+          data_center: prev.data_center || (dataCenters[0]?.id ? String(dataCenters[0].id) : ""),
+        }));
       }
-    } catch {
-      const selected = readyFundingRecommendations.find(
-        (item) => String(item.id) === value,
-      );
-      setForm((prev) => ({
-        ...prev,
-        fundedproposal: value,
-        title: selected?.proposal_title || prev.title,
-      }));
+    } catch (error) {
+      console.error("Failed to prefill submission data:", error);
+    } finally {
+      setIsPrefilling(false);
     }
   }
 
-  async function handleSubmit() {
+  useEffect(() => {
+    if (isEditMode) return;
+    if (
+      initialProposalParam &&
+      gradedProposals.length > 0 &&
+      !form.fundedproposal
+    ) {
+      const matched = gradedProposals.find(
+        (p: any) =>
+          String(p.proposal_id) === initialProposalParam ||
+          String(p.project_tracking_id) === initialProposalParam ||
+          String(p.id) === initialProposalParam,
+      );
+
+      const targetVal = matched
+        ? String(matched.proposal_id || matched.project_tracking_id || matched.id)
+        : initialProposalParam;
+
+      void handleFundedProposalChange(targetVal);
+    }
+  }, [initialProposalParam, gradedProposals, isEditMode]);
+
+  useEffect(() => {
+    if (!existingSubmission || !isEditMode) return;
+
+    setForm({
+      title: existingSubmission.title ?? "",
+      abstract: existingSubmission.abstract ?? "",
+      executive_summary: existingSubmission.executive_summary ?? "",
+      external_link: existingSubmission.external_link ?? "",
+      doi: existingSubmission.doi ?? "",
+      ndmc_submission_reference: existingSubmission.ndmc_submission_reference ?? "",
+      status: existingSubmission.status,
+      fundedproposal: String(existingSubmission.fundedproposal),
+      output_type: String(existingSubmission.output_type ?? ""),
+      data_center: existingSubmission.data_center ? String(existingSubmission.data_center) : "",
+    });
+    setFiles({
+      full_report: null,
+      policy_brief: null,
+      supplementary_document: null,
+    });
+
+    const proposalId = existingSubmission.fundedproposal_detail?.proposal_id;
+    if (proposalId) {
+      setIsPrefilling(true);
+      finalSubmissionsService
+        .getPrefillData(proposalId)
+        .then((prefill) => {
+          setPrefillData(prefill);
+          setPrefillItems(prefill.items ?? []);
+        })
+        .catch(() => {
+          setPrefillItems([]);
+          setPrefillData(null);
+        })
+        .finally(() => {
+          setIsPrefilling(false);
+        });
+    }
+  }, [existingSubmission, isEditMode]);
+
+  const checklist = [
+    { key: "fundedproposal", label: "Graded proposal selected", required: true, done: !!form.fundedproposal },
+    { key: "title", label: "Submission title entered", required: true, done: !!form.title.trim() },
+    { key: "prefill", label: "Terminal report data prefilled", required: false, done: !!prefillData },
+    { key: "terminal_items", label: "Deliverable items loaded", required: false, done: prefillItems.length > 0 },
+    { key: "data_center", label: "Data center selected", required: false, done: !!form.data_center },
+  ];
+
+  const checklistTotal = checklist.length;
+  const checklistDone = checklist.filter((item) => item.done).length;
+
+  const requiredReady = !!form.title.trim() && !!form.fundedproposal;
+
+  async function handleSubmit(targetStatus: FinalSubmissionStatus) {
     if (!requiredReady) {
       toast.error(
-        "Please complete the required submission fields before saving.",
+        "Please select an eligible proposal and enter a submission title before saving.",
       );
       return;
     }
 
-    const payload: FinalSubmissionCreateInput = {
+    let rawExternalLink = form.external_link.trim();
+    if (rawExternalLink && !/^https?:\/\//i.test(rawExternalLink)) {
+      rawExternalLink = `https://${rawExternalLink}`;
+    }
+
+    if (rawExternalLink) {
+      try {
+        new URL(rawExternalLink);
+      } catch {
+        toast.error("Enter a valid URL for External Link / Publication URL (e.g. https://example.com).");
+        return;
+      }
+    }
+
+    setPendingAction(targetStatus as "draft" | "submitted");
+
+    const defaultOutputType =
+      form.output_type ||
+      (prefillData?.output_type ? String(prefillData.output_type) : "") ||
+      (outputTypes[0]?.id ? String(outputTypes[0].id) : "1");
+
+    const payload = {
       title: form.title.trim(),
       abstract: form.abstract.trim(),
       executive_summary: form.executive_summary.trim(),
       full_report: files.full_report,
       policy_brief: files.policy_brief,
       supplementary_document: files.supplementary_document,
-      external_link: form.external_link.trim(),
+      external_link: rawExternalLink,
       doi: form.doi.trim(),
       ndmc_submission_reference: form.ndmc_submission_reference.trim(),
-      data_sharing_checklist_completed: form.data_sharing_checklist_completed,
-      status: form.status,
+      status: targetStatus,
       fundedproposal: Number(form.fundedproposal),
-      output_type: Number(form.output_type),
+      output_type: Number(defaultOutputType),
       data_center: form.data_center ? Number(form.data_center) : null,
     };
 
     try {
-      await createMutation.mutateAsync(payload);
-      toast.success("Final submission registered successfully.");
+      if (isEditMode && editId) {
+        await updateMutation.mutateAsync({ id: editId, values: payload });
+        toast.success(
+          targetStatus === "submitted"
+            ? "Final submission submitted."
+            : "Draft saved.",
+        );
+      } else {
+        await createMutation.mutateAsync(payload as FinalSubmissionCreateInput);
+        toast.success(
+          targetStatus === "submitted"
+            ? "Final submission submitted."
+            : "Draft saved.",
+        );
+      }
       router.push("/research/repository");
     } catch (error: any) {
+      const errData = error?.response?.data?.error;
+      const details = errData?.details;
+      if (details && typeof details === "object") {
+        const fieldMessages = Object.values(details).flat().filter(Boolean).join("; ");
+        if (fieldMessages) {
+          toast.error(fieldMessages);
+          setPendingAction(null);
+          return;
+        }
+      }
       const message =
+        errData?.message ||
         error?.response?.data?.message ||
         error?.message ||
-        "Failed to register the final submission.";
+        "Failed to save the final submission.";
       toast.error(message);
+      setPendingAction(null);
     }
   }
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
 
   const isLookupLoading =
     gradedRepositoryQuery.isLoading ||
@@ -308,8 +503,12 @@ export default function NewRepositorySubmissionPage() {
 
   return (
     <PageContainer
-      title="Register Final Submission"
-      description="Create a new final submission entry linked to an approved funded proposal."
+      title={isEditMode ? "Edit Final Submission" : "Register Final Submission"}
+      description={
+        isEditMode
+          ? "Update an existing final submission entry."
+          : "Create and archive a final submission entry linked to an approved funded proposal and graded terminal report."
+      }
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
@@ -319,13 +518,31 @@ export default function NewRepositorySubmissionPage() {
             </Link>
           </Button>
           <Button
-            type="submit"
-            form="final-submission-form"
+            type="button"
+            variant="outline"
             className="rounded-xl px-5 font-bold uppercase tracking-widest"
-            disabled={createMutation.isPending}
+            disabled={!!pendingAction || isPrefilling || isExistingLoading}
+            onClick={() => handleSubmit("draft")}
           >
-            <Save className="mr-2 h-4 w-4" />
-            {createMutation.isPending ? "Saving..." : "Register"}
+            {pendingAction === "draft" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {pendingAction === "draft" ? "Saving..." : "Save as Draft"}
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl px-5 font-bold uppercase tracking-widest"
+            disabled={!!pendingAction || isPrefilling || isExistingLoading}
+            onClick={() => handleSubmit("submitted")}
+          >
+            {pendingAction === "submitted" ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            )}
+            {pendingAction === "submitted" ? "Saving..." : "Submit"}
           </Button>
         </div>
       }
@@ -336,67 +553,83 @@ export default function NewRepositorySubmissionPage() {
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
-            handleSubmit();
           }}
         >
+          {/* Section 1: Linked Proposal Selection */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FileText className="h-4 w-4 text-primary" />
                 Submission Identity
               </CardTitle>
               <CardDescription>
-                Select a proposal with a fully graded terminal report to register output.
+                Select a proposal with a fully graded terminal report to prefill submission data.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 p-6 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
+              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="fundedproposal">
-                  Funded Proposal (Graded Terminal Report Required) <span className="text-destructive">*</span>
+                  Proposal <span className="text-destructive">*</span>
                 </Label>
-                <Select
-                  value={form.fundedproposal}
-                  onValueChange={handleFundedProposalChange}
-                  disabled={isLookupLoading}
-                >
-                  <SelectTrigger
-                    id="fundedproposal"
-                    className="h-11 rounded-xl"
-                  >
-                    <SelectValue
-                      placeholder={
-                        isLookupLoading
-                          ? "Loading eligible graded proposals..."
+                {isEditMode ? (
+                  <div className="flex h-11 items-center rounded-xl border border-muted-foreground/20 bg-muted/30 px-4 text-sm font-medium text-muted-foreground">
+                    {selectedProposal?.title || `Proposal #${form.fundedproposal}`}
+                    <Badge variant="secondary" className="ml-2 text-[10px] font-bold uppercase tracking-wider border-none">
+                      Locked
+                    </Badge>
+                  </div>
+                ) : (
+                  <SearchableSelect
+                    value={form.fundedproposal}
+                    onValueChange={(val) => void handleFundedProposalChange(val)}
+                    disabled={isLookupLoading || isPrefilling}
+                    placeholder={
+                      isLookupLoading
+                        ? "Loading eligible graded proposals..."
+                        : isPrefilling
+                          ? "Prefilling submission data..."
                           : "Choose an eligible graded proposal"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gradedProposals.length > 0 ? (
-                      gradedProposals.map((item: any) => {
-                        const proposalIdVal = String(item.proposal_id || item.project_tracking_id);
-                        return (
-                          <SelectItem key={proposalIdVal} value={proposalIdVal}>
-                            <div className="flex flex-col py-1 text-left">
-                              <span className="font-semibold">{item.title}</span>
-                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                                Ref: {item.reference_number || `PT-${item.project_tracking_id}`} · Data Center: {item.data_center_name || "Repository"}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <div className="p-4 text-center text-xs text-muted-foreground">
-                        No proposals with fully graded terminal reports are available for repository registration.
+                    }
+                    options={gradedProposals}
+                    getOptionValue={(item: any) =>
+                      String(item.proposalId ?? item.projectTrackingId ?? item.terminalReportId)
+                    }
+                    getOptionLabel={(item: any) => item.title}
+                    renderOption={(item: any) => (
+                      <div className="flex flex-col py-1 text-left">
+                        <span className="font-semibold">{item.title}</span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          Ref: {item.referenceNumber || `PT-${item.projectTrackingId}`} · Data Center: {item.dataCenterName || "Repository"}
+                        </span>
                       </div>
                     )}
-                  </SelectContent>
-                </Select>
+                  />
+                )}
               </div>
+
+              {/* Prefilled Confirmation Banner */}
+              {prefillData && (
+                <div className="sm:col-span-2 flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 p-4 text-sm text-emerald-800 dark:text-emerald-300">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <div>
+                      <p className="font-semibold text-xs uppercase tracking-wide">
+                        Prefilled from Approved Final Report
+                      </p>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300/90 mt-0.5">
+                        Title, Data Center, Deliverables, and External Link have been loaded automatically.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="bg-emerald-600 text-white border-none text-[10px] font-bold uppercase tracking-wider shrink-0">
+                    Auto-filled
+                  </Badge>
+                </div>
+              )}
+
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="title">
-                  Title <span className="text-destructive">*</span>
+                  Submission Title <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="title"
@@ -409,66 +642,21 @@ export default function NewRepositorySubmissionPage() {
                 />
               </div>
 
-              
-
-              <div className="space-y-2">
-                <Label htmlFor="output_type">
-                  Output Type <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={form.output_type}
-                  onValueChange={(value) => setFormField("output_type", value)}
-                  disabled={isLookupLoading}
-                >
-                  <SelectTrigger id="output_type" className="h-11 rounded-xl">
-                    <SelectValue
-                      placeholder={
-                        isLookupLoading
-                          ? "Loading output types..."
-                          : "Choose output type"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {outputTypes.length > 0 ? (
-                      outputTypes.map((item) => (
-                        <SelectItem key={item.id} value={String(item.id)}>
-                          {item.name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-xs text-muted-foreground">
-                        No output types available.
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
+              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="data_center">Data Center</Label>
-                <Select
+                <SearchableSelect
                   value={form.data_center}
                   onValueChange={(value) => setFormField("data_center", value)}
                   disabled={isLookupLoading}
-                >
-                  <SelectTrigger id="data_center" className="h-11 rounded-xl">
-                    <SelectValue
-                      placeholder={
-                        isLookupLoading
-                          ? "Loading data centers..."
-                          : "Choose data center"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dataCenters.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={
+                    isLookupLoading
+                      ? "Loading data centers..."
+                      : "Choose data center"
+                  }
+                  options={dataCenters}
+                  getOptionValue={(item: any) => String(item.id)}
+                  getOptionLabel={(item: any) => item.name}
+                />
               </div>
 
               <div className="space-y-2 sm:col-span-2">
@@ -484,34 +672,34 @@ export default function NewRepositorySubmissionPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="Reference number or tracking code"
+                  placeholder="Reference number or tracking code (optional)"
                   className="h-11 rounded-xl"
                 />
               </div>
             </CardContent>
           </Card>
 
+          {/* Section 2: Narrative Details */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Users className="h-4 w-4 text-primary" />
                 Narrative Details
               </CardTitle>
               <CardDescription>
-                Provide the abstract and executive summary that describe the
-                final output.
+                Provide the abstract and executive summary describing the final output.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 p-6">
               <div className="space-y-2">
-                <Label htmlFor="abstract">Abstract</Label>
+                <Label htmlFor="abstract">Abstract / Main Deliverables</Label>
                 <Textarea
                   id="abstract"
                   value={form.abstract}
                   onChange={(event) =>
                     setFormField("abstract", event.target.value)
                   }
-                  placeholder="Summarize the final submission..."
+                  placeholder="Summarize the final submission and main deliverables..."
                   className="min-h-[140px] rounded-xl"
                 />
               </div>
@@ -525,59 +713,426 @@ export default function NewRepositorySubmissionPage() {
                     setFormField("executive_summary", event.target.value)
                   }
                   placeholder="Write a short executive summary..."
-                  className="min-h-[140px] rounded-xl"
+                  className="min-h-[120px] rounded-xl"
                 />
               </div>
             </CardContent>
           </Card>
 
+          {/* Section 3: Deliverables, Files & Links */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <FolderUp className="h-4 w-4 text-primary" />
-                Supporting Files & Links
+                Deliverables, Files & Links
               </CardTitle>
               <CardDescription>
-                Upload the primary report and any supporting documents.
+                {isEditMode
+                  ? "Review and replace files attached to this submission."
+                  : prefillData
+                    ? "Graded deliverables and files loaded from the approved terminal report."
+                    : "Select a proposal above to load deliverables from the terminal report."}
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-5 p-6">
-              <FileField
-                id="full_report"
-                label="Full Report"
-                helperText="Attach the main report document."
-                file={files.full_report}
-                onFileChange={(file) =>
-                  setFiles((prev) => ({ ...prev, full_report: file }))
+            <CardContent className="space-y-6 p-6">
+              {/* Graded Deliverables from Terminal Report items */}
+              {(() => {
+                const items: any[] = prefillItems || [];
+                const supportingFiles: any[] =
+                  prefillData?.supportingFiles ||
+                  prefillData?.supporting_files ||
+                  [];
+
+                // Show graded items if available, otherwise fall back to supportingFiles
+                if (items.length > 0) {
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Graded Deliverables
+                        </p>
+                        <Badge variant="outline" className="text-[10px] font-semibold gap-1">
+                          <Award className="h-3 w-3" />
+                          {items.length} {items.length === 1 ? "Deliverable" : "Deliverables"}
+                        </Badge>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 overflow-hidden">
+                        {items.map((item: any, idx: number) => {
+                          const itemFile = item.file;
+                          const itemLink =
+                            item.externalLink || item.external_link;
+                          const typeName =
+                            item.terminalTypeName ||
+                            item.terminal_type_name ||
+                            `Deliverable #${item.terminalType || item.terminal_type || idx + 1}`;
+                          const gradeName =
+                            item.gradeName || item.grade_name;
+
+                          // Grade color mapping
+                          const gradeColor = (() => {
+                            const g = (gradeName || "").toLowerCase();
+                            if (g.includes("excellent"))
+                              return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300";
+                            if (g.includes("very good"))
+                              return "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300";
+                            if (g.includes("good"))
+                              return "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300";
+                            if (g.includes("satisfactory"))
+                              return "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300";
+                            return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+                          })();
+
+                          return (
+                            <div
+                              key={`item-${item.id ?? idx}`}
+                              className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${idx > 0 ? "border-t border-border/40" : ""
+                                }`}
+                            >
+                              <div className="flex min-w-0 items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5">
+                                  {itemLink && !itemFile ? (
+                                    <Globe className="h-4.5 w-4.5 text-primary" />
+                                  ) : (
+                                    <FileText className="h-4.5 w-4.5 text-primary" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 space-y-1.5">
+                                  <p className="text-sm font-semibold text-foreground leading-tight">
+                                    {typeName}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {gradeName && (
+                                      <Badge
+                                        variant="secondary"
+                                        className={`border-none text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 ${gradeColor}`}
+                                      >
+                                        <Award className="h-3 w-3 mr-0.5" />
+                                        {gradeName}
+                                      </Badge>
+                                    )}
+                                    {itemFile && (
+                                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                                        <Paperclip className="h-3 w-3" />
+                                        File attached
+                                      </span>
+                                    )}
+                                    {itemLink && (
+                                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                                        <Link2 className="h-3 w-3" />
+                                        External link
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                                {itemFile && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 rounded-lg"
+                                      onClick={() => {
+                                        const url = resolveFileUrl(itemFile);
+                                        if (url) {
+                                          setPreviewUrl(url);
+                                          setPreviewTitle(typeName);
+                                          setPreviewOpen(true);
+                                        }
+                                      }}
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                      View
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 rounded-lg"
+                                      onClick={() =>
+                                        downloadRemoteFile(itemFile, extractFileName(itemFile))
+                                      }
+                                    >
+                                      <Download className="h-3.5 w-3.5" />
+                                      Download
+                                    </Button>
+                                  </>
+                                )}
+                                {itemLink && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5 rounded-lg"
+                                    onClick={() =>
+                                      window.open(itemLink, "_blank", "noopener,noreferrer")
+                                    }
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Open Link
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
                 }
-              />
-              <FileField
-                id="policy_brief"
-                label="Policy Brief"
-                helperText="Attach the policy brief or executive brief."
-                file={files.policy_brief}
-                onFileChange={(file) =>
-                  setFiles((prev) => ({ ...prev, policy_brief: file }))
+
+                // Fallback: show supportingFiles if items are empty but supportingFiles exist
+                if (supportingFiles.length > 0) {
+                  return (
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Supporting Files
+                      </p>
+                      <div className="rounded-2xl border border-border/60 overflow-hidden">
+                        {supportingFiles.map((sf: any, sfIdx: number) => {
+                          const fileUrl = sf.file || sf.file_url;
+                          const extLink =
+                            sf.externalLink || sf.external_link;
+                          return (
+                            <div
+                              key={`sf-${sf.key || sfIdx}`}
+                              className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${sfIdx > 0 ? "border-t border-border/40" : ""
+                                }`}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5">
+                                  {extLink && !fileUrl ? (
+                                    <Globe className="h-4.5 w-4.5 text-primary" />
+                                  ) : (
+                                    <FileText className="h-4.5 w-4.5 text-primary" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 space-y-0.5">
+                                  <p className="text-sm font-semibold text-foreground truncate">
+                                    {sf.label || `File #${sfIdx + 1}`}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {fileUrl ? "File attached" : ""}
+                                    {fileUrl && extLink ? " · " : ""}
+                                    {extLink ? "External link" : ""}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                {fileUrl && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 rounded-lg"
+                                      onClick={() => {
+                                        const url = resolveFileUrl(fileUrl);
+                                        if (url) {
+                                          setPreviewUrl(url);
+                                          setPreviewTitle(sf.label || `File #${sfIdx + 1}`);
+                                          setPreviewOpen(true);
+                                        }
+                                      }}
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                      View
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs gap-1.5 rounded-lg"
+                                      onClick={() =>
+                                        downloadRemoteFile(fileUrl, extractFileName(fileUrl))
+                                      }
+                                    >
+                                      <Download className="h-3.5 w-3.5" />
+                                      Download
+                                    </Button>
+                                  </>
+                                )}
+                                {extLink && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs gap-1.5 rounded-lg"
+                                    onClick={() =>
+                                      window.open(extLink, "_blank", "noopener,noreferrer")
+                                    }
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Open Link
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
                 }
-              />
-              <FileField
-                id="supplementary_document"
-                label="Supplementary Document"
-                helperText="Attach any supplementary material or annex."
-                file={files.supplementary_document}
-                onFileChange={(file) =>
-                  setFiles((prev) => ({
-                    ...prev,
-                    supplementary_document: file,
-                  }))
+
+                // Edit mode: show existing files from the submission
+                if (isEditMode && existingSubmission) {
+                  const subFiles = [
+                    { key: "full_report", label: "Full Report", url: existingSubmission.full_report },
+                    { key: "policy_brief", label: "Policy Brief", url: existingSubmission.policy_brief },
+                    { key: "supplementary_document", label: "Supplementary Document", url: existingSubmission.supplementary_document },
+                  ].filter((e) => e.url);
+
+                  if (subFiles.length > 0) {
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Existing Files
+                          </p>
+                          <Badge variant="outline" className="text-[10px] font-semibold gap-1">
+                            <Paperclip className="h-3 w-3" />
+                            {subFiles.length} {subFiles.length === 1 ? "File" : "Files"}
+                          </Badge>
+                        </div>
+                        <div className="rounded-2xl border border-border/60 overflow-hidden">
+                          {subFiles.map((entry, idx) => (
+                            <div
+                              key={entry.key}
+                              className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${idx > 0 ? "border-t border-border/40" : ""}`}
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5">
+                                  <FileText className="h-4.5 w-4.5 text-primary" />
+                                </div>
+                                <div className="min-w-0 space-y-1.5">
+                                  <p className="text-sm font-semibold text-foreground leading-tight">
+                                    {entry.label}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {extractFileName(entry.url!)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 rounded-lg"
+                                  onClick={() => {
+                                    const url = resolveFileUrl(entry.url!);
+                                    if (url) {
+                                      setPreviewUrl(url);
+                                      setPreviewTitle(entry.label);
+                                      setPreviewOpen(true);
+                                    }
+                                  }}
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  View
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs gap-1.5 rounded-lg"
+                                  onClick={() =>
+                                    downloadRemoteFile(entry.url!, extractFileName(entry.url!))
+                                  }
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
                 }
-              />
+
+                // No proposal selected yet
+                if (!prefillData) {
+                  return (
+                    <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50/50 dark:bg-slate-900/30 p-8 text-center">
+                      <FolderUp className="mx-auto h-8 w-8 text-muted-foreground/30 mb-3" />
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {isEditMode ? "No uploaded files" : "No deliverables loaded yet"}
+                      </p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        {isEditMode
+                          ? "Use the section below to upload files for this submission."
+                          : "Select an eligible proposal above to load graded deliverables from the terminal report."}
+                      </p>
+                    </div>
+                  );
+                }
+
+                // Proposal selected but no files
+                return (
+                  <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50/50 dark:bg-slate-900/30 p-6 text-center text-sm text-muted-foreground">
+                    {isEditMode
+                      ? "No files attached to this submission."
+                      : "No deliverables or files found in the terminal report for this proposal."}
+                  </div>
+                );
+              })()}
+
+              {/* Attach Additional Files — collapsible */}
+              <details className="group">
+                <summary className="flex cursor-pointer items-center gap-2 rounded-xl px-1 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                  {isEditMode
+                    ? (files.full_report || files.policy_brief || files.supplementary_document
+                      ? "Replace or Add Files (optional)"
+                      : "Upload New Files (optional)")
+                    : "Attach Additional Files (optional)"}
+                </summary>
+                <div className="mt-3 space-y-4 rounded-2xl border border-dashed border-muted-foreground/15 bg-slate-50/40 dark:bg-slate-900/20 p-4">
+                  <FileField
+                    id="full_report"
+                    label="Full Report"
+                    helperText={isEditMode ? "Upload a new report document to replace the current file." : "Upload a report document to supplement or override the terminal report file."}
+                    file={files.full_report}
+                    existingUrl={isEditMode ? existingSubmission?.full_report ?? null : null}
+                    onFileChange={(file) =>
+                      setFiles((prev) => ({ ...prev, full_report: file }))
+                    }
+                  />
+                  <FileField
+                    id="policy_brief"
+                    label="Policy Brief"
+                    helperText="Attach a policy brief or executive brief."
+                    file={files.policy_brief}
+                    existingUrl={isEditMode ? existingSubmission?.policy_brief ?? null : undefined}
+                    onFileChange={(file) =>
+                      setFiles((prev) => ({ ...prev, policy_brief: file }))
+                    }
+                  />
+                  <FileField
+                    id="supplementary_document"
+                    label="Supplementary Document"
+                    helperText="Attach any supplementary material or annex."
+                    file={files.supplementary_document}
+                    existingUrl={isEditMode ? existingSubmission?.supplementary_document ?? null : undefined}
+                    onFileChange={(file) =>
+                      setFiles((prev) => ({
+                        ...prev,
+                        supplementary_document: file,
+                      }))
+                    }
+                  />
+                </div>
+              </details>
 
               <Separator />
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="external_link">External Link (optional)</Label>
+                  <Label htmlFor="external_link">External Link / Publication URL</Label>
                   <Input
                     id="external_link"
                     type="url"
@@ -602,45 +1157,21 @@ export default function NewRepositorySubmissionPage() {
                     className="h-11 rounded-xl"
                   />
                 </div>
-
-                <div className="sm:col-span-2 flex items-start gap-3 rounded-2xl border border-muted-foreground/10 bg-slate-50 p-4">
-                  <Checkbox
-                    id="data_sharing"
-                    checked={form.data_sharing_checklist_completed}
-                    onCheckedChange={(checked) =>
-                      setFormField(
-                        "data_sharing_checklist_completed",
-                        Boolean(checked),
-                      )
-                    }
-                  />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="data_sharing"
-                      className="text-sm font-semibold"
-                    >
-                      Data sharing checklist completed
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Confirm that the data-sharing checklist has been completed
-                      for this submission.
-                    </p>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
         </form>
 
+        {/* Sidebar Summary & Checklist */}
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 Selected Proposal
               </CardTitle>
               <CardDescription>
-                Review the funding record that will back this final submission.
+                Review the proposal record backing this final submission.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-6">
@@ -648,9 +1179,9 @@ export default function NewRepositorySubmissionPage() {
                 <>
                   <div className="space-y-1">
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Reference
+                      Reference Number
                     </p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {proposalLabel(selectedProposal)}
                     </p>
                   </div>
@@ -658,92 +1189,108 @@ export default function NewRepositorySubmissionPage() {
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                       Principal Investigator
                     </p>
-                    <p className="text-sm font-medium text-slate-700">
-                      {piName(selectedProposal.pi)}
-                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Avatar className="h-7 w-7 border shrink-0">
+                        {selectedProposal.pi?.photo_url ? (
+                          <AvatarImage
+                            src={resolveFileUrl(selectedProposal.pi.photo_url) ?? undefined}
+                            alt={piName(selectedProposal.pi)}
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                          {getInitials(piName(selectedProposal.pi))}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-semibold text-foreground truncate">
+                        {piName(selectedProposal.pi)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Award Amount
-                    </p>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {formatCurrency(selectedProposal.total_award_amount)}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                    This proposal is ready for final submission because its
-                    linked project tracking exists and the terminal report is
-                    approved.
+                  {selectedProposal.total_award_amount && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Award Amount
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {formatCurrency(selectedProposal.total_award_amount)}
+                      </p>
+                    </div>
+                  )}
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 p-4 text-xs text-emerald-800 dark:text-emerald-300">
+                    This proposal has an approved, fully graded terminal report and is eligible for final repository registration.
                   </div>
                 </>
               ) : (
-                <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 p-4 text-sm text-muted-foreground">
-                  Choose a funded proposal to unlock the final submission
-                  payload.
+                <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 dark:bg-slate-900/40 p-4 text-xs text-muted-foreground">
+                  Choose an eligible proposal above to view its funding record and load prefilled data.
                 </div>
               )}
             </CardContent>
           </Card>
 
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
-            <CardHeader className="border-b bg-slate-50/70 pb-4">
+            <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <CheckCircle2 className={`h-4 w-4 ${checklistDone === checklistTotal ? "text-emerald-600" : "text-primary"}`} />
                 Readiness Checklist
               </CardTitle>
               <CardDescription>
-                These items are required or recommended before registration.
+                <span>{checklistDone} of {checklistTotal} completed</span>
               </CardDescription>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-primary"}`}
+                  style={{ width: `${(checklistDone / checklistTotal) * 100}%` }}
+                />
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4 p-6">
-              <div className="grid gap-3">
-                {checklist.map((item) => (
+            <CardContent className="space-y-2 p-6">
+              {checklist.map((item) => (
+                <div
+                  key={item.key}
+                  className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${item.done
+                      ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                      : "border-muted-foreground/10"
+                    }`}
+                >
                   <div
-                    key={item.key}
-                    className="flex items-center gap-3 rounded-2xl border border-muted-foreground/10 p-3"
+                    className={
+                      item.done ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                    }
                   >
-                    <div
-                      className={
-                        item.done ? "text-emerald-600" : "text-muted-foreground"
-                      }
-                    >
-                      {item.done ? (
-                        <CheckCircle2 className="h-4 w-4" />
-                      ) : (
-                        <ShieldCheck className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900">
-                        {item.label}
-                      </p>
-                    </div>
+                    {item.done ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <ShieldCheck className="h-4 w-4" />
+                    )}
                   </div>
-                ))}
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4 text-xs text-muted-foreground">
-                Required fields are title, funded proposal, and output type. You
-                can save the record as{" "}
-                <span className="font-semibold text-slate-900">Draft</span> or
-                switch to another status before registration.
-              </div>
-
-              <div className="flex items-center gap-2 rounded-2xl border border-muted-foreground/10 bg-white p-3 text-sm">
-                <Globe className="h-4 w-4 text-primary" />
-                <div className="min-w-0">
-                  <p className="font-medium text-slate-900">
-                    {selectedOutputType?.name || "No output type selected"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedDataCenter?.name || "No data center selected"}
-                  </p>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className={`text-xs font-semibold truncate ${item.done ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"}`}>
+                      {item.label}
+                    </span>
+                    {item.required && (
+                      <span className="shrink-0 text-[10px] font-bold uppercase text-destructive">*Required</span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ))}
+              {checklistDone === checklistTotal && (
+                <div className="flex items-center gap-2 rounded-2xl bg-emerald-100 dark:bg-emerald-950/40 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  All checks passed — ready to register
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <PdfViewerDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        pdfUrl={previewUrl ?? undefined}
+        title={previewTitle}
+      />
     </PageContainer>
   );
 }

@@ -22,7 +22,7 @@ import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
 import { DataTable, DataTableViewOptions } from "@/components/shared/data-table";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -609,17 +609,18 @@ export default function MyFinalReportsPage() {
       }
     >
       <div className="space-y-6 w-full">
-        {/* Stat Cards Grid - 5 Cards */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+        {/* Stat Cards Grid - 6 Cards */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {isLoadingSubmitted && isLoadingEligible
-            ? Array.from({ length: 5 }).map((_, index) => (
-              <Card key={index} className="border shadow-xs">
-                <CardContent className="flex items-center gap-4 p-5">
-                  <Skeleton className="h-11 w-11 rounded-xl" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-7 w-16" />
-                    <Skeleton className="h-3 w-28" />
-                  </div>
+            ? Array.from({ length: 6 }).map((_, index) => (
+              <Card key={index} className="overflow-hidden border-none shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-12" />
+                  <Skeleton className="mt-1 h-3 w-20" />
                 </CardContent>
               </Card>
             ))
@@ -644,33 +645,33 @@ export default function MyFinalReportsPage() {
                     }
                   }}
                   className={cn(
-                    "cursor-pointer border shadow-2xs transition-all hover:shadow-md relative overflow-hidden",
+                    "cursor-pointer border shadow-xs transition-all hover:shadow-md relative overflow-hidden",
                     stat.border,
                     isActive && cn("ring-2 shadow-md", stat.activeRing)
                   )}
                 >
-                  <CardContent className="flex items-center gap-3.5 p-4">
-                    <div className={cn("shrink-0 rounded-xl p-2.5", stat.bg)}>
-                      <stat.icon className={cn("h-5 w-5", stat.color)} />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-xs font-semibold text-muted-foreground truncate" title={stat.label}>
+                      {stat.label}
+                    </CardTitle>
+                    <div className={cn("flex h-8 w-8 items-center justify-center rounded-full shrink-0", stat.bg)}>
+                      <stat.icon className={cn("h-4 w-4", stat.color)} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="text-xl font-black text-foreground truncate">
-                          {stat.value}
-                        </div>
-                        {stat.badge && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            {stat.badge}
-                          </span>
-                        )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="text-2xl font-bold text-foreground">
+                        {stat.value}
                       </div>
-                      <p className="text-xs font-semibold text-muted-foreground truncate">
-                        {stat.label}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground/80 truncate">
-                        {stat.sub}
-                      </p>
+                      {stat.badge && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                          {stat.badge}
+                        </span>
+                      )}
                     </div>
+                    <p className="mt-1 text-[11px] font-medium text-muted-foreground truncate" title={stat.sub}>
+                      {stat.sub}
+                    </p>
                   </CardContent>
                 </Card>
               );

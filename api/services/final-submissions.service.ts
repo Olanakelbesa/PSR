@@ -148,6 +148,7 @@ function normalizeFundingProposalDetail(item: any) {
     title: item.title ?? null,
     total_award_amount:
       item.totalAwardAmount ?? item.total_award_amount ?? null,
+    proposal_file: normalizeFileField(item.proposalFile ?? item.proposal_file),
   };
 }
 
@@ -172,10 +173,48 @@ function normalizeDataCenterDetail(item: any) {
 function normalizeSubmitterDetail(item: any) {
   if (!item || typeof item !== "object") return null;
 
+  const rawPhoto = item.photo_url ?? item.photoUrl ?? item.avatarUrl ?? item.avatar ?? item.photo;
+
   return {
     id: item.id ?? null,
-    full_name: item.fullName ?? item.full_name ?? null,
+    full_name: item.full_name ?? item.fullName ?? item.name ?? null,
     email: item.email ?? null,
+    photo_url: rawPhoto ? (resolveFileUrl(rawPhoto) ?? rawPhoto) : null,
+  };
+}
+
+function normalizePIDetail(item: any, fallbackSubmitter?: any) {
+  const target =
+    item?.pi ??
+    item?.principal_investigator ??
+    item?.principalInvestigator ??
+    item?.fundedproposal?.pi ??
+    item?.fundedproposal_detail?.pi ??
+    fallbackSubmitter;
+
+  if (!target || typeof target !== "object") {
+    if (typeof target === "string") {
+      return { full_name: target, email: null, photo_url: null };
+    }
+    return null;
+  }
+
+  const rawPhoto =
+    target.photo_url ??
+    target.photoUrl ??
+    target.avatarUrl ??
+    target.avatar ??
+    target.photo;
+
+  return {
+    id: target.id ?? null,
+    full_name:
+      target.full_name ??
+      target.fullName ??
+      target.name ??
+      ([target.first_name, target.last_name].filter(Boolean).join(" ") || null),
+    email: target.email ?? null,
+    photo_url: rawPhoto ? (resolveFileUrl(rawPhoto) ?? rawPhoto) : null,
   };
 }
 
@@ -185,11 +224,16 @@ function normalizeFileField(value: unknown) {
 }
 
 function mapFinalSubmissionItem(item: any): FinalSubmission {
+  const submittedByDetail = normalizeSubmitterDetail(
+    item.submittedByDetail ?? item.submittedBy ?? item.submitted_by_detail,
+  );
+
   return {
     id: item.id ?? item.pk,
     submitted_by_name:
       item.submittedByName ??
       item.submitted_by_name ??
+      item.submittedByDetail?.fullName ??
       item.submittedBy?.fullName ??
       undefined,
     title: item.title,
@@ -212,28 +256,24 @@ function mapFinalSubmissionItem(item: any): FinalSubmission {
     submission_date: item.submissionDate ?? item.submission_date ?? null,
     status: item.status ?? "draft",
     version: item.version ?? null,
-    fundedproposal:
-      item.fundedproposal?.fundingRecommendationId ??
-      item.fundedproposal?.funding_recommendation_id ??
-      item.fundedproposal?.proposalId ??
-      item.fundedproposal ??
-      null,
+    fundedproposal: item.fundedproposal ?? null,
     fundedproposal_detail: normalizeFundingProposalDetail(
-      item.fundedproposal ?? item.fundedProposal,
+      item.fundedproposalDetail ?? item.fundedproposal ?? item.fundedProposal,
     ),
-    output_type: item.outputType?.id ?? item.output_type ?? null,
+    output_type: item.outputType ?? item.output_type ?? null,
     output_type_detail: normalizeOutputTypeDetail(
-      item.outputType ?? item.output_type_detail,
+      item.outputTypeDetail ?? item.outputType ?? item.output_type_detail,
     ),
-    data_center: item.dataCenter?.id ?? item.data_center ?? null,
+    data_center: item.dataCenter ?? item.data_center ?? null,
     data_center_detail: normalizeDataCenterDetail(
-      item.dataCenter ?? item.data_center_detail,
+      item.dataCenterDetail ?? item.dataCenter ?? item.data_center_detail,
     ),
-    submitted_by: item.submittedBy?.id ?? item.submitted_by ?? null,
-    submitted_by_detail: normalizeSubmitterDetail(
-      item.submittedBy ?? item.submitted_by_detail,
-    ),
+    submitted_by: item.submitted_by ?? null,
+    submitted_by_detail: submittedByDetail,
+    pi: normalizePIDetail(item, item.submittedByDetail ?? item.submittedBy ?? item.submitted_by_detail),
     download_count: item.downloadCount ?? item.download_count ?? 0,
+    items: item.items ?? [],
+    terminal_report_attachment: normalizeFileField(item.terminal_report_attachment ?? item.terminalReportAttachment),
   };
 }
 
@@ -358,6 +398,17 @@ export const finalSubmissionsService = {
     });
 
     return normalizeList<FinalSubmissionLookupOption>(data);
+  },
+
+  async getPrefillData(
+    proposalId: string | number,
+  ): Promise<Record<string, any>> {
+    const { data } = await apiClient.get(
+      API_ENDPOINTS.FINAL_SUBMISSIONS.PREFILL_DATA,
+      { params: { proposal_id: proposalId } },
+    );
+
+    return normalizeDetail<Record<string, any>>(data);
   },
 
   async recordDownload(

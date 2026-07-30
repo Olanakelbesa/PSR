@@ -21,6 +21,7 @@ export interface FinalSubmissionFundingProposalDetail {
   reference_number?: string | null;
   title?: string | null;
   total_award_amount?: string | number | null;
+  proposal_file?: string | null;
 }
 
 export interface FinalSubmissionOutputTypeDetail {
@@ -37,6 +38,14 @@ export interface FinalSubmissionSubmitterDetail {
   id?: number;
   full_name?: string | null;
   email?: string | null;
+  photo_url?: string | null;
+}
+
+export interface FinalSubmissionPIDetail {
+  id?: number;
+  full_name?: string | null;
+  email?: string | null;
+  photo_url?: string | null;
 }
 
 export interface FinalSubmission {
@@ -63,7 +72,10 @@ export interface FinalSubmission {
   data_center_detail?: FinalSubmissionDataCenterDetail | null;
   submitted_by?: number;
   submitted_by_detail?: FinalSubmissionSubmitterDetail | null;
+  pi?: FinalSubmissionPIDetail | null;
   download_count?: number;
+  items?: any[];
+  terminal_report_attachment?: string | null;
 }
 
 export type FinalSubmissionDownloadFileType =
@@ -106,6 +118,8 @@ const EDITABLE_FINAL_SUBMISSION_STATUSES: FinalSubmissionStatus[] = [
   "revision_requested",
   "submitted",
   "under_review",
+  "approved",
+  "rejected",
 ];
 
 export function canEditFinalSubmission(status: FinalSubmissionStatus) {
@@ -114,3 +128,13 @@ export function canEditFinalSubmission(status: FinalSubmissionStatus) {
 
 export type ReadyForFinalSubmissionFundingRecommendation =
   FundingRecommendation;
+
+export interface GradedForRepositoryItem {
+  proposalId: number;
+  projectTrackingId: number;
+  title: string;
+  referenceNumber: string | null;
+  dataCenterName: string | null;
+  terminalReportId: number;
+  itemsCount: number;
+}

@@ -714,11 +714,14 @@ export default function ReadyForFundingPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_VALUE}>All research types</SelectItem>
-                    {proposalTypes.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.name}
-                      </SelectItem>
-                    ))}
+                    {proposalTypes.map((item, idx) => {
+                      const itemVal = item.id != null ? String(item.id) : `pt-${idx}`;
+                      return (
+                        <SelectItem key={`pt-${itemVal}-${idx}`} value={itemVal}>
+                          {item.name}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
 
