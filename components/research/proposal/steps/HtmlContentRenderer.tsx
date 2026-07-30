@@ -12,7 +12,7 @@ interface HtmlContentRendererProps {
 export function HtmlContentRenderer({
   content,
   maxHeight = 400,
-  showFullContent = false,
+  showFullContent = true,
   maxLines,
 }: HtmlContentRendererProps) {
   if (!content || content.trim() === "") {

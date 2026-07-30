@@ -754,7 +754,7 @@ export default function ScreeningDetailPage() {
                   className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
                 >
                   <Users className="h-4 w-4 shrink-0" />
-                  Research Team
+                  Team Members
                   {rawTeamList.length > 0 && (
                     <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
                       {rawTeamList.length + 1}
@@ -918,7 +918,7 @@ export default function ScreeningDetailPage() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    Research Team
+                    Team Members
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -1447,11 +1447,11 @@ export default function ScreeningDetailPage() {
 
       {/* ── Review Dialog ────────────────────────────────────────────────── */}
       <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-        <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden gap-0">
+        <DialogContent className="w-[94vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 overflow-x-hidden gap-0 rounded-2xl shadow-2xl">
           {/* Colored header based on decision */}
           <div
             className={cn(
-              "p-6 pb-4 border-b",
+              "p-4 sm:p-6 pb-4 border-b",
               recommendation === "approve" &&
               "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
               recommendation === "under_review" &&
@@ -1461,19 +1461,19 @@ export default function ScreeningDetailPage() {
             )}
           >
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
+              <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 {recommendation === "approve" && (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
                 )}
                 {recommendation === "under_review" && (
-                  <Clock className="h-5 w-5 text-amber-600" />
+                  <Clock className="h-5 w-5 text-amber-600 shrink-0" />
                 )}
                 {recommendation === "reject" && (
-                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
                 )}
                 {isAlreadyScreened ? "Edit Screening Decision" : "Screening Decision"}
               </DialogTitle>
-              <DialogDescription className="pt-2 text-foreground/80 leading-relaxed">
+              <DialogDescription className="pt-2 text-foreground/80 leading-relaxed text-xs">
                 {recommendation === "approve" &&
                   "This proposal will be approved and proceed to the next workflow stage."}
                 {recommendation === "under_review" &&
@@ -1486,15 +1486,15 @@ export default function ScreeningDetailPage() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-              <div className="p-6 space-y-5 bg-background">
+              <div className="p-4 sm:p-6 space-y-5 bg-background">
                 {/* Decision Choice Buttons */}
                 <FormField
                   control={form.control}
                   name="recommendation"
                   render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel className="text-sm font-semibold">Decision</FormLabel>
-                      <div className="grid grid-cols-3 gap-2.5">
+                      <FormLabel className="text-xs sm:text-sm font-semibold">Decision</FormLabel>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 min-w-0 w-full">
                         <button
                           type="button"
                           onClick={() => field.onChange("approve")}

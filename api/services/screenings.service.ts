@@ -295,10 +295,19 @@ const ApprovedPendingFundingSchema = z
         approvedAmount: z.number().nullable().optional().default(null),
         remark: z.string().optional().default(""),
         id: z.number().optional(),
-        needIrbEthicalClearance: z.boolean().optional().default(false),
+        needIrbEthicalClearance: z.preprocess(
+          (v) => (v === undefined ? false : v),
+          z.boolean().optional().default(false),
+        ),
+        allowPostFundingIrb: z.preprocess(
+          (v) => (v === undefined ? false : v),
+          z.boolean().optional().default(false),
+        ),
+        ethicalClearanceRequirement: z.string().nullable().optional().default(null),
         recommendations: z.array(FundingRecommendationSchema).optional().default([]),
         ethicalClearanceStatus: z.string().nullable().optional().default(null),
       })
+      .passthrough()
       .optional()
       .default({
         state: "",
@@ -306,6 +315,8 @@ const ApprovedPendingFundingSchema = z
         approvedAmount: null,
         remark: "",
         needIrbEthicalClearance: false,
+        allowPostFundingIrb: false,
+        ethicalClearanceRequirement: null,
         recommendations: [],
         ethicalClearanceStatus: null,
       }),

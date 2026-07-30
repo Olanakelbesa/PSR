@@ -433,7 +433,7 @@ export function ProposalReviewStep({
           <CardTitle>Abstract</CardTitle>
         </CardHeader>
         <CardContent>
-          <HtmlContentRenderer content={values.abstract} />
+          <HtmlContentRenderer content={values.abstract} showFullContent={true} />
         </CardContent>
       </Card>
 
@@ -514,7 +514,7 @@ export function ProposalReviewStep({
                           <div className="border-t border-border bg-muted/30">
                             <div className="px-6 py-4">
                               {hasContent ? (
-                                <HtmlContentRenderer content={content} />
+                                <HtmlContentRenderer content={content} showFullContent={true} />
                               ) : (
                                 <p className="text-sm text-muted-foreground italic">
                                   No content has been added to this section yet.

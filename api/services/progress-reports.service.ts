@@ -648,21 +648,23 @@ export const progressReportsService = {
     return data?.data ?? data?.results ?? [];
   },
 
-  async getReadyForTracking(): Promise<ReadyForTrackingProject[]> {
+  async getReadyForTracking(params?: Record<string, unknown>): Promise<ReadyForTrackingProject[]> {
     const { data } = await apiClient.get(
       API_ENDPOINTS.PROJECT_TRACKING.READY_FOR_TRACKING,
+      { params },
     );
-    const results = data?.data ?? data?.results ?? [];
+    const results = data?.data ?? data?.results ?? (Array.isArray(data) ? data : []);
     return results.map((item: any) => ({
-      id: item.id,
-      proposal: item.proposal,
+      id: item.id ?? item.proposal ?? item.pk,
+      proposal: item.proposal ?? item.id,
       readyForFundingId: item.readyForFundingId ?? item.ready_for_funding_id,
       fundingDecisionStatus:
         item.fundingDecisionStatus ?? item.funding_decision_status,
       screeningStatus: item.screeningStatus ?? item.screening_status,
       screeningId: item.screeningId ?? item.screening_id,
       referenceNumber: item.referenceNumber ?? item.reference_number,
-      proposalTitle: item.proposalTitle ?? item.proposal_title,
+      title: item.title ?? item.proposalTitle ?? item.proposal_title ?? "Untitled Proposal",
+      proposalTitle: item.proposalTitle ?? item.proposal_title ?? item.title ?? "Untitled Proposal",
       pi: item.pi,
       totalAwardAmount: item.totalAwardAmount ?? item.total_award_amount,
       amountEnglishInWords:

@@ -668,7 +668,7 @@ export default function AssignReviewersDetailPage() {
                   className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
                 >
                   <Users className="h-4 w-4 shrink-0" />
-                  Research Team
+                  Team Members
                   {rawTeamList.length > 0 && (
                     <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
                       {rawTeamList.length + 1}
@@ -680,7 +680,7 @@ export default function AssignReviewersDetailPage() {
                   className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
                 >
                   <Clock className="h-4 w-4 shrink-0" />
-                  Review History
+                  Status Logs
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -910,7 +910,7 @@ export default function AssignReviewersDetailPage() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    Research Team
+                    Team Members
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">

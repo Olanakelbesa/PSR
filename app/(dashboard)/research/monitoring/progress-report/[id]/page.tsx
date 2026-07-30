@@ -29,6 +29,7 @@ import {
   UserCheck,
   Wallet,
   XCircle,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +58,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { StyledDatePicker } from "@/components/ui/date-picker";
 import {
   useCreateProgressReport,
   useProjectTrackingById,
@@ -152,6 +154,20 @@ function formatAmount(value?: string | number | null) {
   const num = Number(value);
   if (Number.isNaN(num)) return String(value);
   return `ETB ${num.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+}
+
+function parseDateString(str?: string): Date | null {
+  if (!str) return null;
+  const d = new Date(str);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatDateToString(date: Date | null): string {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getInitials(name?: string): string {
@@ -1155,50 +1171,105 @@ export default function ProjectTrackingDetailPage() {
         open={isProgressDialogOpen}
         onOpenChange={setIsProgressDialogOpen}
       >
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
-              Submit Progress Report
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Log progress milestones, activities achieved, and budget used for this project.
-            </DialogDescription>
+        <DialogContent className="sm:max-w-3xl lg:max-w-4xl max-h-[92vh] overflow-y-auto p-0 gap-0 border-border/80 shadow-2xl rounded-2xl">
+          <DialogHeader className="p-5 border-b border-border/60 bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0 text-primary">
+                <Upload className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <DialogTitle className="text-lg font-bold text-foreground">
+                  Submit Progress Report
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Log progress milestones, activities achieved, and budget used for this project.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="progress-report-name" className="text-xs font-semibold">
-                Report Title <span className="text-rose-500">*</span>
+          <div className="p-6 space-y-4">
+            {/* Report Title */}
+            <div className="space-y-2">
+              <Label htmlFor="progress-report-name" className="text-xs font-semibold flex items-center gap-1">
+                <span>Report Title</span>
+                <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="progress-report-name"
                 placeholder="e.g. Q1 Progress & Milestone Update"
                 value={progressReportName}
                 onChange={(event) => setProgressReportName(event.target.value)}
-                className="h-10 text-sm"
+                className="h-10 text-sm rounded-xl border-border/80 focus:ring-primary/20"
               />
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+                    Quick template suggestions (click to apply & edit):
+                  </span>
+                  {progressReportName && (
+                    <button
+                      type="button"
+                      onClick={() => setProgressReportName("")}
+                      className="text-[10px] text-muted-foreground hover:text-rose-500 underline transition-colors"
+                    >
+                      Clear title
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "First Quarter (Q1) Progress & Financial Update",
+                    "Mid-Term Progress & Milestone Report",
+                    "Third Quarter (Q3) Activity & Expenditure Summary",
+                    "Final Technical & Research Output Report",
+                    "Annual Progress & Expenditure Summary",
+                  ].map((template) => {
+                    const isActive = progressReportName === template;
+                    return (
+                      <button
+                        type="button"
+                        key={template}
+                        onClick={() => setProgressReportName(template)}
+                        className={cn(
+                          "text-[11px] px-2.5 py-1 rounded-lg border text-left transition-all cursor-pointer font-medium leading-tight",
+                          isActive
+                            ? "bg-primary/10 border-primary text-primary font-semibold shadow-2xs"
+                            : "bg-muted/40 hover:bg-muted border-border/80 text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {template}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
+            {/* Main Activities */}
             <div className="space-y-1.5">
-              <Label htmlFor="progress-activities" className="text-xs font-semibold">
-                Main Activities Achieved <span className="text-rose-500">*</span>
+              <Label htmlFor="progress-activities" className="text-xs font-semibold flex items-center gap-1">
+                <span>Main Activities Achieved</span>
+                <span className="text-rose-500">*</span>
               </Label>
               <Textarea
                 id="progress-activities"
-                placeholder="Describe key research tasks completed..."
+                placeholder="Describe key research tasks, milestones completed, data collected, or preliminary findings..."
                 value={progressActivities}
                 onChange={(event) => setProgressActivities(event.target.value)}
-                className="min-h-[100px] text-sm resize-y"
+                className="min-h-[110px] text-sm resize-y rounded-xl border-border/80 focus:ring-primary/20 leading-relaxed"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="progress-amount" className="text-xs font-semibold">
-                Amount Used (ETB)
+            {/* Amount Used & Budget Indicator */}
+            <div className="space-y-2 p-4 rounded-xl border border-border/70 bg-muted/20">
+              <Label htmlFor="progress-amount" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span>Expenditure Amount (ETB)</span>
               </Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-mono font-bold">
                   ETB
                 </span>
                 <Input
@@ -1206,7 +1277,7 @@ export default function ProjectTrackingDetailPage() {
                   type="number"
                   min="0"
                   placeholder="0.00"
-                  className="pl-12 h-10 text-sm font-mono"
+                  className="pl-14 h-10 text-sm font-mono rounded-xl border-border/80 focus:ring-primary/20 bg-background"
                   value={progressAmountUsed}
                   onChange={(event) => setProgressAmountUsed(event.target.value)}
                 />
@@ -1219,81 +1290,90 @@ export default function ProjectTrackingDetailPage() {
                 const projectedOverrun = projectedTotal - totalAward;
                 if (totalAward > 0 && projectedTotal > totalAward) {
                   return (
-                    <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-200 bg-amber-50/90 text-amber-900 text-xs mt-1.5">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                      <span>
-                        This report brings total expenditure to <strong className="font-mono">{formatAmount(projectedTotal)}</strong>, exceeding the award budget by <strong className="font-mono text-rose-700">{formatAmount(projectedOverrun)}</strong>.
+                    <div className="flex items-start gap-2.5 p-3 rounded-lg border border-rose-200 dark:border-rose-900/50 bg-rose-50/90 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 text-xs mt-2">
+                      <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                      <span className="leading-snug">
+                        This report brings total expenditure to <strong className="font-mono font-bold">{formatAmount(projectedTotal)}</strong>, exceeding the award budget by <strong className="font-mono font-bold text-rose-700 dark:text-rose-300">{formatAmount(projectedOverrun)}</strong>.
                       </span>
                     </div>
                   );
                 }
                 return (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Projected total after this report: <span className="font-mono font-medium">{formatAmount(projectedTotal)}</span> (Remaining: <span className="font-mono font-medium">{formatAmount(Math.max(0, totalAward - projectedTotal))}</span>).
+                  <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span>
+                      Projected total: <span className="font-mono font-bold text-foreground">{formatAmount(projectedTotal)}</span> (Remaining: <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatAmount(Math.max(0, totalAward - projectedTotal))}</span>).
+                    </span>
                   </p>
                 );
               })()}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Dates & Attachment Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <div className="space-y-1.5">
-                <Label htmlFor="progress-start-date" className="text-xs font-semibold">
-                  Start Date
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>Start Date</span>
                 </Label>
-                <Input
-                  id="progress-start-date"
-                  type="date"
-                  className="h-10 text-xs"
-                  value={progressStartDate}
-                  onChange={(event) => setProgressStartDate(event.target.value)}
+                <StyledDatePicker
+                  selected={parseDateString(progressStartDate)}
+                  onChange={(date) => setProgressStartDate(formatDateToString(date))}
+                  placeholder="Select start date..."
+                  dateFormat="yyyy-MM-dd"
+                  className="h-10 text-xs w-full rounded-xl border-border/80"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="progress-end-date" className="text-xs font-semibold">
-                  End Date
-                </Label>
-                <Input
-                  id="progress-end-date"
-                  type="date"
-                  className="h-10 text-xs"
-                  value={progressEndDate}
-                  onChange={(event) => setProgressEndDate(event.target.value)}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="progress-attachment" className="text-xs font-semibold">
-                Supporting Attachment
-              </Label>
-              <Input
-                id="progress-attachment"
-                type="file"
-                className="file:bg-transparent file:text-foreground file:font-medium h-10 text-xs cursor-pointer"
-                onChange={(event) =>
-                  setProgressAttachment(event.target.files?.[0] || null)
-                }
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Upload receipts, progress summaries, or PDF reports.
-              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>End Date</span>
+                </Label>
+                <StyledDatePicker
+                  selected={parseDateString(progressEndDate)}
+                  onChange={(date) => setProgressEndDate(formatDateToString(date))}
+                  placeholder="Select end date..."
+                  dateFormat="yyyy-MM-dd"
+                  className="h-10 text-xs w-full rounded-xl border-border/80"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="progress-attachment" className="text-xs font-semibold flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>Supporting Attachment</span>
+                </Label>
+                <Input
+                  id="progress-attachment"
+                  type="file"
+                  className="file:bg-primary/10 file:text-primary file:font-semibold file:border-0 file:rounded-lg file:px-2.5 file:py-0.5 file:mr-2 h-10 text-xs cursor-pointer rounded-xl border-border/80"
+                  onChange={(event) =>
+                    setProgressAttachment(event.target.files?.[0] || null)
+                  }
+                />
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="pt-3 border-t">
+          <DialogFooter className="p-4 px-6 border-t border-border/60 bg-muted/20 flex items-center justify-end gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsProgressDialogOpen(false)}
+              className="rounded-xl h-9"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={submitProgressReport}
               disabled={createProgressReport.isPending}
-              className="shadow-xs"
+              className="shadow-xs font-bold rounded-xl h-9 gap-1.5"
             >
+              <Upload className="h-3.5 w-3.5" />
               {createProgressReport.isPending ? "Submitting..." : "Submit Report"}
             </Button>
           </DialogFooter>

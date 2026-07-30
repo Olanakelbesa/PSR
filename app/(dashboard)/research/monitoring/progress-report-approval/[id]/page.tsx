@@ -312,7 +312,7 @@ function EvaluationModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="w-[94vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />

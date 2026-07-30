@@ -25,6 +25,7 @@ import {
   Settings2,
   Download,
   Upload,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -476,19 +477,54 @@ export default function ProgressReportListPage() {
     return count;
   }, [columnVisibility]);
 
-  const readyForTrackingCount = readyProjects?.data?.length || 0;
+  const readyProjectsList = useMemo(() => {
+    if (!readyProjects) return [];
+    if (Array.isArray(readyProjects)) return readyProjects;
+    if (Array.isArray((readyProjects as any).data)) return (readyProjects as any).data;
+    if (Array.isArray((readyProjects as any).results)) return (readyProjects as any).results;
+    return [];
+  }, [readyProjects]);
+
+  const readyForTrackingCount = readyProjectsList.length;
 
   const filteredReadyProjects = useMemo(() => {
-    if (!readyProjects?.data) return [];
-    if (!readySearchQuery.trim()) return readyProjects.data;
+    if (!readySearchQuery.trim()) return readyProjectsList;
     const query = readySearchQuery.toLowerCase();
-    return readyProjects.data.filter(
+    return readyProjectsList.filter(
       (item: any) =>
-        item.title?.toLowerCase().includes(query) ||
+        (item.title || item.proposalTitle)?.toLowerCase().includes(query) ||
         item.referenceNumber?.toLowerCase().includes(query) ||
-        item.pi?.fullName?.toLowerCase().includes(query),
+        (typeof item.pi === "string" ? item.pi : item.pi?.fullName || item.pi?.name || "")?.toLowerCase().includes(query),
     );
-  }, [readyProjects, readySearchQuery]);
+  }, [readyProjectsList, readySearchQuery]);
+
+  const [trackingLoadingId, setTrackingLoadingId] = useState<string | null>(null);
+
+  const handleDirectTrack = async (item: any) => {
+    const proposalId = Number(item.id ?? item.proposal);
+    if (!proposalId) {
+      toast.error("Invalid proposal identifier.");
+      return;
+    }
+    setTrackingLoadingId(String(proposalId));
+    try {
+      await createMutation.mutateAsync({
+        proposal: proposalId,
+      });
+      toast.success(`Project tracking record initialized for ${item.title || item.proposalTitle || "proposal"}!`);
+      setIsReadyDialogOpen(false);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error?.message ||
+        (Array.isArray(err?.response?.data?.proposal) ? err.response.data.proposal[0] : null) ||
+        err?.message ||
+        "Failed to initialize project tracking.";
+      toast.error(msg);
+    } finally {
+      setTrackingLoadingId(null);
+    }
+  };
 
   const handleSubmitTracking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -503,8 +539,14 @@ export default function ProgressReportListPage() {
       toast.success("Project tracking record initialized successfully!");
       setIsDialogOpen(false);
       setFormValues({ proposal: "" });
-    } catch {
-      toast.error("Failed to initialize project tracking.");
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error?.message ||
+        (Array.isArray(err?.response?.data?.proposal) ? err.response.data.proposal[0] : null) ||
+        err?.message ||
+        "Failed to initialize project tracking.";
+      toast.error(msg);
     }
   };
 
@@ -1117,50 +1159,123 @@ export default function ProgressReportListPage() {
 
       {/* Dialog 1: Initiate Tracking Form Modal */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <Upload className="h-5 w-5 text-primary" />
-              Initiate Project Tracking
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Select an approved proposal with funding recommendation to begin tracking.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="w-[94vw] sm:max-w-2xl md:max-w-3xl max-h-[90vh] overflow-y-auto p-0 overflow-x-hidden gap-0 rounded-2xl shadow-2xl">
+          {/* Header */}
+          <div className="p-4 sm:p-6 pb-4 border-b bg-gradient-to-r from-primary/10 via-primary/5 to-background">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2.5 text-lg sm:text-xl font-bold text-foreground">
+                <div className="p-2 rounded-xl bg-primary/15 text-primary shrink-0">
+                  <Upload className="h-5 w-5" />
+                </div>
+                Initiate Project Tracking
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground pt-1 leading-relaxed">
+                Select an approved proposal with funding determination to start logging milestones, progress reports, and expenditures.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <form onSubmit={handleSubmitTracking} className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label htmlFor="proposal-select" className="text-xs font-bold text-foreground">
-                Approved Proposal / Funding Recommendation *
+          <form onSubmit={handleSubmitTracking} className="p-4 sm:p-6 space-y-6 bg-background">
+            <div className="space-y-2.5">
+              <label htmlFor="proposal-select" className="text-xs font-bold uppercase tracking-wider text-foreground/80 flex items-center justify-between">
+                <span>Select Approved Proposal <span className="text-rose-500">*</span></span>
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  {readyProjectsList.length} candidate{readyProjectsList.length === 1 ? "" : "s"} available
+                </span>
               </label>
-              <SearchableSelect
-                items={
-                  readyProjects?.data?.map((item: any) => ({
-                    value: String(item.id),
-                    label: `${item.title} (${item.referenceNumber || `Ref #${item.id}`})`,
-                  })) || []
-                }
+              <SearchableSelect<any>
+                options={readyProjectsList}
                 value={formValues.proposal}
                 onValueChange={(value) =>
                   setFormValues((prev) => ({ ...prev, proposal: value }))
                 }
-                placeholder="Select an approved proposal…"
+                getOptionValue={(item) => String(item.id ?? item.proposal)}
+                getOptionLabel={(item) =>
+                  `${item.title || item.proposalTitle || "Untitled Proposal"} (${item.referenceNumber || `Ref #${item.id}`})`
+                }
+                placeholder="Search and select an approved proposal…"
+                searchPlaceholder="Search proposals by title, reference number, or PI..."
+                emptyMessage="No approved proposals available for tracking."
+                noResultsMessage="No proposals match your search query."
+                triggerClassName="h-auto min-h-12 py-2.5 px-3 rounded-xl border-border/80 text-sm focus:ring-primary/20"
+                renderOption={(item, isSelected) => (
+                  <div className="flex items-start justify-between gap-3 py-1.5 min-w-0 w-full text-left">
+                    <div className="flex flex-col space-y-1.5 min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                          {item.referenceNumber || `REF-${item.id}`}
+                        </span>
+                        {item.totalAwardAmount && (
+                          <span className="text-[10px] font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                            {formatAmount(item.totalAwardAmount)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-bold text-xs sm:text-sm text-foreground leading-relaxed whitespace-normal break-words">
+                        {item.title || item.proposalTitle || "Untitled Proposal"}
+                      </p>
+                      {item.pi && (
+                        <p className="text-[11px] text-muted-foreground whitespace-normal break-words">
+                          PI: {typeof item.pi === "string" ? item.pi : item.pi?.fullName || item.pi?.name || "Not specified"}
+                        </p>
+                      )}
+                    </div>
+                    <Check
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-primary transition-opacity mt-1",
+                        isSelected ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </div>
+                )}
               />
             </div>
 
-            <DialogFooter className="pt-2">
+            {/* Selected Proposal Preview Card */}
+            {(() => {
+              const selectedItem = readyProjectsList.find(
+                (item: any) => String(item.id ?? item.proposal) === formValues.proposal,
+              );
+              if (!selectedItem) return null;
+              return (
+                <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-2 transition-all">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-primary uppercase text-[10px] tracking-wider">
+                      Selected Proposal Details
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
+                      Ready to Initialize
+                    </Badge>
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground leading-snug break-words">
+                    {selectedItem.title || selectedItem.proposalTitle}
+                  </h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-muted-foreground">
+                    <span>Reference: <strong className="font-mono text-foreground">{selectedItem.referenceNumber || `#${selectedItem.id}`}</strong></span>
+                    {selectedItem.totalAwardAmount && (
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        Award: {formatAmount(selectedItem.totalAwardAmount)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <DialogFooter className="pt-3 border-t">
               <DialogClose asChild>
-                <Button type="button" variant="outline" size="sm">
+                <Button type="button" variant="outline" size="sm" className="rounded-xl">
                   Cancel
                 </Button>
               </DialogClose>
               <Button
                 type="submit"
                 size="sm"
-                disabled={createMutation.isPending}
-                className="shadow-xs font-bold"
+                disabled={createMutation.isPending || !formValues.proposal}
+                className="shadow-xs font-bold rounded-xl gap-1.5"
               >
-                {createMutation.isPending ? "Initializing..." : "Start Tracking"}
+                <PlayCircle className="h-4 w-4" />
+                {createMutation.isPending ? "Initializing..." : "Start Project Tracking"}
               </Button>
             </DialogFooter>
           </form>
@@ -1205,21 +1320,27 @@ export default function ProgressReportListPage() {
                       <div className="space-y-1 min-w-0">
                         <ReferenceCell refNum={item.referenceNumber || `REF-${item.id}`} />
                         <h4 className="text-xs font-bold text-foreground leading-snug line-clamp-2">
-                          {item.title}
+                          {item.title || item.proposalTitle || "Untitled Proposal"}
                         </h4>
                         {item.pi && <PICell pi={item.pi} />}
                       </div>
                       <Button
                         size="sm"
-                        onClick={() => {
-                          setFormValues({ proposal: String(item.id) });
-                          setIsReadyDialogOpen(false);
-                          setIsDialogOpen(true);
-                        }}
-                        className="text-xs font-bold h-8 shrink-0 shadow-2xs"
+                        disabled={trackingLoadingId === String(item.id ?? item.proposal)}
+                        onClick={() => handleDirectTrack(item)}
+                        className="text-xs font-bold h-8 shrink-0 shadow-2xs gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
                       >
-                        <PlusCircle className="mr-1 h-3.5 w-3.5" />
-                        Track Now
+                        {trackingLoadingId === String(item.id ?? item.proposal) ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>Tracking...</span>
+                          </>
+                        ) : (
+                          <>
+                            <PlayCircle className="h-3.5 w-3.5" />
+                            <span>Track Now</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </Card>

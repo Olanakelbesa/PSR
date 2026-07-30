@@ -527,7 +527,7 @@ export default function AssignReviewersDetailPage() {
           {/* <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 text-xs text-blue-800 dark:text-blue-300">
             <ShieldAlert className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
             <div className="flex-1">
-              <span className="font-bold">Conflict of Interest Safeguard Active:</span> Proposal authors, principal investigators, co-investigators, and research team members are automatically excluded from the available reviewer selection pool.
+              <span className="font-bold">Conflict of Interest Safeguard Active:</span> Proposal authors, principal investigators, co-investigators, and Team Members members are automatically excluded from the available reviewer selection pool.
             </div>
           </div> */}
 

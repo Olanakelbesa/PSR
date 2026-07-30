@@ -251,18 +251,25 @@ export default function ProposalDetailPage() {
 
     const reviewTimeline: ReviewHistoryEvent[] = [];
 
-    if (detail.firstSubmittedAt || detail.submittedAt || detail.createdAt) {
+    const submittedDate = detail.firstSubmittedAt || detail.submittedAt || detail.createdAt;
+    if (submittedDate) {
       reviewTimeline.push({
         action: "Proposal Submitted",
-        timestamp: String(
-          detail.firstSubmittedAt || detail.submittedAt || detail.createdAt || new Date().toISOString(),
-        ),
+        timestamp: String(submittedDate),
         status: "submitted",
         comment: null,
       });
     }
 
-    if (detail.status && detail.status !== "submitted") {
+    const resolvedStatus =
+      detail.currentStatus ||
+      detail.current_status ||
+      detail.workflowState ||
+      detail.workflow_state ||
+      detail.status ||
+      "submitted";
+
+    if (resolvedStatus && resolvedStatus !== "submitted") {
       const statusLabels: Record<string, string> = {
         screening_under_review: "Screening Under Review",
         screening_approved: "Screening Approved",
@@ -272,16 +279,17 @@ export default function ProposalDetailPage() {
         revision_requested: "Revision Requested",
         revision_required: "Revision Required",
         protocol_stage: "Protocol Stage",
+        funding_recommendation: "Funding Recommendation",
         approved: "Approved",
         rejected: "Not Accepted",
       };
       reviewTimeline.push({
-        action: statusLabels[detail.status] || `Status: ${detail.status}`,
+        action: statusLabels[resolvedStatus] || `Status: ${resolvedStatus.replace(/_/g, " ")}`,
         timestamp: String(
           detail.lastSubmittedAt || detail.updatedAt || new Date().toISOString(),
         ),
-        status: detail.status,
-        comment: detail.rejectionReason || null,
+        status: resolvedStatus,
+        comment: detail.rejectionReason || detail.screeningDecisionRemarks || null,
       });
     }
 
@@ -350,7 +358,7 @@ export default function ProposalDetailPage() {
         total: Number(detail.budgetRequested || 0),
       },
       timeline: [],
-      status: detail.status,
+      status: resolvedStatus,
       statusDisplay: detail.statusDisplay || null,
       attachments,
       reviews: [],
@@ -675,7 +683,7 @@ export default function ProposalDetailPage() {
                   className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
                 >
                   <Users className="h-4 w-4 shrink-0" />
-                  Research Team
+                  Team Members
                   {rawTeamList.length > 0 && (
                     <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
                       {rawTeamList.length + 1}
@@ -767,6 +775,7 @@ export default function ProposalDetailPage() {
                   <div className="text-sm text-muted-foreground leading-relaxed">
                     <HtmlContentRenderer
                       content={proposal.abstract || "No abstract provided."}
+                      showFullContent={true}
                     />
                   </div>
                 </CardContent>
@@ -857,7 +866,7 @@ export default function ProposalDetailPage() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    Research Team
+                    Team Members
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">

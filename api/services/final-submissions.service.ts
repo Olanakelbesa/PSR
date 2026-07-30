@@ -85,8 +85,8 @@ function normalizeList<T>(payload: unknown): ApiListResponse<T> {
           limit: Number(objectPayload.meta?.limit ?? 10),
           total: Number(
             objectPayload.meta?.total ??
-              objectPayload.count ??
-              objectPayload.results.length,
+            objectPayload.count ??
+            objectPayload.results.length,
           ),
           totalPages: Number(objectPayload.meta?.totalPages ?? 0),
           statistics: objectPayload.meta?.statistics,
@@ -354,11 +354,11 @@ export const finalSubmissionsService = {
       proposal_title: item.proposalTitle ?? item.proposal_title ?? null,
       pi: item.pi
         ? {
-            id: item.pi.id,
-            fullName: item.pi.fullName ?? item.pi.full_name,
-            full_name: item.pi.fullName ?? item.pi.full_name,
-            email: item.pi.email,
-          }
+          id: item.pi.id,
+          fullName: item.pi.fullName ?? item.pi.full_name,
+          full_name: item.pi.fullName ?? item.pi.full_name,
+          email: item.pi.email,
+        }
         : null,
       total_award_amount:
         item.totalAwardAmount ?? item.total_award_amount ?? "0",

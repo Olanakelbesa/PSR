@@ -299,13 +299,36 @@ export default function ReadyForFundingDetailPage() {
   const openFundingModal = () => {
     setFundingDecision(screening?.fundingStatus?.decision || "");
     const fs = screening?.fundingStatus as any;
-    const initialEthical =
-      fs?.ethicalClearanceRequirement ||
-      (fs?.allowPostFundingIrb
-        ? "required_post_funding"
-        : fs?.needIrbEthicalClearance
-          ? "yes"
-          : "no");
+    const reqVal = String(
+      fs?.ethicalClearanceRequirement ??
+      fs?.ethical_clearance_requirement ??
+      (screening as any)?.ethicalClearanceRequirement ??
+      "",
+    ).toLowerCase();
+
+    const allowPost = Boolean(
+      fs?.allowPostFundingIrb ??
+      fs?.allow_post_funding_irb ??
+      (screening as any)?.allowPostFundingIrb ??
+      (screening as any)?.allow_post_funding_irb
+    );
+
+    const needIrb = Boolean(
+      fs?.needIrbEthicalClearance ??
+      fs?.need_irb_ethical_clearance ??
+      (screening as any)?.needIrbEthicalClearance ??
+      (screening as any)?.need_irb_ethical_clearance
+    );
+
+    let initialEthical = "no";
+    if (reqVal === "required_post_funding" || reqVal === "post_funding" || allowPost) {
+      initialEthical = "required_post_funding";
+    } else if (reqVal === "yes" || reqVal === "required_pre_funding" || reqVal === "pre_funding" || needIrb) {
+      initialEthical = "yes";
+    } else {
+      initialEthical = "no";
+    }
+
     setRequiresEthicalClearance(initialEthical);
     setCommitteeRemarks(screening?.fundingStatus?.remark || "");
     setFormErrors({});
@@ -557,7 +580,7 @@ export default function ReadyForFundingDetailPage() {
                   className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
                 >
                   <Users className="h-4 w-4 shrink-0" />
-                  Research Team
+                  Team Members
                   <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-bold border-border/60 text-muted-foreground rounded-md">
                     {1 + screening.coInvestigators.length}
                   </Badge>
@@ -711,7 +734,7 @@ export default function ReadyForFundingDetailPage() {
                 <CardHeader className="border-b bg-muted/20 py-3.5 px-5">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    Research Team & Investigators
+                    Team Members & Investigators
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-5 space-y-6">
@@ -1254,7 +1277,7 @@ export default function ReadyForFundingDetailPage() {
       {/* Funding Decision Dialog                                              */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={isFundingModalOpen} onOpenChange={setIsFundingModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[680px] max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl overflow-x-hidden shadow-2xl">
+        <DialogContent className="w-[94vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl overflow-x-hidden shadow-2xl">
           {/* Dynamic Colored Header */}
           <div
             className={cn(

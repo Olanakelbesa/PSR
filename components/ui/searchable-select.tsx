@@ -254,29 +254,29 @@ export function SearchableSelect<T = any>({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "h-10 w-full justify-between font-normal text-left shadow-sm transition-colors",
+            "h-auto min-h-11 w-full justify-between font-normal text-left shadow-xs transition-colors py-2.5 px-3.5",
             error && "border-rose-500 focus-visible:ring-rose-500",
             !value && !currentDisplayLabel && "text-muted-foreground",
             triggerClassName,
           )}
         >
-          <span className="truncate flex items-center gap-2 w-full min-w-0">
+          <div className="whitespace-normal break-words text-left flex-1 min-w-0 leading-snug font-medium text-xs sm:text-sm">
             {renderTriggerValue ? (
               renderTriggerValue(selectedItem)
             ) : (
               currentDisplayLabel || placeholder
             )}
-          </span>
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </div>
+          <ChevronDown className="ml-2.5 h-4 w-4 shrink-0 opacity-50 my-auto" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         onWheel={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
-        className={cn("w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0 shadow-lg z-50", className)}
+        className={cn("w-[var(--radix-popover-trigger-width)] min-w-[320px] max-w-[calc(100vw-2rem)] sm:max-w-2xl p-0 shadow-xl z-50 rounded-xl overflow-hidden border-border/80", className)}
       >
-        <Command shouldFilter={false} className="max-h-[300px]" onWheel={(e) => e.stopPropagation()}>
+        <Command shouldFilter={false} className="max-h-[380px]" onWheel={(e) => e.stopPropagation()}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchQuery}
@@ -285,7 +285,7 @@ export function SearchableSelect<T = any>({
           <CommandList
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
-            className="max-h-[240px] overflow-y-auto pointer-events-auto touch-auto scrollbar-thin"
+            className="max-h-[300px] overflow-y-auto pointer-events-auto touch-auto scrollbar-thin p-1 space-y-0.5"
           >
             {isLoading ? (
               <div className="p-4 text-center text-xs text-muted-foreground">
@@ -311,13 +311,13 @@ export function SearchableSelect<T = any>({
                       key={itemVal || index}
                       value={`${itemVal} ${itemLabel}`}
                       onSelect={() => handleSelect(itemVal)}
-                      className="flex items-center justify-between cursor-pointer px-3 py-2 text-sm"
+                      className="flex items-start justify-between cursor-pointer px-3 py-2.5 text-xs sm:text-sm min-w-0 w-full rounded-lg my-0.5 whitespace-normal break-words"
                     >
                       {renderOption ? (
                         renderOption(item, isSelected)
                       ) : (
                         <>
-                          <span className="truncate">{itemLabel}</span>
+                          <span className="whitespace-normal break-words leading-snug flex-1 min-w-0">{itemLabel}</span>
                           <Check
                             className={cn(
                               "ml-2 h-4 w-4 shrink-0 text-primary transition-opacity",

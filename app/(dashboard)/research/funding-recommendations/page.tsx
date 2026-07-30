@@ -772,14 +772,14 @@ export default function FundingRecommendationsPage() {
       accessorKey: "proposalTitle",
       header: "Proposal",
       cell: ({ row }) => (
-        <div className="max-w-105">
-          <p className="line-clamp-2 text-sm font-bold">
+        <div className="min-w-[240px] max-w-[340px] space-y-0.5">
+          <p className="line-clamp-2 text-sm font-bold leading-snug">
             {row.original.proposalTitle || "Untitled proposal"}
           </p>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground truncate">
             {row.original.callTitle} · {row.original.proposalTypeName}
           </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground truncate">
             {row.original.organizationName}
           </p>
         </div>

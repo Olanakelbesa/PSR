@@ -394,6 +394,45 @@ export default function SubmissionDetailPage() {
 
             {/* ── Overview Tab Content ────────────────────────────────────────── */}
             <TabsContent value="overview" className="pt-5 space-y-6">
+              {/* Funding Decision Committee Remarks & Guidance Banner */}
+              {((clearance as any)?.committeeRemarks ||
+                (clearance as any)?.committee_remarks ||
+                (clearance as any)?.fundingDecisionRemarks ||
+                (clearance as any)?.funding_decision_remarks ||
+                (clearance as any)?.screeningDecisionRemarks ||
+                (clearance as any)?.screening_decision_remarks ||
+                (proposalDetail as any)?.fundingStatus?.remark ||
+                (proposalDetail as any)?.rejectionReason) && (
+                <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50/90 via-blue-50/50 to-background p-5 text-indigo-950 dark:border-indigo-900/50 dark:from-indigo-950/40 dark:to-background dark:text-indigo-200 shadow-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 font-bold text-sm">
+                      <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shrink-0">
+                        <MessageSquare className="h-4 w-4" />
+                      </div>
+                      <span>Funding Decision Committee Remarks & Instructions</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold border-indigo-300 text-indigo-800 bg-indigo-100/60 dark:bg-indigo-900/40 dark:text-indigo-300">
+                      Committee Guidance
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed pl-4 border-l-2 border-indigo-400 dark:border-indigo-600 font-medium italic">
+                    &ldquo;{
+                      (clearance as any)?.committeeRemarks ||
+                      (clearance as any)?.committee_remarks ||
+                      (clearance as any)?.fundingDecisionRemarks ||
+                      (clearance as any)?.funding_decision_remarks ||
+                      (clearance as any)?.screeningDecisionRemarks ||
+                      (clearance as any)?.screening_decision_remarks ||
+                      (proposalDetail as any)?.fundingStatus?.remark ||
+                      (proposalDetail as any)?.rejectionReason
+                    }&rdquo;
+                  </p>
+                  <p className="mt-2.5 text-[11px] text-indigo-700/80 dark:text-indigo-300/80">
+                    Please review the committee remarks above carefully to verify all required ethics considerations before finalizing your IRB clearance submission.
+                  </p>
+                </div>
+              )}
+
               {/* Proposal Information Card */}
               <Card className="border border-muted-foreground/15 shadow-sm">
                 <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">

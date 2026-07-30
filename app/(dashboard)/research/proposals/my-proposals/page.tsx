@@ -1000,7 +1000,7 @@ export default function ProposalsPage() {
                   onClick={() => setRoleScopeFilter("owned")}
                 >
                   <User className="h-3.5 w-3.5 text-emerald-500" />
-                  Created by Me ({tableData.filter((r) => r.isOwner).length})
+                  Submitted by Me ({tableData.filter((r) => r.isOwner).length})
                 </Button>
                 <Button
                   variant={roleScopeFilter === "team" ? "default" : "ghost"}
@@ -1009,7 +1009,7 @@ export default function ProposalsPage() {
                   onClick={() => setRoleScopeFilter("team")}
                 >
                   <Users className="h-3.5 w-3.5 text-sky-500" />
-                  Shared with Me ({tableData.filter((r) => !r.isOwner).length})
+                  As a Co ({tableData.filter((r) => !r.isOwner).length})
                 </Button>
               </div>
             </div>

@@ -289,7 +289,7 @@ export function ProtocolFormModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[620px] p-0 overflow-hidden gap-0 max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[94vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl p-0 overflow-hidden gap-0 max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="p-6 pb-4 border-b bg-slate-50/70 dark:bg-slate-900/40">
             <DialogHeader>

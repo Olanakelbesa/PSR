@@ -643,29 +643,69 @@ export default function TerminalReportApprovalDetailPage() {
 
 
                 {approvals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic text-center py-6">
-                    No committee evaluations recorded yet. Click &quot;Evaluate &amp; Grade Report&quot; to submit an approval or request resubmission.
-                  </p>
+                  <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-muted/10">
+                    <MessageSquare className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="font-semibold text-sm text-foreground">No committee evaluations recorded yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Click &quot;Evaluate &amp; Grade Report&quot; to submit an approval, add feedback, or request resubmission.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {approvals.map((appr: any, idx: number) => {
-                      const revName = appr.reviewer_name || appr.reviewerName || "Reviewer";
-                      const comments = appr.ROC_Comments || appr.ROCComments || appr.comment;
+                      const revName =
+                        appr.reviewer_name ||
+                        appr.reviewerName ||
+                        appr.reviewer_email ||
+                        (typeof appr.reviewer === "string" ? appr.reviewer : appr.reviewer?.fullName || appr.reviewer?.name || appr.reviewer?.email) ||
+                        "Committee Reviewer";
+                      const comments =
+                        appr.ROC_Comments ||
+                        appr.ROCComments ||
+                        appr.comment ||
+                        appr.comments ||
+                        appr.general_feedback ||
+                        appr.feedback ||
+                        report.comments ||
+                        report.reviewer_comments;
                       const revDate = appr.reviewed_at || appr.reviewedAt;
 
                       return (
-                        <div key={appr.id || idx} className="p-4 rounded-xl border bg-card space-y-2 shadow-2xs">
-                          <div className="flex items-center justify-between gap-2 border-b pb-2">
-
-
+                        <div key={appr.id || idx} className="p-4 rounded-xl border border-border/70 bg-card space-y-3 shadow-2xs">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+                                <Users className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <span className="font-bold text-xs sm:text-sm text-foreground block">{revName}</span>
+                                {revDate && (
+                                  <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {formatFullDateTime(revDate)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                             <DecisionBadge decision={appr.decision} />
                           </div>
-                          {comments && (
-                            <p className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg border border-border/50 leading-relaxed">
-                              {comments}
-                            </p>
-                          )}
 
+                          {comments ? (
+                            <div className="bg-muted/30 p-3.5 rounded-xl border border-border/50 space-y-1.5">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                <MessageSquare className="h-3.5 w-3.5 text-primary shrink-0" />
+                                <span>General Committee Feedback & Remarks</span>
+                              </p>
+                              <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">
+                                {comments}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-3 rounded-xl border border-dashed border-border/60 bg-muted/10 text-[11px] text-muted-foreground italic flex items-center gap-1.5">
+                              <Info className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                              <span>No general written feedback remarks provided for this decision.</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

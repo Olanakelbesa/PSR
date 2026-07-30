@@ -810,11 +810,11 @@ export default function ProtocolReviewDetailPage() {
       {/* Review Decision Dialog                                              */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={isReviewModalOpen} onOpenChange={setIsReviewModalOpen}>
-        <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden gap-0">
+        <DialogContent className="w-[94vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 overflow-x-hidden gap-0 rounded-2xl shadow-2xl">
           {/* Dynamic Colored Header */}
           <div
             className={cn(
-              "p-6 pb-4 border-b transition-colors duration-200",
+              "p-4 sm:p-6 pb-4 border-b transition-colors duration-200",
               reviewDecision === "approved" &&
               "bg-emerald-50/60 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20",
               reviewDecision === "rejected" &&
@@ -823,19 +823,19 @@ export default function ProtocolReviewDetailPage() {
             )}
           >
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-xl">
+              <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 {reviewDecision === "approved" && (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
                 )}
                 {reviewDecision === "rejected" && (
-                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
                 )}
                 {!reviewDecision && (
-                  <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+                  <ShieldCheck className="h-5 w-5 text-muted-foreground shrink-0" />
                 )}
                 Protocol Review Decision
               </DialogTitle>
-              <DialogDescription className="pt-2 text-foreground/80 leading-relaxed space-y-1">
+              <DialogDescription className="pt-2 text-foreground/80 leading-relaxed space-y-1 text-xs">
                 <span className="block">
                   {reviewDecision === "approved" &&
                     "This research protocol will be approved and promoted to funding recommendation."}
@@ -852,14 +852,14 @@ export default function ProtocolReviewDetailPage() {
           </div>
 
           {/* Body */}
-          <div className="p-6 space-y-6 bg-background">
+          <div className="p-4 sm:p-6 space-y-6 bg-background">
             {/* Decision Cards */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <label className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider">
                 Decision <span className="text-rose-500">*</span>
               </label>
               <div
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0 w-full"
                 role="radiogroup"
                 aria-label="Review decision"
               >

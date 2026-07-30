@@ -880,20 +880,36 @@ export default function MyFinalReportDetailPage() {
                               <div className="flex-1 min-w-0 pt-0.5">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
                                   <span className="font-bold text-sm text-foreground">
-                                    {appr.reviewer_name || "Reviewer"}
+                                    {appr.reviewer_name || appr.reviewerName || "Committee Reviewer"}
                                   </span>
                                   <DecisionBadge decision={appr.decision} />
-                                  <span className="text-[10px] text-muted-foreground ml-auto">
-                                    {formatFullDateTime(appr.reviewed_at)}
+                                  <span className="text-[10px] text-muted-foreground ml-auto font-mono">
+                                    {formatFullDateTime(appr.reviewed_at || appr.reviewedAt)}
                                   </span>
                                 </div>
-                                {appr.ROC_Comments && (
-                                  <div className="mt-2 bg-muted/30 p-3 rounded-lg border border-border/50">
-                                    <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">
-                                      {appr.ROC_Comments}
-                                    </p>
-                                  </div>
-                                )}
+                                {(() => {
+                                  const c =
+                                    appr.ROC_Comments ||
+                                    appr.ROCComments ||
+                                    appr.comment ||
+                                    appr.comments ||
+                                    appr.general_feedback ||
+                                    appr.feedback ||
+                                    report?.comments ||
+                                    report?.reviewer_comments;
+                                  if (!c) return null;
+                                  return (
+                                    <div className="mt-2 bg-muted/30 p-3.5 rounded-xl border border-border/50 space-y-1">
+                                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                        <MessageSquare className="h-3 w-3 text-primary shrink-0" />
+                                        <span>General Review Feedback</span>
+                                      </p>
+                                      <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+                                        {c}
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           ))}

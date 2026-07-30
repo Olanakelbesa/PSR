@@ -123,6 +123,10 @@ export function useCreateProjectTracking() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectTrackingKeys.all });
       queryClient.invalidateQueries({ queryKey: ["ready-project-tracking"] });
+      queryClient.invalidateQueries({ queryKey: ["ready-for-tracking"] });
+      queryClient.invalidateQueries({
+        queryKey: progressReportApprovalKeys.all,
+      });
     },
   });
 }

@@ -42,6 +42,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   useCreateFundingRecommendation,
   useFundingRecommendationCandidates,
@@ -364,21 +365,30 @@ export default function NewFundingRecommendationPage() {
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                           </div>
                         ) : (
-                          <select
-                            className="w-full h-12 bg-muted/50 border border-muted focus:border-primary focus:bg-background transition-all rounded-xl px-3 outline-none focus:ring-2 focus:ring-primary/20 text-sm"
-                            {...field}
-                          >
-                            <option value="">Choose a proposal...</option>
-                            {candidates.map((c) => (
-                              <option
-                                key={c.fundingDecisionId}
-                                value={String(c.fundingDecisionId)}
-                              >
-                                {c.referenceNumber || `SCR-${c.screeningId}`} —{" "}
-                                {c.proposalTitle}
-                              </option>
-                            ))}
-                          </select>
+                          <SearchableSelect<FundingRecommendationCandidate>
+                            options={candidates}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            getOptionValue={(c) => String(c.fundingDecisionId)}
+                            getOptionLabel={(c) =>
+                              `${c.referenceNumber || `SCR-${c.screeningId}`} — ${c.proposalTitle}`
+                            }
+                            placeholder="Search and choose a proposal..."
+                            searchPlaceholder="Search by proposal title, reference number..."
+                            emptyMessage="No candidate proposals available"
+                            noResultsMessage="No proposals match your search query"
+                            triggerClassName="h-12 rounded-xl bg-muted/50 border-muted focus:border-primary text-sm"
+                            renderOption={(c, isSelected) => (
+                              <div className="flex flex-col py-1 min-w-0 w-full">
+                                <span className="font-bold text-sm text-foreground truncate">
+                                  {c.proposalTitle}
+                                </span>
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {c.referenceNumber || `SCR-${c.screeningId}`} · PI: {c.pi?.fullName || "Not specified"}
+                                </span>
+                              </div>
+                            )}
+                          />
                         )}
                       </FormControl>
                       <FormDescription className="text-xs text-muted-foreground">
