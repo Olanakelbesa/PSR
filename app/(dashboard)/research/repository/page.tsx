@@ -270,7 +270,6 @@ export default function ResearchRepositoryPage() {
     page: 1,
     limit: 100,
     ordering: "-submission_date",
-    ...(statusFilter !== ALL_VALUE ? { status: statusFilter } : {}),
   });
 
   const recordDownload = useRecordFinalSubmissionDownload();
@@ -296,6 +295,11 @@ export default function ResearchRepositoryPage() {
 
     return uniqueSubmissions;
   }, [data?.data]);
+
+  const filteredData = useMemo(() => {
+    if (statusFilter === ALL_VALUE) return deduplicatedData;
+    return deduplicatedData.filter((s) => s.status === statusFilter);
+  }, [deduplicatedData, statusFilter]);
 
   const statCards = useMemo(
     () => [
@@ -742,7 +746,7 @@ export default function ResearchRepositoryPage() {
       <div className="mt-8 w-full max-w-full overflow-hidden">
         <DataTable
           columns={columns}
-          data={deduplicatedData}
+          data={filteredData}
           onRowClick={(item) => router.push(`/research/repository/${item.id}`)}
           searchKey="title"
           searchPlaceholder="Search submissions by title..."

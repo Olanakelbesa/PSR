@@ -579,9 +579,7 @@ export default function MyProtocolSubmissionDetailPage() {
                   {hasReviewRecord ? (
                     <div className="rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/20 p-4 space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                          {protocol.reviewedByName || protocol.reviewed_by_name || "PSR Committee Reviewer"}
-                        </p>
+
                         <Badge
                           className={cn(
                             "border px-2 py-0.5 text-[10px] font-bold uppercase shadow-none",

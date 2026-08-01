@@ -302,10 +302,22 @@ export function useCreateTerminalReportApproval() {
       decision: "pending" | "approved" | "rejected";
       ROC_Comments?: string;
       terminal_report: number;
+      item_grades?: any[];
+      ready_for_repository?: boolean;
+      data_center?: number;
     }) => terminalReportApprovalsService.createTerminalReportApproval(values),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: terminalReportApprovalKeys.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: terminalReportKeys.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["graded-for-repository"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["final-submissions"],
       });
     },
   });

@@ -18,7 +18,11 @@ import {
   Globe,
   Paperclip,
   RefreshCw,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
   TrendingUp,
+  X,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,56 +31,70 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/components/shared/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTerminalReports } from "@/hooks/useProgressReports";
-import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 
 const ALL_STATUS_VALUE = "all";
 
-type StatFilter = "all" | "pending" | "approved" | "rejected";
+type StatFilter = "all" | "pending" | "approved_internal" | "approved_published" | "rejected";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+function StatusBadge({ value, isPublished }: { value: string; isPublished?: boolean }) {
+  const statusKey = (value || "").toLowerCase();
 
-const statusConfig: Record<
-  string,
-  { label: string; className: string; icon: React.ElementType }
-> = {
-  pending: {
-    label: "Pending Review",
-    className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300",
-    icon: Clock,
-  },
-  approved: {
-    label: "Approved",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300",
-    icon: CheckCircle2,
-  },
-  rejected: {
-    label: "Rejected",
-    className: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300",
-    icon: XCircle,
-  },
-  revision_requested: {
-    label: "Revision Requested",
-    className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300",
-    icon: Clock,
-  },
-};
+  if (statusKey === "approved" || statusKey === "graded_for_repository") {
+    if (isPublished) {
+      return (
+        <Badge
+          variant="outline"
+          className="gap-1 text-[10px] font-bold uppercase shadow-none border bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300"
+        >
+          <Globe className="h-3 w-3 text-emerald-600 shrink-0" />
+          Approved & Published
+        </Badge>
+      );
+    }
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1 text-[10px] font-bold uppercase shadow-none border bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300"
+      >
+        <Building className="h-3 w-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
+        Approved (Internal Only)
+      </Badge>
+    );
+  }
 
-function StatusBadge({ value }: { value: string }) {
-  const cfg = statusConfig[value?.toLowerCase()] ?? statusConfig.pending;
-  const Icon = cfg.icon;
+  if (statusKey === "rejected" || statusKey === "revision_requested") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1 text-[10px] font-bold uppercase shadow-none border bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+      >
+        <RotateCcw className="h-3 w-3 text-rose-600 shrink-0" />
+        Revisions Required
+      </Badge>
+    );
+  }
+
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1 text-[11px] font-bold uppercase shadow-none border", cfg.className)}
+      className="gap-1 text-[10px] font-bold uppercase shadow-none border bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
     >
-      <Icon className="h-3 w-3" />
-      {cfg.label}
+      <Clock className="h-3 w-3 text-blue-600 shrink-0" />
+      Pending Review
     </Badge>
   );
 }
@@ -208,14 +226,9 @@ export default function TerminalReportApprovalPage() {
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_STATUS_VALUE);
+  const [dataCenterFilter, setDataCenterFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
   const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 400);
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    setPage(1);
-    setSearch(debouncedSearch.trim());
-  }, [debouncedSearch]);
 
   const applyStatusFilter = useCallback((filter: StatFilter) => {
     setStatusFilter((current) => (current === filter ? ALL_STATUS_VALUE : filter));
@@ -225,10 +238,8 @@ export default function TerminalReportApprovalPage() {
     () => ({
       page,
       limit: 100,
-      ...(statusFilter !== ALL_STATUS_VALUE ? { status: statusFilter } : {}),
-      ...(search ? { search } : {}),
     }),
-    [page, statusFilter, search],
+    [page],
   );
 
   const { data, isLoading, isFetching, refetch } = useTerminalReports(params);
@@ -238,12 +249,104 @@ export default function TerminalReportApprovalPage() {
     | { total: number; pending: number; approved: number; rejected: number }
     | undefined;
 
+  const availableDataCenters = useMemo(() => {
+    const set = new Set<string>();
+    reports.forEach((r: any) => {
+      const dc =
+        r.data_center_name ||
+        r.dataCenterName ||
+        r.custom_data_center ||
+        r.customDataCenter;
+      if (dc) set.add(dc);
+    });
+    return Array.from(set).sort();
+  }, [reports]);
+
+  const counts = useMemo(() => {
+    let pending = 0;
+    let approvedInternal = 0;
+    let approvedPublished = 0;
+    let rejected = 0;
+
+    reports.forEach((r: any) => {
+      const st = (r.status || "").toLowerCase();
+      const isPub = r.is_published ?? r.isPublished ?? r.ready_for_repository ?? false;
+      if (st === "pending" || st === "draft") pending++;
+      else if (st === "approved" || st === "graded_for_repository") {
+        if (isPub) approvedPublished++;
+        else approvedInternal++;
+      } else if (st === "rejected" || st === "revision_requested") rejected++;
+    });
+
+    return {
+      total: statistics?.total ?? reports.length,
+      pending: statistics?.pending ?? pending,
+      approvedInternal,
+      approvedPublished,
+      rejected: statistics?.rejected ?? rejected,
+    };
+  }, [reports, statistics]);
+
+  const filteredReports = useMemo(() => {
+    let list = reports.filter((r: any) => {
+      const st = (r.status || "").toLowerCase();
+      const isPub = r.is_published ?? r.isPublished ?? r.ready_for_repository ?? false;
+
+      // Status Filter
+      if (statusFilter === "pending" && !(st === "pending" || st === "draft")) return false;
+      if (statusFilter === "approved_internal" && !((st === "approved" || st === "graded_for_repository") && !isPub)) return false;
+      if (statusFilter === "approved_published" && !((st === "approved" || st === "graded_for_repository") && isPub)) return false;
+      if (statusFilter === "rejected" && !(st === "rejected" || st === "revision_requested")) return false;
+
+      // Data Center Filter
+      if (dataCenterFilter !== "all") {
+        const dc =
+          r.data_center_name ||
+          r.dataCenterName ||
+          r.custom_data_center ||
+          r.customDataCenter ||
+          "";
+        if (dc !== dataCenterFilter) return false;
+      }
+
+      // Search Filter
+      if (searchInput.trim()) {
+        const q = searchInput.toLowerCase().trim();
+        const title = (r.project_tracking_title || r.project_tracking?.title || r.report_name || "").toLowerCase();
+        const ref = (r.reference_number || r.project_tracking?.reference_number || "").toLowerCase();
+        const pi = (r.submitted_by_name || r.submittedByName || r.pi?.full_name || "").toLowerCase();
+        const dc = (r.data_center_name || r.dataCenterName || "").toLowerCase();
+        if (!title.includes(q) && !ref.includes(q) && !pi.includes(q) && !dc.includes(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return list.sort((a: any, b: any) => {
+      if (sortBy === "oldest") {
+        const timeA = new Date(a.submitted_at || 0).getTime();
+        const timeB = new Date(b.submitted_at || 0).getTime();
+        return timeA - timeB;
+      }
+      if (sortBy === "title") {
+        const titleA = a.project_tracking_title || a.project_tracking?.title || a.report_name || "";
+        const titleB = b.project_tracking_title || b.project_tracking?.title || b.report_name || "";
+        return titleA.localeCompare(titleB);
+      }
+      const timeA = new Date(a.submitted_at || 0).getTime();
+      const timeB = new Date(b.submitted_at || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [reports, statusFilter, dataCenterFilter, searchInput, sortBy]);
+
   const statCards = useMemo(
     () => [
       {
         key: "all" as StatFilter,
         label: "Total Reports",
-        value: statistics?.total ?? 0,
+        value: counts.total,
         icon: BarChart3,
         color: "text-primary",
         bg: "bg-primary/10",
@@ -254,38 +357,49 @@ export default function TerminalReportApprovalPage() {
       {
         key: "pending" as StatFilter,
         label: "Pending Review",
-        value: statistics?.pending ?? 0,
+        value: counts.pending,
         icon: Clock,
         color: "text-amber-600",
         bg: "bg-amber-50",
         border: "border-amber-200",
         activeRing: "ring-amber-500/60 border-amber-300",
-        sub: "Awaiting committee grading",
+        sub: "Awaiting committee evaluation",
       },
       {
-        key: "approved" as StatFilter,
-        label: "Approved & Graded",
-        value: statistics?.approved ?? 0,
-        icon: CheckCircle2,
-        color: "text-emerald-600",
-        bg: "bg-emerald-50",
-        border: "border-emerald-200",
-        activeRing: "ring-emerald-500/60 border-emerald-300",
-        sub: "Cleared for repository",
+        key: "approved_internal" as StatFilter,
+        label: "Approved (Internal)",
+        value: counts.approvedInternal,
+        icon: Building,
+        color: "text-indigo-600 dark:text-indigo-400",
+        bg: "bg-indigo-50 dark:bg-indigo-950/40",
+        border: "border-indigo-200 dark:border-indigo-800",
+        activeRing: "ring-indigo-500/60 border-indigo-300",
+        sub: "Internal tracking records only",
+      },
+      {
+        key: "approved_published" as StatFilter,
+        label: "Approved & Published",
+        value: counts.approvedPublished,
+        icon: Globe,
+        color: "text-teal-600",
+        bg: "bg-teal-50",
+        border: "border-teal-200",
+        activeRing: "ring-teal-500/60 border-teal-300",
+        sub: "Indexed in Research Repository",
       },
       {
         key: "rejected" as StatFilter,
-        label: "Rejected / Revision",
-        value: statistics?.rejected ?? 0,
-        icon: XCircle,
+        label: "Revisions Required",
+        value: counts.rejected,
+        icon: RotateCcw,
         color: "text-rose-600",
         bg: "bg-rose-50",
         border: "border-rose-200",
         activeRing: "ring-rose-500/60 border-rose-300",
-        sub: "Revision requested",
+        sub: "Returned to PI for updates",
       },
     ],
-    [statistics],
+    [counts],
   );
 
   const columns = [
@@ -445,7 +559,14 @@ export default function TerminalReportApprovalPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }: any) => <StatusBadge value={row.original.status} />,
+      cell: ({ row }: any) => {
+        const isPub =
+          row.original.is_published ??
+          row.original.isPublished ??
+          row.original.ready_for_repository ??
+          false;
+        return <StatusBadge value={row.original.status} isPublished={isPub} />;
+      },
     },
     {
       accessorKey: "submitted_at",
@@ -492,14 +613,14 @@ export default function TerminalReportApprovalPage() {
     >
       <div className="space-y-6">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="border-none shadow-sm">
-                <CardContent className="flex items-center gap-4 p-5">
-                  <Skeleton className="h-11 w-11 rounded-xl" />
+                <CardContent className="flex items-center gap-4 p-4">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
                   <div className="space-y-2">
-                    <Skeleton className="h-7 w-16" />
-                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-6 w-12" />
+                    <Skeleton className="h-3 w-20" />
                   </div>
                 </CardContent>
               </Card>
@@ -507,7 +628,7 @@ export default function TerminalReportApprovalPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {statCards.map((stat) => {
                 const isActive = statusFilter === stat.key;
                 return (
@@ -528,16 +649,16 @@ export default function TerminalReportApprovalPage() {
                       isActive && cn("ring-2 shadow-md", stat.activeRing),
                     )}
                   >
-                    <CardContent className="flex items-center gap-4 p-5">
-                      <div className={cn("shrink-0 rounded-xl p-3", stat.bg)}>
-                        <stat.icon className={cn("h-5 w-5", stat.color)} />
+                    <CardContent className="flex items-center gap-3.5 p-4">
+                      <div className={cn("shrink-0 rounded-xl p-2.5", stat.bg)}>
+                        <stat.icon className={cn("h-4.5 w-4.5", stat.color)} />
                       </div>
-                      <div>
-                        <div className="text-2xl font-black">{stat.value}</div>
-                        <p className="text-xs font-bold text-foreground">
+                      <div className="min-w-0">
+                        <div className="text-xl font-black">{stat.value}</div>
+                        <p className="text-xs font-bold text-foreground truncate">
                           {stat.label}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                        <p className="mt-0.5 text-[10px] text-muted-foreground/80 truncate">
                           {stat.sub}
                         </p>
                       </div>
@@ -547,29 +668,136 @@ export default function TerminalReportApprovalPage() {
               })}
             </div>
 
-            {statusFilter !== ALL_STATUS_VALUE && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setStatusFilter(ALL_STATUS_VALUE)}
-                  className="h-7 text-xs font-semibold"
-                >
-                  Clear filter
-                </Button>
-              </div>
-            )}
+            {/* Filter Controls Toolbar Card */}
+            <Card className="border border-border/70 shadow-2xs bg-card">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex flex-col md:flex-row items-center gap-3">
+                  {/* Search Input */}
+                  <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search title, reference #, investigator, data center..."
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      className="pl-9 pr-8 text-xs h-9 bg-background"
+                    />
+                    {searchInput && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchInput("")}
+                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Status Dropdown */}
+                  <div className="w-full md:w-56">
+                    <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as StatFilter)}>
+                      <SelectTrigger className="h-9 text-xs font-semibold bg-background">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses ({counts.total})</SelectItem>
+                        <SelectItem value="pending">Pending Review ({counts.pending})</SelectItem>
+                        <SelectItem value="approved_internal">Approved (Internal) ({counts.approvedInternal})</SelectItem>
+                        <SelectItem value="approved_published">Approved & Published ({counts.approvedPublished})</SelectItem>
+                        <SelectItem value="rejected">Revisions Required ({counts.rejected})</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Data Center Dropdown */}
+                  <div className="w-full md:w-52">
+                    <Select value={dataCenterFilter} onValueChange={setDataCenterFilter}>
+                      <SelectTrigger className="h-9 text-xs font-semibold bg-background">
+                        <Building className="mr-1.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <SelectValue placeholder="All Data Centers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Data Centers</SelectItem>
+                        {availableDataCenters.map((dc) => (
+                          <SelectItem key={dc} value={dc}>
+                            {dc}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Sort By Dropdown */}
+                  <div className="w-full md:w-44">
+                    <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
+                      <SelectTrigger className="h-9 text-xs font-semibold bg-background">
+                        <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <SelectValue placeholder="Sort By" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest First</SelectItem>
+                        <SelectItem value="oldest">Oldest First</SelectItem>
+                        <SelectItem value="title">Title (A-Z)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Active Filter Badges & Reset Button */}
+                {(statusFilter !== "all" || dataCenterFilter !== "all" || searchInput || sortBy !== "newest") && (
+                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border/40">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Active Filters:
+                    </span>
+                    {statusFilter !== "all" && (
+                      <Badge variant="secondary" className="text-[10px] font-bold gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20">
+                        Status: {statusFilter.replace("_", " ")}
+                        <X className="h-3 w-3 cursor-pointer ml-1" onClick={() => setStatusFilter("all")} />
+                      </Badge>
+                    )}
+                    {dataCenterFilter !== "all" && (
+                      <Badge variant="secondary" className="text-[10px] font-bold gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20">
+                        Center: {dataCenterFilter}
+                        <X className="h-3 w-3 cursor-pointer ml-1" onClick={() => setDataCenterFilter("all")} />
+                      </Badge>
+                    )}
+                    {searchInput && (
+                      <Badge variant="secondary" className="text-[10px] font-bold gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20">
+                        Search: &ldquo;{searchInput}&rdquo;
+                        <X className="h-3 w-3 cursor-pointer ml-1" onClick={() => setSearchInput("")} />
+                      </Badge>
+                    )}
+                    {sortBy !== "newest" && (
+                      <Badge variant="secondary" className="text-[10px] font-bold gap-1 px-2 py-0.5 bg-primary/10 text-primary border border-primary/20">
+                        Sort: {sortBy}
+                        <X className="h-3 w-3 cursor-pointer ml-1" onClick={() => setSortBy("newest")} />
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setStatusFilter("all");
+                        setDataCenterFilter("all");
+                        setSearchInput("");
+                        setSortBy("newest");
+                      }}
+                      className="h-6 text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 ml-auto"
+                    >
+                      <RotateCcw className="mr-1 h-3 w-3" />
+                      Reset All Filters
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
 
         <DataTable
           columns={columns}
-          data={reports}
+          data={filteredReports}
           showRowNumber={true}
           initialColumnVisibility={{ referenceNumber: false }}
-          searchValue={searchInput}
-          onSearchChange={setSearchInput}
-          searchPlaceholder="Search terminal reports..."
           emptyMessage="No terminal reports found"
           emptyDescription="Try adjusting your search or refresh the list."
           onRowClick={(report) =>

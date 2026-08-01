@@ -63,12 +63,12 @@ const statusConfig: Record<
     icon: CheckCircle2,
   },
   rejected: {
-    label: "Rejected",
+    label: "Revisions Required",
     className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200",
-    icon: XCircle,
+    icon: RotateCcw,
   },
   revision_requested: {
-    label: "Revision Requested",
+    label: "Revisions Required",
     className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200",
     icon: RotateCcw,
   },

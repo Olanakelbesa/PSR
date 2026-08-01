@@ -91,13 +91,13 @@ const STATUS_CONFIG: Record<
     description: "The research project lifecycle is completed and registered in the repository.",
   },
   rejected: {
-    label: "Rejected",
+    label: "Revisions Required",
     className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
-    icon: XCircle,
-    description: "Your terminal report requires revisions. Please review feedback and resubmit updated files.",
+    icon: RotateCcw,
+    description: "Your terminal report requires revisions. Please review committee feedback and resubmit updated deliverables.",
   },
   revision_requested: {
-    label: "Revision Requested",
+    label: "Revisions Required",
     className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     icon: RotateCcw,
     description: "Committee has requested modifications to your terminal deliverables.",
@@ -210,9 +210,9 @@ function DecisionBadge({ decision }: { decision: string }) {
       icon: CheckCircle2,
     },
     rejected: {
-      label: "Rejected",
+      label: "Revisions Required",
       className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200",
-      icon: XCircle,
+      icon: RotateCcw,
     },
     pending: {
       label: "Pending",
@@ -494,15 +494,13 @@ export default function MyFinalReportDetailPage() {
       {isRejectedOrRevision && (
         <Card className="border-l-4 border-l-rose-500 bg-rose-50 dark:bg-rose-950/20 shadow-xs mb-6">
           <CardContent className="p-4 flex items-start gap-3">
-            <XCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <RotateCcw className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-sm text-rose-900 dark:text-rose-200">
-                {statusKey === "rejected" ? "Report Rejected" : "Revisions Requested"}
+                Revisions Required
               </h3>
               <p className="text-xs text-rose-700 dark:text-rose-400 mt-0.5">
-                {statusKey === "rejected"
-                  ? "Your terminal report has been rejected. Please review committee feedback below and resubmit with corrections."
-                  : "The committee has requested modifications to your deliverables. Check the Review Feedback tab for details."}
+                The review committee has requested modifications to your terminal report deliverables. Please review the committee feedback below and resubmit with corrections.
               </p>
             </div>
             <Link href={`/research/final-report/new?resubmit_id=${reportId}`}>
@@ -879,9 +877,7 @@ export default function MyFinalReportDetailPage() {
                               {/* Timeline content */}
                               <div className="flex-1 min-w-0 pt-0.5">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <span className="font-bold text-sm text-foreground">
-                                    {appr.reviewer_name || appr.reviewerName || "Committee Reviewer"}
-                                  </span>
+
                                   <DecisionBadge decision={appr.decision} />
                                   <span className="text-[10px] text-muted-foreground ml-auto font-mono">
                                     {formatFullDateTime(appr.reviewed_at || appr.reviewedAt)}

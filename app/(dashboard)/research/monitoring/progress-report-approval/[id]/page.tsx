@@ -687,7 +687,7 @@ export default function ProgressReportApprovalDetailPage() {
 
               <TabsTrigger value="reviews" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
                 <History className="h-3.5 w-3.5" />
-                Review History
+                Status
                 {reviewsCount > 0 && (
                   <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
                     {reviewsCount}
@@ -1048,7 +1048,7 @@ export default function ProgressReportApprovalDetailPage() {
                 <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <History className="h-4.5 w-4.5 text-primary" />
-                    Review History & Decision Logs
+                    Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
@@ -1218,7 +1218,7 @@ export default function ProgressReportApprovalDetailPage() {
             <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
                 <FileCheck2 className="h-4 w-4 text-primary" />
-                Project Identifiers
+                Proposal Information
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-3">

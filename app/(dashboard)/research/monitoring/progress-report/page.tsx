@@ -26,6 +26,7 @@ import {
   Download,
   Upload,
   Loader2,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -278,7 +279,6 @@ export default function ProgressReportListPage() {
     page: 1,
     limit: 100,
     scope: "my",
-    search: search || undefined,
   });
 
   const proposals: GroupedProgressReportProposal[] = useMemo(() => {
@@ -988,11 +988,35 @@ export default function ProgressReportListPage() {
                                   </h4>
                                   <Button
                                     size="sm"
-                                    onClick={() => router.push(`/research/monitoring/progress-report/${targetDetailId}`)}
-                                    className="text-xs h-7 font-bold gap-1 shadow-2xs"
+                                    disabled={statusKey === "completed" || statusKey === "terminated"}
+                                    onClick={() => {
+                                      if (statusKey === "completed" || statusKey === "terminated") {
+                                        toast.error("Submissions Closed", {
+                                          description: "The final / terminal report for this project has been completed.",
+                                        });
+                                        return;
+                                      }
+                                      router.push(`/research/monitoring/progress-report/${targetDetailId}`);
+                                    }}
+                                    className={cn(
+                                      "text-xs h-7 font-bold gap-1 shadow-2xs transition-all",
+                                      (statusKey === "completed" || statusKey === "terminated") &&
+                                        "opacity-60 cursor-not-allowed bg-muted text-muted-foreground hover:bg-muted border border-border"
+                                    )}
+                                    title={
+                                      statusKey === "completed" || statusKey === "terminated"
+                                        ? "Progress report submission is closed because the final/terminal report has been completed."
+                                        : "Submit New Report"
+                                    }
                                   >
-                                    <PlusCircle className="h-3.5 w-3.5" />
-                                    Submit New Report
+                                    {statusKey === "completed" || statusKey === "terminated" ? (
+                                      <Lock className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <PlusCircle className="h-3.5 w-3.5" />
+                                    )}
+                                    {statusKey === "completed" || statusKey === "terminated"
+                                      ? "Submissions Closed"
+                                      : "Submit New Report"}
                                   </Button>
                                 </div>
 

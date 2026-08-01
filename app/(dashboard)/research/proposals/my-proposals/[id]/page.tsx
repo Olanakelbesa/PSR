@@ -695,7 +695,7 @@ export default function ProposalDetailPage() {
                   className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-xs rounded-xl h-10 px-4 font-semibold text-xs text-muted-foreground hover:text-foreground transition-all duration-200 border border-transparent data-[state=active]:border-border/60 gap-2"
                 >
                   <Clock className="h-4 w-4 shrink-0" />
-                  Review History
+                  Status
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1319,7 +1319,7 @@ export default function ProposalDetailPage() {
             <CardHeader className="py-3.5 px-5 border-b bg-muted/40 flex flex-row items-center gap-2">
               <Building2 className="h-4 w-4 text-primary shrink-0" />
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Affiliated Institution
+                Institution
               </CardTitle>
             </CardHeader>
             <CardContent className="p-5 space-y-4">

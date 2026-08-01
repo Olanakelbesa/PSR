@@ -17,6 +17,7 @@ import {
   Check,
   FilePlus2,
   Sparkles,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,10 +62,10 @@ const STATUS_CONFIG: Record<
     icon: CheckCircle2,
   },
   rejected: {
-    label: "Rejected",
+    label: "Revisions Required",
     className:
       "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800",
-    icon: XCircle,
+    icon: RotateCcw,
   },
   revision_requested: {
     label: "Revision Requested",
@@ -90,6 +91,7 @@ interface ReportRow {
   dataCenterName: string;
   items: any[];
   status: string;
+  isPublished?: boolean;
   submittedAt: string;
 }
 
@@ -112,10 +114,28 @@ function formatDate(value?: string | null) {
   });
 }
 
-function getStatusBadge(status?: string) {
-  const key = status?.toLowerCase() || "pending";
+function getStatusBadge(status?: string, isPublished?: boolean) {
+  const key = (status || "").toLowerCase();
+
+  if (key === "approved" || key === "graded_for_repository" || key === "completed") {
+    if (isPublished) {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 text-[11px] font-bold uppercase gap-1 px-2.5 py-0.5 shadow-none border">
+          <Globe className="h-3 w-3 text-emerald-600 shrink-0" />
+          Approved & Published
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300 text-[11px] font-bold uppercase gap-1 px-2.5 py-0.5 shadow-none border">
+        <Building className="h-3 w-3 text-indigo-600 shrink-0" />
+        Approved (Internal Only)
+      </Badge>
+    );
+  }
+
   const cfg = STATUS_CONFIG[key] || {
-    label: status?.replace(/_/g, " ") || "Pending",
+    label: status?.replace(/_/g, " ") || "Pending Review",
     className:
       "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     icon: Clock,
@@ -185,11 +205,6 @@ export default function MyFinalReportsPage() {
     page: 1,
     limit: 100,
     scope: "my",
-    search: debouncedSearch.trim() || undefined,
-    status:
-      statusFilter !== ALL_VALUE && statusFilter !== "ready_for_report"
-        ? statusFilter
-        : undefined,
   });
 
   // Fetch proposals eligible / ready for final report
@@ -218,6 +233,13 @@ export default function MyFinalReportsPage() {
       const dataCenter =
         r.data_center_name || r.custom_data_center || "Standard Repository";
 
+      const isPub =
+        r.is_published ??
+        r.isPublished ??
+        r.ready_for_repository ??
+        r.readyForRepository ??
+        false;
+
       return {
         id: r.id,
         proposalId: propId,
@@ -228,6 +250,7 @@ export default function MyFinalReportsPage() {
         dataCenterName: dataCenter,
         items: r.items || [],
         status: r.status || r.general_status || "pending",
+        isPublished: isPub,
         submittedAt: r.submitted_at || "",
       };
     });
@@ -292,6 +315,27 @@ export default function MyFinalReportsPage() {
         String(r.id).includes(q)
     );
   }, [eligibleRows, debouncedSearch]);
+
+  const filteredSubmittedRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (statusFilter === "draft" && r.status.toLowerCase() !== "draft") return false;
+      if (statusFilter === "pending" && r.status.toLowerCase() !== "pending") return false;
+      if (statusFilter === "approved" && r.status.toLowerCase() !== "approved" && r.status.toLowerCase() !== "graded_for_repository" && r.status.toLowerCase() !== "completed") return false;
+      if (statusFilter === "rejected" && r.status.toLowerCase() !== "rejected" && r.status.toLowerCase() !== "revision_requested") return false;
+
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase().trim();
+        const title = r.proposalTitle.toLowerCase();
+        const ref = r.referenceNumber.toLowerCase();
+        const dc = r.dataCenterName.toLowerCase();
+        const trackId = String(r.projectTrackingId || r.id).toLowerCase();
+        if (!title.includes(q) && !ref.includes(q) && !dc.includes(q) && !trackId.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rows, statusFilter, debouncedSearch]);
 
   const meta = response?.meta;
   const statsFromMeta = meta?.statistics;
@@ -360,7 +404,7 @@ export default function MyFinalReportsPage() {
       {
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => getStatusBadge(row.original.status),
+        cell: ({ row }) => getStatusBadge(row.original.status, row.original.isPublished),
       },
       {
         accessorKey: "submittedAt",
@@ -693,7 +737,7 @@ export default function MyFinalReportsPage() {
         ) : (
           <DataTable
             columns={submittedColumns}
-            data={rows}
+            data={filteredSubmittedRows}
             isLoading={isLoadingSubmitted}
             toolbar={renderToolbar}
             initialColumnVisibility={{ referenceNumber: false }}

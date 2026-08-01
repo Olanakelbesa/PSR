@@ -247,7 +247,6 @@ export default function ProgressReportApprovalListPage() {
   const { data: response, isLoading } = useProgressReportApprovals({
     page: 1,
     limit: 100,
-    search: search || undefined,
   });
 
   const proposals: GroupedProgressReportProposal[] = useMemo(() => {

@@ -1323,7 +1323,7 @@ export default function AssignReviewersDetailPage() {
             <CardHeader className="py-3.5 px-5 border-b bg-muted/40 flex flex-row items-center gap-2">
               <Building2 className="h-4 w-4 text-primary shrink-0" />
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Affiliated Institution
+                Institution
               </CardTitle>
             </CardHeader>
             <CardContent className="p-5 space-y-4">

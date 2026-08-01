@@ -539,8 +539,7 @@ export default function ProposalsPage() {
     useState<ManageQueueFilter>(initialQueue);
 
   const { data, isLoading, isError, refetch, isFetching } = useProposals({
-    limit: 20,
-    ...(queueFilter !== "all" ? { queue: queueFilter } : {}),
+    limit: 100,
   });
 
   const proposals = data?.data ?? [];
@@ -815,10 +814,25 @@ export default function ProposalsPage() {
   }, [proposals, currentUser]);
 
   const filteredTableData = useMemo(() => {
-    if (roleScopeFilter === "owned") return tableData.filter((r) => r.isOwner);
-    if (roleScopeFilter === "team") return tableData.filter((r) => !r.isOwner);
-    return tableData;
-  }, [tableData, roleScopeFilter]);
+    let list = tableData;
+    if (roleScopeFilter === "owned") list = list.filter((r) => r.isOwner);
+    if (roleScopeFilter === "team") list = list.filter((r) => !r.isOwner);
+
+    if (queueFilter !== "all") {
+      list = list.filter((r) => {
+        const st = (r.status || "").toLowerCase();
+        if (queueFilter === "drafts") return st === "draft";
+        if (queueFilter === "submitted") return st === "submitted";
+        if (queueFilter === "under_review") return st === "screening_under_review";
+        if (queueFilter === "resubmitted") return st === "resubmitted";
+        if (queueFilter === "revision_requested") return st === "screening_rejected" || st === "revision_required";
+        if (queueFilter === "approved") return st === "screening_approved";
+        return true;
+      });
+    }
+
+    return list;
+  }, [tableData, roleScopeFilter, queueFilter]);
 
   const statusOptions = Object.entries(statusConfig).map(
     ([value, { label }]) => ({

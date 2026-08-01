@@ -458,7 +458,7 @@ export default function ProtocolReviewDetailPage() {
               </TabsTrigger>
               <TabsTrigger value="reviews" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
                 <MessageSquare className="h-3.5 w-3.5" />
-                Review History
+                Status
                 {hasReviewRecord && (
                   <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
                     1

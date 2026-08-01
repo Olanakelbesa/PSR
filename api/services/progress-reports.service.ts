@@ -956,14 +956,14 @@ export const terminalReportsService = {
       const rawPi = item.pi ?? item.pi_info ?? null;
       const pi = rawPi
         ? {
-            id: rawPi.id,
-            full_name: rawPi.full_name ?? rawPi.fullName,
-            fullName: rawPi.full_name ?? rawPi.fullName,
-            email: rawPi.email,
-            photo_url: rawPi.photo_url ?? rawPi.photoUrl,
-            photoUrl: rawPi.photo_url ?? rawPi.photoUrl,
-            name: rawPi.name ?? rawPi.full_name ?? rawPi.fullName,
-          }
+          id: rawPi.id,
+          full_name: rawPi.full_name ?? rawPi.fullName,
+          fullName: rawPi.full_name ?? rawPi.fullName,
+          email: rawPi.email,
+          photo_url: rawPi.photo_url ?? rawPi.photoUrl,
+          photoUrl: rawPi.photo_url ?? rawPi.photoUrl,
+          name: rawPi.name ?? rawPi.full_name ?? rawPi.fullName,
+        }
         : null;
 
       return {
@@ -1308,6 +1308,9 @@ export const terminalReportApprovalsService = {
     decision: ReportDecision;
     ROC_Comments?: string;
     terminal_report: number;
+    item_grades?: any[];
+    ready_for_repository?: boolean;
+    data_center?: number;
   }): Promise<TerminalReportApproval> {
     const { data } = await apiClient.post(
       API_ENDPOINTS.TERMINAL_REPORT_APPROVALS.LIST,

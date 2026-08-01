@@ -375,11 +375,45 @@ export default function ResearchRepositoryDetailPage() {
     return documentList.find((d) => d.key === activeDocKey) || documentList[0];
   }, [documentList, activeDocKey]);
 
+  // Metadata labels & output types resolution (Declared BEFORE early returns for Rules of Hooks)
+  const outputTypesList = useMemo(() => {
+    if (!item) return [];
+    if (Array.isArray(item.items) && item.items.length > 0) {
+      return item.items.map((it: any, idx: number) => ({
+        id: it.id || idx + 1,
+        name: it.terminal_type_name || it.terminalTypeName || `Output #${it.terminal_type || it.terminalType || idx + 1}`,
+        gradeName: it.grade_name || it.gradeName || null,
+        file: it.file || null,
+        externalLink: it.external_link || it.externalLink || null,
+      }));
+    }
+    if (item.output_type_detail?.name) {
+      return [{
+        id: item.output_type_detail.id || 1,
+        name: item.output_type_detail.name,
+        gradeName: null,
+        file: item.full_report || null,
+        externalLink: item.external_link || null,
+      }];
+    }
+    return [{
+      id: 1,
+      name: item.output_type ? `Output #${item.output_type}` : "Full Report",
+      gradeName: null,
+      file: item.full_report || null,
+      externalLink: item.external_link || null,
+    }];
+  }, [item]);
+
+  const outputTypeLabel = useMemo(() => {
+    return outputTypesList.map((ot) => ot.name).join(", ");
+  }, [outputTypesList]);
+
   if (isLoading) {
     return <LoadingState />;
   }
 
-  if (!item) {
+  if (!item || !item.id) {
     return <NotFoundState />;
   }
 
@@ -395,8 +429,6 @@ export default function ResearchRepositoryDetailPage() {
   const fundedTitle = fpDetail?.title || item.title;
   const fundedAward = fpDetail?.total_award_amount;
 
-  // Metadata labels
-  const outputTypeLabel = item.output_type_detail?.name || (item.output_type ? `Output #${item.output_type}` : "Full Report");
   const dataCenterLabel = item.data_center_detail?.name || (item.data_center ? `Center #${item.data_center}` : "Ethiotelecom Data Center");
   const referenceNumber = item.ndmc_submission_reference || `FS-${item.id}`;
 
@@ -669,14 +701,47 @@ export default function ResearchRepositoryDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 grid gap-4 sm:grid-cols-2 p-6 md:p-8">
-              <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-4 space-y-1">
+              <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-4 space-y-2 sm:col-span-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <FileCode2 className="h-3.5 w-3.5 text-primary" />
-                  Output Type Detail
+                  Selected Output Type Details ({outputTypesList.length})
                 </p>
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  {outputTypeLabel}
-                </p>
+                <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                  {outputTypesList.map((ot) => (
+                    <div
+                      key={ot.id}
+                      className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-3.5 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <FileText className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">
+                            {ot.name}
+                          </p>
+                          {ot.file ? (
+                            <p className="text-[11px] text-muted-foreground truncate" title={fileNameFromPath(ot.file)}>
+                              {fileNameFromPath(ot.file)}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground">
+                              No attachment
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {ot.gradeName ? (
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[11px] font-semibold px-2.5 py-0.5 shrink-0 ml-2", getGradeBadgeStyle(ot.gradeName))}
+                        >
+                          {ot.gradeName}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-4 space-y-1">

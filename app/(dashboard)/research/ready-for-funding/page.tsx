@@ -220,48 +220,12 @@ export default function ReadyForFundingPage() {
 
   // --- Compute API params ---
   const queryParams = useMemo(() => {
-    const params: Record<string, unknown> = {
+    return {
       page: 1,
       limit: 100,
-      search: debouncedSearch.trim() || undefined,
       ordering,
     };
-
-    if (organization !== ALL_VALUE) params.organization = Number(organization);
-    if (unit !== ALL_VALUE) params.unit = Number(unit);
-    if (proposalType !== ALL_VALUE) params.proposal_type = Number(proposalType);
-    if (grantCall !== ALL_VALUE) params.call = Number(grantCall);
-    if (minScore) params.min_score = Number(minScore);
-    if (maxScore) params.max_score = Number(maxScore);
-
-    // Status card filter takes priority over manual decision filter
-    if (statusFilter === "pending") {
-      params.has_funding_decision = false;
-    } else if (statusFilter === "decided") {
-      params.has_funding_decision = true;
-    } else {
-      if (fundingDecisionStatus !== ALL_VALUE) {
-        params.funding_decision_status = fundingDecisionStatus as "pending" | "approved" | "rejected" | "deferred";
-      }
-      if (hasFundingDecision !== ALL_VALUE) {
-        params.has_funding_decision = hasFundingDecision === "true";
-      }
-    }
-
-    return params;
-  }, [
-    debouncedSearch,
-    organization,
-    unit,
-    proposalType,
-    grantCall,
-    fundingDecisionStatus,
-    hasFundingDecision,
-    minScore,
-    maxScore,
-    ordering,
-    statusFilter,
-  ]);
+  }, [ordering]);
 
   // --- Fetch data via react-query ---
   const { data, isLoading, isError, refetch } = useQuery({
@@ -269,7 +233,36 @@ export default function ReadyForFundingPage() {
     queryFn: () => readyForFundingService.list(queryParams as any),
   });
 
-  const rows = useMemo(() => data?.data ?? [], [data?.data]);
+  const rawRows = useMemo(() => data?.data ?? [], [data?.data]);
+
+  const rows = useMemo(() => {
+    let list = rawRows;
+    if (statusFilter === "pending") {
+      list = list.filter((r: any) => !r.has_funding_decision && !r.hasFundingDecision);
+    } else if (statusFilter === "decided") {
+      list = list.filter((r: any) => r.has_funding_decision || r.hasFundingDecision);
+    } else {
+      if (fundingDecisionStatus !== ALL_VALUE) {
+        list = list.filter((r: any) => (r.funding_decision_status || r.fundingDecisionStatus) === fundingDecisionStatus);
+      }
+      if (hasFundingDecision !== ALL_VALUE) {
+        const boolVal = hasFundingDecision === "true";
+        list = list.filter((r: any) => Boolean(r.has_funding_decision || r.hasFundingDecision) === boolVal);
+      }
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter((r: any) => {
+        const title = (r.proposal_title || r.proposalTitle || r.title || "").toLowerCase();
+        const ref = (r.reference_number || r.referenceNumber || "").toLowerCase();
+        const pi = (r.principal_investigator_name || r.piName || "").toLowerCase();
+        return title.includes(q) || ref.includes(q) || pi.includes(q);
+      });
+    }
+
+    return list;
+  }, [rawRows, statusFilter, fundingDecisionStatus, hasFundingDecision, search]);
   const statistics = useMemo(
     () =>
       data?.meta?.statistics ?? {

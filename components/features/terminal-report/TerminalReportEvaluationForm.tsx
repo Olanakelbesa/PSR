@@ -24,6 +24,11 @@ import {
   Check,
   Globe,
   Database,
+  Sparkles,
+  RotateCcw,
+  GitCommit,
+  History,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,6 +55,9 @@ import {
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { downloadConceptNoteAttachment } from "@/lib/utils/concept-note-attachments";
 import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
+import { PdfViewer } from "@/components/shared/pdf-viewer";
+import { WordViewer } from "@/components/shared/word-viewer";
+import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
 import { cn } from "@/lib/utils";
 
 function getInitials(name?: string | null, fallback = "U"): string {
@@ -59,6 +67,39 @@ function getInitials(name?: string | null, fallback = "U"): string {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   }
   return name.slice(0, 2).toUpperCase();
+}
+
+function EvaluationDocumentViewer({ url, title }: { url: string; title: string }) {
+  if (!url) return null;
+
+  const resolvedUrl = resolveFileUrl(url) || url;
+  const kind = getConceptNoteAttachmentKind(resolvedUrl);
+
+  if (kind === "pdf") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-border/70 shadow-2xs bg-card h-[460px] sm:h-[540px] lg:h-[600px] w-full">
+        <PdfViewer url={resolvedUrl} title={title} className="h-full w-full" hideHeader />
+      </div>
+    );
+  }
+
+  if (kind === "word") {
+    return (
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-[#ededed] dark:bg-muted/30 shadow-2xs h-[460px] sm:h-[540px] lg:h-[600px] w-full">
+        <WordViewer url={resolvedUrl} title={title} className="h-full w-full" hideHeader />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-[460px] sm:h-[540px] lg:h-[600px] rounded-xl border bg-muted/20 overflow-hidden">
+      <iframe
+        src={resolvedUrl}
+        title={title}
+        className="w-full h-full border-none"
+      />
+    </div>
+  );
 }
 
 interface TerminalReportEvaluationFormProps {
@@ -83,7 +124,7 @@ export function TerminalReportEvaluationForm({
     Record<number, { grade_id?: number; grade_comments?: string }>
   >({});
   const [rocComments, setRocComments] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submittingAction, setSubmittingAction] = useState<"rejected" | "approve_internal" | "approve_repo" | null>(null);
   const [copiedRef, setCopiedRef] = useState<boolean>(false);
 
   // Active preview document tab
@@ -107,7 +148,16 @@ export function TerminalReportEvaluationForm({
     return [];
   }, [rawItems, terminalReport]);
 
+  const reportStatus = (terminalReport?.status || "").toLowerCase();
+  const isPendingReview = reportStatus === "pending" || reportStatus === "draft";
+
   useEffect(() => {
+    if (isPendingReview) {
+      setItemGrades({});
+      setRocComments("");
+      return;
+    }
+
     if (items.length > 0) {
       const initial: Record<number, { grade_id?: number; grade_comments?: string }> = {};
       items.forEach((item: any) => {
@@ -129,7 +179,32 @@ export function TerminalReportEvaluationForm({
       terminalReport?.approvals?.[0]?.comment ||
       "";
     setRocComments(existingComments);
-  }, [terminalReport, items]);
+  }, [terminalReport, items, isPendingReview]);
+
+  // Derive existing logged decision key ONLY if not pending review
+  const existingApproval = useMemo(() => {
+    if (Array.isArray(terminalReport?.approvals) && terminalReport.approvals.length > 0) {
+      return terminalReport.approvals[0];
+    }
+    return null;
+  }, [terminalReport]);
+
+  const currentLoggedDecisionKey = useMemo(() => {
+    if (isPendingReview) return null;
+    if (!existingApproval && !terminalReport) return null;
+    const dec = (existingApproval?.decision || terminalReport?.status || "").toLowerCase();
+    if (dec === "rejected") return "rejected";
+    if (dec === "approved") {
+      const isRepoReady =
+        existingApproval?.ready_for_repository ??
+        existingApproval?.readyForRepository ??
+        terminalReport?.is_published ??
+        terminalReport?.isPublished ??
+        false;
+      return isRepoReady ? "approve_repo" : "approve_internal";
+    }
+    return null;
+  }, [existingApproval, terminalReport, isPendingReview]);
 
   const activeItem = items[activeItemIndex] || items[0] || null;
   const activeFileUrl = resolveFileUrl(activeItem?.file || terminalReport?.attachment);
@@ -207,7 +282,10 @@ export function TerminalReportEvaluationForm({
     }));
   };
 
-  const handleEvaluate = async (decision: "approved" | "rejected") => {
+  const handleEvaluate = async (
+    decision: "approved" | "rejected",
+    readyForRepository = true,
+  ) => {
     if (decision === "approved" && rawItems.length > 0) {
       const missingGrades = rawItems.filter((it: any) => !itemGrades[it.id]?.grade_id);
       if (missingGrades.length > 0 && availableGrades.length > 0) {
@@ -221,7 +299,8 @@ export function TerminalReportEvaluationForm({
       return;
     }
 
-    setIsSubmitting(true);
+    const actionKey = decision === "rejected" ? "rejected" : readyForRepository ? "approve_repo" : "approve_internal";
+    setSubmittingAction(actionKey);
 
     try {
       const formattedItemGrades = Object.entries(itemGrades)
@@ -235,6 +314,7 @@ export function TerminalReportEvaluationForm({
       const payload = {
         terminal_report: terminalReport.id,
         decision,
+        ready_for_repository: decision === "approved" ? readyForRepository : false,
         ROC_Comments: rocComments,
         item_grades: formattedItemGrades,
       };
@@ -243,18 +323,24 @@ export function TerminalReportEvaluationForm({
 
       toast.success(
         decision === "approved"
-          ? "Terminal report evaluation successfully approved & graded!"
+          ? readyForRepository
+            ? "Terminal report approved & marked Ready for Research Repository!"
+            : "Terminal report evaluation successfully approved & graded!"
           : "Resubmission request & feedback sent to investigator.",
         {
           description:
             decision === "approved"
-              ? "Project tracking status is marked as Completed."
+              ? readyForRepository
+                ? "Submission is queued for Research Repository publishing."
+                : "Project tracking status is marked as Completed."
               : "Investigator can now update and resubmit deliverables.",
         }
       );
 
       queryClient.invalidateQueries({ queryKey: terminalReportKeys.all });
       queryClient.invalidateQueries({ queryKey: terminalReportApprovalKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["graded-for-repository"] });
+      queryClient.invalidateQueries({ queryKey: ["final-submissions"] });
 
       if (onSuccess) {
         onSuccess();
@@ -266,7 +352,7 @@ export function TerminalReportEvaluationForm({
         description: err?.message || "Failed to record reviewer decision.",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -317,34 +403,38 @@ export function TerminalReportEvaluationForm({
               )}
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onCancel || (() => router.back())}
-                disabled={isSubmitting}
+                disabled={!!submittingAction}
                 className="h-9 text-xs font-semibold"
               >
-                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+                <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back
               </Button>
+
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
-                disabled={isSubmitting}
+                disabled={!!submittingAction}
                 onClick={() => handleEvaluate("rejected")}
-                className="h-9 text-xs font-bold gap-1.5"
+                className="h-9 text-xs font-bold gap-1.5 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                title="Return report to Principal Investigator with reviewer comments for required edits"
               >
-                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                {submittingAction === "rejected" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
                 Request Resubmission
               </Button>
+
               <Button
                 size="sm"
-                disabled={isSubmitting}
-                onClick={() => handleEvaluate("approved")}
+                disabled={!!submittingAction}
+                onClick={() => handleEvaluate("approved", true)}
                 className="h-9 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs"
+                title="Approve report evaluation & publish submission into Research Repository"
               >
-                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                Approve & Save Grades
+                {submittingAction === "approve_repo" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Approve & Publish to Repository
               </Button>
             </div>
           </div>
@@ -362,7 +452,7 @@ export function TerminalReportEvaluationForm({
 
       {/* Main Split Workbench Grid (12 Columns) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        
+
         {/* Left Column: Interactive Deliverable Document Inspection Panel (7 cols) */}
         <div className="xl:col-span-7 space-y-4">
           <Card className="border border-border/70 shadow-xs">
@@ -462,13 +552,10 @@ export function TerminalReportEvaluationForm({
 
                   {/* Document Preview Box */}
                   {activeFileUrl ? (
-                    <div className="relative w-full h-[460px] sm:h-[540px] lg:h-[600px] rounded-lg border bg-muted/20 overflow-hidden flex flex-col items-center justify-center">
-                      <iframe
-                        src={activeFileUrl}
-                        title={activeItem.terminal_type_name || "Document Preview"}
-                        className="w-full h-full border-none"
-                      />
-                    </div>
+                    <EvaluationDocumentViewer
+                      url={activeFileUrl}
+                      title={activeItem.terminal_type_name || "Deliverable File"}
+                    />
                   ) : (activeItem.external_link || activeItem.externalLink) ? (
                     <div className="p-6 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 text-xs space-y-2">
                       <p className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
@@ -489,8 +576,9 @@ export function TerminalReportEvaluationForm({
           </Card>
         </div>
 
-        {/* Right Column: Dynamic Scoring & Committee Decision Form (5 cols) */}
-        <div className="xl:col-span-5 space-y-4">
+        {/* Right Column: Dynamic Scoring (5 cols) */}
+        <div className="xl:col-span-5 space-y-5">
+          {/* Card 1: Dynamic Evaluation & Itemized Scoring */}
           <Card className="border border-border/70 shadow-xs">
             <CardHeader className="py-3.5 px-5 border-b bg-muted/30">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -498,7 +586,7 @@ export function TerminalReportEvaluationForm({
                 Dynamic Evaluation & Scoring
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 sm:p-5 space-y-5">
+            <CardContent className="p-4 sm:p-5 space-y-4">
               {/* Deliverable Scoring List */}
               <div className="space-y-4">
                 {rawItems.length === 0 ? (
@@ -595,52 +683,241 @@ export function TerminalReportEvaluationForm({
                   })
                 )}
               </div>
-
-              <Separator />
-
-              {/* Committee Summary Notes */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-primary" />
-                  Reviewer Summary Feedback / Resubmission Notes
-                </label>
-                <Textarea
-                  rows={4}
-                  placeholder="Provide overall reviewer evaluation notes, comments, or resubmission feedback for the investigator..."
-                  value={rocComments}
-                  onChange={(e) => setRocComments(e.target.value)}
-                  className="text-xs leading-relaxed"
-                />
-              </div>
-
-              {/* Sticky Action Buttons */}
-              <div className="pt-2 space-y-2">
-                <Button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => handleEvaluate("approved")}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 gap-2 shadow-2xs"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  Approve & Save Evaluation
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={isSubmitting}
-                  onClick={() => handleEvaluate("rejected")}
-                  className="w-full font-bold text-xs h-10 gap-2 shadow-2xs"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                  Request Resubmission with Feedback
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </div>
 
       </div>
+
+      {/* Full-Width Bottom Card: Reviewer Summary Feedback & Committee Action Bar */}
+      <Card className="border border-border/70 shadow-xs bg-card">
+        <CardHeader className="py-3.5 px-5 border-b bg-muted/30 flex flex-row items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+          <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+            <MessageSquare className="w-4 h-4 text-primary" />
+            Reviewer Summary Feedback & Final Decision
+          </CardTitle>
+          {currentLoggedDecisionKey ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px] font-bold py-1 px-2.5 flex items-center gap-1.5 shadow-2xs",
+                currentLoggedDecisionKey === "approve_repo" && "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300",
+                currentLoggedDecisionKey === "approve_internal" && "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-950/80 dark:text-indigo-300",
+                currentLoggedDecisionKey === "rejected" && "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300"
+              )}
+            >
+              {currentLoggedDecisionKey === "approve_internal" ? <Building className="w-3.5 h-3.5 text-indigo-600" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              Logged Decision: {
+                currentLoggedDecisionKey === "approve_repo" ? "Approved & Published to Repository" :
+                  currentLoggedDecisionKey === "approve_internal" ? "Approved for Internal Records" :
+                    "Returned for Edits"
+              }
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] font-bold">
+              Pending Evaluation Decision
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent className="p-5 space-y-4">
+          {/* Summary Textarea */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              Overall Reviewer Evaluation Summary / Revision Notes
+            </label>
+            <Textarea
+              rows={3}
+              placeholder="Provide overall evaluation summary notes or revision feedback for the investigator..."
+              value={rocComments}
+              onChange={(e) => setRocComments(e.target.value)}
+              className="text-xs leading-relaxed bg-background"
+            />
+          </div>
+
+          <Separator />
+
+          {/* Action Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
+            <div className="space-y-0.5">
+              <p className="text-xs font-bold text-foreground">
+                Select Final Committee Decision
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {currentLoggedDecisionKey
+                  ? "Click any button below to update your evaluation decision."
+                  : "Hover over buttons for outcome details before confirming review closeout."}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap sm:flex-nowrap justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!!submittingAction}
+                onClick={() => handleEvaluate("rejected")}
+                className={cn(
+                  "h-10 text-xs font-bold gap-1.5 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40 transition-all",
+                  currentLoggedDecisionKey === "rejected" && "ring-2 ring-rose-500 ring-offset-1 bg-rose-50 dark:bg-rose-950/60 shadow-xs"
+                )}
+                title="Return report to Principal Investigator with reviewer feedback for required edits"
+              >
+                {submittingAction === "rejected" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                <span>Request Resubmission</span>
+                {currentLoggedDecisionKey === "rejected" && (
+                  <Badge className="bg-rose-600 text-white text-[9px] px-1.5 py-0 font-bold ml-1">
+                    Current
+                  </Badge>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!!submittingAction}
+                onClick={() => handleEvaluate("approved", false)}
+                className={cn(
+                  "h-10 text-xs font-semibold gap-1.5 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-all",
+                  currentLoggedDecisionKey === "approve_internal" && "ring-2 ring-indigo-500 ring-offset-1 bg-indigo-50 dark:bg-indigo-950/60 font-bold shadow-xs"
+                )}
+                title="Approve project closeout for internal tracking records only (Does not publish to Research Repository)"
+              >
+                {submittingAction === "approve_internal" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Building className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                <span>Approve for Internal Records Only</span>
+                {currentLoggedDecisionKey === "approve_internal" && (
+                  <Badge className="bg-indigo-600 text-white text-[9px] px-1.5 py-0 font-bold ml-1">
+                    Current
+                  </Badge>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                disabled={!!submittingAction}
+                onClick={() => handleEvaluate("approved", true)}
+                className={cn(
+                  "h-10 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all",
+                  currentLoggedDecisionKey === "approve_repo" && "ring-2 ring-emerald-400 ring-offset-2 scale-[1.02] shadow-md"
+                )}
+                title="Approve project closeout AND pre-fill submission into system Research Repository"
+              >
+                {submittingAction === "approve_repo" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Approve & Publish to Repository</span>
+                {currentLoggedDecisionKey === "approve_repo" && (
+                  <Badge className="bg-white text-emerald-800 text-[9px] px-1.5 py-0 font-bold ml-1">
+                    Current
+                  </Badge>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Git-Style Evaluation & Version Audit Trail Log */}
+      {Array.isArray(terminalReport?.approvals) && terminalReport.approvals.length > 0 && (
+        <Card className="border border-border/70 shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/40 bg-muted/20">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-primary shrink-0" />
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground">
+                  Evaluation Pass & Audit Trail Log
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Tracked history of reviewer evaluations, comments, and decision commits.
+                </p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="gap-1 text-[10px] font-bold">
+              <GitCommit className="w-3 h-3 text-primary" />
+              {terminalReport.approvals.length} {terminalReport.approvals.length === 1 ? "Commit" : "Commits"}
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-5 space-y-4">
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border/60">
+              {terminalReport.approvals.map((app: any, idx: number) => {
+                const passNumber = terminalReport.approvals.length - idx;
+                const dec = (app.decision || "").toLowerCase();
+                const isPub = app.ready_for_repository ?? app.readyForRepository ?? false;
+                const reviewerEmail = app.reviewer_email || app.reviewerEmail || app.reviewer || "Reviewer";
+                const dateStr = app.reviewed_at || app.reviewedAt || app.created_at;
+
+                return (
+                  <div key={app.id || idx} className="relative group">
+                    {/* Commit Node Marker */}
+                    <div className={cn(
+                      "absolute -left-6 top-0.5 w-5 h-5 rounded-full border-2 bg-background flex items-center justify-center transition-transform group-hover:scale-110",
+                      dec === "approved"
+                        ? isPub ? "border-emerald-500 text-emerald-600" : "border-indigo-500 text-indigo-600"
+                        : "border-rose-500 text-rose-600"
+                    )}>
+                      <GitCommit className="w-3 h-3" />
+                    </div>
+
+                    <div className="rounded-xl border border-border/60 bg-card p-3.5 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-foreground">
+                            Evaluation Pass #{passNumber}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                            <Clock className="w-3 h-3 text-muted-foreground/70" />
+                            {dateStr ? new Date(dateStr).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }) : "Recent Pass"}
+                          </span>
+                        </div>
+
+                        {/* Decision Outcome Badge */}
+                        {dec === "approved" ? (
+                          isPub ? (
+                            <Badge variant="outline" className="gap-1 text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800 border-emerald-300">
+                              <Globe className="w-3 h-3 text-emerald-600" />
+                              Approved & Published
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 text-[9px] font-bold uppercase bg-indigo-100 text-indigo-800 border-indigo-300">
+                              <Building className="w-3 h-3 text-indigo-600" />
+                              Approved (Internal)
+                            </Badge>
+                          )
+                        ) : (
+                          <Badge variant="outline" className="gap-1 text-[9px] font-bold uppercase bg-rose-100 text-rose-800 border-rose-300">
+                            <RotateCcw className="w-3 h-3 text-rose-600" />
+                            Revisions Required
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Reviewer Info */}
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+                        <User className="w-3 h-3 text-primary" />
+                        <span>Evaluated by: <strong className="text-foreground">{reviewerEmail}</strong></span>
+                      </div>
+
+                      {/* Reviewer Feedback Notes */}
+                      {(app.ROC_Comments || app.ROCComments || app.comment) && (
+                        <div className="p-2.5 rounded-lg bg-muted/40 border border-border/40 text-xs text-foreground/90 space-y-1">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3 text-primary" /> Reviewer Feedback:
+                          </p>
+                          <p className="whitespace-pre-wrap leading-relaxed">
+                            {app.ROC_Comments || app.ROCComments || app.comment}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

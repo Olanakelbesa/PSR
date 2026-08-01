@@ -158,26 +158,30 @@ export default function MySubmissionsPage() {
     setStatusFilter((current) => (current === filter ? "all" : filter));
   }, []);
 
-  const filters = useMemo(
-    () => ({
-      search: debouncedSearch.trim() || undefined,
-      status:
-        statusFilter !== ALL_VALUE
-          ? (statusFilter as IRBClearanceStatus)
-          : undefined,
-      mine: true,
-    }),
-    [debouncedSearch, statusFilter],
-  );
-
-  const { data: response, isLoading, error } = useEthicalClearances(filters);
+  const { data: response, isLoading, error } = useEthicalClearances({ mine: true });
 
   const stats = response?.meta?.statistics;
 
-  const rows = useMemo(() => {
+  const rawRows = useMemo(() => {
     const items = response?.data ?? [];
     return items.map(mapRow);
   }, [response]);
+
+  const rows = useMemo(() => {
+    let list = rawRows;
+    if (statusFilter !== ALL_VALUE) {
+      list = list.filter((r) => r.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (r) =>
+          r.proposalTitle.toLowerCase().includes(q) ||
+          r.referenceNumber.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [rawRows, statusFilter, search]);
 
   const activeFilterCount = [
     debouncedSearch.trim(),

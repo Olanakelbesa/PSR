@@ -223,10 +223,32 @@ function normalizeFileField(value: unknown) {
   return resolveFileUrl(value) ?? value;
 }
 
+function normalizeItem(it: any) {
+  if (!it || typeof it !== "object") return null;
+  return {
+    id: it.id ?? null,
+    terminal_type: it.terminal_type ?? it.terminalType ?? null,
+    terminal_type_name: it.terminal_type_name ?? it.terminalTypeName ?? null,
+    file: normalizeFileField(it.file),
+    external_link: it.external_link ?? it.externalLink ?? null,
+    grade: it.grade ?? null,
+    grade_name: it.grade_name ?? it.gradeName ?? null,
+  };
+}
+
 function mapFinalSubmissionItem(item: any): FinalSubmission {
+  if (!item || typeof item !== "object") {
+    return null as unknown as FinalSubmission;
+  }
+
   const submittedByDetail = normalizeSubmitterDetail(
     item.submittedByDetail ?? item.submittedBy ?? item.submitted_by_detail,
   );
+
+  const rawItems = item.items ?? item.terminal_report_items ?? item.terminalReportItems;
+  const items = Array.isArray(rawItems)
+    ? rawItems.map(normalizeItem).filter(Boolean)
+    : [];
 
   return {
     id: item.id ?? item.pk,
@@ -272,7 +294,7 @@ function mapFinalSubmissionItem(item: any): FinalSubmission {
     submitted_by_detail: submittedByDetail,
     pi: normalizePIDetail(item, item.submittedByDetail ?? item.submittedBy ?? item.submitted_by_detail),
     download_count: item.downloadCount ?? item.download_count ?? 0,
-    items: item.items ?? [],
+    items,
     terminal_report_attachment: normalizeFileField(item.terminal_report_attachment ?? item.terminalReportAttachment),
   };
 }
@@ -287,7 +309,9 @@ export const finalSubmissionsService = {
 
     const list = normalizeList<any>(data);
 
-    const normalized = list.data.map((item: any) => mapFinalSubmissionItem(item));
+    const normalized = list.data
+      .map((item: any) => mapFinalSubmissionItem(item))
+      .filter(Boolean);
 
     return { data: normalized as FinalSubmission[], meta: list.meta };
   },
@@ -298,6 +322,7 @@ export const finalSubmissionsService = {
     );
 
     const payload = normalizeDetail<any>(data);
+    if (!payload) return null as unknown as FinalSubmission;
     return mapFinalSubmissionItem(payload);
   },
 

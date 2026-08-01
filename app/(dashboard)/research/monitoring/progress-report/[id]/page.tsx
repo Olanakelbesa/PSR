@@ -21,6 +21,7 @@ import {
   Filter,
   FolderOpen,
   History,
+  Lock,
   Paperclip,
   PlusCircle,
   ShieldCheck,
@@ -63,6 +64,7 @@ import {
   useCreateProgressReport,
   useProjectTrackingById,
   useGroupedProgressReport,
+  useTerminalReports,
 } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
@@ -243,6 +245,20 @@ export default function ProjectTrackingDetailPage() {
     isLoading: isProjectLoading,
   } = useProjectTrackingById(projectTrackingId);
 
+  // Terminal report query to check if terminal/final report has been submitted
+  const { data: terminalReportsData } = useTerminalReports({ project_tracking: projectTrackingId });
+
+  const projectStatus = proposalData?.status || projectTracking?.status || "on_progress";
+
+  const isTerminalSubmitted = useMemo(() => {
+    if (projectStatus === "completed") return true;
+    if (!terminalReportsData) return false;
+    const list = Array.isArray(terminalReportsData)
+      ? terminalReportsData
+      : (terminalReportsData as any)?.results || (terminalReportsData as any)?.data || [];
+    return list.length > 0;
+  }, [terminalReportsData, projectStatus]);
+
   const reports = useMemo(() => proposalData?.reports || [], [proposalData]);
 
   // Financial metrics
@@ -343,6 +359,12 @@ export default function ProjectTrackingDetailPage() {
   };
 
   async function submitProgressReport() {
+    if (isTerminalSubmitted) {
+      toast.error("Progress report submissions closed", {
+        description: "A terminal / final report has already been submitted for this proposal.",
+      });
+      return;
+    }
     const targetPtId = proposalData?.projectTrackingId || projectTracking?.id || projectTrackingId;
     if (!targetPtId) {
       toast.error("Project tracking details are still loading.");
@@ -427,7 +449,6 @@ export default function ProjectTrackingDetailPage() {
     "Untitled Proposal";
   const piInfo = proposalData?.pi || projectTracking?.pi || proposalObj?.pi;
   const hasEthicalClearance = proposalObj?.hasEthicalClearanceApproval ?? false;
-  const projectStatus = proposalData?.status || projectTracking?.status || "on_progress";
 
   return (
     <PageContainer
@@ -505,11 +526,28 @@ export default function ProjectTrackingDetailPage() {
           )}
           <Button
             size="sm"
-            className="shadow-xs text-xs"
-            onClick={() => setIsProgressDialogOpen(true)}
+            disabled={isTerminalSubmitted}
+            className={cn(
+              "shadow-xs text-xs font-bold transition-all",
+              isTerminalSubmitted && "opacity-60 cursor-not-allowed bg-muted text-muted-foreground hover:bg-muted border border-border"
+            )}
+            onClick={() => {
+              if (isTerminalSubmitted) {
+                toast.error("Submissions Closed", {
+                  description: "A terminal / final report has already been submitted for this proposal.",
+                });
+                return;
+              }
+              setIsProgressDialogOpen(true);
+            }}
+            title={
+              isTerminalSubmitted
+                ? "Progress report submission is disabled because the final/terminal report has been submitted."
+                : "Submit Progress Report"
+            }
           >
-            <PlusCircle className="mr-1.5 h-4 w-4" />
-            Submit Report
+            {isTerminalSubmitted ? <Lock className="mr-1.5 h-3.5 w-3.5" /> : <PlusCircle className="mr-1.5 h-4 w-4" />}
+            {isTerminalSubmitted ? "Submissions Closed" : "Submit Report"}
           </Button>
         </div>
       }
@@ -518,6 +556,30 @@ export default function ProjectTrackingDetailPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Main Content Column */}
         <div className="space-y-6 min-w-0">
+          {/* Closed Submissions Warning Banner */}
+          {isTerminalSubmitted && (
+            <Card className="border-l-4 border-l-amber-500 bg-amber-50/70 dark:bg-amber-950/20 shadow-xs border-amber-200/80">
+              <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-amber-950 dark:text-amber-200">
+                      Progress Report Submissions Closed
+                    </h4>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                      The final / terminal report for this proposal has already been submitted. No further progress reports can be submitted.
+                    </p>
+                  </div>
+                </div>
+                <Badge className="bg-amber-500 text-white font-bold text-[10px] shrink-0">
+                  Final Report Submitted
+                </Badge>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Overbudget Warning Banner */}
           {isOverBudget && (
             <Card className="border-l-4 border-l-rose-500 bg-rose-50 dark:bg-rose-950/20 shadow-xs">
@@ -554,7 +616,7 @@ export default function ProjectTrackingDetailPage() {
 
               <TabsTrigger value="reviews" className="gap-2 text-xs font-semibold px-3 sm:px-4 py-2 sm:py-0 rounded-lg shrink-0">
                 <History className="h-3.5 w-3.5" />
-                Review History
+                Status
                 {reviewsCount > 0 && (
                   <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0 font-bold">
                     {reviewsCount}
@@ -649,9 +711,25 @@ export default function ProjectTrackingDetailPage() {
                     <p className="text-xs text-muted-foreground">
                       No progress reports found matching status filter &ldquo;{reportFilter}&rdquo;.
                     </p>
-                    <Button size="sm" variant="outline" onClick={() => setIsProgressDialogOpen(true)}>
-                      <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
-                      Submit New Report
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isTerminalSubmitted}
+                      className={cn(
+                        isTerminalSubmitted && "opacity-60 cursor-not-allowed bg-muted text-muted-foreground hover:bg-muted border border-border"
+                      )}
+                      onClick={() => {
+                        if (isTerminalSubmitted) {
+                          toast.error("Submissions Closed", {
+                            description: "A terminal / final report has already been submitted for this proposal.",
+                          });
+                          return;
+                        }
+                        setIsProgressDialogOpen(true);
+                      }}
+                    >
+                      {isTerminalSubmitted ? <Lock className="mr-1.5 h-3.5 w-3.5" /> : <PlusCircle className="mr-1.5 h-3.5 w-3.5" />}
+                      {isTerminalSubmitted ? "Submissions Closed" : "Submit New Report"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -920,7 +998,7 @@ export default function ProjectTrackingDetailPage() {
                 <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <History className="h-4.5 w-4.5 text-primary" />
-                    Review History & Committee Feedback
+                    Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
@@ -992,14 +1070,33 @@ export default function ProjectTrackingDetailPage() {
             </CardHeader>
             <CardContent className="pt-4 space-y-3">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Log project milestones, main activities achieved, and upload expenditure receipts.
+                {isTerminalSubmitted
+                  ? "Final report has been submitted for this project. Progress report submissions are closed."
+                  : "Log project milestones, main activities achieved, and upload expenditure receipts."}
               </p>
               <Button
-                onClick={() => setIsProgressDialogOpen(true)}
-                className="w-full text-xs font-bold shadow-xs gap-1.5"
+                disabled={isTerminalSubmitted}
+                onClick={() => {
+                  if (isTerminalSubmitted) {
+                    toast.error("Submissions Closed", {
+                      description: "A terminal / final report has already been submitted for this proposal.",
+                    });
+                    return;
+                  }
+                  setIsProgressDialogOpen(true);
+                }}
+                className={cn(
+                  "w-full text-xs font-bold shadow-xs gap-1.5 transition-all",
+                  isTerminalSubmitted && "opacity-60 cursor-not-allowed bg-muted text-muted-foreground hover:bg-muted border border-border"
+                )}
+                title={
+                  isTerminalSubmitted
+                    ? "Progress report submission is disabled because the final/terminal report has been submitted."
+                    : "Submit Progress Report"
+                }
               >
-                <PlusCircle className="h-4 w-4" />
-                Submit Progress Report
+                {isTerminalSubmitted ? <Lock className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                {isTerminalSubmitted ? "Submissions Closed" : "Submit Progress Report"}
               </Button>
             </CardContent>
           </Card>
@@ -1119,7 +1216,7 @@ export default function ProjectTrackingDetailPage() {
             <CardHeader className="pb-3 border-b bg-slate-50/50 dark:bg-slate-900/30">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
                 <FileCheck2 className="h-4 w-4 text-primary" />
-                Project Identifiers
+                Proposal Information
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-3">
