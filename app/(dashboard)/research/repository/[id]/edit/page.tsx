@@ -10,6 +10,8 @@ import {
   ChevronDown,
   Download,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileText,
   FolderUp,
   Globe,
@@ -40,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 
 import {
   useDataCenters,
@@ -197,6 +200,7 @@ export default function EditRepositorySubmissionPage() {
   });
   const [prefillItems, setPrefillItems] = useState<any[]>([]);
   const [prefillData, setPrefillData] = useState<any | null>(null);
+  const [itemVisibility, setItemVisibility] = useState<Record<number | string, boolean>>({});
 
   const dataCenters = dataCentersQuery.data?.data ?? [];
   const isEditable = submission ? canEditFinalSubmission(submission.status) : false;
@@ -247,6 +251,11 @@ export default function EditRepositorySubmissionPage() {
     if (submission.items && submission.items.length > 0) {
       setPrefillItems(submission.items);
       setPrefillData({ items: submission.items });
+      const initialVis: Record<number | string, boolean> = {};
+      submission.items.forEach((it: any, idx: number) => {
+        initialVis[it.id ?? idx] = it.is_searchable !== false;
+      });
+      setItemVisibility(initialVis);
     }
 
     const proposalId = submission.fundedproposal_detail?.proposal_id || submission.fundedproposal;
@@ -302,6 +311,7 @@ export default function EditRepositorySubmissionPage() {
       ndmc_submission_reference: form.ndmc_submission_reference.trim(),
       status: targetStatus,
       data_center: form.data_center ? Number(form.data_center) : null,
+      items_visibility: JSON.stringify(itemVisibility),
     };
 
     try {
@@ -578,14 +588,48 @@ export default function EditRepositorySubmissionPage() {
               {/* Graded Deliverables from Terminal Report items */}
               {prefillItems && prefillItems.length > 0 && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Graded Deliverables (Terminal Report)
                     </p>
-                    <Badge variant="outline" className="text-[10px] font-semibold gap-1">
-                      <Award className="h-3 w-3" />
-                      {prefillItems.length} {prefillItems.length === 1 ? "Deliverable" : "Deliverables"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] font-semibold gap-1 rounded-lg border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                        onClick={() => {
+                          const newVis: Record<number | string, boolean> = {};
+                          prefillItems.forEach((it: any, idx: number) => {
+                            newVis[it.id ?? idx] = true;
+                          });
+                          setItemVisibility(newVis);
+                        }}
+                      >
+                        <Eye className="h-3 w-3" />
+                        Make All Public
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] font-semibold gap-1 rounded-lg border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50"
+                        onClick={() => {
+                          const newVis: Record<number | string, boolean> = {};
+                          prefillItems.forEach((it: any, idx: number) => {
+                            newVis[it.id ?? idx] = false;
+                          });
+                          setItemVisibility(newVis);
+                        }}
+                      >
+                        <EyeOff className="h-3 w-3" />
+                        Hide All
+                      </Button>
+                      <Badge variant="outline" className="text-[10px] font-semibold gap-1 h-7">
+                        <Award className="h-3 w-3" />
+                        {prefillItems.length} {prefillItems.length === 1 ? "Deliverable" : "Deliverables"}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="rounded-2xl border border-border/60 overflow-hidden">
                     {prefillItems.map((item: any, idx: number) => {
@@ -652,7 +696,33 @@ export default function EditRepositorySubmissionPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                          <div className="flex flex-wrap shrink-0 items-center gap-3 sm:ml-auto">
+                            <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 border border-border/50">
+                              <Switch
+                                id={`toggle-item-${item.id ?? idx}`}
+                                checked={itemVisibility[item.id ?? idx] !== false}
+                                onCheckedChange={(checked) =>
+                                  setItemVisibility((prev) => ({
+                                    ...prev,
+                                    [item.id ?? idx]: checked,
+                                  }))
+                                }
+                              />
+                              <Label
+                                htmlFor={`toggle-item-${item.id ?? idx}`}
+                                className="text-xs font-semibold cursor-pointer select-none flex items-center gap-1.5"
+                              >
+                                {itemVisibility[item.id ?? idx] !== false ? (
+                                  <span className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                    <Globe className="h-3 w-3" /> Public in Repo
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                                    <EyeOff className="h-3 w-3" /> Hidden / Internal
+                                  </span>
+                                )}
+                              </Label>
+                            </div>
                             {itemFile && (
                               <>
                                 <Button

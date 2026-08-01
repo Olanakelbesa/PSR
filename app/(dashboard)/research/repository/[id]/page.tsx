@@ -14,6 +14,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  EyeOff,
   FileCode2,
   FileText,
   FolderOpen,
@@ -975,15 +976,12 @@ export default function ResearchRepositoryDetailPage() {
                               </div>
                             </div>
 
-                            {/* Evaluation Grade Pill */}
+                            {/* Evaluation Grade & Searchability Badges */}
                             <div className="flex flex-wrap items-center gap-2 pt-1">
                               {gradeName ? (
                                 <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border shadow-2xs",
-                                    getGradeBadgeStyle(gradeName),
-                                  )}
+                                  variant="secondary"
+                                  className="border-none text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5"
                                 >
                                   <Award className="h-3 w-3 mr-1" />
                                   {gradeName}

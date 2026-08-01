@@ -17,10 +17,13 @@ import {
   Loader2,
   Paperclip,
   Save,
-  ShieldCheck,
   Upload,
   Users,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
@@ -196,6 +199,7 @@ export default function NewRepositorySubmissionPage() {
   });
   const [prefillItems, setPrefillItems] = useState<any[]>([]);
   const [prefillData, setPrefillData] = useState<any | null>(null);
+  const [itemVisibility, setItemVisibility] = useState<Record<number | string, boolean>>({});
   const [isPrefilling, setIsPrefilling] = useState(false);
   const [pendingAction, setPendingAction] = useState<"draft" | "submitted" | null>(null);
 
@@ -396,9 +400,12 @@ export default function NewRepositorySubmissionPage() {
     }
   }, [existingSubmission, isEditMode]);
 
+  const hasNarrative = !!form.abstract.trim() || !!form.executive_summary.trim();
+
   const checklist = [
     { key: "fundedproposal", label: "Graded proposal selected", required: true, done: !!form.fundedproposal },
     { key: "title", label: "Submission title entered", required: true, done: !!form.title.trim() },
+    { key: "narrative", label: "Narrative details entered (Abstract or Executive Summary)", required: true, done: hasNarrative },
     { key: "prefill", label: "Terminal report data prefilled", required: false, done: !!prefillData },
     { key: "terminal_items", label: "Deliverable items loaded", required: false, done: prefillItems.length > 0 },
     { key: "data_center", label: "Data center selected", required: false, done: !!form.data_center },
@@ -407,12 +414,12 @@ export default function NewRepositorySubmissionPage() {
   const checklistTotal = checklist.length;
   const checklistDone = checklist.filter((item) => item.done).length;
 
-  const requiredReady = !!form.title.trim() && !!form.fundedproposal;
+  const requiredReady = !!form.title.trim() && !!form.fundedproposal && hasNarrative;
 
   async function handleSubmit(targetStatus: FinalSubmissionStatus) {
     if (!requiredReady) {
       toast.error(
-        "Please select an eligible proposal and enter a submission title before saving.",
+        "Please select an eligible proposal, enter a submission title, and provide at least one Narrative Detail (Abstract or Executive Summary) before saving.",
       );
       return;
     }
@@ -438,6 +445,11 @@ export default function NewRepositorySubmissionPage() {
       (prefillData?.output_type ? String(prefillData.output_type) : "") ||
       (outputTypes[0]?.id ? String(outputTypes[0].id) : "1");
 
+    const itemsVisibilityArray = Object.entries(itemVisibility).map(([itemId, isSearchable]) => ({
+      item_id: Number(itemId),
+      is_searchable: isSearchable,
+    }));
+
     const payload = {
       title: form.title.trim(),
       abstract: form.abstract.trim(),
@@ -452,6 +464,7 @@ export default function NewRepositorySubmissionPage() {
       fundedproposal: Number(form.fundedproposal),
       output_type: Number(defaultOutputType),
       data_center: form.data_center ? Number(form.data_center) : null,
+      items_visibility: JSON.stringify(itemsVisibilityArray),
     };
 
     try {
@@ -472,19 +485,30 @@ export default function NewRepositorySubmissionPage() {
       }
       router.push("/research/repository");
     } catch (error: any) {
-      const errData = error?.response?.data?.error;
-      const details = errData?.details;
+      console.error("Submission error:", error?.response?.data || error);
+      const rawData = error?.response?.data;
+      const errObj = rawData?.error || rawData;
+      const details = errObj?.details || (typeof errObj === "object" ? errObj : null);
+
       if (details && typeof details === "object") {
-        const fieldMessages = Object.values(details).flat().filter(Boolean).join("; ");
-        if (fieldMessages) {
-          toast.error(fieldMessages);
+        const messages: string[] = [];
+        Object.entries(details).forEach(([key, val]) => {
+          if (key === "message" || key === "detail" || key === "code" || key === "success") return;
+          const msgList = Array.isArray(val) ? val.join(", ") : String(val);
+          messages.push(`${key !== "non_field_errors" ? `${key}: ` : ""}${msgList}`);
+        });
+
+        if (messages.length > 0) {
+          toast.error(messages.join(" | "));
           setPendingAction(null);
           return;
         }
       }
+
       const message =
-        errData?.message ||
-        error?.response?.data?.message ||
+        errObj?.message ||
+        rawData?.message ||
+        rawData?.detail ||
         error?.message ||
         "Failed to save the final submission.";
       toast.error(message);
@@ -747,14 +771,48 @@ export default function NewRepositorySubmissionPage() {
                 if (items.length > 0) {
                   return (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                           Graded Deliverables
                         </p>
-                        <Badge variant="outline" className="text-[10px] font-semibold gap-1">
-                          <Award className="h-3 w-3" />
-                          {items.length} {items.length === 1 ? "Deliverable" : "Deliverables"}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[11px] gap-1 px-2.5 rounded-lg border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            onClick={() => {
+                              const newVis: Record<number | string, boolean> = {};
+                              items.forEach((it: any, idx: number) => {
+                                newVis[it.id ?? idx] = true;
+                              });
+                              setItemVisibility(newVis);
+                            }}
+                          >
+                            <Globe className="h-3 w-3" />
+                            Make All Public
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[11px] gap-1 px-2.5 rounded-lg border-amber-200 bg-amber-50/50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300"
+                            onClick={() => {
+                              const newVis: Record<number | string, boolean> = {};
+                              items.forEach((it: any, idx: number) => {
+                                newVis[it.id ?? idx] = false;
+                              });
+                              setItemVisibility(newVis);
+                            }}
+                          >
+                            <EyeOff className="h-3 w-3" />
+                            Hide All
+                          </Button>
+                          <Badge variant="outline" className="text-[10px] font-semibold gap-1 h-7">
+                            <Award className="h-3 w-3" />
+                            {items.length} {items.length === 1 ? "Deliverable" : "Deliverables"}
+                          </Badge>
+                        </div>
                       </div>
                       <div className="rounded-2xl border border-border/60 overflow-hidden">
                         {items.map((item: any, idx: number) => {
@@ -825,7 +883,33 @@ export default function NewRepositorySubmissionPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex shrink-0 items-center gap-2 sm:ml-auto">
+                              <div className="flex flex-wrap shrink-0 items-center gap-3 sm:ml-auto">
+                                <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 border border-border/50">
+                                  <Switch
+                                    id={`toggle-item-${item.id ?? idx}`}
+                                    checked={itemVisibility[item.id ?? idx] !== false}
+                                    onCheckedChange={(checked) =>
+                                      setItemVisibility((prev) => ({
+                                        ...prev,
+                                        [item.id ?? idx]: checked,
+                                      }))
+                                    }
+                                  />
+                                  <Label
+                                    htmlFor={`toggle-item-${item.id ?? idx}`}
+                                    className="text-xs font-semibold cursor-pointer select-none"
+                                  >
+                                    {itemVisibility[item.id ?? idx] !== false ? (
+                                      <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                        <Globe className="h-3.5 w-3.5" /> Public in Repo
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                        <EyeOff className="h-3.5 w-3.5" /> Hidden / Internal
+                                      </span>
+                                    )}
+                                  </Label>
+                                </div>
                                 {itemFile && (
                                   <>
                                     <Button

@@ -15,6 +15,9 @@ export interface SearchResultItem {
   url: string;
   file_url: string;
   metadata: Record<string, any>;
+  matched_chunk_text?: string | null;
+  match_type?: "semantic" | "keyword" | "hybrid" | "fuzzy";
+  match_confidence?: number;
   explain?: Record<string, any>;
 }
 

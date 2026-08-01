@@ -19,11 +19,11 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
-  PenLine,
   Plus,
   RefreshCw,
   Tag,
   XCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -99,11 +99,11 @@ const statusConfig: Record<
   },
 };
 
-const statusLabels: Record<FinalSubmissionStatus, string> = {
+const statusLabels: Record<string, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review: "Under Review",
-  revision_requested: "Revision Requested",
+  ready_for_repository: "Ready for Repository",
   approved: "Approved",
   rejected: "Rejected",
 };
@@ -253,7 +253,7 @@ type StatFilter =
   | "draft"
   | "submitted"
   | "under_review"
-  | "revision_requested"
+  | "ready_for_repository"
   | "approved"
   | "rejected";
 
@@ -298,6 +298,9 @@ export default function ResearchRepositoryPage() {
 
   const filteredData = useMemo(() => {
     if (statusFilter === ALL_VALUE) return deduplicatedData;
+    if (statusFilter === "ready_for_repository") {
+      return deduplicatedData.filter((s) => s.status === "approved" || (s as any).is_published || (s as any).isPublished);
+    }
     return deduplicatedData.filter((s) => s.status === statusFilter);
   }, [deduplicatedData, statusFilter]);
 
@@ -344,14 +347,14 @@ export default function ResearchRepositoryPage() {
         sub: "Being evaluated",
       },
       {
-        key: "revision_requested" as StatFilter,
-        label: "Revision Requested",
-        value: deduplicatedData.filter((s) => s.status === "revision_requested").length,
-        icon: <PenLine className="h-4 w-4 text-amber-500" />,
-        iconBg: "bg-amber-100",
-        border: "border-amber-100/50 bg-amber-50/10",
-        activeRing: "ring-amber-500/60 border-amber-300",
-        sub: "Needs changes",
+        key: "ready_for_repository" as StatFilter,
+        label: "Ready for Repository",
+        value: deduplicatedData.filter((s) => s.status === "approved" || (s as any).is_published || (s as any).isPublished).length,
+        icon: <ShieldCheck className="h-4 w-4 text-emerald-600" />,
+        iconBg: "bg-emerald-100",
+        border: "border-emerald-200/70 bg-emerald-50/20",
+        activeRing: "ring-emerald-500/60 border-emerald-300",
+        sub: "Cleared for catalog",
       },
       {
         key: "approved" as StatFilter,

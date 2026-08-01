@@ -246,6 +246,54 @@ export default function PremiumSearchPage() {
                 </Button>
               </form>
 
+              {/* Search Mode Pills & Quick Prompts */}
+              <div className="pt-3 space-y-2 border-t border-border/40 mt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-muted-foreground mr-1">Mode:</span>
+                  {[
+                    { mode: "hybrid", label: "✨ Hybrid", desc: "Keyword + Semantic" },
+                    { mode: "semantic", label: "🧠 Pure Semantic", desc: "Search by Meaning" },
+                    { mode: "keyword", label: "🔤 Keyword", desc: "Exact Terms" },
+                  ].map((m) => (
+                    <button
+                      key={m.mode}
+                      type="button"
+                      onClick={() => updateUrlParams({ mode: m.mode })}
+                      className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all border ${
+                        queryMode === m.mode
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-background/80 hover:bg-muted text-muted-foreground border-border/70"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground pt-1">
+                  <span className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
+                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" /> Try asking:
+                  </span>
+                  {[
+                    "Strategies for reducing maternal mortality in rural health posts",
+                    "Impact of financial incentives on healthcare worker retention",
+                    "National guidelines for emergency medical transport",
+                  ].map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setSearchInput(prompt);
+                        updateUrlParams({ search: prompt, mode: "semantic" });
+                      }}
+                      className="rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-primary/10 hover:text-primary px-3 py-0.5 text-[11px] font-medium transition border border-border/60 truncate max-w-xs"
+                    >
+                      💡 {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Faceted Filters Drawer */}
               <AnimatePresence>
                 {showFilters && (
@@ -427,6 +475,27 @@ export default function PremiumSearchPage() {
                               </span>
                             </div>
 
+                            {/* Semantic Match Confidence Badge */}
+                            {(() => {
+                              const mType = item.match_type || (item.explain?.match_type as string) || "keyword";
+                              const conf = item.match_confidence || (item.explain?.match_confidence as number) || 85;
+
+                              if (mType === "semantic" || mType === "hybrid") {
+                                return (
+                                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold uppercase gap-1 px-2.5 py-0.5 rounded-lg">
+                                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                                    {conf}% {mType === "hybrid" ? "Hybrid Match" : "Semantic Match"}
+                                  </Badge>
+                                );
+                              }
+
+                              return (
+                                <Badge className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-[10px] font-bold uppercase gap-1 px-2 py-0.5 rounded-lg">
+                                  <Search className="w-3 h-3 text-sky-500" />
+                                  Keyword Match
+                                </Badge>
+                              );
+                            })()}
                           </div>
 
                           <div className="space-y-1">
@@ -445,6 +514,19 @@ export default function PremiumSearchPage() {
                             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed font-medium">
                             <HighlightedText text={item.snippet} query={clean_query_terms(querySearch)} />
                           </p>
+
+                          {/* Matched Vector Paragraph Context Card */}
+                          {item.matched_chunk_text && (
+                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 space-y-1">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                                AI Matched Vector Context
+                              </p>
+                              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-mono italic">
+                                "{item.matched_chunk_text}"
+                              </p>
+                            </div>
+                          )}
 
                           {/* Explain calculations dashboard inside result */}
                           {item.explain && (
