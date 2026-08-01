@@ -29,6 +29,7 @@ import { useUnifiedSearch, type SearchResultItem } from "@/lib/queries/search";
 import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { tokenStorage } from "@/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { SearchDocumentFullViewer } from "@/components/features/search/SearchDocumentFullViewer";
 
 function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
@@ -474,28 +475,6 @@ export default function PremiumSearchPage() {
                                 {formatDate(item.date)}
                               </span>
                             </div>
-
-                            {/* Semantic Match Confidence Badge */}
-                            {(() => {
-                              const mType = item.match_type || (item.explain?.match_type as string) || "keyword";
-                              const conf = item.match_confidence || (item.explain?.match_confidence as number) || 85;
-
-                              if (mType === "semantic" || mType === "hybrid") {
-                                return (
-                                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold uppercase gap-1 px-2.5 py-0.5 rounded-lg">
-                                    <Sparkles className="w-3 h-3 text-emerald-500" />
-                                    {conf}% {mType === "hybrid" ? "Hybrid Match" : "Semantic Match"}
-                                  </Badge>
-                                );
-                              }
-
-                              return (
-                                <Badge className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-[10px] font-bold uppercase gap-1 px-2 py-0.5 rounded-lg">
-                                  <Search className="w-3 h-3 text-sky-500" />
-                                  Keyword Match
-                                </Badge>
-                              );
-                            })()}
                           </div>
 
                           <div className="space-y-1">
@@ -525,38 +504,6 @@ export default function PremiumSearchPage() {
                               <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-mono italic">
                                 "{item.matched_chunk_text}"
                               </p>
-                            </div>
-                          )}
-
-                          {/* Explain calculations dashboard inside result */}
-                          {item.explain && (
-                              <div className="p-4 bg-background/70 border border-border rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px] font-mono">
-                              <div>
-                                  <span className="text-muted-foreground block">Keyword FTS</span>
-                                  <span className="font-bold text-foreground">{item.explain.keyword_score}</span>
-                              </div>
-                              <div>
-                                  <span className="text-muted-foreground block">Semantic Vector</span>
-                                  <span className="font-bold text-foreground">{item.explain.semantic_score}</span>
-                              </div>
-                              <div>
-                                  <span className="text-muted-foreground block">Trigram Fuzzy</span>
-                                  <span className="font-bold text-foreground">{item.explain.fuzzy_score}</span>
-                              </div>
-                              <div>
-                                  <span className="text-muted-foreground block">Meta/Fresh Boosts</span>
-                                <span className="font-bold text-emerald-400">+{item.explain.metadata_boost + item.explain.freshness_boost}</span>
-                              </div>
-                                <div className="col-span-2 sm:col-span-4 pt-1.5 mt-1.5 border-t border-border text-[9px] text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                                  <span>
-                                    Signals: {Array.isArray(item.explain.candidate_sources) ? item.explain.candidate_sources.join(", ") : "none"}
-                                  </span>
-                                  <span>
-                                    Fields: {Array.isArray(item.explain.matched_fields) && item.explain.matched_fields.length > 0
-                                      ? item.explain.matched_fields.join(", ")
-                                      : "none"}
-                                  </span>
-                              </div>
                             </div>
                           )}
 
@@ -612,132 +559,13 @@ export default function PremiumSearchPage() {
         </section>
       </main>
 
-      {/* Details Slide-Over Drawer panel */}
+      {/* Full-Page Document Intelligence Viewer */}
       <AnimatePresence>
         {selectedDoc && (
-          <div className="fixed inset-0 z-50 flex justify-end">
-            {/* Overlay backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedDoc(null)}
-              className="absolute inset-0 bg-black backdrop-blur-sm"
-            />
-            
-            {/* Drawer */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-lg h-full bg-background border-l border-border shadow-2xl overflow-y-auto flex flex-col"
-            >
-              {/* Drawer Header */}
-              <div className="p-6 border-b border-border flex items-center justify-between bg-background/90 sticky top-0 backdrop-blur z-10">
-                <div className="flex items-center gap-2">
-                  <Badge className={`px-2 py-0.5 rounded uppercase text-[9px] font-black tracking-wide ${
-                    selectedDoc.source === "policy_repository" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20" : "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20"
-                  }`}>
-                    {selectedDoc.source === "policy_repository" ? "Policy Repository" : "Research Output"}
-                  </Badge>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDoc(null)}
-                  className="p-1.5 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Drawer Content Body */}
-              <div className="p-6 space-y-6 flex-grow">
-                <div className="space-y-2">
-                  <h2 className="text-xl sm:text-2xl font-black text-foreground leading-tight">{selectedDoc.title}</h2>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                    <Building className="w-4 h-4 text-primary shrink-0" />
-                    <span>{selectedDoc.subtitle}</span>
-                  </div>
-                </div>
-
-                <div className="p-5 bg-card rounded-2xl border border-border space-y-3.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-primary" />
-                    Abstract Summary
-                  </h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed font-medium">
-                    {selectedDoc.metadata?.abstract || selectedDoc.metadata?.executive_summary || selectedDoc.snippet}
-                  </p>
-                </div>
-
-                {/* Metadata Fields Accordion */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Indexed Properties</h4>
-                  <div className="grid grid-cols-2 gap-3 text-xs bg-background/60 border border-border p-4 rounded-2xl">
-                    <div>
-                      <span className="text-[10px] font-bold text-muted-foreground block uppercase">Document ID</span>
-                      <span className="font-semibold text-foreground">{selectedDoc.id}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-muted-foreground block uppercase">Type classification</span>
-                      <span className="font-semibold text-foreground">{selectedDoc.document_type}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-muted-foreground block uppercase">Access status</span>
-                      <span className="font-semibold text-foreground capitalize flex items-center gap-1">
-                        {selectedDoc.access_level === "public" ? <Globe className="w-3 h-3 text-emerald-500 dark:text-emerald-400" /> : <Lock className="w-3 h-3 text-red-500" />}
-                        {selectedDoc.access_level}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-muted-foreground block uppercase">Publication date</span>
-                      <span className="font-semibold text-foreground">{formatDate(selectedDoc.date)}</span>
-                    </div>
-                    
-                    {selectedDoc.metadata?.serial_number && (
-                      <div className="col-span-2 border-t border-border pt-2 mt-1">
-                        <span className="text-[10px] font-bold text-muted-foreground block uppercase">Registry Serial Number</span>
-                        <span className="font-semibold text-foreground font-mono">{selectedDoc.metadata.serial_number}</span>
-                      </div>
-                    )}
-                    {selectedDoc.metadata?.doi && (
-                      <div className="col-span-2 border-t border-border pt-2 mt-1">
-                        <span className="text-[10px] font-bold text-muted-foreground block uppercase">Digital Object Identifier (DOI)</span>
-                        <span className="font-semibold text-foreground font-mono break-all">{selectedDoc.metadata.doi}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Drawer Footer Actions */}
-              <div className="p-6 border-t border-border bg-background/90 sticky bottom-0 backdrop-blur z-10 flex gap-3">
-                <Button
-                  onClick={() => setSelectedDoc(null)}
-                  variant="outline"
-                  className="rounded-2xl border-border flex-grow font-bold text-xs uppercase h-12"
-                >
-                  Close Drawer
-                </Button>
-                <Button
-                  className="rounded-2xl flex-grow font-bold text-xs uppercase h-12 gap-1.5 shadow"
-                  disabled={downloadingId === `drawer-${selectedDoc?.id}`}
-                  onClick={() => {
-                    if (!selectedDoc) return;
-                    setDownloadingId(`drawer-${selectedDoc.id}`);
-                    trackDownload(selectedDoc).finally(() => {
-                      window.open(resolveFileUrl(selectedDoc.file_url) ?? "#", "_blank", "noreferrer");
-                      setDownloadingId(null);
-                    });
-                  }}
-                >
-                  <Download className="w-4 h-4" />
-                  {downloadingId === `drawer-${selectedDoc?.id}` ? "Opening..." : "Download File"}
-                </Button>
-              </div>
-            </motion.div>
-          </div>
+          <SearchDocumentFullViewer
+            document={selectedDoc}
+            onClose={() => setSelectedDoc(null)}
+          />
         )}
       </AnimatePresence>
     </div>

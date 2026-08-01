@@ -225,6 +225,7 @@ function normalizeFileField(value: unknown) {
 
 function normalizeItem(it: any) {
   if (!it || typeof it !== "object") return null;
+  const isSearchableVal = it.is_searchable ?? it.isSearchable ?? true;
   return {
     id: it.id ?? null,
     terminal_type: it.terminal_type ?? it.terminalType ?? null,
@@ -233,6 +234,8 @@ function normalizeItem(it: any) {
     external_link: it.external_link ?? it.externalLink ?? null,
     grade: it.grade ?? null,
     grade_name: it.grade_name ?? it.gradeName ?? null,
+    is_searchable: isSearchableVal !== false,
+    isSearchable: isSearchableVal !== false,
   };
 }
 
@@ -275,6 +278,7 @@ function mapFinalSubmissionItem(item: any): FinalSubmission {
       item.dataSharingChecklistCompleted ??
       item.data_sharing_checklist_completed ??
       false,
+    is_published: item.isPublished ?? item.is_published ?? true,
     submission_date: item.submissionDate ?? item.submission_date ?? null,
     status: item.status ?? "draft",
     version: item.version ?? null,
@@ -284,7 +288,7 @@ function mapFinalSubmissionItem(item: any): FinalSubmission {
     ),
     output_type: item.outputType ?? item.output_type ?? null,
     output_type_detail: normalizeOutputTypeDetail(
-      item.outputTypeDetail ?? item.outputType ?? item.output_type_detail,
+      item.output_type_detail ?? item.outputTypeDetail ?? null,
     ),
     data_center: item.dataCenter ?? item.data_center ?? null,
     data_center_detail: normalizeDataCenterDetail(

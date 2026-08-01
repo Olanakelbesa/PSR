@@ -15,9 +15,12 @@ import {
   Copy,
   Download,
   Eye,
+  EyeOff,
   FileText,
+  Globe,
   Loader2,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Plus,
   RefreshCw,
@@ -488,17 +491,63 @@ export default function ResearchRepositoryPage() {
         },
       },
       {
-        accessorKey: "output_type_detail",
-        header: "Output Type",
+        accessorKey: "items",
+        header: "Output Type / Deliverables",
         cell: ({ row }) => {
-          const name = row.original.output_type_detail?.name;
+          const item = row.original;
+          const items: any[] = item.items ?? [];
+
+          // If no items, fall back to the output_type_detail name
+          if (items.length === 0) {
+            const typeName = item.output_type_detail?.name;
+            if (!typeName) {
+              return <span className="text-xs text-muted-foreground italic">No items</span>;
+            }
+            return (
+              <div className="flex items-center gap-1.5 py-0.5">
+                <Badge variant="outline" className="text-[10px] font-bold bg-muted/60 text-foreground border-border/80 rounded-lg px-2.5 py-1 shadow-2xs">
+                  <Paperclip className="w-3 h-3 mr-1 text-primary shrink-0" />
+                  {typeName}
+                </Badge>
+                <Badge variant="secondary" className="rounded-full bg-primary/15 text-primary border border-primary/25 font-black text-[10px] px-2 py-0.5 shadow-2xs">
+                  1
+                </Badge>
+              </div>
+            );
+          }
+
+          const displayedItems = items.slice(0, 2);
+          const remainingCount = items.length - displayedItems.length;
+
           return (
-            <Badge
-              variant="outline"
-              className="text-[11px] font-semibold bg-muted/50 text-foreground/80 border-border/60"
-            >
-              {name || `Output #${row.original.output_type}`}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-1.5 py-0.5 max-w-[260px]">
+              {displayedItems.map((it: any, idx: number) => {
+                const typeName =
+                  it.terminal_type_name ||
+                  it.terminalTypeName ||
+                  it.name ||
+                  `Deliverable #${idx + 1}`;
+                return (
+                  <Badge
+                    key={it.id ?? idx}
+                    variant="outline"
+                    className="text-[10px] font-bold bg-muted/60 hover:bg-muted text-foreground border-border/80 rounded-lg truncate max-w-[140px] px-2.5 py-1 shadow-2xs transition-colors"
+                  >
+                    <Paperclip className="w-3 h-3 mr-1 text-primary shrink-0" />
+                    {typeName}
+                  </Badge>
+                );
+              })}
+              {remainingCount > 0 ? (
+                <Badge variant="secondary" className="rounded-full bg-primary/15 text-primary border border-primary/25 font-black text-[10px] px-2 py-0.5 shadow-2xs">
+                  +{remainingCount}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="rounded-full bg-primary/10 text-primary border border-primary/20 font-extrabold text-[10px] px-2 py-0.5 shadow-2xs">
+                  {items.length}
+                </Badge>
+              )}
+            </div>
           );
         },
       },
@@ -530,6 +579,43 @@ export default function ResearchRepositoryPage() {
               className={cn("text-xs font-semibold gap-1", config.className)}
             >
               {config.label}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "is_published",
+        header: "Visibility",
+        cell: ({ row }) => {
+          const status = row.original.status;
+          // Drafts are not yet submitted — show a neutral badge
+          if (status === "draft") {
+            return (
+              <Badge
+                variant="outline"
+                className="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300 border-slate-200 text-[11px] font-semibold gap-1.5 px-2 py-0.5"
+              >
+                <Tag className="h-3 w-3" />
+                Draft
+              </Badge>
+            );
+          }
+          const isPublished = row.original.is_published !== false;
+          return isPublished ? (
+            <Badge
+              variant="outline"
+              className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 text-[11px] font-semibold gap-1.5 px-2 py-0.5"
+            >
+              <Globe className="h-3 w-3" />
+              Published
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 text-[11px] font-semibold gap-1.5 px-2 py-0.5"
+            >
+              <EyeOff className="h-3 w-3" />
+              Hidden
             </Badge>
           );
         },

@@ -112,17 +112,23 @@ export function useRecordFinalSubmissionDownload() {
       fileType?: FinalSubmissionDownloadFileType;
     }) => finalSubmissionsService.recordDownload(id, fileType),
     onSuccess: (result, variables) => {
-      queryClient.setQueryData(finalSubmissionKeys.all, (old: any) => {
-        if (!old?.data) return old;
-        return {
-          ...old,
-          data: old.data.map((item: any) =>
-            item.id === variables.id
-              ? { ...item, download_count: result.downloadCount }
-              : item
-          ),
-        };
-      });
+      // ── Optimistically update every cached list that contains this submission ──
+      queryClient.setQueriesData<any>(
+        { queryKey: finalSubmissionKeys.all, exact: false },
+        (old: any) => {
+          if (!old?.data || !Array.isArray(old.data)) return old;
+          return {
+            ...old,
+            data: old.data.map((item: any) =>
+              item.id === variables.id
+                ? { ...item, download_count: result.downloadCount }
+                : item,
+            ),
+          };
+        },
+      );
+
+      // ── Optimistically update the detail cache ──
       queryClient.setQueryData(
         finalSubmissionKeys.detail(variables.id),
         (old: any) => {
@@ -130,10 +136,9 @@ export function useRecordFinalSubmissionDownload() {
           return { ...old, download_count: result.downloadCount };
         },
       );
+
+      // ── Background invalidation to sync with server ──
       queryClient.invalidateQueries({ queryKey: finalSubmissionKeys.all });
-      queryClient.invalidateQueries({
-        queryKey: finalSubmissionKeys.detail(variables.id),
-      });
     },
   });
 }

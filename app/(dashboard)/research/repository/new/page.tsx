@@ -42,6 +42,7 @@ import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 import {
   useCreateFinalSubmission,
@@ -173,6 +174,7 @@ const initialForm = {
   fundedproposal: "",
   output_type: "",
   data_center: "",
+  is_published: true,
 };
 
 export default function NewRepositorySubmissionPage() {
@@ -286,7 +288,14 @@ export default function NewRepositorySubmissionPage() {
 
       if (prefill) {
         setPrefillData(prefill);
-        setPrefillItems(prefill.items ?? []);
+        const pItems = prefill.items ?? [];
+        setPrefillItems(pItems);
+        const initialVis: Record<number | string, boolean> = {};
+        pItems.forEach((it: any, idx: number) => {
+          const isVis = (it.is_searchable ?? it.isSearchable) !== false;
+          initialVis[it.id ?? idx] = isVis;
+        });
+        setItemVisibility(initialVis);
 
         const rawDataCenter =
           prefill.dataCenter ??
@@ -464,6 +473,7 @@ export default function NewRepositorySubmissionPage() {
       fundedproposal: Number(form.fundedproposal),
       output_type: Number(defaultOutputType),
       data_center: form.data_center ? Number(form.data_center) : null,
+      is_published: String(form.is_published),
       items_visibility: JSON.stringify(itemsVisibilityArray),
     };
 
@@ -700,6 +710,30 @@ export default function NewRepositorySubmissionPage() {
                   className="h-11 rounded-xl"
                 />
               </div>
+
+              <div className="space-y-2 sm:col-span-2 border-t pt-4 mt-1">
+                <div className="flex items-center justify-between rounded-2xl border p-4 bg-muted/20">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      {form.is_published ? (
+                        <Globe className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-amber-600" />
+                      )}
+                      Repository Public Visibility
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {form.is_published
+                        ? "Published & visible in public search queries and repository catalog."
+                        : "Unpublished / Hidden — completely invisible in public search engine results."}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.is_published}
+                    onCheckedChange={(checked) => setFormField("is_published", checked)}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -717,27 +751,19 @@ export default function NewRepositorySubmissionPage() {
             <CardContent className="grid gap-5 p-6">
               <div className="space-y-2">
                 <Label htmlFor="abstract">Abstract / Main Deliverables</Label>
-                <Textarea
-                  id="abstract"
-                  value={form.abstract}
-                  onChange={(event) =>
-                    setFormField("abstract", event.target.value)
-                  }
+                <RichTextEditor
+                  content={form.abstract}
+                  onChange={(html) => setFormField("abstract", html)}
                   placeholder="Summarize the final submission and main deliverables..."
-                  className="min-h-[140px] rounded-xl"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="executive_summary">Executive Summary</Label>
-                <Textarea
-                  id="executive_summary"
-                  value={form.executive_summary}
-                  onChange={(event) =>
-                    setFormField("executive_summary", event.target.value)
-                  }
+                <RichTextEditor
+                  content={form.executive_summary}
+                  onChange={(html) => setFormField("executive_summary", html)}
                   placeholder="Write a short executive summary..."
-                  className="min-h-[120px] rounded-xl"
                 />
               </div>
             </CardContent>

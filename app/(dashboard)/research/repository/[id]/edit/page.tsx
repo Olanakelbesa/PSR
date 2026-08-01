@@ -43,6 +43,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 import {
   useDataCenters,
@@ -241,6 +242,7 @@ export default function EditRepositorySubmissionPage() {
       doi: submission.doi ?? "",
       ndmc_submission_reference: submission.ndmc_submission_reference ?? "",
       data_center: submission.data_center ? String(submission.data_center) : "",
+      is_published: submission.is_published !== false,
     });
     setFiles({
       full_report: null,
@@ -253,7 +255,8 @@ export default function EditRepositorySubmissionPage() {
       setPrefillData({ items: submission.items });
       const initialVis: Record<number | string, boolean> = {};
       submission.items.forEach((it: any, idx: number) => {
-        initialVis[it.id ?? idx] = it.is_searchable !== false;
+        const isVis = (it.is_searchable ?? it.isSearchable) !== false;
+        initialVis[it.id ?? idx] = isVis;
       });
       setItemVisibility(initialVis);
     }
@@ -264,7 +267,14 @@ export default function EditRepositorySubmissionPage() {
         .getPrefillData(proposalId)
         .then((prefill) => {
           setPrefillData(prefill);
-          setPrefillItems(prefill.items || submission.items || []);
+          const itemsToUse = (submission.items && submission.items.length > 0) ? submission.items : (prefill.items || []);
+          setPrefillItems(itemsToUse);
+          const initialVis: Record<number | string, boolean> = {};
+          itemsToUse.forEach((it: any, idx: number) => {
+            const isVis = (it.is_searchable ?? it.isSearchable) !== false;
+            initialVis[it.id ?? idx] = isVis;
+          });
+          setItemVisibility(initialVis);
         })
         .catch(() => {
           if (submission.items) {
@@ -311,6 +321,7 @@ export default function EditRepositorySubmissionPage() {
       ndmc_submission_reference: form.ndmc_submission_reference.trim(),
       status: targetStatus,
       data_center: form.data_center ? Number(form.data_center) : null,
+      is_published: String(form.is_published),
       items_visibility: JSON.stringify(itemVisibility),
     };
 
@@ -534,6 +545,30 @@ export default function EditRepositorySubmissionPage() {
                   className="h-11 rounded-xl"
                 />
               </div>
+
+              <div className="space-y-2 sm:col-span-2 border-t pt-4 mt-1">
+                <div className="flex items-center justify-between rounded-2xl border p-4 bg-muted/20">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      {form.is_published ? (
+                        <Globe className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-amber-600" />
+                      )}
+                      Repository Public Visibility
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {form.is_published
+                        ? "Published & visible in public search queries and repository catalog."
+                        : "Unpublished / Hidden — completely invisible in public search engine results."}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.is_published}
+                    onCheckedChange={(checked) => setFormField("is_published", checked)}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -551,23 +586,19 @@ export default function EditRepositorySubmissionPage() {
             <CardContent className="grid gap-5 p-6">
               <div className="space-y-2">
                 <Label htmlFor="abstract">Abstract / Main Deliverables</Label>
-                <Textarea
-                  id="abstract"
-                  value={form.abstract}
-                  onChange={(event) => setFormField("abstract", event.target.value)}
+                <RichTextEditor
+                  content={form.abstract}
+                  onChange={(html) => setFormField("abstract", html)}
                   placeholder="Summarize the final submission and main deliverables..."
-                  className="min-h-[140px] rounded-xl"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="executive_summary">Executive Summary</Label>
-                <Textarea
-                  id="executive_summary"
-                  value={form.executive_summary}
-                  onChange={(event) => setFormField("executive_summary", event.target.value)}
+                <RichTextEditor
+                  content={form.executive_summary}
+                  onChange={(html) => setFormField("executive_summary", html)}
                   placeholder="Write a short executive summary..."
-                  className="min-h-[120px] rounded-xl"
                 />
               </div>
             </CardContent>

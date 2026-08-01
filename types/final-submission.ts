@@ -61,6 +61,7 @@ export interface FinalSubmission {
   doi?: string | null;
   ndmc_submission_reference?: string | null;
   data_sharing_checklist_completed?: boolean;
+  is_published?: boolean;
   submission_date?: string | null;
   status: FinalSubmissionStatus;
   version?: number;

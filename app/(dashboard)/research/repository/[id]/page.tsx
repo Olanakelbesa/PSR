@@ -477,6 +477,24 @@ export default function ResearchRepositoryDetailPage() {
             v{item.version ?? 1}
           </Badge>
 
+          {item.is_published !== false ? (
+            <Badge
+              variant="outline"
+              className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1"
+            >
+              <Globe className="h-3 w-3 mr-1" />
+              Published in Repo
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1"
+            >
+              <EyeOff className="h-3 w-3 mr-1" />
+              Unpublished / Hidden
+            </Badge>
+          )}
+
           <Badge
             variant="secondary"
             className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 border border-primary/20"
@@ -674,8 +692,19 @@ export default function ResearchRepositoryDetailPage() {
                   <Tag className="h-3.5 w-3.5" />
                   Abstract
                 </h4>
-                <div className="rounded-xl border border-border/50 bg-slate-50/50 dark:bg-slate-900/20 p-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
-                  {item.abstract || "No abstract provided."}
+                <div className="rounded-xl border border-border/50 bg-slate-50/50 dark:bg-slate-900/20 p-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                  {item.abstract ? (
+                    item.abstract.includes("<") && item.abstract.includes(">") ? (
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300"
+                        dangerouslySetInnerHTML={{ __html: item.abstract }}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-line">{item.abstract}</p>
+                    )
+                  ) : (
+                    "No abstract provided."
+                  )}
                 </div>
               </div>
 
@@ -684,8 +713,19 @@ export default function ResearchRepositoryDetailPage() {
                   <BookOpen className="h-3.5 w-3.5" />
                   Executive Summary
                 </h4>
-                <div className="rounded-xl border border-border/50 bg-slate-50/50 dark:bg-slate-900/20 p-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
-                  {item.executive_summary || "No executive summary provided."}
+                <div className="rounded-xl border border-border/50 bg-slate-50/50 dark:bg-slate-900/20 p-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                  {item.executive_summary ? (
+                    item.executive_summary.includes("<") && item.executive_summary.includes(">") ? (
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300"
+                        dangerouslySetInnerHTML={{ __html: item.executive_summary }}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-line">{item.executive_summary}</p>
+                    )
+                  ) : (
+                    "No executive summary provided."
+                  )}
                 </div>
               </div>
             </CardContent>

@@ -286,7 +286,7 @@ const ToolbarToggle = ({
 /**
  * MAIN COMPONENT
  */
-export default function RichTextEditor({
+export function RichTextEditor({
   content = "<p></p>",
   onChange,
   onBlur,
@@ -370,3 +370,5 @@ export default function RichTextEditor({
     </div>
   );
 }
+
+export default RichTextEditor;
