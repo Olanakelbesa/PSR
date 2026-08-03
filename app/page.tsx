@@ -16,6 +16,7 @@ import {
   Network,
   ArrowUpRight,
   Lock,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,6 @@ import { Footer } from "@/components/landing/Footer";
 import { publicApi } from "@/api/legacy-apis";
 import { tokenStorage } from "@/api";
 import { API_ENDPOINTS } from "@/api/endpoints";
-import { createPortal } from "react-dom";
 import StatsStrip from "@/components/landing/StatsStrip";
 import TrustBand from "@/components/landing/TrustBand";
 import TrendsCard from "@/components/landing/TrendsCard";
@@ -117,12 +117,11 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSuggestions, setSearchSuggestions] = useState<SearchResultItem[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [suggestionRect, setSuggestionRect] = useState<DOMRect | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const [portalStyle, setPortalStyle] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -152,8 +151,22 @@ export default function LandingPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Close search suggestions when clicking outside
   useEffect(() => {
-    setMounted(true);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Live search debounced query effect
+  useEffect(() => {
     const query = searchQuery.trim();
     if (query.length < 2) {
       setSearchSuggestions([]);
@@ -162,64 +175,59 @@ export default function LandingPage() {
     }
 
     setSuggestionsLoading(true);
+    setShowSuggestions(true);
     const controller = new AbortController();
     const debounce = window.setTimeout(async () => {
-        try {
-          const params = new URLSearchParams({
-            access_level: "public",
-            explain: "false",
-            mode: "hybrid",
-            page: "1",
-            page_size: "5",
-            search: query,
-            sort: "relevance",
-            source: "all",
-          });
+      try {
+        const params = new URLSearchParams({
+          access_level: "public",
+          explain: "false",
+          mode: "hybrid",
+          page: "1",
+          page_size: "5",
+          search: query,
+          sort: "relevance",
+          source: "all",
+        });
 
-          const headers: HeadersInit = { accept: "application/json" };
-          const token = tokenStorage.get();
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-          }
-
-          const response = await fetch(
-            `/bff${API_ENDPOINTS.SEARCH.LIST}?${params.toString()}`,
-            {
-              headers,
-              signal: controller.signal,
-            },
-          );
-
-          if (!response.ok) {
-            throw new Error(`Search request failed with status ${response.status}`);
-          }
-
-          const data = await response.json();
-          setSearchSuggestions(Array.isArray(data?.results) ? data.results : []);
-        } catch (error: any) {
-          const isAbort =
-            controller.signal.aborted ||
-            error?.name === "CanceledError" ||
-            error?.code === "ERR_CANCELED";
-
-          if (isAbort) return;
-
-          const resp = error?.response?.data ?? null;
-          const message = error?.message ?? String(error);
-          if (process.env.NODE_ENV === "development") {
-            console.warn("Live search suggestion failed:", {
-              message,
-              resp,
-            });
-          }
-
-          // Clear suggestions on error to keep UI consistent.
-          setSearchSuggestions([]);
-        } finally {
-          if (!controller.signal.aborted) {
-            setSuggestionsLoading(false);
-          }
+        const headers: HeadersInit = { accept: "application/json" };
+        const token = tokenStorage.get();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
         }
+
+        const response = await fetch(
+          `/bff${API_ENDPOINTS.SEARCH.LIST}?${params.toString()}`,
+          {
+            headers,
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Search request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        setSearchSuggestions(Array.isArray(data?.results) ? data.results : []);
+      } catch (error: any) {
+        const isAbort =
+          controller.signal.aborted ||
+          error?.name === "CanceledError" ||
+          error?.code === "ERR_CANCELED";
+
+        if (isAbort) return;
+
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Live search suggestion failed:", error);
+        }
+
+        setSearchSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) {
+          setSuggestionsLoading(false);
+        }
+      }
     }, 250);
 
     return () => {
@@ -232,64 +240,12 @@ export default function LandingPage() {
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    const selectedItem = searchSuggestions[0];
-    const selectedParams = selectedItem
-      ? `&selected=${encodeURIComponent(String(selectedItem.id))}&selected_source=${encodeURIComponent(selectedItem.source)}`
-      : "";
+    setShowSuggestions(false);
 
     router.push(
-      `/search?search=${encodeURIComponent(trimmed)}&access_level=public&mode=hybrid&sort=relevance&source=all${selectedParams}`,
+      `/search?search=${encodeURIComponent(trimmed)}&access_level=public&mode=hybrid&sort=relevance&source=all`,
     );
   };
-
-  useEffect(() => {
-    const update = () => {
-      const el = searchInputRef.current;
-      if (!el) return setSuggestionRect(null);
-      const rect = el.getBoundingClientRect();
-      setSuggestionRect(rect);
-
-      // compute responsive portal style
-      const viewportW = window.innerWidth;
-      const viewportH = window.innerHeight;
-      const padding = 16;
-      const mobileBreakpoint = 640;
-
-      let width = rect.width;
-      let left = rect.x;
-      const spaceBelow = viewportH - (rect.y + rect.height);
-      const spaceAbove = rect.y;
-      const preferredMax = 256;
-
-      if (viewportW <= mobileBreakpoint) {
-        width = Math.min(viewportW - padding * 2, width);
-        left = Math.max(padding, (viewportW - width) / 2);
-      } else {
-        // clamp to viewport edges
-        width = Math.min(width, viewportW - padding * 2);
-        if (left + width > viewportW - padding) left = viewportW - width - padding;
-        if (left < padding) left = padding;
-      }
-
-      let maxHeight = Math.min(preferredMax, Math.max(120, spaceBelow - 24));
-      let top = rect.y + rect.height + 8;
-      // if not enough space below and more space above, render above
-      if (spaceBelow < 140 && spaceAbove > spaceBelow) {
-        const available = Math.min(preferredMax, spaceAbove - 24);
-        maxHeight = Math.max(120, Math.min(preferredMax, available));
-        top = rect.y - 8 - maxHeight;
-      }
-
-      setPortalStyle({ left: Math.round(left), top: Math.round(top), width: Math.round(width), maxHeight: Math.round(maxHeight) });
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-    };
-  }, [searchInputRef.current]);
 
   const { data: overview, isLoading: loadingOverview } = useQuery({
     queryKey: ["public-overview"],
@@ -336,7 +292,7 @@ export default function LandingPage() {
   const { data: thematicAreasResponse, isLoading: loadingThematicAreas } =
     useThematicAreas();
   const { data: subThematicAreasResponse, isLoading: loadingSubThematicAreas } =
-    useSubThematicAreas({ limit: 200 }); // Preview only — 200 is more than enough for a landing page
+    useSubThematicAreas({ limit: 200 });
 
   const thematicAreaPreview = useMemo(() => {
     const areas = thematicAreasResponse?.data ?? [];
@@ -350,16 +306,24 @@ export default function LandingPage() {
     }));
   }, [subThematicAreasResponse?.data, thematicAreasResponse?.data]);
 
+  // Throttled scroll listener using requestAnimationFrame for smooth 60fps scrolling
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      const totalScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const currentScroll = window.scrollY;
-      setScrollProgress((currentScroll / totalScroll) * 100);
-      setIsScrolled(currentScroll > 20);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const totalScroll =
+            document.documentElement.scrollHeight - window.innerHeight;
+          const currentScroll = window.scrollY;
+          setScrollProgress(totalScroll > 0 ? (currentScroll / totalScroll) * 100 : 0);
+          setIsScrolled(currentScroll > 20);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -374,20 +338,20 @@ export default function LandingPage() {
       {/* Navigation */}
       <Navbar />
 
-      <main className="flex-1 ">
+      <main className="flex-1">
         {/* Hero Section */}
         <section className="relative min-h-[85vh] flex items-center pt-20 overflow-x-clip">
-          <div className="absolute inset-0 -z-10">
+          <div className="absolute inset-0 -z-10 pointer-events-none">
             <div
               className="absolute top-0 left-0 w-[40%] h-[40%] bg-primary/10 blur-[100px] rounded-full animate-pulse"
               style={{
-                transform: `translate(${scrollProgress * 0.2}px, ${scrollProgress * 0.1}px)`,
+                transform: `translate(${Math.min(scrollProgress, 100) * 0.2}px, ${Math.min(scrollProgress, 100) * 0.1}px)`,
               }}
             />
             <div
               className="absolute bottom-0 right-0 w-[40%] h-[40%] bg-purple-500/10 blur-[100px] rounded-full animate-pulse delay-700"
               style={{
-                transform: `translate(-${scrollProgress * 0.15}px, -${scrollProgress * 0.2}px)`,
+                transform: `translate(-${Math.min(scrollProgress, 100) * 0.15}px, -${Math.min(scrollProgress, 100) * 0.2}px)`,
               }}
             />
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
@@ -409,14 +373,15 @@ export default function LandingPage() {
                 prioritize transparency and efficiency.
               </p>
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  openSearchPage(searchQuery);
-                }}
-                className="relative w-full max-w-2xl mx-auto pt-4"
-              >
-                <div className="relative flex items-center bg-background/60 backdrop-blur-xl border border-primary/20 hover:border-primary/40 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-2 pr-2.5 shadow-xl transition-all duration-300">
+              {/* Landing Search Bar Container */}
+              <div ref={searchContainerRef} className="relative w-full max-w-2xl mx-auto pt-4">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    openSearchPage(searchQuery);
+                  }}
+                  className="relative flex items-center bg-background/80 backdrop-blur-md border border-primary/20 hover:border-primary/40 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 rounded-2xl p-2 pr-2.5 shadow-xl transition-all duration-200"
+                >
                   <div className="flex items-center pl-3 pr-2 text-muted-foreground pointer-events-none">
                     <Search className="h-5 w-5 text-primary/70" />
                   </div>
@@ -425,92 +390,132 @@ export default function LandingPage() {
                     type="text"
                     placeholder="Search national policies, guidelines, or research strategies..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => {
+                      if (searchQuery.trim().length >= 2) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (e.target.value.trim().length >= 2) {
+                        setShowSuggestions(true);
+                      } else {
+                        setShowSuggestions(false);
+                      }
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                      if (e.key === "Escape") {
+                        setShowSuggestions(false);
+                        searchInputRef.current?.blur();
+                      } else if (e.key === "Enter") {
                         if (searchSuggestions.length > 0) {
                           e.preventDefault();
                           openSearchPage(searchQuery);
                         }
                       }
                     }}
-                    className="w-full bg-transparent border-0 outline-none focus:ring-0 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 "
+                    className="w-full bg-transparent border-0 outline-none focus:ring-0 py-3 text-sm text-foreground placeholder:text-muted-foreground/60"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setShowSuggestions(false);
+                        searchInputRef.current?.focus();
+                      }}
+                      className="p-1 mr-1 text-muted-foreground hover:text-foreground rounded-full transition-colors"
+                      aria-label="Clear search query"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                   <Button
                     type="submit"
                     size="sm"
-                    className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm shadow-primary/20 transition-all flex items-center gap-1.5 active:scale-95 shrink-0"
+                    className="bg-primary hover:bg-primary/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm shadow-primary/20 transition-all flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
                   >
                     Search
                     <ArrowRight className="h-3 w-3" />
                   </Button>
-                </div>
-                {(searchQuery.trim().length >= 2 || suggestionsLoading) && mounted && suggestionRect && portalStyle && createPortal(
-                  <div
-                    style={{
-                      position: "fixed",
-                      left: portalStyle.left,
-                      top: portalStyle.top,
-                      width: portalStyle.width,
-                      zIndex: 9999,
-                      maxHeight: portalStyle.maxHeight,
-                    }}
-                    className="max-h-112 overflow-hidden rounded-xl border bg-muted/30 p-2 shadow-2xl relative group backdrop-blur-xl"
-                  >
+                </form>
+
+                {/* Smooth Search Suggestions Dropdown positioned natively in CSS */}
+                {showSuggestions && (searchQuery.trim().length >= 2 || suggestionsLoading) && (
+                  <div className="absolute top-full left-0 right-0 w-full mt-2 z-50 rounded-2xl border border-border/80 bg-background/95 backdrop-blur-xl shadow-2xl p-2 max-h-96 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 text-left">
                     {suggestionsLoading ? (
-                      <div className="p-3 text-sm text-muted-foreground">Searching...</div>
+                      <div className="flex items-center gap-2.5 p-4 text-sm text-muted-foreground">
+                        <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
+                        <span>Searching repository...</span>
+                      </div>
                     ) : searchSuggestions.length > 0 ? (
-                      <div className="overflow-auto">
+                      <div className="max-h-80 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
                         {searchSuggestions.map((item) => (
                           <div
-                            key={item.id}
+                            key={`${item.source}-${item.id}`}
                             role="button"
                             tabIndex={0}
                             onMouseDown={(ev) => ev.preventDefault()}
                             onClick={() => {
+                              setShowSuggestions(false);
                               router.push(
-                                `/search?search=${encodeURIComponent(searchQuery.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all&selected=${encodeURIComponent(String(item.id))}&selected_source=${encodeURIComponent(item.source)}`,
+                                `/search?search=${encodeURIComponent(item.title.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all`,
                               );
                             }}
                             onKeyDown={(ev) => {
                               if (ev.key === "Enter" || ev.key === " ") {
                                 ev.preventDefault();
+                                setShowSuggestions(false);
                                 router.push(
-                                  `/search?search=${encodeURIComponent(searchQuery.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all&selected=${encodeURIComponent(String(item.id))}&selected_source=${encodeURIComponent(item.source)}`,
+                                  `/search?search=${encodeURIComponent(item.title.trim())}&access_level=public&mode=hybrid&sort=relevance&source=all`,
                                 );
                               }
                             }}
-                            className="w-full text-left p-3 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-200/70 last:border-b-0 dark:border-slate-800 cursor-pointer"
+                            className="w-full text-left p-3.5 transition-colors hover:bg-muted/60 rounded-xl cursor-pointer group"
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-foreground">{item.title}</div>
-                                <div className="mt-1 text-xs text-muted-foreground line-clamp-1">{item.subtitle}</div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                                  {item.title}
+                                </div>
+                                {item.subtitle && (
+                                  <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+                                    {item.subtitle}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            <div className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                              {item.snippet}
-                            </div>
-                            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                              <div className="flex flex-wrap gap-2">
-                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
+                            {item.snippet && (
+                              <div className="mt-1.5 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                                {item.snippet}
+                              </div>
+                            )}
+                            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+                              <div className="flex flex-wrap gap-1.5">
+                                <span className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-0.5 font-medium text-[10px]">
                                   {item.source.replace(/_/g, " ")}
                                 </span>
-                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
-                                  {item.document_type}
-                                </span>
-                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
-                                  {item.access_level}
-                                </span>
-                                <span className="inline-flex items-center rounded-full bg-muted/10 px-2.5 py-1 text-muted-foreground">
-                                  {formatDate(item.date)}
-                                </span>
+                                {item.document_type && (
+                                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-medium text-[10px]">
+                                    {item.document_type}
+                                  </span>
+                                )}
+                                {item.access_level && (
+                                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-medium text-[10px]">
+                                    {item.access_level}
+                                  </span>
+                                )}
+                                {item.date && (
+                                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-medium text-[10px]">
+                                    {formatDate(item.date)}
+                                  </span>
+                                )}
                               </div>
                               {item.file_url ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-8 rounded-full border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
+                                  className="h-7 text-[11px] rounded-lg border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 px-2.5"
                                   disabled={downloadingId === `${item.source}-${item.id}`}
                                   onClick={(event) => {
                                     event.stopPropagation();
@@ -521,7 +526,7 @@ export default function LandingPage() {
                                     });
                                   }}
                                 >
-                                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                                  <Download className="mr-1 h-3 w-3" />
                                   {downloadingId === `${item.source}-${item.id}` ? "Downloading..." : "Download"}
                                 </Button>
                               ) : null}
@@ -530,51 +535,24 @@ export default function LandingPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-3 text-sm text-muted-foreground">
-                        No suggestions found. Press Enter to search the public repository.
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No suggestions found. Press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border">Enter</kbd> to search the public repository.
                       </div>
                     )}
-                  </div>,
-                  document.body,
+                  </div>
                 )}
-                
-                
-              </form>
+              </div>
 
             </div>
 
             {/* Dashboard Showcase */}
-            <motion.div
-              className="mt-20 max-w-5xl mx-auto"
-            >
-              
-
-              
-            </motion.div>
+            <motion.div className="mt-20 max-w-5xl mx-auto" />
           </div>
         </section>
 
         {/* Features / Modules Section */}
         <section id="modules" className="py-12 md:py-24 md:px-20 bg-background relative">
           <div className="container mx-auto px-4">
-            {/* <RevealOnScroll className="max-w-3xl mx-auto text-center space-y-4 mb-20">
-              <Badge
-                variant="secondary"
-                className="rounded-full px-4 py-1 text-[10px] font-bold tracking-widest uppercase"
-              >
-                Modules
-              </Badge>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
-                The Infrastructure for{" "}
-                <span className="text-primary">Research & Policy</span>
-              </h2>
-              <p className="text-muted-foreground text-sm font-medium leading-relaxed">
-                A unified ecosystem designed to streamline institutional
-                workflows, ensuring transparency, compliance, and impact
-                tracking across every stage.
-              </p>
-            </RevealOnScroll> */}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
               {openGrantCalls.length ? (
                 openGrantCalls.slice(0, 4).map((call: any, index: number) => {
@@ -601,305 +579,86 @@ export default function LandingPage() {
                             <theme.icon className="h-5 w-5" />
                           </div>
                         </div>
-
-                        <div className="p-6 space-y-3 flex-1 flex flex-col">
-                          <div className="flex items-center justify-between gap-3">
-                            <Badge className="rounded-full bg-emerald-500/10 text-emerald-600 border-emerald-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
-                              Open Call
-                            </Badge>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              {call.status}
-                            </span>
-                          </div>
-
-                          <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-                            {call.title}
-                          </h3>
-                          <p
-                            className="text-muted-foreground text-sm leading-relaxed flex-1 line-clamp-4"
-                            dangerouslySetInnerHTML={{ __html: call.description ?? "" }}
-                          />
-
-                          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="font-semibold text-foreground">Deadline</span>
-                              <span>{call.closeDate ? new Date(call.closeDate).toLocaleDateString() : "Soon"}</span>
+                        <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">
+                                {call.fundingSource || "Grant Call"}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                Due {formatDate(call.deadline)}
+                              </span>
                             </div>
+                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                              {call.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                              {call.description}
+                            </p>
                           </div>
-
-                          <div className="pt-4 border-t border-border/50 mt-auto flex items-center justify-between gap-3">
-                            <Link
-                              href={`/calls/${call.id}`}
-                              className="inline-flex items-center text-xs font-bold text-primary hover:gap-2 transition-all"
-                            >
-                              View call <ChevronRight className="h-3 w-3 ml-1" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                            className="w-full justify-between hover:bg-primary/5 hover:text-primary font-bold text-xs p-0 h-auto"
+                          >
+                            <Link href={`/calls`}>
+                              Learn More
+                              <ArrowRight className="h-3 w-3" />
                             </Link>
-                            <Button asChild variant="outline" size="sm" className="rounded-full h-9 px-4 text-xs font-bold border-primary/15">
-                              <Link href={`/calls/${call.id}`}>Apply now</Link>
-                            </Button>
-                          </div>
+                          </Button>
                         </div>
                       </div>
                     </RevealOnScroll>
                   );
                 })
               ) : (
-                <RevealOnScroll className="sm:col-span-2 lg:col-span-4">
-                  <div className="rounded-2xl border border-dashed border-border/70 bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-                    No open grant calls are available right now.
-                  </div>
-                </RevealOnScroll>
+                <div className="col-span-full text-center py-12 text-muted-foreground text-sm">
+                  No active grant calls at this moment.
+                </div>
               )}
             </div>
           </div>
         </section>
 
-        {/* Feature Spotlight */}
-        <section className="py-12 md:py-24 md:px-20 bg-muted/20 overflow-hidden">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-              <RevealOnScroll className="space-y-8 md:space-y-10">
-                <div className="space-y-4">
-                  <h2 className="text-3xl md:text-5xl font-bold tracking-tight leading-tight">
-                    Document Intelligence <br />
-                    <span className="text-primary underline decoration-primary/10">
-                      Redefined.
-                    </span>
-                  </h2>
-                  <p className="text-base md:text-lg text-muted-foreground font-medium leading-relaxed max-w-md">
-                    RPDSR maps semantic relationships across your entire
-                    institutional memory.
-                  </p>
-                </div>
+        {/* Stats Strip */}
+        <StatsStrip metrics={derivedOverview} isLoading={loadingOverview} />
 
-                <div className="space-y-6">
-                  {[
-                    {
-                      title: "Smart Search",
-                      desc: "Quickly find research papers, policies, guidelines, and related institutional documents through intelligent search.",
-                      icon: Network,
-                    },
-                    {
-                      title: "Lifecycle Management",
-                      desc: "Manage document submission, review, approval, updates, and archival within a centralized workflow.",
-                      icon: Users,
-                    },
-                    {
-                      title: "Secured System",
-                      desc: "Protect sensitive research and policy data with role-based access, secure authentication, and controlled permissions.",
-                      icon: Lock,
-                    },
-                  ].map((item, i) => (
-                    <div key={i} className="flex gap-5 group">
-                      <div className="h-12 w-12 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all duration-300">
-                        <item.icon className="h-6 w-6 text-primary group-hover:text-primary-foreground" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <h4 className="text-lg font-bold tracking-tight">
-                          {item.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground font-medium">
-                          {item.desc}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {/* Trust Band */}
+        <TrustBand payload={trustPayload} isLoading={loadingOverview} />
 
-                <Button
-                  size="lg"
-                  className="h-14 px-8 rounded-2xl font-bold group shadow-lg active:scale-95 text-sm"
-                >
-                  Get Started
-                  <ArrowUpRight className="ml-2 h-4 w-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                </Button>
-              </RevealOnScroll>
-
-              <RevealOnScroll
-                className="relative lg:rotate-6 lg:hover:rotate-3 transition-all duration-700"
-                delay={200}
-              >
-                <div className="absolute inset-0 bg-primary/10 blur-[80px] rounded-full -z-10" />
-                <div className="rounded-3xl lg:rounded-[2.5rem] overflow-hidden border-4 border-background shadow-2xl lg:rotate-2 lg:hover:rotate-0 transition-all duration-700 group">
-                  <Image
-                    src="/psr_spotlight.png"
-                    alt="Feature Spotlight"
-                    width={1000}
-                    height={600}
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-              </RevealOnScroll>
-            </div>
-          </div>
-        </section>
-
-        {/* Public Analytics Section */}
-        <section id="insights" className="py-12 md:py-20 md:px-20 bg-muted/20 border-y border-border/50">
-          <div className="container mx-auto px-4 space-y-6">
-            {/* <RevealOnScroll>
-              <StatsStrip overview={derivedOverview} />
-            </RevealOnScroll> */}
-
-            <RevealOnScroll>
-              <TrustBand trust={trustPayload} />
-            </RevealOnScroll>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RevealOnScroll>
-                <TrendsCard data={trendData} title="Monthly proposal submissions" />
-              </RevealOnScroll>
-
-              <RevealOnScroll>
-                <TrendsCard data={policyTrendData} title="Monthly policy registrations" />
-              </RevealOnScroll>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <RevealOnScroll className="lg:col-span-1">
-                <div className="bg-card rounded-2xl p-6 h-full border border-border">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-bold">Thematic areas</h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Live research domains and their sub-thematics.
-                      </p>
-                    </div>
-                    <Button asChild variant="outline" className="rounded-full h-9 px-4 text-xs font-bold">
-                      <Link href="/thematic-areas">View all</Link>
-                    </Button>
-                  </div>
-
-                  <div className="mt-5 space-y-3 max-h-[28rem] overflow-auto pr-1">
-                    {loadingThematicAreas || loadingSubThematicAreas ? (
-                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
-                        Loading thematic areas...
-                      </div>
-                    ) : thematicAreaPreview.length ? (
-                      thematicAreaPreview.map((area: any) => (
-                        <div
-                          key={area.id}
-                          className="rounded-xl border border-border/70 bg-background/60 px-4 py-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="font-semibold text-foreground line-clamp-1">
-                                {area.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                {area.description || "Thematic area"}
-                              </p>
-                            </div>
-                            <Badge variant="secondary" className="w-fit shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
-                              {area.subAreas?.length ?? 0} sub
-                            </Badge>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {(area.subAreas ?? []).slice(0, 3).map((sub: any) => (
-                              <Badge
-                                key={sub.id}
-                                variant="outline"
-                                className="rounded-full border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
-                              >
-                                {sub.name}
-                              </Badge>
-                            ))}
-                            {(area.subAreas?.length ?? 0) > 3 ? (
-                              <Badge
-                                variant="outline"
-                                className="rounded-full border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
-                              >
-                                +{area.subAreas.length - 3} more
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
-                        No thematic areas available right now.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </RevealOnScroll>
-
-              <RevealOnScroll className="lg:col-span-2">
-                <div className="bg-card rounded-2xl p-6 h-full border border-border">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-bold">Active grant calls</h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Public opportunities currently open or published.
-                      </p>
-                    </div>
-                    <Button asChild variant="outline" className="rounded-full h-9 px-4 text-xs font-bold">
-                      <Link href="/calls">View all</Link>
-                    </Button>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {openGrantCalls.length ? (
-                      openGrantCalls.map((call: any) => (
-                        <div
-                          key={call.id}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/70 bg-background/60 px-4 py-3"
-                        >
-                          <div>
-                            <p className="font-semibold">{call.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Closes {call.closeDate ? new Date(call.closeDate).toLocaleDateString() : call.submissionDeadline ? new Date(call.submissionDeadline).toLocaleDateString() : "soon"}
-                            </p>
-                          </div>
-                          <Badge variant="secondary" className="w-fit rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
-                            {call.status}
-                          </Badge>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
-                        No open grant calls are published right now.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </RevealOnScroll>
-            </div>
-          </div>
-        </section>
-
-        {/* Final CTA */}
-        <section className="py-12 md:py-24 px-4 md:px-20 container mx-auto">
-          <RevealOnScroll className="rounded-3xl md:rounded-[3rem] bg-primary px-6 py-14 md:px-8 md:py-20 text-center text-background relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 h-[400px] bg-primary/20 blur-[120px] rounded-full animate-pulse" />
-            <div className="max-w-3xl mx-auto space-y-8 md:space-y-10 relative z-10">
-              <h2 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight leading-none">
-                Join the New Standard.
+        {/* Analytics / Trends Preview */}
+        <section className="py-16 md:py-24 bg-muted/20 relative border-t border-b border-border/40">
+          <div className="container mx-auto px-4 md:px-20">
+            <div className="max-w-3xl mx-auto text-center space-y-4 mb-16">
+              <Badge variant="secondary" className="rounded-full px-4 py-1 text-[10px] font-bold tracking-widest uppercase">
+                Analytics & Insight
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
+                Data-Driven <span className="text-primary">Policy Impact</span>
               </h2>
-              <p className="text-base md:text-lg opacity-80 leading-relaxed font-medium max-w-xl mx-auto">
-                Modernize your institutional infrastructure with RPDMS Global.
+              <p className="text-muted-foreground text-sm font-medium leading-relaxed">
+                Real-time tracking of research output registrations, submissions, and institutional impact metrics.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  className="w-full sm:w-auto h-14 px-10 text-base font-bold rounded-2xl shadow-xl hover:scale-105 transition-all"
-                  asChild
-                >
-                  <Link href="/signup">Get Started</Link>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto h-14 px-10 text-base font-bold rounded-2xl bg-transparent text-background border-background/20 hover:bg-background hover:text-foreground transition-all"
-                  asChild
-                >
-                  <Link href="/contact">Learn More</Link>
-                </Button>
-              </div>
             </div>
-          </RevealOnScroll>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <TrendsCard
+                title="Research Proposals Over Time"
+                subtitle="Monthly proposal submission volume across institutions"
+                data={trendData}
+                dataKey="proposals"
+                loading={loadingOverview}
+              />
+              <TrendsCard
+                title="Policy Document Registrations"
+                subtitle="Cumulative national policy document registrations by month"
+                data={policyTrendData}
+                dataKey="policies"
+                loading={loadingOverview}
+              />
+            </div>
+          </div>
         </section>
       </main>
 

@@ -37,15 +37,88 @@ function formatDate(dateValue?: string | null) {
   return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString();
 }
 
+function stripHtmlAndEntities(text?: string | null): string {
+  if (!text) return "";
+  let cleaned = text.replace(/<[^>]*>/g, "");
+  cleaned = cleaned
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+  return cleaned.trim();
+}
+
+function cleanOrgName(org?: string | null): string | null {
+  if (!org) return null;
+  const trimmed = org.trim();
+  if (
+    !trimmed ||
+    trimmed === "—" ||
+    trimmed === "--" ||
+    trimmed === "-" ||
+    trimmed === "string" ||
+    trimmed.toLowerCase() === "n/a" ||
+    trimmed.toLowerCase() === "none" ||
+    trimmed.toLowerCase() === "null" ||
+    trimmed.toLowerCase() === "undefined"
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
+function formatSubtitle(subtitle?: string | null, org?: string | null, docType?: string | null): string {
+  const validOrg = cleanOrgName(org);
+
+  if (subtitle) {
+    let cleaned = subtitle
+      .replace(/—\s*—/g, "—")
+      .replace(/\s*—\s*$/, "")
+      .replace(/^\s*—\s*/, "")
+      .trim();
+
+    cleaned = cleaned.replace(/\s*—\s*$/, "").trim();
+
+    if (cleaned && cleaned !== "—" && cleaned !== "--") {
+      if (validOrg && !cleaned.includes(validOrg)) {
+        return `${cleaned} • ${validOrg}`;
+      }
+      return cleaned;
+    }
+  }
+
+  const typePart = docType || "Document";
+  return validOrg ? `${typePart} • ${validOrg}` : typePart;
+}
+
 // Simple text highlighter utility
 function HighlightedText({ text, query }: { text: string; query: string }) {
-  if (!query || !query.trim()) return <span>{text}</span>;
-  const parts = text.split(new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi'));
+  if (!text) return null;
+  const cleanText = stripHtmlAndEntities(text);
+  if (!query || !query.trim()) return <span>{cleanText}</span>;
+
+  const terms = query
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length > 0)
+    .map((t) => t.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"));
+
+  if (terms.length === 0) return <span>{cleanText}</span>;
+
+  const regex = new RegExp(`(${terms.join("|")})`, "gi");
+  const parts = cleanText.split(regex);
+  const lowerTerms = new Set(terms.map((t) => t.toLowerCase()));
+
   return (
     <span>
       {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} className="bg-amber-500/25 text-amber-200 px-0.5 rounded font-medium">
+        lowerTerms.has(part.toLowerCase()) ? (
+          <mark
+            key={i}
+            className="bg-amber-200/90 text-amber-950 dark:bg-amber-500/35 dark:text-amber-100 px-1 py-0.5 rounded font-semibold border border-amber-300/60 dark:border-amber-500/30 shadow-xs"
+          >
             {part}
           </mark>
         ) : (
@@ -113,12 +186,10 @@ export default function PremiumSearchPage() {
 
   const searchResults = data?.results ?? [];
   const meta = data?.meta ?? { total: 0, counts: { policy_repository: 0, research_outputs: 0 } };
-  const policyResultCount = searchResults.filter((item) => item.source === "policy_repository").length;
-  const researchResultCount = searchResults.filter((item) => item.source === "research_output").length;
-  const policyCount = meta.counts?.policy_repository > 0 ? meta.counts.policy_repository : policyResultCount;
-  const researchCount = meta.counts?.research_outputs > 0 ? meta.counts.research_outputs : researchResultCount;
+  const policyCount = meta.counts?.policy_repository ?? searchResults.filter((item) => item.source === "policy_repository").length;
+  const researchCount = meta.counts?.research_outputs ?? searchResults.filter((item) => item.source === "research_output").length;
   const summaryCounts = {
-    all: policyCount + researchCount,
+    all: meta.total > 0 ? meta.total : policyCount + researchCount,
     policy_repository: policyCount,
     research_output: researchCount,
   };
@@ -171,7 +242,7 @@ export default function PremiumSearchPage() {
       </div>
 
       <main className="grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-24 space-y-10 relative">
-        
+
         {/* Header Title Section */}
         <section className="text-center max-w-3xl mx-auto space-y-4">
           <motion.div
@@ -179,10 +250,7 @@ export default function PremiumSearchPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-full px-4 py-1 text-xs font-semibold tracking-wider uppercase mb-3 flex items-center gap-1.5 w-fit mx-auto shadow-sm">
-              <Sparkles className="w-3.5 h-3.5" />
-              Unified Intelligence Search
-            </Badge>
+
           </motion.div>
           <motion.h1
             className="text-4xl sm:text-5xl font-black text-foreground tracking-tight leading-none"
@@ -190,7 +258,7 @@ export default function PremiumSearchPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            PSR <span className="bg-gradient-to-r from-primary via-emerald-500 to-cyan-500 bg-clip-text text-transparent bg-300% animate-gradient">Unified Intelligence</span> Search
+            RPDMS <span className="bg-gradient-to-r from-primary via-emerald-500 to-cyan-500 bg-clip-text text-transparent bg-300% animate-gradient">Unified Intelligence</span> Search
           </motion.h1>
           <motion.p
             className="text-sm sm:text-base text-muted-foreground leading-relaxed"
@@ -238,9 +306,8 @@ export default function PremiumSearchPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`rounded-2xl border-border flex items-center gap-1.5 h-12 text-xs font-semibold px-4 transition ${
-                    showFilters || queryYear || queryOrg ? "bg-primary/10 text-primary border-primary/20" : "bg-background text-muted-foreground border-border"
-                  }`}
+                  className={`rounded-2xl border-border flex items-center gap-1.5 h-12 text-xs font-semibold px-4 transition ${showFilters || queryYear || queryOrg ? "bg-primary/10 text-primary border-primary/20" : "bg-background text-muted-foreground border-border"
+                    }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                   Filters
@@ -252,47 +319,25 @@ export default function PremiumSearchPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-bold text-muted-foreground mr-1">Mode:</span>
                   {[
-                    { mode: "hybrid", label: "✨ Hybrid", desc: "Keyword + Semantic" },
-                    { mode: "semantic", label: "🧠 Pure Semantic", desc: "Search by Meaning" },
-                    { mode: "keyword", label: "🔤 Keyword", desc: "Exact Terms" },
+                    { mode: "hybrid", label: "Hybrid", desc: "Keyword + Semantic" },
+                    { mode: "semantic", label: "Semantic", desc: "Search by Meaning" },
+                    { mode: "keyword", label: "Keyword", desc: "Exact Terms" },
                   ].map((m) => (
                     <button
                       key={m.mode}
                       type="button"
                       onClick={() => updateUrlParams({ mode: m.mode })}
-                      className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all border ${
-                        queryMode === m.mode
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "bg-background/80 hover:bg-muted text-muted-foreground border-border/70"
-                      }`}
+                      className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all border ${queryMode === m.mode
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-background/80 hover:bg-muted text-muted-foreground border-border/70"
+                        }`}
                     >
                       {m.label}
                     </button>
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground pt-1">
-                  <span className="font-semibold text-foreground flex items-center gap-1 text-[11px]">
-                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" /> Try asking:
-                  </span>
-                  {[
-                    "Strategies for reducing maternal mortality in rural health posts",
-                    "Impact of financial incentives on healthcare worker retention",
-                    "National guidelines for emergency medical transport",
-                  ].map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setSearchInput(prompt);
-                        updateUrlParams({ search: prompt, mode: "semantic" });
-                      }}
-                      className="rounded-full bg-slate-100 dark:bg-slate-800/80 hover:bg-primary/10 hover:text-primary px-3 py-0.5 text-[11px] font-medium transition border border-border/60 truncate max-w-xs"
-                    >
-                      💡 {prompt}
-                    </button>
-                  ))}
-                </div>
+
               </div>
 
               {/* Faceted Filters Drawer */}
@@ -305,25 +350,6 @@ export default function PremiumSearchPage() {
                     className="overflow-hidden"
                   >
                     <div className="pt-5 border-t border-border mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                      {/* Search Mode */}
-                      {/* <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Search Paradigm</label>
-                        <div className="grid grid-cols-2 gap-1 bg-background/70 p-1 rounded-xl border border-border">
-                          {["hybrid", "semantic", "keyword", "fuzzy"].map((md) => (
-                            <button
-                              key={md}
-                              type="button"
-                              onClick={() => updateUrlParams({ mode: md })}
-                              className={`rounded-lg py-1 px-2 text-[10px] font-bold capitalize transition-all ${
-                                queryMode === md ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                              }`}
-                            >
-                              {md}
-                            </button>
-                          ))}
-                        </div>
-                      </div> */}
-
                       {/* Sort Order */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ordering</label>
@@ -369,14 +395,12 @@ export default function PremiumSearchPage() {
                         <button
                           type="button"
                           onClick={() => setExplainEnabled(!explainEnabled)}
-                          className={`w-9 h-5 rounded-full flex items-center p-0.5 transition-all ${
-                            explainEnabled ? "bg-emerald-500" : "bg-muted"
-                          }`}
+                          className={`w-9 h-5 rounded-full flex items-center p-0.5 transition-all ${explainEnabled ? "bg-emerald-500" : "bg-muted"
+                            }`}
                         >
                           <div
-                            className={`bg-white w-4 h-4 rounded-full shadow transition-transform ${
-                              explainEnabled ? "translate-x-4" : "translate-x-0"
-                            }`}
+                            className={`bg-white w-4 h-4 rounded-full shadow transition-transform ${explainEnabled ? "translate-x-4" : "translate-x-0"
+                              }`}
                           />
                         </button>
                         <span className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-1">
@@ -403,18 +427,18 @@ export default function PremiumSearchPage() {
 
         {/* Source Categories Slider Tabs */}
         <section className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 max-w-4xl mx-auto border-b border-border pb-2">
-          <div className="flex items-center gap-2 bg-card/70 p-1 rounded-2xl border border-border backdrop-blur">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none w-full sm:w-auto">
             {[
-              { id: "all", label: "All Sources", count: summaryCounts.all },
-              { id: "policy_repository", label: "Policies", count: summaryCounts.policy_repository },
-              { id: "research_output", label: "Research Outputs", count: summaryCounts.research_output },
+              { id: "all", label: `All Results (${summaryCounts.all})` },
+              { id: "policy_repository", label: `Policy Repository (${summaryCounts.policy_repository})` },
+              { id: "research_output", label: `Research Outputs (${summaryCounts.research_output})` },
             ].map((src) => (
               <button
                 key={src.id}
+                type="button"
                 onClick={() => updateUrlParams({ source: src.id })}
-                className={`rounded-xl py-2 px-5 text-xs font-bold transition flex items-center gap-2 ${
-                  querySource === src.id ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`rounded-xl py-2 px-5 text-xs font-bold transition flex items-center gap-2 ${querySource === src.id ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10" : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 {src.label}
               </button>
@@ -423,8 +447,7 @@ export default function PremiumSearchPage() {
 
           {querySearch && (
             <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 bg-card/60 border border-border px-4 py-2 rounded-xl">
-              <TrendingUp className="w-3.5 h-3.5 text-primary" />
-              Routed: <span className="font-bold text-primary capitalize">{queryMode === "hybrid" ? "Hybrid Model" : queryMode} Mode</span>
+              <span className="font-bold text-primary capitalize">{queryMode === "hybrid" ? "Hybrid Model" : queryMode} Mode</span>
             </div>
           )}
         </section>
@@ -449,7 +472,9 @@ export default function PremiumSearchPage() {
               <AnimatePresence>
                 {searchResults.map((item) => {
                   const isPolicy = item.source === "policy_repository";
-                  
+                  const orgName = cleanOrgName(item.metadata?.organization);
+                  const displaySubtitle = formatSubtitle(item.subtitle, orgName, item.document_type);
+
                   return (
                     <motion.div
                       key={`${item.source}-${item.id}`}
@@ -458,39 +483,39 @@ export default function PremiumSearchPage() {
                       exit={{ opacity: 0, scale: 0.98 }}
                       transition={{ duration: 0.3 }}
                     >
-                        <Card className="border border-border bg-card/70 hover:bg-card backdrop-blur rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300 flex flex-col shadow-sm">
+                      <Card className="border border-border bg-card/70 hover:bg-card backdrop-blur rounded-2xl overflow-hidden hover:border-primary/20 transition-all duration-300 flex flex-col shadow-sm">
                         <CardContent className="p-6 space-y-4">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge className={`rounded-md px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                  isPolicy ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20" : "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20"
-                              }`}>
+                              <Badge className={`rounded-md px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${isPolicy ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20" : "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20"
+                                }`}>
                                 {isPolicy ? "Policy" : "Research"}
                               </Badge>
-                                <Badge className="bg-muted text-muted-foreground border border-border rounded-md px-2 py-0.5 text-[9px] font-bold">
+                              <Badge className="bg-muted text-muted-foreground border border-border rounded-md px-2 py-0.5 text-[9px] font-bold">
                                 {item.document_type}
                               </Badge>
-                                <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 font-mono">
-                                <Calendar className="w-3.5 h-3.5" />
+                              <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 font-mono">
+                                <Calendar className="w-3.5 h-3.5 text-primary/70" />
                                 {formatDate(item.date)}
                               </span>
                             </div>
+
                           </div>
 
                           <div className="space-y-1">
                             <h3
                               onClick={() => setSelectedDoc(item)}
-                                className="text-lg font-bold text-foreground hover:text-primary transition leading-snug cursor-pointer"
+                              className="text-lg font-bold text-foreground hover:text-primary transition leading-snug cursor-pointer"
                             >
                               <HighlightedText text={item.title} query={clean_query_terms(querySearch)} />
                             </h3>
-                              <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-semibold">
-                                <Building className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span className="line-clamp-1">{item.subtitle}</span>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-semibold">
+                              <Building className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span className="line-clamp-1">{displaySubtitle}</span>
                             </div>
                           </div>
 
-                            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed font-medium">
+                          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed font-medium">
                             <HighlightedText text={item.snippet} query={clean_query_terms(querySearch)} />
                           </p>
 
@@ -499,19 +524,19 @@ export default function PremiumSearchPage() {
                             <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 space-y-1">
                               <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                                 <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-                                AI Matched Vector Context
+                                RPDMS AI Context
                               </p>
                               <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-mono italic">
-                                "{item.matched_chunk_text}"
+                                <HighlightedText text={item.matched_chunk_text} query={clean_query_terms(querySearch)} />
                               </p>
                             </div>
                           )}
 
-                            <div className="pt-3 border-t border-border flex items-center justify-between gap-4">
+                          <div className="pt-3 border-t border-border flex items-center justify-between gap-4">
                             <Button
                               variant="ghost"
                               onClick={() => setSelectedDoc(item)}
-                                className="text-[11px] font-bold text-muted-foreground hover:text-foreground uppercase gap-1 px-3 h-8 hover:bg-muted"
+                              className="text-[11px] font-bold text-muted-foreground hover:text-foreground uppercase gap-1 px-3 h-8 hover:bg-muted"
                             >
                               <Maximize2 className="w-3.5 h-3.5" />
                               View Summary
@@ -522,15 +547,21 @@ export default function PremiumSearchPage() {
                               className="rounded-xl font-bold text-xs uppercase px-4 h-9 gap-1.5 shadow"
                               disabled={downloadingId === `${item.source}-${item.id}`}
                               onClick={() => {
+                                const resolvedUrl = item.file_url && item.file_url !== "#" ? item.file_url : item.url;
+                                const isExternal = resolvedUrl.startsWith("http://") || resolvedUrl.startsWith("https://");
+                                if (isExternal) {
+                                  window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+                                  return;
+                                }
                                 setDownloadingId(`${item.source}-${item.id}`);
-                                trackDownload(item).finally(() => {
-                                  window.open(resolveFileUrl(item.file_url) ?? "#", "_blank", "noreferrer");
+                                void trackDownload(item).finally(() => {
                                   setDownloadingId(null);
+                                  downloadRemoteFile(resolvedUrl, extractFileName(resolvedUrl));
                                 });
                               }}
                             >
                               <Download className="w-3.5 h-3.5" />
-                              {downloadingId === `${item.source}-${item.id}` ? "Opening..." : "File Field"}
+                              {downloadingId === `${item.source}-${item.id}` ? "Downloading..." : "Download File"}
                             </Button>
                           </div>
                         </CardContent>
@@ -541,16 +572,18 @@ export default function PremiumSearchPage() {
               </AnimatePresence>
             </div>
           ) : (
-            <div className="py-24 text-center border border-dashed border-border rounded-3xl bg-card/40">
-              <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-60" />
-              <h3 className="text-lg font-bold text-foreground">No Intelligence Matches</h3>
-              <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">
-                We couldn't retrieve documents for "{querySearch}". Try typing a descriptive sentence, clear your year filters, or choose another mode.
+            <div className="py-20 text-center bg-card/40 border border-dashed border-border rounded-3xl space-y-3">
+              <Search className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+              <h3 className="text-base font-bold text-foreground">No matching documents found</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Try searching with broader terms, clearing active filters, or switching search modes above.
               </p>
               <Button
+                type="button"
                 variant="outline"
+                size="sm"
                 onClick={clearAllFilters}
-                className="mt-6 border-border text-xs font-bold"
+                className="mt-2 text-xs font-bold rounded-xl"
               >
                 Clear All Filters
               </Button>
@@ -564,7 +597,10 @@ export default function PremiumSearchPage() {
         {selectedDoc && (
           <SearchDocumentFullViewer
             document={selectedDoc}
-            onClose={() => setSelectedDoc(null)}
+            onClose={() => {
+              setSelectedDoc(null);
+              updateUrlParams({ selected: null, selected_source: null });
+            }}
           />
         )}
       </AnimatePresence>

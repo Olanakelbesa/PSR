@@ -5,7 +5,17 @@ export function resolveFileUrl(filePath?: string | null): string | null {
   if (/^https?:\/\//i.test(filePath)) {
     try {
       const url = new URL(filePath);
-      filePath = `${url.pathname}${url.search}`;
+      // Only convert to relative path if it points to localhost or media/bff proxy endpoint
+      if (
+        url.hostname === "localhost" ||
+        url.hostname === "127.0.0.1" ||
+        url.pathname.startsWith("/media/") ||
+        url.pathname.startsWith("/bff/")
+      ) {
+        filePath = `${url.pathname}${url.search}`;
+      } else {
+        return filePath;
+      }
     } catch {
       return filePath;
     }

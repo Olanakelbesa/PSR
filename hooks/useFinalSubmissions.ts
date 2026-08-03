@@ -121,7 +121,11 @@ export function useRecordFinalSubmissionDownload() {
             ...old,
             data: old.data.map((item: any) =>
               item.id === variables.id
-                ? { ...item, download_count: result.downloadCount }
+                ? {
+                    ...item,
+                    download_count: result.downloadCount,
+                    downloadCount: result.downloadCount,
+                  }
                 : item,
             ),
           };
@@ -133,7 +137,11 @@ export function useRecordFinalSubmissionDownload() {
         finalSubmissionKeys.detail(variables.id),
         (old: any) => {
           if (!old) return old;
-          return { ...old, download_count: result.downloadCount };
+          return {
+            ...old,
+            download_count: result.downloadCount,
+            downloadCount: result.downloadCount,
+          };
         },
       );
 

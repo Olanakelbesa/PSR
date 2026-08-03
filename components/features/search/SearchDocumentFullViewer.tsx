@@ -36,11 +36,33 @@ import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
 import { PdfViewer } from "@/components/shared/pdf-viewer";
 import { WordViewer } from "@/components/shared/word-viewer";
 import { getConceptNoteAttachmentKind } from "@/lib/utils/concept-note-attachments";
+import { useQueryClient } from "@tanstack/react-query";
+import { tokenStorage } from "@/api/client";
 import type { SearchResultItem } from "@/lib/queries/search";
+import DOMPurify from "dompurify";
 
 interface SearchDocumentFullViewerProps {
   document: SearchResultItem | null;
   onClose: () => void;
+}
+
+function cleanOrgName(org?: string | null): string | null {
+  if (!org) return null;
+  const trimmed = org.trim();
+  if (
+    !trimmed ||
+    trimmed === "—" ||
+    trimmed === "--" ||
+    trimmed === "-" ||
+    trimmed === "string" ||
+    trimmed.toLowerCase() === "n/a" ||
+    trimmed.toLowerCase() === "none" ||
+    trimmed.toLowerCase() === "null" ||
+    trimmed.toLowerCase() === "undefined"
+  ) {
+    return null;
+  }
+  return trimmed;
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -55,10 +77,11 @@ function isHtml(text: string) {
 /* ──────────────────────────────────────────────────────────────────────── */
 function RichText({ text, className }: { text: string; className?: string }) {
   if (isHtml(text)) {
+    const cleanHtml = typeof window !== "undefined" ? DOMPurify.sanitize(text) : text;
     return (
       <div
         className={`prose prose-sm sm:prose-base dark:prose-invert max-w-none leading-relaxed ${className ?? ""}`}
-        dangerouslySetInnerHTML={{ __html: text }}
+        dangerouslySetInnerHTML={{ __html: cleanHtml }}
       />
     );
   }
@@ -81,19 +104,55 @@ function checkIsLink(item: { url: string; type?: string }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* EmbeddedViewer: inline document previewer (PDF/Word/Fallback)            */
+/* EmbeddedViewer: inline document previewer (PDF/Word/Link/Fallback)       */
 /* ──────────────────────────────────────────────────────────────────────── */
-function EmbeddedViewer({ url, title }: { url: string; title: string }) {
+function EmbeddedViewer({ url, title, type }: { url: string; title: string; type?: string }) {
   if (!url) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center bg-card">
         <FileText className="mb-3 h-10 w-10 text-muted-foreground/40" />
-        <p className="font-medium text-muted-foreground">No document attached</p>
+        <p className="font-medium text-muted-foreground">No file attached</p>
       </div>
     );
   }
 
-  const resolvedUrl = resolveFileUrl(url) || url;
+  const isLink = type === "link" || checkIsLink({ url, type });
+  const targetUrl = isLink ? (url.startsWith("http") ? url : resolveFileUrl(url) || url) : resolveFileUrl(url) || url;
+
+  if (isLink) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-primary/20 bg-card p-12 text-center shadow-xs">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20">
+          <Globe className="h-8 w-8 text-primary" />
+        </div>
+        <div className="max-w-lg text-center space-y-1.5">
+          <Badge variant="secondary" className="mb-1 uppercase text-[10px] font-extrabold tracking-wider bg-primary/10 text-primary border-primary/20">
+            External Publication & Deliverable Link
+          </Badge>
+          <p className="font-extrabold text-lg text-foreground">{title}</p>
+          <a
+            href={targetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-mono text-primary underline underline-offset-4 hover:text-primary/80 break-all block mt-1"
+          >
+            {targetUrl}
+          </a>
+        </div>
+        <Button
+          type="button"
+          size="default"
+          className="rounded-xl font-bold gap-2 px-6 shadow mt-2"
+          onClick={() => window.open(targetUrl, "_blank", "noopener,noreferrer")}
+        >
+          <ExternalLink className="h-4 w-4" /> Open External Link
+        </Button>
+      </div>
+    );
+  }
+
+  const resolvedUrl = targetUrl;
+
   const kind = getConceptNoteAttachmentKind(resolvedUrl);
 
   if (kind === "pdf") {
@@ -157,8 +216,8 @@ function FileCard({
   fileItem: { label: string; url: string; type: string; grade?: string };
   onPreview: (url: string, title: string) => void;
 }) {
-  const resolvedUrl = resolveFileUrl(fileItem.url);
-  const isLink = fileItem.type === "link";
+  const isLink = fileItem.type === "link" || checkIsLink(fileItem);
+  const targetUrl = isLink && fileItem.url.startsWith("http") ? fileItem.url : resolveFileUrl(fileItem.url) || fileItem.url;
 
   return (
     <motion.div
@@ -194,19 +253,19 @@ function FileCard({
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-1 border-t border-border/40">
-        {!isLink && resolvedUrl && (
+        {!isLink && targetUrl && (
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-8 text-xs font-semibold gap-1.5 rounded-xl flex-1 hover:bg-primary/5 hover:border-primary/40 transition-colors"
-            onClick={() => onPreview(resolvedUrl, fileItem.label)}
+            onClick={() => onPreview(targetUrl, fileItem.label)}
           >
             <Eye className="h-3.5 w-3.5" />
             Preview
           </Button>
         )}
-        {resolvedUrl && (
+        {targetUrl && (
           <Button
             type="button"
             variant="secondary"
@@ -214,9 +273,9 @@ function FileCard({
             className="h-8 text-xs font-semibold gap-1.5 rounded-xl flex-1 transition-colors"
             onClick={() => {
               if (isLink) {
-                window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+                window.open(targetUrl, "_blank", "noopener,noreferrer");
               } else {
-                downloadRemoteFile(resolvedUrl, extractFileName(resolvedUrl));
+                downloadRemoteFile(targetUrl, extractFileName(targetUrl));
               }
             }}
           >
@@ -253,6 +312,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
   const [previewTitle, setPreviewTitle] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [activeDocKey, setActiveDocKey] = useState<number>(0);
+  const queryClient = useQueryClient();
 
   // Lock body scroll to prevent double scrollbars when detail viewer is active
   useEffect(() => {
@@ -270,44 +330,44 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
   const meta = document.metadata || {};
   const abstractText = meta.abstract || (isPolicy ? meta.executive_summary : "") || "";
   const execSummaryText = meta.executive_summary || "";
-  const organization = meta.organization || document.subtitle || "";
+  const organization = cleanOrgName(meta.organization) || cleanOrgName(document.subtitle) || null;
   const doi = meta.doi || "";
   const ndmcRef = meta.ndmc_submission_reference || "";
 
-  /* ── Files ── */
+  /* ── Files & Deliverables (Populated dynamically from backend response) ── */
+  const rawExtLink = meta.publication_link || meta.publication_url || meta.external_url || meta.external_link || meta.website;
+  const extPubLink = rawExtLink && rawExtLink !== "#" ? rawExtLink : null;
+
   const rawFiles: Array<{ label: string; url: string; type: string; grade?: string }> =
     meta.public_files && Array.isArray(meta.public_files) && meta.public_files.length > 0
-      ? meta.public_files
-      : document.file_url && document.file_url !== "#"
-        ? [{ label: "Full Document / Primary File", url: document.file_url, type: "pdf" }]
-        : [];
+      ? meta.public_files.map((f: any) => ({
+        label: f.label || (f.type === "link" ? "External Publication Link" : "Document File"),
+        url: f.url,
+        type: f.type || (checkIsLink(f) ? "link" : "pdf"),
+        grade: f.grade,
+      }))
+      : [];
 
-  /* ── Policy brief / supplementary links ── */
-  if (meta.policy_brief_url && meta.policy_brief_url !== "#") {
-    if (!rawFiles.some((f) => f.url === meta.policy_brief_url)) {
+  // Fallback ONLY if backend meta.public_files is empty
+  if (rawFiles.length === 0) {
+    if (document.file_url && document.file_url !== "#") {
+      rawFiles.push({ label: `${document.document_type || "Primary"} Document`, url: document.file_url, type: "pdf" });
+    }
+    if (meta.file_url && meta.file_url !== "#" && !rawFiles.some((f) => f.url === meta.file_url)) {
+      rawFiles.push({ label: "Proposal Document File", url: meta.file_url, type: "pdf" });
+    }
+    if (meta.policy_brief_url && meta.policy_brief_url !== "#" && !rawFiles.some((f) => f.url === meta.policy_brief_url)) {
       rawFiles.push({ label: "Policy Brief", url: meta.policy_brief_url, type: "pdf" });
     }
-  }
-  if (meta.supplementary_url && meta.supplementary_url !== "#") {
-    if (!rawFiles.some((f) => f.url === meta.supplementary_url)) {
+    if (meta.supplementary_url && meta.supplementary_url !== "#" && !rawFiles.some((f) => f.url === meta.supplementary_url)) {
       rawFiles.push({ label: "Supplementary Document", url: meta.supplementary_url, type: "pdf" });
     }
+    if (rawExtLink && rawExtLink !== "#" && !rawFiles.some((f) => f.url === rawExtLink)) {
+      rawFiles.push({ label: "External Publication Link", url: rawExtLink, type: "link" });
+    }
   }
 
-  // Filter out any external publication link entries from publicFiles so only viewable document files remain
-  const publicFiles = rawFiles.filter((f) => {
-    if (!f.url || f.url === "#") return false;
-    if (f.type === "link") return false;
-    if (f.label?.toLowerCase().includes("external publication")) return false;
-    const resolved = resolveFileUrl(f.url) || f.url || "";
-    if (/^https?:\/\//i.test(resolved) && !resolved.toLowerCase().includes(".pdf") && !resolved.toLowerCase().includes(".docx") && !resolved.toLowerCase().includes("/bff/media/")) {
-      return false;
-    }
-    return true;
-  });
-
-  const rawExtLink = meta.publication_link || meta.publication_url || meta.external_url || meta.website;
-  const extPubLink = rawExtLink && rawExtLink !== "#" ? rawExtLink : null;
+  const publicFiles = rawFiles.filter((f) => Boolean(f.url && f.url !== "#"));
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "N/A";
@@ -323,7 +383,8 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
   };
 
   const handleCopyCitation = () => {
-    const citation = `${document.title}. ${organization}. Published: ${formatDate(document.date)}. DOI: ${doi || "N/A"}.`;
+    const orgPart = organization ? `${organization}. ` : "";
+    const citation = `${document.title}. ${orgPart}Published: ${formatDate(document.date)}.${doi ? ` DOI: ${doi}.` : ""}`;
     void navigator.clipboard.writeText(citation);
     setCopied(true);
     toast.success("Citation copied to clipboard!");
@@ -337,9 +398,10 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
   };
 
   /* ── Tab list ── */
+  const dynamicFilesTabLabel = meta.files_tab_label || (isPolicy ? "Policy Documents & Drafts" : "Deliverables, Files & Links");
   const tabs = [
     { value: "overview", label: "Overview", icon: BookOpen },
-    { value: "files", label: `Uploaded Files (${publicFiles.length})`, icon: Paperclip },
+    { value: "files", label: `${dynamicFilesTabLabel} (${publicFiles.length})`, icon: Paperclip },
   ];
 
   return (
@@ -409,9 +471,23 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
             <Button
               type="button"
               size="sm"
-              onClick={() => {
-                const resolved = resolveFileUrl(document.file_url);
-                if (resolved) downloadRemoteFile(resolved, extractFileName(resolved));
+              onClick={async () => {
+                try {
+                  const token = tokenStorage.get();
+                  const headers: HeadersInit = { "Content-Type": "application/json", accept: "application/json" };
+                  if (token) headers.Authorization = `Bearer ${token}`;
+                  const url = document.source === "policy_repository"
+                    ? `/bff/v1/policy-repository/${document.id}/download/`
+                    : `/bff/v1/final-submissions/${document.id}/download/`;
+                  await fetch(url, { method: "POST", headers });
+                  queryClient.invalidateQueries({ queryKey: ["final-submissions"] });
+                  queryClient.invalidateQueries({ queryKey: ["public-overview"] });
+                } catch {
+                  // Best effort
+                } finally {
+                  const resolved = resolveFileUrl(document.file_url);
+                  if (resolved) downloadRemoteFile(resolved, extractFileName(resolved));
+                }
               }}
               className="rounded-xl text-xs font-bold gap-1.5 h-8 shadow-sm"
             >
@@ -492,7 +568,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                 >
                   <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-2">
                     <Sparkles className="h-3.5 w-3.5" />
-                    AI-Matched Context Passage
+                    RPDMS AI Context
                   </p>
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 font-mono leading-relaxed italic line-clamp-3">
                     "{document.matched_chunk_text}"
@@ -530,8 +606,9 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                   </TabsList>
                 </div>
 
-                {/* ── Tab: Overview (Abstract + Executive Summary on ONE Page) ── */}
+                {/* ── Tab: Overview (Abstract + Executive Summary + Uploaded Files) ── */}
                 <TabsContent value="overview" className="mt-0 space-y-6">
+
                   {/* Abstract Card */}
                   <div className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-xs">
                     <div className="flex items-center gap-2.5 border-b border-border/60 bg-muted/30 px-5 py-3.5">
@@ -586,6 +663,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                             {publicFiles.map((fileItem, idx) => {
                               const isActive = idx === activeDocKey;
                               const resolved = resolveFileUrl(fileItem.url) || fileItem.url || "";
+                              const isItemLink = fileItem.type === "link" || checkIsLink(fileItem);
                               const kind = getConceptNoteAttachmentKind(resolved);
                               return (
                                 <Button
@@ -596,13 +674,13 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                                   className="h-8 text-xs font-semibold rounded-lg gap-2"
                                   onClick={() => setActiveDocKey(idx)}
                                 >
-                                  <FileText className="h-3.5 w-3.5" />
+                                  {isItemLink ? <Globe className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
                                   {fileItem.label}
                                   <Badge
                                     variant={isActive ? "secondary" : "outline"}
                                     className="text-[9px] uppercase px-1.5 py-0 font-bold"
                                   >
-                                    {kind.toUpperCase()}
+                                    {isItemLink ? "LINK" : kind.toUpperCase()}
                                   </Badge>
                                 </Button>
                               );
@@ -616,6 +694,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                         <EmbeddedViewer
                           url={publicFiles[activeDocKey].url}
                           title={publicFiles[activeDocKey].label}
+                          type={publicFiles[activeDocKey].type}
                         />
                       ) : (
                         <div className="p-12 text-center border-2 border-dashed rounded-2xl bg-muted/20">
@@ -699,13 +778,17 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                     <h3 className="text-xs font-black uppercase tracking-wider text-foreground">Record Info</h3>
                   </div>
                   <div className="px-4 pb-2 pt-1">
+                    {organization && <MetaRow label="Organization" value={organization} />}
                     <MetaRow label="Source Index" value={document.source?.replace("_", " ")} />
                     <MetaRow label="Access Level" value={document.access_level} accent />
                     <MetaRow label="Document Type" value={document.document_type} />
                     <MetaRow label="Published" value={formatDate(document.date)} />
+                    {meta.serial_number && <MetaRow label="Serial No." value={meta.serial_number} />}
+                    {meta.version_code && <MetaRow label="Version Code" value={meta.version_code} />}
+                    {meta.reference_number && <MetaRow label="Ref Number" value={meta.reference_number} />}
+                    {meta.budget_requested && <MetaRow label="Budget Requested" value={`ETB ${meta.budget_requested}`} />}
                     {doi && <MetaRow label="DOI" value={doi} />}
                     {ndmcRef && <MetaRow label="NDMC Ref" value={ndmcRef} />}
-                    {meta.status && <MetaRow label="Status" value={meta.status} />}
                   </div>
                 </div>
 
@@ -717,7 +800,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                   </div>
                   <div className="p-4">
                     <p className="text-[11px] text-muted-foreground leading-relaxed font-mono border border-border/50 rounded-xl bg-muted/30 p-3 italic">
-                      {document.title}. {organization}. {formatDate(document.date)}.{doi ? ` DOI: ${doi}.` : ""}
+                      {document.title}. {organization ? `${organization}. ` : ""}Published: {formatDate(document.date)}.{doi ? ` DOI: ${doi}.` : ""}
                     </p>
                     <Button
                       type="button"

@@ -292,11 +292,14 @@ export default function ResearchRepositoryDetailPage() {
       try {
         let fileUrl = filePath;
 
-        if (id && ["full_report", "policy_brief", "supplementary_document"].includes(fileType)) {
+        if (id) {
           try {
+            const validFileType = ["full_report", "policy_brief", "supplementary_document", "terminal_report_attachment"].includes(fileType)
+              ? (fileType as FinalSubmissionDownloadFileType)
+              : undefined;
             const result = await recordDownload.mutateAsync({
               id: Number(id),
-              fileType: fileType as FinalSubmissionDownloadFileType,
+              fileType: validFileType,
             });
             fileUrl = result.fileUrl || fileUrl;
           } catch {

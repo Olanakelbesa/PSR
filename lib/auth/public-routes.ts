@@ -18,6 +18,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/calls",
   "/external-grant",
   "/contact",
+  "/search",
 ];
 
 export function isPublicPath(pathname: string): boolean {
