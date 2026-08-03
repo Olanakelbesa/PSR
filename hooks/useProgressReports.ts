@@ -263,10 +263,10 @@ export function useReadyForTracking(params: Record<string, unknown> = {}) {
   });
 }
 
-export function useGradedForRepository() {
+export function useGradedForRepository(params: Record<string, unknown> = {}) {
   return useQuery({
-    queryKey: ["graded-for-repository"],
-    queryFn: () => terminalReportsService.getGradedForRepository(),
+    queryKey: ["graded-for-repository", params],
+    queryFn: () => terminalReportsService.getGradedForRepository(params),
   });
 }
 

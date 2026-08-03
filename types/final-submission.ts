@@ -48,6 +48,19 @@ export interface FinalSubmissionPIDetail {
   photo_url?: string | null;
 }
 
+export interface FinalSubmissionExternalResearchDetail {
+  id?: number;
+  title?: string | null;
+  authors?: string | null;
+  institution?: string | null;
+  department?: string | null;
+  year?: number | null;
+  graded_evidence?: string | null;
+  doi?: string | null;
+  external_link?: string | null;
+  approval_status?: string | null;
+}
+
 export interface FinalSubmission {
   id: number;
   submitted_by_name?: string;
@@ -65,8 +78,10 @@ export interface FinalSubmission {
   submission_date?: string | null;
   status: FinalSubmissionStatus;
   version?: number;
-  fundedproposal: number;
+  fundedproposal?: number | null;
   fundedproposal_detail?: FinalSubmissionFundingProposalDetail | null;
+  external_research?: number | null;
+  external_research_detail?: FinalSubmissionExternalResearchDetail | null;
   output_type: number;
   output_type_detail?: FinalSubmissionOutputTypeDetail | null;
   data_center?: number | null;
@@ -103,15 +118,17 @@ export interface FinalSubmissionCreateInput {
   ndmc_submission_reference?: string;
   data_sharing_checklist_completed?: boolean;
   status?: FinalSubmissionStatus;
-  fundedproposal: number;
+  fundedproposal?: number | null;
+  external_research?: number | null;
   output_type: number;
   data_center?: number | null;
 }
 
 export type FinalSubmissionUpdateInput = Partial<
-  Omit<FinalSubmissionCreateInput, "fundedproposal">
+  Omit<FinalSubmissionCreateInput, "fundedproposal" | "external_research">
 > & {
-  fundedproposal?: number;
+  fundedproposal?: number | null;
+  external_research?: number | null;
 };
 
 const EDITABLE_FINAL_SUBMISSION_STATUSES: FinalSubmissionStatus[] = [

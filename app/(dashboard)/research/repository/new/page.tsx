@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,6 +173,7 @@ const initialForm = {
   ndmc_submission_reference: "",
   status: "draft" as FinalSubmissionStatus,
   fundedproposal: "",
+  external_research: "",
   output_type: "",
   data_center: "",
   is_published: true,
@@ -193,6 +195,7 @@ export default function NewRepositorySubmissionPage() {
     searchParams?.get("tracking_id") ||
     searchParams?.get("funded_proposal_id");
 
+  const [sourceType, setSourceType] = useState<"proposal" | "external_research">("proposal");
   const [form, setForm] = useState(initialForm);
   const [files, setFiles] = useState({
     full_report: null as File | null,
@@ -217,25 +220,35 @@ export default function NewRepositorySubmissionPage() {
     ordering: "name",
   });
 
-  const gradedProposals = gradedRepositoryQuery.data ?? [];
+  const gradedItems = gradedRepositoryQuery.data ?? [];
+  const gradedProposals = useMemo(
+    () => gradedItems.filter((it: any) => it.source_type === "proposal" || (!it.source_type && (it.proposal_id || it.proposalId))),
+    [gradedItems]
+  );
+  const approvedExternalResearches = useMemo(
+    () => gradedItems.filter((it: any) => it.source_type === "external_research" || it.external_research_id),
+    [gradedItems]
+  );
   const outputTypes = outputTypesQuery.data?.data ?? [];
   const dataCenters = dataCentersQuery.data?.data ?? [];
 
   const selectedProposal = useMemo(
     () => {
       if (isEditMode && existingSubmission) {
-        const detail = existingSubmission.fundedproposal_detail;
-        return {
-          ...detail,
-          pi: existingSubmission.pi,
-          total_award_amount: detail?.total_award_amount,
-          proposal_id: detail?.proposal_id,
-          project_tracking_id: detail?.proposal_id,
-          projectTrackingId: detail?.proposal_id,
-          title: detail?.title,
-          referenceNumber: detail?.reference_number,
-          reference_number: detail?.reference_number,
-        };
+        if (existingSubmission.fundedproposal_detail) {
+          const detail = existingSubmission.fundedproposal_detail;
+          return {
+            ...detail,
+            pi: existingSubmission.pi,
+            total_award_amount: detail?.total_award_amount,
+            proposal_id: detail?.proposal_id,
+            project_tracking_id: detail?.proposal_id,
+            projectTrackingId: detail?.proposal_id,
+            title: detail?.title,
+            referenceNumber: detail?.reference_number,
+            reference_number: detail?.reference_number,
+          };
+        }
       }
       return gradedProposals.find(
         (item: any) =>
@@ -247,6 +260,30 @@ export default function NewRepositorySubmissionPage() {
     [form.fundedproposal, gradedProposals, isEditMode, existingSubmission],
   );
 
+  const selectedExternalResearch = useMemo(
+    () => {
+      if (isEditMode && existingSubmission) {
+        if (existingSubmission.external_research_detail) {
+          const detail = existingSubmission.external_research_detail;
+          return {
+            ...detail,
+            pi: existingSubmission.pi,
+            title: detail.title,
+            authors: detail.authors,
+            institution: detail.institution,
+            year: detail.year,
+            graded_evidence: detail.graded_evidence,
+          };
+        }
+      }
+      return approvedExternalResearches.find(
+        (item: any) =>
+          String(item.external_research_id || item.id) === form.external_research,
+      );
+    },
+    [form.external_research, approvedExternalResearches, isEditMode, existingSubmission],
+  );
+
   function setFormField<K extends keyof typeof initialForm>(
     field: K,
     value: (typeof initialForm)[K],
@@ -254,8 +291,15 @@ export default function NewRepositorySubmissionPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  function handleSourceTypeChange(type: "proposal" | "external_research") {
+    setSourceType(type);
+    setForm((prev) => ({ ...prev, fundedproposal: "", external_research: "" }));
+    setPrefillData(null);
+    setPrefillItems([]);
+  }
+
   async function handleFundedProposalChange(proposalVal: string) {
-    setForm((prev) => ({ ...prev, fundedproposal: proposalVal }));
+    setForm((prev) => ({ ...prev, fundedproposal: proposalVal, external_research: "" }));
 
     if (!proposalVal || !/^\d+$/.test(proposalVal)) return;
 
@@ -316,6 +360,7 @@ export default function NewRepositorySubmissionPage() {
         setForm((prev) => ({
           ...prev,
           fundedproposal: proposalVal,
+          external_research: "",
           title: prefill.title || selected?.title || prev.title,
           abstract: abstractText || prev.abstract,
           executive_summary: abstractText || prev.executive_summary,
@@ -336,12 +381,92 @@ export default function NewRepositorySubmissionPage() {
         setForm((prev) => ({
           ...prev,
           fundedproposal: proposalVal,
+          external_research: "",
           title: selected.title || prev.title,
           data_center: prev.data_center || (dataCenters[0]?.id ? String(dataCenters[0].id) : ""),
         }));
       }
     } catch (error) {
       console.error("Failed to prefill submission data:", error);
+    } finally {
+      setIsPrefilling(false);
+    }
+  }
+
+  async function handleExternalResearchChange(extVal: string) {
+    setForm((prev) => ({ ...prev, external_research: extVal, fundedproposal: "" }));
+
+    if (!extVal || !/^\d+$/.test(extVal)) return;
+
+    setIsPrefilling(true);
+    try {
+      const selected = approvedExternalResearches.find(
+        (item: any) => String(item.external_research_id || item.id) === extVal,
+      );
+
+      const prefill = await finalSubmissionsService.getPrefillData({
+        external_research_id: extVal,
+      });
+
+      if (prefill) {
+        setPrefillData(prefill);
+        const pItems = prefill.items ?? [];
+        setPrefillItems(pItems);
+        const initialVis: Record<number | string, boolean> = {};
+        pItems.forEach((it: any, idx: number) => {
+          const isVis = (it.is_searchable ?? it.isSearchable) !== false;
+          initialVis[it.id ?? idx] = isVis;
+        });
+        setItemVisibility(initialVis);
+
+        const rawDataCenter =
+          prefill.dataCenter ??
+          prefill.data_center ??
+          prefill.data_center_id ??
+          (selected?.data_center_id ? String(selected.data_center_id) : "") ??
+          (dataCenters[0]?.id ? String(dataCenters[0].id) : "");
+
+        const pubLink =
+          prefill.publication_link ?? prefill.external_link ?? "";
+
+        const abstractText =
+          prefill.abstract ?? prefill.executive_summary ?? "";
+
+        const outputTypeVal =
+          prefill.output_type ?? prefill.outputType ?? "";
+
+        setForm((prev) => ({
+          ...prev,
+          external_research: extVal,
+          fundedproposal: "",
+          title: prefill.title || selected?.title || prev.title,
+          abstract: abstractText || prev.abstract,
+          executive_summary: prefill.executive_summary || abstractText || prev.executive_summary,
+          data_center: rawDataCenter
+            ? String(rawDataCenter)
+            : dataCenters[0]?.id
+              ? String(dataCenters[0].id)
+              : prev.data_center,
+          external_link: pubLink || prev.external_link,
+          doi: prefill.doi || prev.doi || "",
+          output_type: outputTypeVal ? String(outputTypeVal) : prev.output_type,
+        }));
+
+        toast.success("Details prefilled from Approved External Research!", {
+          description:
+            "Title, Data Center, narrative, deliverables, and links populated automatically.",
+        });
+      } else if (selected) {
+        setForm((prev) => ({
+          ...prev,
+          external_research: extVal,
+          fundedproposal: "",
+          title: selected.title || prev.title,
+          data_center: prev.data_center || (dataCenters[0]?.id ? String(dataCenters[0].id) : ""),
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to prefill external research data:", error);
     } finally {
       setIsPrefilling(false);
     }
@@ -372,6 +497,9 @@ export default function NewRepositorySubmissionPage() {
   useEffect(() => {
     if (!existingSubmission || !isEditMode) return;
 
+    const isExternal = !!existingSubmission.external_research;
+    setSourceType(isExternal ? "external_research" : "proposal");
+
     setForm({
       title: existingSubmission.title ?? "",
       abstract: existingSubmission.abstract ?? "",
@@ -380,7 +508,8 @@ export default function NewRepositorySubmissionPage() {
       doi: existingSubmission.doi ?? "",
       ndmc_submission_reference: existingSubmission.ndmc_submission_reference ?? "",
       status: existingSubmission.status,
-      fundedproposal: String(existingSubmission.fundedproposal),
+      fundedproposal: existingSubmission.fundedproposal ? String(existingSubmission.fundedproposal) : "",
+      external_research: existingSubmission.external_research ? String(existingSubmission.external_research) : "",
       output_type: String(existingSubmission.output_type ?? ""),
       data_center: existingSubmission.data_center ? String(existingSubmission.data_center) : "",
     });
@@ -391,6 +520,8 @@ export default function NewRepositorySubmissionPage() {
     });
 
     const proposalId = existingSubmission.fundedproposal_detail?.proposal_id;
+    const externalResearchId = existingSubmission.external_research_detail?.id || existingSubmission.external_research;
+
     if (proposalId) {
       setIsPrefilling(true);
       finalSubmissionsService
@@ -406,16 +537,37 @@ export default function NewRepositorySubmissionPage() {
         .finally(() => {
           setIsPrefilling(false);
         });
+    } else if (externalResearchId) {
+      setIsPrefilling(true);
+      finalSubmissionsService
+        .getPrefillData({ external_research_id: externalResearchId })
+        .then((prefill) => {
+          setPrefillData(prefill);
+          setPrefillItems(prefill.items ?? []);
+        })
+        .catch(() => {
+          setPrefillItems([]);
+          setPrefillData(null);
+        })
+        .finally(() => {
+          setIsPrefilling(false);
+        });
     }
   }, [existingSubmission, isEditMode]);
 
   const hasNarrative = !!form.abstract.trim() || !!form.executive_summary.trim();
+  const isSourceSelected = sourceType === "proposal" ? !!form.fundedproposal : !!form.external_research;
 
   const checklist = [
-    { key: "fundedproposal", label: "Graded proposal selected", required: true, done: !!form.fundedproposal },
+    {
+      key: "source_record",
+      label: sourceType === "proposal" ? "Graded proposal selected" : "Approved external research selected",
+      required: true,
+      done: isSourceSelected,
+    },
     { key: "title", label: "Submission title entered", required: true, done: !!form.title.trim() },
     { key: "narrative", label: "Narrative details entered (Abstract or Executive Summary)", required: true, done: hasNarrative },
-    { key: "prefill", label: "Terminal report data prefilled", required: false, done: !!prefillData },
+    { key: "prefill", label: "Record data prefilled", required: false, done: !!prefillData },
     { key: "terminal_items", label: "Deliverable items loaded", required: false, done: prefillItems.length > 0 },
     { key: "data_center", label: "Data center selected", required: false, done: !!form.data_center },
   ];
@@ -423,12 +575,12 @@ export default function NewRepositorySubmissionPage() {
   const checklistTotal = checklist.length;
   const checklistDone = checklist.filter((item) => item.done).length;
 
-  const requiredReady = !!form.title.trim() && !!form.fundedproposal && hasNarrative;
+  const requiredReady = !!form.title.trim() && isSourceSelected && hasNarrative;
 
   async function handleSubmit(targetStatus: FinalSubmissionStatus) {
     if (!requiredReady) {
       toast.error(
-        "Please select an eligible proposal, enter a submission title, and provide at least one Narrative Detail (Abstract or Executive Summary) before saving.",
+        `Please select an eligible ${sourceType === "proposal" ? "proposal" : "external research entry"}, enter a submission title, and provide at least one Narrative Detail (Abstract or Executive Summary) before saving.`,
       );
       return;
     }
@@ -459,7 +611,7 @@ export default function NewRepositorySubmissionPage() {
       is_searchable: isSearchable,
     }));
 
-    const payload = {
+    const payload: any = {
       title: form.title.trim(),
       abstract: form.abstract.trim(),
       executive_summary: form.executive_summary.trim(),
@@ -470,7 +622,8 @@ export default function NewRepositorySubmissionPage() {
       doi: form.doi.trim(),
       ndmc_submission_reference: form.ndmc_submission_reference.trim(),
       status: targetStatus,
-      fundedproposal: Number(form.fundedproposal),
+      fundedproposal: form.fundedproposal ? Number(form.fundedproposal) : null,
+      external_research: form.external_research ? Number(form.external_research) : null,
       output_type: Number(defaultOutputType),
       data_center: form.data_center ? Number(form.data_center) : null,
       is_published: String(form.is_published),
@@ -589,7 +742,7 @@ export default function NewRepositorySubmissionPage() {
             event.preventDefault();
           }}
         >
-          {/* Section 1: Linked Proposal Selection */}
+          {/* Section 1: Linked Record Selection */}
           <Card className="overflow-hidden border border-muted-foreground/10 shadow-sm">
             <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -597,49 +750,122 @@ export default function NewRepositorySubmissionPage() {
                 Submission Identity
               </CardTitle>
               <CardDescription>
-                Select a proposal with a fully graded terminal report to prefill submission data.
+                Select an internal proposal or an approved external research to prefill submission data.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-5 p-6 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="fundedproposal">
-                  Proposal <span className="text-destructive">*</span>
-                </Label>
-                {isEditMode ? (
-                  <div className="flex h-11 items-center rounded-xl border border-muted-foreground/20 bg-muted/30 px-4 text-sm font-medium text-muted-foreground">
-                    {selectedProposal?.title || `Proposal #${form.fundedproposal}`}
-                    <Badge variant="secondary" className="ml-2 text-[10px] font-bold uppercase tracking-wider border-none">
-                      Locked
-                    </Badge>
-                  </div>
-                ) : (
-                  <SearchableSelect
-                    value={form.fundedproposal}
-                    onValueChange={(val) => void handleFundedProposalChange(val)}
-                    disabled={isLookupLoading || isPrefilling}
-                    placeholder={
-                      isLookupLoading
-                        ? "Loading eligible graded proposals..."
-                        : isPrefilling
-                          ? "Prefilling submission data..."
-                          : "Choose an eligible graded proposal"
-                    }
-                    options={gradedProposals}
-                    getOptionValue={(item: any) =>
-                      String(item.proposalId ?? item.projectTrackingId ?? item.terminalReportId)
-                    }
-                    getOptionLabel={(item: any) => item.title}
-                    renderOption={(item: any) => (
-                      <div className="flex flex-col py-1 text-left">
-                        <span className="font-semibold">{item.title}</span>
-                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          Ref: {item.referenceNumber || `PT-${item.projectTrackingId}`} · Data Center: {item.dataCenterName || "Repository"}
-                        </span>
-                      </div>
+              {!isEditMode && (
+                <div className="sm:col-span-2 flex items-center gap-1.5 p-1 rounded-full bg-slate-100 dark:bg-slate-900 border border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => handleSourceTypeChange("proposal")}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-full text-xs font-bold transition-all cursor-pointer",
+                      sourceType === "proposal"
+                        ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
-                  />
-                )}
-              </div>
+                  >
+                    <FileText className="h-3.5 w-3.5 text-indigo-500" />
+                    Internal Proposal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSourceTypeChange("external_research")}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-full text-xs font-bold transition-all cursor-pointer",
+                      sourceType === "external_research"
+                        ? "bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Globe className="h-3.5 w-3.5 text-sky-500" />
+                    External Research
+                  </button>
+                </div>
+              )}
+
+              {sourceType === "proposal" ? (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="fundedproposal">
+                    Proposal <span className="text-destructive">*</span>
+                  </Label>
+                  {isEditMode ? (
+                    <div className="flex h-11 items-center rounded-xl border border-muted-foreground/20 bg-muted/30 px-4 text-sm font-medium text-muted-foreground">
+                      {selectedProposal?.title || `Proposal #${form.fundedproposal}`}
+                      <Badge variant="secondary" className="ml-2 text-[10px] font-bold uppercase tracking-wider border-none">
+                        Locked
+                      </Badge>
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      value={form.fundedproposal}
+                      onValueChange={(val) => void handleFundedProposalChange(val)}
+                      disabled={isLookupLoading || isPrefilling}
+                      placeholder={
+                        isLookupLoading
+                          ? "Loading eligible graded proposals..."
+                          : isPrefilling
+                            ? "Prefilling submission data..."
+                            : "Choose an eligible graded proposal"
+                      }
+                      options={gradedProposals}
+                      getOptionValue={(item: any) =>
+                        String(item.proposal_id ?? item.proposalId ?? item.project_tracking_id ?? item.projectTrackingId ?? item.terminal_report_id ?? item.terminalReportId ?? item.id ?? "")
+                      }
+                      getOptionLabel={(item: any) => item.title}
+                      renderOption={(item: any) => (
+                        <div className="flex flex-col py-1 text-left">
+                          <span className="font-semibold">{item.title}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Ref: {item.referenceNumber || item.reference_number || `PT-${item.projectTrackingId || item.project_tracking_id}`} · Data Center: {item.dataCenterName || item.data_center_name || "Repository"}
+                          </span>
+                        </div>
+                      )}
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="external_research">
+                    Approved External Research <span className="text-destructive">*</span>
+                  </Label>
+                  {isEditMode ? (
+                    <div className="flex h-11 items-center rounded-xl border border-muted-foreground/20 bg-muted/30 px-4 text-sm font-medium text-muted-foreground">
+                      {selectedExternalResearch?.title || `External Research #${form.external_research}`}
+                      <Badge variant="secondary" className="ml-2 text-[10px] font-bold uppercase tracking-wider border-none">
+                        Locked
+                      </Badge>
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      value={form.external_research}
+                      onValueChange={(val) => void handleExternalResearchChange(val)}
+                      disabled={isLookupLoading || isPrefilling}
+                      placeholder={
+                        isLookupLoading
+                          ? "Loading approved external research entries..."
+                          : isPrefilling
+                            ? "Prefilling external research data..."
+                            : "Choose an approved external research entry"
+                      }
+                      options={approvedExternalResearches}
+                      getOptionValue={(item: any) =>
+                        String(item.external_research_id ?? item.externalResearchId ?? item.id ?? "")
+                      }
+                      getOptionLabel={(item: any) => item.title}
+                      renderOption={(item: any) => (
+                        <div className="flex flex-col py-1 text-left">
+                          <span className="font-semibold">{item.title}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Authors: {item.authors || "N/A"} · Inst: {item.institution || "N/A"} · Year: {item.year || "N/A"}
+                          </span>
+                        </div>
+                      )}
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Prefilled Confirmation Banner */}
               {prefillData && (
@@ -648,10 +874,10 @@ export default function NewRepositorySubmissionPage() {
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                     <div>
                       <p className="font-semibold text-xs uppercase tracking-wide">
-                        Prefilled from Approved Final Report
+                        {sourceType === "proposal" ? "Prefilled from Approved Final Report" : "Prefilled from Approved External Research"}
                       </p>
                       <p className="text-xs text-emerald-700 dark:text-emerald-300/90 mt-0.5">
-                        Title, Data Center, Deliverables, and External Link have been loaded automatically.
+                        Title, Data Center, Deliverables, and Links have been loaded automatically.
                       </p>
                     </div>
                   </div>
@@ -1278,61 +1504,94 @@ export default function NewRepositorySubmissionPage() {
             <CardHeader className="border-b bg-slate-50/70 dark:bg-slate-900/50 pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                Selected Proposal
+                {sourceType === "proposal" ? "Selected Proposal" : "Selected External Research"}
               </CardTitle>
               <CardDescription>
-                Review the proposal record backing this final submission.
+                {sourceType === "proposal"
+                  ? "Review the proposal record backing this final submission."
+                  : "Review the external research record backing this final submission."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-6">
-              {selectedProposal ? (
+              {sourceType === "proposal" ? (
+                selectedProposal ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Reference Number
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {proposalLabel(selectedProposal)}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        Principal Investigator
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Avatar className="h-7 w-7 border shrink-0">
+                          {selectedProposal.pi?.photo_url ? (
+                            <AvatarImage
+                              src={resolveFileUrl(selectedProposal.pi.photo_url) ?? undefined}
+                              alt={piName(selectedProposal.pi)}
+                            />
+                          ) : null}
+                          <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                            {getInitials(piName(selectedProposal.pi))}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-semibold text-foreground truncate">
+                          {piName(selectedProposal.pi)}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedProposal.total_award_amount && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                          Award Amount
+                        </p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {formatCurrency(selectedProposal.total_award_amount)}
+                        </p>
+                      </div>
+                    )}
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 p-4 text-xs text-emerald-800 dark:text-emerald-300">
+                      This proposal has an approved, fully graded terminal report and is eligible for final repository registration.
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 dark:bg-slate-900/40 p-4 text-xs text-muted-foreground">
+                    Choose an eligible proposal above to view its funding record and load prefilled data.
+                  </div>
+                )
+              ) : selectedExternalResearch ? (
                 <>
                   <div className="space-y-1">
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Reference Number
+                      Authors / Institution
                     </p>
                     <p className="text-sm font-semibold text-foreground">
-                      {proposalLabel(selectedProposal)}
+                      {selectedExternalResearch.authors || "N/A"}
+                      {selectedExternalResearch.institution ? ` (${selectedExternalResearch.institution})` : ""}
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                      Principal Investigator
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <Avatar className="h-7 w-7 border shrink-0">
-                        {selectedProposal.pi?.photo_url ? (
-                          <AvatarImage
-                            src={resolveFileUrl(selectedProposal.pi.photo_url) ?? undefined}
-                            alt={piName(selectedProposal.pi)}
-                          />
-                        ) : null}
-                        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                          {getInitials(piName(selectedProposal.pi))}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-semibold text-foreground truncate">
-                        {piName(selectedProposal.pi)}
-                      </span>
-                    </div>
-                  </div>
-                  {selectedProposal.total_award_amount && (
+                  {selectedExternalResearch.year && (
                     <div className="space-y-1">
                       <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Award Amount
+                        Publication Year
                       </p>
                       <p className="text-sm font-semibold text-foreground">
-                        {formatCurrency(selectedProposal.total_award_amount)}
+                        {selectedExternalResearch.year}
                       </p>
                     </div>
                   )}
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 dark:border-emerald-800 p-4 text-xs text-emerald-800 dark:text-emerald-300">
-                    This proposal has an approved, fully graded terminal report and is eligible for final repository registration.
+                    This external research entry has been reviewed & approved and is eligible for final repository registration.
                   </div>
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-muted-foreground/20 bg-slate-50 dark:bg-slate-900/40 p-4 text-xs text-muted-foreground">
-                  Choose an eligible proposal above to view its funding record and load prefilled data.
+                  Choose an approved external research entry above to view its metadata and load prefilled data.
                 </div>
               )}
             </CardContent>

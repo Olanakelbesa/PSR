@@ -277,6 +277,10 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string | number) => `/v1/external-research/${id}/`,
     CREATE: "/v1/external-research/",
     UPDATE: (id: string | number) => `/v1/external-research/${id}/`,
+    SUBMIT: (id: string | number) => `/v1/external-research/${id}/submit/`,
+    DOWNLOAD: (id: string | number) => `/v1/external-research/${id}/download/`,
+    APPROVALS: "/v1/external-research-approvals/",
+    APPROVAL_DETAIL: (id: string | number) => `/v1/external-research-approvals/${id}/`,
   },
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

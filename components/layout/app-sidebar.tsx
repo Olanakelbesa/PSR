@@ -326,10 +326,11 @@ const navigationGroups: NavGroup[] = [
         permissions: [PERMISSIONS.RESEARCH_VIEW_ATTACHMENTS],
       },
       {
-        label: "External Research ", // add psr approval menu
+        label: "External Research",
+        icon: Globe,
         subItems: [
           {
-            label: "External Research",
+            label: "My External Research",
             href: "/research/external-research/my-external-research",
             icon: Dot,
             matchPrefixes: [

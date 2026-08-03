@@ -264,6 +264,7 @@ export default function ResearchRepositoryPage() {
   const router = useRouter();
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatFilter>(ALL_VALUE);
+  const [sourceFilter, setSourceFilter] = useState<"all" | "proposal" | "external_research">("all");
 
   const applyStatusFilter = useCallback((filter: StatFilter) => {
     setStatusFilter((current) => (current === filter ? ALL_VALUE : filter));
@@ -284,11 +285,13 @@ export default function ResearchRepositoryPage() {
 
     for (const item of rawData) {
       const proposalKey =
-        item.fundedproposal_detail?.reference_number ||
-        item.fundedproposal_detail?.proposal_id ||
-        item.fundedproposal_detail?.funding_recommendation_id ||
-        item.fundedproposal ||
-        item.id;
+        item.external_research
+          ? `EXT-${item.external_research}`
+          : item.fundedproposal_detail?.reference_number ||
+            item.fundedproposal_detail?.proposal_id ||
+            item.fundedproposal_detail?.funding_recommendation_id ||
+            item.fundedproposal ||
+            item.id;
 
       if (!seenProposalKeys.has(proposalKey)) {
         seenProposalKeys.add(proposalKey);
@@ -300,12 +303,19 @@ export default function ResearchRepositoryPage() {
   }, [data?.data]);
 
   const filteredData = useMemo(() => {
-    if (statusFilter === ALL_VALUE) return deduplicatedData;
-    if (statusFilter === "ready_for_repository") {
-      return deduplicatedData.filter((s) => s.status === "approved" || (s as any).is_published || (s as any).isPublished);
+    let list = deduplicatedData;
+    if (sourceFilter === "proposal") {
+      list = list.filter((s) => !s.external_research);
+    } else if (sourceFilter === "external_research") {
+      list = list.filter((s) => !!s.external_research);
     }
-    return deduplicatedData.filter((s) => s.status === statusFilter);
-  }, [deduplicatedData, statusFilter]);
+
+    if (statusFilter === ALL_VALUE) return list;
+    if (statusFilter === "ready_for_repository") {
+      return list.filter((s) => s.status === "approved" || (s as any).is_published || (s as any).isPublished);
+    }
+    return list.filter((s) => s.status === statusFilter);
+  }, [deduplicatedData, statusFilter, sourceFilter]);
 
   const statCards = useMemo(
     () => [
@@ -436,6 +446,24 @@ export default function ResearchRepositoryPage() {
         },
       },
       {
+        accessorKey: "source_type",
+        header: "Source",
+        cell: ({ row }) => {
+          const isExternal = !!row.original.external_research;
+          return isExternal ? (
+            <Badge variant="outline" className="bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800 font-bold text-[10px] uppercase tracking-wider gap-1.5 px-2.5 py-0.5 rounded-full">
+              <Globe className="w-3 h-3 text-sky-500 shrink-0" />
+              External
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800 font-bold text-[10px] uppercase tracking-wider gap-1.5 px-2.5 py-0.5 rounded-full">
+              <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+              Internal
+            </Badge>
+          );
+        },
+      },
+      {
         accessorKey: "title",
         header: "Submission Title",
         cell: ({ row }) => {
@@ -466,13 +494,27 @@ export default function ResearchRepositoryPage() {
       },
       {
         accessorKey: "fundedproposal_detail",
-        header: "Funded Proposal",
+        header: "Associated Record",
         cell: ({ row }) => {
-          const detail = row.original.fundedproposal_detail;
+          const item = row.original;
+          if (item.external_research) {
+            const ext = item.external_research_detail;
+            return (
+              <div className="max-w-[240px] space-y-0.5">
+                <p className="line-clamp-2 text-sm font-semibold text-foreground/90">
+                  {ext?.title || item.title}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {ext?.authors || "External Authors"} {ext?.institution ? `(${ext.institution})` : ""}
+                </p>
+              </div>
+            );
+          }
+          const detail = item.fundedproposal_detail;
           if (!detail) {
             return (
               <span className="text-xs text-muted-foreground">
-                Funding proposal #{row.original.fundedproposal}
+                Funding proposal #{item.fundedproposal}
               </span>
             );
           }
@@ -811,6 +853,51 @@ export default function ResearchRepositoryPage() {
           )}
       </div>
 
+      {/* ── Source Type Filter Tabs ────────────────────────────────────────── */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-slate-100 dark:bg-slate-900 border border-border/60">
+          <button
+            type="button"
+            onClick={() => setSourceFilter("all")}
+            className={cn(
+              "flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs font-bold transition-all cursor-pointer",
+              sourceFilter === "all"
+                ? "bg-white dark:bg-slate-800 text-primary shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            All ({deduplicatedData.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter("proposal")}
+            className={cn(
+              "flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs font-bold transition-all cursor-pointer",
+              sourceFilter === "proposal"
+                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <FileText className="h-3.5 w-3.5 text-indigo-500" />
+            Internal ({deduplicatedData.filter((s) => !s.external_research).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSourceFilter("external_research")}
+            className={cn(
+              "flex items-center gap-1.5 py-1.5 px-3.5 rounded-full text-xs font-bold transition-all cursor-pointer",
+              sourceFilter === "external_research"
+                ? "bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Globe className="h-3.5 w-3.5 text-sky-500" />
+            External ({deduplicatedData.filter((s) => !!s.external_research).length})
+          </button>
+        </div>
+      </div>
+
       {/* ── Active Status Filter Banner ───────────────────────────────── */}
       {statusFilter !== ALL_VALUE && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/15 bg-muted/40 px-4 py-3">
@@ -832,7 +919,7 @@ export default function ResearchRepositoryPage() {
       )}
 
       {/* ── Main Data Table ───────────────────────────────────────────── */}
-      <div className="mt-8 w-full max-w-full overflow-hidden">
+      <div className="mt-6 w-full max-w-full overflow-hidden">
         <DataTable
           columns={columns}
           data={filteredData}
@@ -844,6 +931,14 @@ export default function ResearchRepositoryPage() {
           }}
           filterOptions={[
             {
+              key: "source_type",
+              label: "Source",
+              options: [
+                { value: "proposal", label: "Internal Proposal" },
+                { value: "external_research", label: "External Research" },
+              ],
+            },
+            {
               key: "status",
               label: "Status",
               options: Object.entries(statusLabels).map(([value, label]) => ({
@@ -853,7 +948,7 @@ export default function ResearchRepositoryPage() {
             },
           ]}
           emptyMessage="No Research Submissions Found"
-          emptyDescription="Try adjusting your search or status filter."
+          emptyDescription="Try adjusting your search or source/status filter."
         />
       </div>
     </PageContainer>

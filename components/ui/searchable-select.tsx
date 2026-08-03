@@ -305,11 +305,12 @@ export function SearchableSelect<T = any>({
                   const itemVal = getValue(item);
                   const itemLabel = getLabel(item);
                   const isSelected = value === itemVal;
+                  const itemKey = itemVal && itemVal !== "undefined" && itemVal !== "null" ? `opt-${itemVal}-${index}` : `opt-idx-${index}`;
 
                   return (
                     <CommandItem
-                      key={itemVal || index}
-                      value={`${itemVal} ${itemLabel}`}
+                      key={itemKey}
+                      value={`${itemVal || index} ${itemLabel}`}
                       onSelect={() => handleSelect(itemVal)}
                       className="flex items-start justify-between cursor-pointer px-3 py-2.5 text-xs sm:text-sm min-w-0 w-full rounded-lg my-0.5 whitespace-normal break-words"
                     >

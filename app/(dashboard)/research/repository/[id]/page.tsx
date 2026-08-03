@@ -463,6 +463,24 @@ export default function ResearchRepositoryDetailPage() {
             )}
           </button>
 
+          {item.external_research ? (
+            <Badge
+              variant="outline"
+              className="bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200/80 dark:border-sky-800 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full gap-1"
+            >
+              <Globe className="h-3 w-3 text-sky-500 shrink-0" />
+              External
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full gap-1"
+            >
+              <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
+              Internal
+            </Badge>
+          )}
+
           <Badge
             variant="outline"
             className={cn(
@@ -887,62 +905,123 @@ export default function ResearchRepositoryDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Funded Proposal Details Card */}
-          <Card className="border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background shadow-sm">
-            <CardHeader className="pb-3 border-b border-emerald-500/20">
-              <CardTitle className="text-base font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-                <Wallet className="h-4.5 w-4.5 text-emerald-600" />
-                Associated Funded Proposal Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 grid gap-4 sm:grid-cols-2 p-6 md:p-8">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Funded Proposal Reference Number
-                </p>
-                <p className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">
-                  {fundedRef}
-                </p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Total Award Amount
-                </p>
-                <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 font-mono">
-                  {formatBudget(fundedAward)}
-                </p>
-              </div>
-
-              <div className="space-y-1 sm:col-span-2 pt-2 border-t border-emerald-500/10">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Proposal Title
-                </p>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {fundedTitle}
-                </p>
-              </div>
-
-              {proposalFileUrl && (
-                <div className="sm:col-span-2 pt-3 border-t border-emerald-500/10 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Paperclip className="h-4 w-4 text-emerald-600" />
-                    <span className="text-xs font-semibold text-foreground">Original Proposal Document</span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs gap-1.5 rounded-lg border-emerald-300 text-emerald-800 dark:text-emerald-300"
-                    onClick={() => void handleDownloadFile("proposal_file", proposalFileUrl)}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download Proposal
-                  </Button>
+          {/* Associated Record Details Card */}
+          {item.external_research ? (
+            <Card className="border border-blue-500/20 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-background shadow-sm">
+              <CardHeader className="pb-3 border-b border-blue-500/20">
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                  <Globe className="h-4.5 w-4.5 text-blue-600" />
+                  Associated Approved External Research Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 grid gap-4 sm:grid-cols-2 p-6 md:p-8">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Authors / Principal Researchers
+                  </p>
+                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                    {item.external_research_detail?.authors || piName}
+                  </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Institution / Department
+                  </p>
+                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                    {item.external_research_detail?.institution || "N/A"}
+                  </p>
+                </div>
+
+                {item.external_research_detail?.year && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Publication Year
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {item.external_research_detail.year}
+                    </p>
+                  </div>
+                )}
+
+                {item.external_research_detail?.graded_evidence && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Graded Evidence Assessment
+                    </p>
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-bold text-xs">
+                      {item.external_research_detail.graded_evidence}
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="space-y-1 sm:col-span-2 pt-2 border-t border-blue-500/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    External Title
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {item.external_research_detail?.title || item.title}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-background shadow-sm">
+              <CardHeader className="pb-3 border-b border-emerald-500/20">
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                  <Wallet className="h-4.5 w-4.5 text-emerald-600" />
+                  Associated Funded Proposal Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 grid gap-4 sm:grid-cols-2 p-6 md:p-8">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Funded Proposal Reference Number
+                  </p>
+                  <p className="text-sm font-bold font-mono text-emerald-700 dark:text-emerald-300">
+                    {fundedRef}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Total Award Amount
+                  </p>
+                  <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 font-mono">
+                    {formatBudget(fundedAward)}
+                  </p>
+                </div>
+
+                <div className="space-y-1 sm:col-span-2 pt-2 border-t border-emerald-500/10">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Proposal Title
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {fundedTitle}
+                  </p>
+                </div>
+
+                {proposalFileUrl && (
+                  <div className="sm:col-span-2 pt-3 border-t border-emerald-500/10 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="h-4 w-4 text-emerald-600" />
+                      <span className="text-xs font-semibold text-foreground">Original Proposal Document</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 rounded-lg border-emerald-300 text-emerald-800 dark:text-emerald-300"
+                      onClick={() => void handleDownloadFile("proposal_file", proposalFileUrl)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download Proposal
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ── Tab 4: Document Attachments & Links ────────────────────────────────────────── */}

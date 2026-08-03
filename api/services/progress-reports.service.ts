@@ -947,9 +947,10 @@ export const terminalReportsService = {
     return list.data ?? [];
   },
 
-  async getGradedForRepository(): Promise<any[]> {
+  async getGradedForRepository(params: Record<string, unknown> = {}): Promise<any[]> {
     const { data } = await apiClient.get(
       API_ENDPOINTS.FINAL_SUBMISSIONS.ELIGIBLE_FOR_REPOSITORY,
+      { params },
     );
     const items: any[] = data?.data ?? data?.results ?? [];
     return items.map((item: any) => {
@@ -968,6 +969,11 @@ export const terminalReportsService = {
 
       return {
         ...item,
+        source_type: item.source_type || (item.external_research_id ? "external_research" : "proposal"),
+        external_research_id: item.external_research_id ?? item.externalResearchId,
+        authors: item.authors,
+        institution: item.institution,
+        year: item.year,
         proposalId: item.proposalId ?? item.proposal_id,
         proposal_id: item.proposalId ?? item.proposal_id,
         projectTrackingId: item.projectTrackingId ?? item.project_tracking_id,

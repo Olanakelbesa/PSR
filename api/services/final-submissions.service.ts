@@ -286,6 +286,8 @@ function mapFinalSubmissionItem(item: any): FinalSubmission {
     fundedproposal_detail: normalizeFundingProposalDetail(
       item.fundedproposalDetail ?? item.fundedproposal ?? item.fundedProposal,
     ),
+    external_research: item.external_research ?? item.externalResearch ?? null,
+    external_research_detail: item.external_research_detail ?? item.externalResearchDetail ?? null,
     output_type: item.outputType ?? item.output_type ?? null,
     output_type_detail: normalizeOutputTypeDetail(
       item.output_type_detail ?? item.outputTypeDetail ?? null,
@@ -430,11 +432,16 @@ export const finalSubmissionsService = {
   },
 
   async getPrefillData(
-    proposalId: string | number,
+    proposalIdOrParams: string | number | { proposal_id?: string | number; external_research_id?: string | number },
   ): Promise<Record<string, any>> {
+    const params =
+      typeof proposalIdOrParams === "object"
+        ? proposalIdOrParams
+        : { proposal_id: proposalIdOrParams };
+
     const { data } = await apiClient.get(
       API_ENDPOINTS.FINAL_SUBMISSIONS.PREFILL_DATA,
-      { params: { proposal_id: proposalId } },
+      { params },
     );
 
     return normalizeDetail<Record<string, any>>(data);
