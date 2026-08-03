@@ -106,7 +106,7 @@ function checkIsLink(item: { url: string; type?: string }) {
 /* ──────────────────────────────────────────────────────────────────────── */
 /* EmbeddedViewer: inline document previewer (PDF/Word/Link/Fallback)       */
 /* ──────────────────────────────────────────────────────────────────────── */
-function EmbeddedViewer({ url, title, type }: { url: string; title: string; type?: string }) {
+function EmbeddedViewer({ url, title, type, onDownload }: { url: string; title: string; type?: string; onDownload?: (url: string) => void }) {
   if (!url) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center bg-card">
@@ -129,30 +129,22 @@ function EmbeddedViewer({ url, title, type }: { url: string; title: string; type
           <Badge variant="secondary" className="mb-1 uppercase text-[10px] font-extrabold tracking-wider bg-primary/10 text-primary border-primary/20">
             External Publication & Deliverable Link
           </Badge>
-          <p className="font-extrabold text-lg text-foreground">{title}</p>
-          <a
-            href={targetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-mono text-primary underline underline-offset-4 hover:text-primary/80 break-all block mt-1"
-          >
-            {targetUrl}
-          </a>
+          <h4 className="text-base font-bold text-foreground leading-snug">{title}</h4>
+          <p className="text-xs text-muted-foreground font-mono truncate max-w-md mx-auto">{targetUrl}</p>
         </div>
         <Button
           type="button"
-          size="default"
-          className="rounded-xl font-bold gap-2 px-6 shadow mt-2"
+          className="rounded-xl font-bold gap-2 px-6 shadow-sm"
           onClick={() => window.open(targetUrl, "_blank", "noopener,noreferrer")}
         >
-          <ExternalLink className="h-4 w-4" /> Open External Link
+          <ExternalLink className="h-4 w-4" />
+          Open Link
         </Button>
       </div>
     );
   }
 
   const resolvedUrl = targetUrl;
-
   const kind = getConceptNoteAttachmentKind(resolvedUrl);
 
   if (kind === "pdf") {
@@ -212,9 +204,11 @@ function EmbeddedViewer({ url, title, type }: { url: string; title: string; type
 function FileCard({
   fileItem,
   onPreview,
+  onDownload,
 }: {
   fileItem: { label: string; url: string; type: string; grade?: string };
   onPreview: (url: string, title: string) => void;
+  onDownload?: (url: string) => void;
 }) {
   const isLink = fileItem.type === "link" || checkIsLink(fileItem);
   const targetUrl = isLink && fileItem.url.startsWith("http") ? fileItem.url : resolveFileUrl(fileItem.url) || fileItem.url;
@@ -275,6 +269,7 @@ function FileCard({
               if (isLink) {
                 window.open(targetUrl, "_blank", "noopener,noreferrer");
               } else {
+                onDownload?.(targetUrl);
                 downloadRemoteFile(targetUrl, extractFileName(targetUrl));
               }
             }}
@@ -313,6 +308,74 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
   const [activeTab, setActiveTab] = useState("overview");
   const [activeDocKey, setActiveDocKey] = useState<number>(0);
   const queryClient = useQueryClient();
+
+  const [localDownloadCount, setLocalDownloadCount] = useState<number>(
+    (document?.metadata?.download_count as number) ?? 0
+  );
+
+  useEffect(() => {
+    if (document?.metadata?.download_count !== undefined) {
+      setLocalDownloadCount(document.metadata.download_count as number);
+    }
+  }, [document?.metadata?.download_count]);
+
+  const handleTrackDownload = async () => {
+    if (!document) return;
+    try {
+      const token = tokenStorage.get();
+      const headers: HeadersInit = { "Content-Type": "application/json", accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const url = document.source === "policy_repository"
+        ? `/bff/v1/policy-repository/${document.id}/download/`
+        : `/bff/v1/final-submissions/${document.id}/download/`;
+      const res = await fetch(url, { method: "POST", headers });
+      if (res.ok) {
+        const json = await res.json();
+        const updatedCount = json?.data?.download_count;
+
+        if (typeof updatedCount === "number") {
+          setLocalDownloadCount(updatedCount);
+
+          queryClient.setQueriesData<any>({ queryKey: ["unified-search"] }, (oldData: any) => {
+            if (!oldData) return oldData;
+            const targetResults = Array.isArray(oldData.results)
+              ? oldData.results
+              : Array.isArray(oldData.data?.results)
+              ? oldData.data.results
+              : null;
+
+            if (!targetResults) return oldData;
+
+            const updatedResults = targetResults.map((docItem: SearchResultItem) =>
+              docItem.id === document.id && docItem.source === document.source
+                ? {
+                    ...docItem,
+                    metadata: {
+                      ...(docItem.metadata || {}),
+                      download_count: updatedCount,
+                    },
+                  }
+                : docItem
+            );
+
+            if (Array.isArray(oldData.results)) {
+              return { ...oldData, results: updatedResults };
+            }
+            return { ...oldData, data: { ...oldData.data, results: updatedResults } };
+          });
+        } else {
+          setLocalDownloadCount((prev) => prev + 1);
+        }
+      } else {
+        setLocalDownloadCount((prev) => prev + 1);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["public-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-search"] });
+    } catch {
+      setLocalDownloadCount((prev) => prev + 1);
+    }
+  };
 
   // Lock body scroll to prevent double scrollbars when detail viewer is active
   useEffect(() => {
@@ -695,6 +758,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                           url={publicFiles[activeDocKey].url}
                           title={publicFiles[activeDocKey].label}
                           type={publicFiles[activeDocKey].type}
+                          onDownload={handleTrackDownload}
                         />
                       ) : (
                         <div className="p-12 text-center border-2 border-dashed rounded-2xl bg-muted/20">
@@ -782,11 +846,11 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                     <MetaRow label="Source Index" value={document.source?.replace("_", " ")} />
                     <MetaRow label="Access Level" value={document.access_level} accent />
                     <MetaRow label="Document Type" value={document.document_type} />
+                    <MetaRow label="Total Downloads" value={localDownloadCount} accent />
                     <MetaRow label="Published" value={formatDate(document.date)} />
                     {meta.serial_number && <MetaRow label="Serial No." value={meta.serial_number} />}
                     {meta.version_code && <MetaRow label="Version Code" value={meta.version_code} />}
                     {meta.reference_number && <MetaRow label="Ref Number" value={meta.reference_number} />}
-                    {meta.budget_requested && <MetaRow label="Budget Requested" value={`ETB ${meta.budget_requested}`} />}
                     {doi && <MetaRow label="DOI" value={doi} />}
                     {ndmcRef && <MetaRow label="NDMC Ref" value={ndmcRef} />}
                   </div>

@@ -375,24 +375,24 @@ export default function ConceptNotesPage() {
   );
 
   const notes = useMemo(() => data?.data || [], [data]);
-  const statistics = (data?.meta as any)?.statistics ?? {};
+  const metaTotal = data?.meta?.total ?? notes.length;
 
-  const stats = {
-    total: statistics.totalConceptNote ?? notes.length,
-    review:
-      statistics.underReview ??
-      notes.filter((n) => n.currentStatus === "under_review").length,
-    resubmitted:
-      statistics.resubmitted ??
-      notes.filter((n) => n.currentStatus === "resubmitted").length,
-    approved:
-      statistics.approved ??
-      notes.filter((n) =>
-        ["accepted", "partially_accepted", "policy_draft_ready"].includes(
-          n.currentStatus || "",
-        ),
-      ).length,
-  };
+  const stats = useMemo(() => {
+    const rawReview = notes.filter((n) => (n.currentStatus || n.status || "") === "under_review").length;
+    const rawResubmitted = notes.filter((n) => (n.currentStatus || n.status || "") === "resubmitted").length;
+    const rawApproved = notes.filter((n) =>
+      ["accepted", "partially_accepted", "policy_draft_ready", "approved", "completed", "not_accepted", "rejected"].includes(
+        (n.currentStatus || n.status || "").toLowerCase()
+      )
+    ).length;
+
+    return {
+      total: queueFilter === "all" ? metaTotal : metaTotal,
+      review: queueFilter === "under_review" ? notes.length : rawReview,
+      resubmitted: queueFilter === "resubmitted" ? notes.length : rawResubmitted,
+      approved: queueFilter === "approved" ? notes.length : rawApproved,
+    };
+  }, [notes, metaTotal, queueFilter]);
 
   const applyQueueFilter = (filter: ReviewQueueFilter) => {
     setQueueFilter((current) => (current === filter ? "all" : filter));

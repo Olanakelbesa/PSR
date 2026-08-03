@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGrantCalls } from "@/lib/queries/grant-calls";
 import type { GrantCall } from "@/types/grant-call";
+import { HtmlContentRenderer } from "@/components/research/proposal/steps/HtmlContentRenderer";
 
 function getCallStatus(call: GrantCall) {
   const status = (call.status ?? "").toLowerCase();
@@ -195,13 +196,17 @@ export default function CallsPage() {
                                   {call.title}
                                 </Link>
                               </h3>
-                              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                                {stripHtml(
-                                  call.shortDescription ??
+                              <div className="text-xs text-muted-foreground leading-relaxed">
+                                <HtmlContentRenderer
+                                  content={
+                                    call.shortDescription ??
                                     call.description ??
-                                    "Open research funding opportunity.",
-                                )}
-                              </p>
+                                    "Open research funding opportunity."
+                                  }
+                                  showFullContent={false}
+                                  maxLines={4}
+                                />
+                              </div>
                             </div>
 
                             <div className="flex flex-wrap gap-1.5">

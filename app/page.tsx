@@ -21,6 +21,7 @@ import {
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/landing/Footer";
@@ -110,6 +111,19 @@ function formatDate(dateValue?: string | null) {
   if (!dateValue) return "N/A";
   const parsed = new Date(dateValue);
   return Number.isNaN(parsed.getTime()) ? dateValue : parsed.toLocaleDateString();
+}
+
+function stripHtmlTags(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default function LandingPage() {
@@ -261,19 +275,19 @@ export default function LandingPage() {
     refetchOnWindowFocus: false,
   });
 
-  const metrics = overview?.metrics ?? {};
+  const metrics = overview?.metrics ?? overview ?? {};
 
   const derivedOverview = {
     publishedPolicies: metrics.publishedPolicies ?? 0,
-    openCalls: metrics.openGrantCalls ?? 0,
-    proposalsSubmitted: metrics.totalResearchProposalsSubmitted ?? 0,
-    institutions: metrics.institutionsUsingSystem ?? 0,
+    openCalls: metrics.openGrantCalls ?? metrics.openCalls ?? 0,
+    proposalsSubmitted: metrics.totalResearchProposalsSubmitted ?? metrics.proposalsSubmitted ?? 0,
+    institutions: metrics.institutionsUsingSystem ?? metrics.institutions ?? 0,
   };
 
   const trustPayload = {
     publishedPolicies: metrics.publishedPolicies ?? 0,
     totalResearchOutputs: metrics.totalResearchOutputs ?? 0,
-    totalGrantCalls: metrics.totalGrantCalls ?? 0,
+    totalGrantCalls: metrics.totalGrantCalls ?? metrics.totalGrantCallsPublished ?? 0,
     totalStrategicObjectives: metrics.totalStrategicObjectives ?? 0,
     totalThematicAreas: metrics.totalThematicAreas ?? 0,
     totalPolicyDownloads: metrics.totalPolicyDownloads ?? 0,
@@ -551,60 +565,68 @@ export default function LandingPage() {
         </section>
 
         {/* Features / Modules Section */}
-        <section id="modules" className="py-12 md:py-24 md:px-20 bg-background relative">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-              {openGrantCalls.length ? (
+        <section id="modules" className="py-12 md:py-16 bg-background relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {loadingOverview ? (
+                [...Array(4)].map((_, i) => (
+                  <div key={i} className="h-[360px] rounded-2xl border border-border/70 bg-card/60 p-5 space-y-4 flex flex-col justify-between shadow-xs">
+                    <div className="space-y-3">
+                      <Skeleton className="h-40 w-full rounded-xl" />
+                      <Skeleton className="h-4 w-24 rounded-md" />
+                      <Skeleton className="h-5 w-3/4 rounded-md" />
+                      <Skeleton className="h-4 w-full rounded-md" />
+                      <Skeleton className="h-4 w-2/3 rounded-md" />
+                    </div>
+                    <Skeleton className="h-8 w-full rounded-lg" />
+                  </div>
+                ))
+              ) : openGrantCalls.length ? (
                 openGrantCalls.slice(0, 4).map((call: any, index: number) => {
                   const theme = grantCallCardThemes[index % grantCallCardThemes.length];
+                  const cleanDesc = stripHtmlTags(call.description);
+                  const dueDate = call.closeDate ?? call.deadline;
 
                   return (
                     <RevealOnScroll key={call.id} delay={index * 100}>
-                      <div className="group h-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500">
-                        <div className="h-40 relative overflow-hidden">
+                      <div
+                        onClick={() => router.push(`/calls/${call.id}`)}
+                        className="group h-full flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:shadow-xl hover:border-primary/20 transition-all duration-300 cursor-pointer"
+                      >
+                        <div className="h-44 relative overflow-hidden bg-muted">
                           <Image
                             src={resolveFileUrl(call.thumbnailImage) ?? resolveFileUrl(call.bannerImage) ?? theme.image}
                             alt={call.title}
                             fill
-                            className="object-cover transition-transform duration-700 group-hover:scale-110"
+                            className="object-cover transition-transform duration-700 group-hover:scale-105"
                           />
-                          <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-transparent z-10 pointer-events-none" />
-                          <div
-                            className={cn(
-                              "absolute bottom-4 left-4 h-10 w-10 rounded-xl flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10",
-                              theme.bg,
-                              theme.color,
-                            )}
-                          >
-                            <theme.icon className="h-5 w-5" />
-                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent z-10 pointer-events-none" />
                         </div>
-                        <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider">
-                                {call.fundingSource || "Grant Call"}
-                              </Badge>
-                              <span className="text-[10px] text-muted-foreground font-medium">
-                                Due {formatDate(call.deadline)}
-                              </span>
-                            </div>
-                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                          <div className="space-y-2.5">
+                            {dueDate && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 font-mono">
+                                  Due {formatDate(dueDate)}
+                                </span>
+                              </div>
+                            )}
+                            <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                               {call.title}
                             </h3>
-                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                              {call.description}
+                            <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed font-medium">
+                              {cleanDesc}
                             </p>
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
                             asChild
-                            className="w-full justify-between hover:bg-primary/5 hover:text-primary font-bold text-xs p-0 h-auto"
+                            className="w-full justify-between hover:bg-primary/5 hover:text-primary font-bold text-xs p-0 h-auto pt-2 border-t border-border/50 rounded-none"
                           >
-                            <Link href={`/calls`}>
+                            <Link href={`/calls/${call.id}`}>
                               Learn More
-                              <ArrowRight className="h-3 w-3" />
+                              <ArrowRight className="h-3.5 w-3.5" />
                             </Link>
                           </Button>
                         </div>

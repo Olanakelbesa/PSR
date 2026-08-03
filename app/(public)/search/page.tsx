@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useUnifiedSearch, type SearchResultItem } from "@/lib/queries/search";
-import { extractFileName, resolveFileUrl } from "@/lib/utils/resolve-file-url";
+import { extractFileName, resolveFileUrl, downloadRemoteFile } from "@/lib/utils/resolve-file-url";
 import { tokenStorage } from "@/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { SearchDocumentFullViewer } from "@/components/features/search/SearchDocumentFullViewer";
@@ -159,8 +159,58 @@ export default function PremiumSearchPage() {
       const url = item.source === "policy_repository"
         ? `/bff/v1/policy-repository/${item.id}/download/`
         : `/bff/v1/final-submissions/${item.id}/download/`;
-      await fetch(url, { method: "POST", headers });
+      const res = await fetch(url, { method: "POST", headers });
+      if (res.ok) {
+        const json = await res.json();
+        const updatedCount = json?.data?.download_count;
+
+        if (typeof updatedCount === "number") {
+          queryClient.setQueriesData<any>({ queryKey: ["unified-search"] }, (oldData: any) => {
+            if (!oldData) return oldData;
+            const targetResults = Array.isArray(oldData.results)
+              ? oldData.results
+              : Array.isArray(oldData.data?.results)
+              ? oldData.data.results
+              : null;
+
+            if (!targetResults) return oldData;
+
+            const updatedResults = targetResults.map((docItem: SearchResultItem) =>
+              docItem.id === item.id && docItem.source === item.source
+                ? {
+                    ...docItem,
+                    metadata: {
+                      ...(docItem.metadata || {}),
+                      download_count: updatedCount,
+                    },
+                  }
+                : docItem
+            );
+
+            if (Array.isArray(oldData.results)) {
+              return { ...oldData, results: updatedResults };
+            }
+            return { ...oldData, data: { ...oldData.data, results: updatedResults } };
+          });
+
+          if (selectedDoc && selectedDoc.id === item.id && selectedDoc.source === item.source) {
+            setSelectedDoc((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    metadata: {
+                      ...(prev.metadata || {}),
+                      download_count: updatedCount,
+                    },
+                  }
+                : null
+            );
+          }
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ["public-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-search"] });
     } catch {
       // Best effort
     }
@@ -457,7 +507,7 @@ export default function PremiumSearchPage() {
           {isLoading ? (
             <div className="py-24 text-center space-y-4">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-              <p className="text-muted-foreground text-sm font-semibold tracking-wide animate-pulse">Running advanced routing and blend ranking queries...</p>
+              <p className="text-muted-foreground text-sm font-semibold tracking-wide animate-pulse">Searching...</p>
             </div>
           ) : isError ? (
             <div className="py-20 text-center bg-destructive/5 border border-dashed border-destructive/20 rounded-3xl max-w-xl mx-auto">
@@ -497,6 +547,10 @@ export default function PremiumSearchPage() {
                               <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 font-mono">
                                 <Calendar className="w-3.5 h-3.5 text-primary/70" />
                                 {formatDate(item.date)}
+                              </span>
+                              <span className="text-[10px] font-bold text-foreground/80 flex items-center gap-1 font-mono bg-muted/80 px-2 py-0.5 rounded-md border border-border/60">
+                                <Download className="w-3 h-3 text-primary" />
+                                {(item.metadata?.download_count ?? 0).toLocaleString()} Downloads
                               </span>
                             </div>
 

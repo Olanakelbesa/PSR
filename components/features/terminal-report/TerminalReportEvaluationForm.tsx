@@ -694,7 +694,7 @@ export function TerminalReportEvaluationForm({
         <CardHeader className="py-3.5 px-5 border-b bg-muted/30 flex flex-row items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
           <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
             <MessageSquare className="w-4 h-4 text-primary" />
-            Reviewer Summary Feedback & Final Decision
+            Reviewer Overall Evaluation & Final Decision
           </CardTitle>
           {currentLoggedDecisionKey ? (
             <Badge
