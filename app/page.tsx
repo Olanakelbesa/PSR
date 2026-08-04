@@ -193,6 +193,27 @@ export default function LandingPage() {
     const controller = new AbortController();
     const debounce = window.setTimeout(async () => {
       try {
+        const headers: HeadersInit = { accept: "application/json" };
+        const token = tokenStorage.get();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        // Try fast suggestions endpoint first
+        const suggRes = await fetch(
+          `/bff/v1/search/suggestions/?search=${encodeURIComponent(query)}&source=all&limit=6`,
+          { headers, signal: controller.signal }
+        );
+
+        if (suggRes.ok) {
+          const suggData = await suggRes.json();
+          if (Array.isArray(suggData) && suggData.length > 0) {
+            setSearchSuggestions(suggData);
+            return;
+          }
+        }
+
+        // Fallback to full search endpoint
         const params = new URLSearchParams({
           access_level: "public",
           explain: "false",
@@ -203,12 +224,6 @@ export default function LandingPage() {
           sort: "relevance",
           source: "all",
         });
-
-        const headers: HeadersInit = { accept: "application/json" };
-        const token = tokenStorage.get();
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
 
         const response = await fetch(
           `/bff${API_ENDPOINTS.SEARCH.LIST}?${params.toString()}`,
@@ -223,7 +238,7 @@ export default function LandingPage() {
         }
 
         const data = await response.json();
-        setSearchSuggestions(Array.isArray(data?.results) ? data.results : []);
+        setSearchSuggestions(Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : []);
       } catch (error: any) {
         const isAbort =
           controller.signal.aborted ||

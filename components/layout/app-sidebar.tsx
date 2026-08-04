@@ -31,6 +31,7 @@ import {
   Globe,
   FileUp,
   Lightbulb,
+  Database,
 } from "lucide-react";
 
 import {
@@ -373,6 +374,20 @@ const navigationGroups: NavGroup[] = [
             icon: Users,
             permissions: [...PERMISSION_GROUPS.USER_MANAGEMENT],
             matchPrefixes: ["/users"],
+          },
+          {
+            label: "System Health",
+            href: "/admin/health",
+            icon: Activity,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+            matchPrefixes: ["/system-health"],
+          },
+          {
+            label: "System Backup",
+            href: "/admin/backup",
+            icon: Database,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+            matchPrefixes: ["/settings/backup"],
           },
           {
             label: "Audit Logs",

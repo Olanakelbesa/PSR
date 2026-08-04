@@ -21,6 +21,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: "/api/auth/:path*",
+        destination: "/auth-api/:path*",
+      },
+      {
         source: "/policies/concept-notes/my-concept-note/:id/edit",
         destination: "/policies/concept-notes/my-concept-note/edit/:id",
       },
