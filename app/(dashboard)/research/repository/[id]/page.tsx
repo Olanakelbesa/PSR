@@ -1110,6 +1110,18 @@ export default function ResearchRepositoryDetailPage() {
                                 </Badge>
                               ) : null}
 
+                              {it.is_searchable !== false ? (
+                                <Badge variant="outline" className="text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 gap-1">
+                                  <Globe className="h-3 w-3 text-emerald-600" />
+                                  Public in Repo
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 gap-1">
+                                  <EyeOff className="h-3 w-3 text-amber-600" />
+                                  Hidden / Internal
+                                </Badge>
+                              )}
+
                               {itemFile && (
                                 <Badge variant="secondary" className="text-[10px] font-semibold bg-muted/80 text-muted-foreground border border-border/40 gap-1">
                                   <Paperclip className="h-3 w-3" />

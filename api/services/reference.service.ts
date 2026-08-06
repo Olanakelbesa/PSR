@@ -129,17 +129,20 @@ export async function getOrganizations(params?: {
 }
 
 // ─── GET /v1/policydocumenttypes/ ─────────────────────────────────────────────
-export async function getPolicyDocumentTypes(): Promise<LookupItem[]> {
+export async function getPolicyDocumentTypes(params?: { limit?: number; search?: string }): Promise<LookupItem[]> {
   const res = await apiClient.get(
     API_ENDPOINTS.REFERENCE.POLICY_DOCUMENT_TYPES,
+    { params: { limit: 100, ...params } },
   );
   const parsed = LookupListSchema.safeParse(res.data);
   return parsed.success ? parsed.data.data : [];
 }
 
 // ─── GET /v1/thematicareas ────────────────────────────────────────────────────
-export async function getThematicAreas(): Promise<ThematicArea[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.THEMATIC_AREAS);
+export async function getThematicAreas(params?: { limit?: number; search?: string }): Promise<ThematicArea[]> {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.THEMATIC_AREAS, {
+    params: { limit: 100, ...params },
+  });
   const parsed = ThematicAreasResponseSchema.safeParse(res.data);
   return parsed.success ? parsed.data.data : [];
 }
@@ -205,7 +208,7 @@ export async function getProposalTypes(params?: {
   page?: number;
 }) {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.PROPOSAL_TYPES, {
-    params,
+    params: { limit: 100, ...params },
   });
   const parsed = ProposalTypesResponseSchema.safeParse(res.data);
 
@@ -267,8 +270,10 @@ export async function getInternalUsers(params?: {
   return Array.isArray(fallbackData) ? fallbackData : [];
 }
 // ─── GET /v1/terminalreporttypes/ ───────────────────────────────────────────────
-export async function getTerminalReportTypes(): Promise<LookupItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.TERMINAL_REPORT_TYPES.LIST);
+export async function getTerminalReportTypes(params?: { limit?: number; page?: number; search?: string }): Promise<LookupItem[]> {
+  const res = await apiClient.get(API_ENDPOINTS.TERMINAL_REPORT_TYPES.LIST, {
+    params: { limit: 100, ...params },
+  });
   const parsed = LookupListSchema.safeParse(res.data);
   if (parsed.success) {
     return parsed.data.data;
@@ -300,8 +305,10 @@ const IssueTypeListSchema = z.object({
     .optional(),
 });
 
-export async function getIssueTypes(): Promise<IssueTypeItem[]> {
-  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ISSUE_TYPES);
+export async function getIssueTypes(params?: { limit?: number; search?: string }): Promise<IssueTypeItem[]> {
+  const res = await apiClient.get(API_ENDPOINTS.REFERENCE.ISSUE_TYPES, {
+    params: { limit: 100, ...params },
+  });
   const parsed = IssueTypeListSchema.safeParse(res.data);
   if (parsed.success) {
     return parsed.data.data;
@@ -334,9 +341,10 @@ const ClassificationListSchema = z.object({
 
 export async function getClassifications(params?: {
   issue_type?: number;
+  limit?: number;
 }): Promise<ClassificationItem[]> {
   const res = await apiClient.get(API_ENDPOINTS.REFERENCE.CLASSIFICATIONS, {
-    params,
+    params: { limit: 100, ...params },
   });
   const parsed = ClassificationListSchema.safeParse(res.data);
   if (parsed.success) {

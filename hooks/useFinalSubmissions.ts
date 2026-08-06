@@ -87,16 +87,18 @@ export function useReadyForFinalSubmissionFundingRecommendations(
 }
 
 export function useOutputTypes(filters: Record<string, unknown> = {}) {
+  const mergedFilters = { limit: 100, ...filters };
   return useQuery({
-    queryKey: finalSubmissionKeys.outputTypes(filters),
-    queryFn: () => finalSubmissionsService.listOutputTypes(filters),
+    queryKey: finalSubmissionKeys.outputTypes(mergedFilters),
+    queryFn: () => finalSubmissionsService.listOutputTypes(mergedFilters),
   });
 }
 
 export function useDataCenters(filters: Record<string, unknown> = {}) {
+  const mergedFilters = { limit: 100, ...filters };
   return useQuery({
-    queryKey: finalSubmissionKeys.dataCenters(filters),
-    queryFn: () => finalSubmissionsService.listDataCenters(filters),
+    queryKey: finalSubmissionKeys.dataCenters(mergedFilters),
+    queryFn: () => finalSubmissionsService.listDataCenters(mergedFilters),
   });
 }
 

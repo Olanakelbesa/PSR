@@ -415,7 +415,7 @@ export const finalSubmissionsService = {
     filters: Record<string, unknown> = {},
   ): Promise<ApiListResponse<FinalSubmissionLookupOption>> {
     const { data } = await apiClient.get(API_ENDPOINTS.OUTPUT_TYPES.LIST, {
-      params: cleanParams(filters),
+      params: cleanParams({ limit: 100, ...filters }),
     });
 
     return normalizeList<FinalSubmissionLookupOption>(data);
@@ -425,7 +425,7 @@ export const finalSubmissionsService = {
     filters: Record<string, unknown> = {},
   ): Promise<ApiListResponse<FinalSubmissionLookupOption>> {
     const { data } = await apiClient.get(API_ENDPOINTS.DATA_CENTERS.LIST, {
-      params: cleanParams(filters),
+      params: cleanParams({ limit: 100, ...filters }),
     });
 
     return normalizeList<FinalSubmissionLookupOption>(data);

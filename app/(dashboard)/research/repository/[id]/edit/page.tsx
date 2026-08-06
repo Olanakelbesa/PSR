@@ -43,6 +43,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { useQueryClient } from "@tanstack/react-query";
 import { RichTextEditor } from "@/components/RichTextEditor";
 
 import {
@@ -172,6 +173,7 @@ function FileField({
 
 export default function EditRepositorySubmissionPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const rawId = params?.id;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
@@ -327,6 +329,9 @@ export default function EditRepositorySubmissionPage() {
 
     try {
       await updateMutation.mutateAsync({ id: id!, values: payload });
+      queryClient.invalidateQueries({ queryKey: ["final-submission", id] });
+      queryClient.invalidateQueries({ queryKey: ["final-submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["unified-search"] });
       toast.success(
         targetStatus === "submitted"
           ? "Final submission submitted."
