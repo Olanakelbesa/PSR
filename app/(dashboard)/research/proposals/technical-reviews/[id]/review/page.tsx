@@ -90,9 +90,9 @@ function formatReviewQuestion(text: string) {
     : decoded;
   const description = weightMatch
     ? decoded
-        .slice(weightMatch.index! + weightMatch[0].length)
-        .replace(/^[-\s]+/, "")
-        .trim()
+      .slice(weightMatch.index! + weightMatch[0].length)
+      .replace(/^[-\s]+/, "")
+      .trim()
     : "";
   const weightLabel = weightMatch ? `${weightMatch[1]}%` : null;
 
@@ -177,9 +177,9 @@ function ReviewQuestionRow({
                         value === ""
                           ? undefined
                           : Math.max(
-                              0,
-                              Math.min(question.maxPoints, Number(value)),
-                            ),
+                            0,
+                            Math.min(question.maxPoints, Number(value)),
+                          ),
                       );
                     }}
                   />

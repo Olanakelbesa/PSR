@@ -93,6 +93,9 @@ export const tokenStorage = {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
     }
+    // Drop the module-level default auth so a previous user's token can
+    // never leak into the next session's requests.
+    delete apiClient.defaults.headers.common["Authorization"];
   },
 };
 
@@ -206,8 +209,14 @@ apiClient.interceptors.request.use(
       headers?.Authorization ?? headers?.authorization,
     );
 
-    if (token && config.headers && !hasExplicitAuthHeader) {
+    // Always stamp the current user's token from tokenStorage. A stale
+    // module-level default from a previous session is merged into
+    // config.headers before this interceptor runs, so without overwriting it
+    // here the old user's bearer token would leak into the new session.
+    if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (config.headers && !hasExplicitAuthHeader) {
+      delete config.headers.Authorization;
     }
     return config;
   },

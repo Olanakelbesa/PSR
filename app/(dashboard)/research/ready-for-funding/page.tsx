@@ -534,19 +534,27 @@ export default function ReadyForFundingPage() {
         cell: ({ row }) => {
           const status = row.original.fundingDecisionStatus || "pending";
           const isNotAccepted = status === "rejected" || status === "not_accepted";
+          const allowPostFunding = row.original.allowPostFundingIrb === true;
           return (
-            <Badge
-              className={cn(
-                "text-[10px] font-bold capitalize",
-                status === "approved"
-                  ? "border border-green-200 bg-green-100 text-green-700 hover:bg-green-100"
-                  : isNotAccepted
-                    ? "border border-red-200 bg-red-100 text-red-700 hover:bg-red-100"
-                    : "border border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-100",
+            <div className="flex flex-col items-start gap-1">
+              <Badge
+                className={cn(
+                  "text-[10px] font-bold capitalize",
+                  status === "approved"
+                    ? "border border-green-200 bg-green-100 text-green-700 hover:bg-green-100"
+                    : isNotAccepted
+                      ? "border border-red-200 bg-red-100 text-red-700 hover:bg-red-100"
+                      : "border border-amber-200 bg-amber-100 text-amber-700 hover:bg-amber-100",
+                )}
+              >
+                {isNotAccepted ? "Not Accepted" : status.replace(/_/g, " ")}
+              </Badge>
+              {allowPostFunding && (
+                <Badge className="border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-50 text-[10px] font-bold">
+                  Post-Funding Allowed
+                </Badge>
               )}
-            >
-              {isNotAccepted ? "Not Accepted" : status.replace(/_/g, " ")}
-            </Badge>
+            </div>
           );
         },
       },

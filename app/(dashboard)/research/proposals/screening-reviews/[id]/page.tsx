@@ -424,22 +424,22 @@ export default function ScreeningDetailPage() {
       try {
         const response = await getManagedProposalById(id as string);
         const mappedProposal = mapManagedProposalToProposal(response);
+        let resolvedScreeningId = String(
+          response.screeningId ?? response.screening_id ?? "",
+        );
 
         try {
           const { getReviewHistory } = await import("@/api/services");
 
-          let screeningId = String(
-            response.screeningId ?? response.screening_id ?? "",
-          );
-          if (!screeningId) {
+          if (!resolvedScreeningId) {
             const screening = await findScreeningByProposal(String(response.id));
             if (screening?.id) {
-              screeningId = String(screening.id);
+              resolvedScreeningId = String(screening.id);
             }
           }
 
-          if (screeningId) {
-            const historyData = await getReviewHistory(String(screeningId));
+          if (resolvedScreeningId) {
+            const historyData = await getReviewHistory(String(resolvedScreeningId));
             if (historyData?.review_timeline) {
               mappedProposal.reviewTimeline = historyData.review_timeline;
             }
@@ -449,9 +449,9 @@ export default function ScreeningDetailPage() {
         }
 
         setProposal(mappedProposal);
-        setScreeningId(
-          String(response.screeningId ?? response.screening_id ?? response.id),
-        );
+        if (resolvedScreeningId) {
+          setScreeningId(resolvedScreeningId);
+        }
       } catch (error) {
         console.error("Error loading proposal:", error);
         toast.error("Failed to load proposal details");
@@ -475,7 +475,7 @@ export default function ScreeningDetailPage() {
         // Editing an existing screening — find it and pre-fill
         const existing = await findScreeningByProposal(safeId);
         if (existing) {
-          setScreeningId(existing.id);
+          setScreeningId(String(existing.id));
           // Map current status back to recommendation
           const statusToRecommendation: Record<string, "approve" | "under_review" | "reject"> = {
             screening_approved: "approve",
@@ -484,7 +484,7 @@ export default function ScreeningDetailPage() {
           };
           form.reset({
             recommendation: statusToRecommendation[existing.status] || "approve",
-            comments: (existing as any).decisionRemarks || "",
+            comments: (existing as any).decisionRemarks || (existing as any).decision_remarks || "",
             assignedReviewers: [],
           });
         }
@@ -497,7 +497,7 @@ export default function ScreeningDetailPage() {
           decision_remarks: "",
         });
 
-        setScreeningId(screening.id);
+        setScreeningId(String(screening.id));
         setProposal((current: any) =>
           current ? { ...current, status: "screening_under_review" } : current,
         );
@@ -508,8 +508,8 @@ export default function ScreeningDetailPage() {
         });
         setIsReviewOpen(true);
       }
-    } catch (error) {
-      console.error("Error starting screening review:", error);
+    } catch (error: any) {
+      console.error("Error starting screening review:", error?.response?.data || error?.message || error);
       toast.error("Failed to start screening review");
     } finally {
       setIsStartingReview(false);
@@ -520,25 +520,34 @@ export default function ScreeningDetailPage() {
     setIsSubmitting(true);
     try {
       const proposalId = Number(proposal.id);
+      const safeProposalId = Number.isNaN(proposalId) ? proposal.id : proposalId;
       const status = screeningStatusByRecommendation[data.recommendation];
-      const screening =
-        screeningId ||
-        (
-          await ensureScreeningForProposal(
-            Number.isNaN(proposalId) ? proposal.id : proposalId,
-            {
-              proposal: Number.isNaN(proposalId) ? proposal.id : proposalId,
-              status: "screening_under_review",
-              decision_remarks: "",
-            },
-          )
-        ).id;
 
-      await updateScreening(screening, {
-        proposal: Number.isNaN(proposalId) ? proposal.id : proposalId,
-        status,
-        decision_remarks: data.comments || "",
-      });
+      let targetScreeningId = screeningId;
+      if (!targetScreeningId) {
+        const found = await findScreeningByProposal(safeProposalId);
+        if (found?.id) {
+          targetScreeningId = String(found.id);
+        }
+      }
+
+      let screeningObj: any;
+      if (targetScreeningId) {
+        screeningObj = await updateScreening(targetScreeningId, {
+          status,
+          decision_remarks: data.comments || "",
+        });
+      } else {
+        screeningObj = await createScreening({
+          proposal: safeProposalId,
+          status,
+          decision_remarks: data.comments || "",
+        });
+      }
+
+      if (screeningObj?.id) {
+        setScreeningId(String(screeningObj.id));
+      }
       toast.success("Screening submitted successfully");
       setIsReviewOpen(false);
       form.reset({
@@ -550,9 +559,26 @@ export default function ScreeningDetailPage() {
         current ? { ...current, status } : current,
       );
       router.push("/research/proposals/screening-reviews");
-    } catch (error) {
-      console.error("Error submitting screening review:", error);
-      toast.error("An unexpected error occurred");
+    } catch (error: any) {
+      console.error("Error submitting screening review details:", error?.response?.data || error?.message || error);
+      const detailObj = error?.response?.data;
+      let detailMsg =
+        detailObj?.error?.message ||
+        detailObj?.message ||
+        detailObj?.detail;
+
+      if (!detailMsg && detailObj && typeof detailObj === "object") {
+        const fieldErrors = Object.entries(detailObj)
+          .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(", ") : val}`)
+          .join(" | ");
+        if (fieldErrors) detailMsg = fieldErrors;
+      }
+
+      if (!detailMsg && typeof detailObj === "string") {
+        detailMsg = detailObj;
+      }
+
+      toast.error(detailMsg || error?.message || "Failed to submit screening review");
     } finally {
       setIsSubmitting(false);
     }

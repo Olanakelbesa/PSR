@@ -318,7 +318,6 @@ export default function FundingRecommendationsPage() {
           : undefined,
       has_funding_decision: true,
       funding_decision_status: "approved" as const,
-      only_irb_approved: true,
       ordering: "-average_score_percentage",
     }),
     [selectedCall, selectedProposalType],
@@ -376,8 +375,15 @@ export default function FundingRecommendationsPage() {
         );
         const isFunded = recsCount > 0;
 
-        // Pending candidates that require IRB must be IRB approved to appear
-        if (needIrb && !isFunded && rawEthicalStatus !== "approved") {
+        const allowPostFunding = Boolean(
+          raw.allowPostFundingIrb ??
+          raw.allow_post_funding_irb ??
+          raw.ethicalClearanceRequirement === "required_post_funding",
+        );
+
+        // Pending candidates that require IRB must be IRB approved to appear,
+        // unless post-funding clearance is allowed (IRB can follow the funding).
+        if (needIrb && !isFunded && !allowPostFunding && rawEthicalStatus !== "approved") {
           return false;
         }
 

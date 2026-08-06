@@ -51,6 +51,9 @@ export const tokenStorage = {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
     }
+    // Drop the module-level default auth so a previous user's token can
+    // never leak into the next session's requests.
+    delete api.defaults.headers.common["Authorization"];
   },
 };
 

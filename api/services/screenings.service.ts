@@ -349,7 +349,7 @@ export interface ScreeningFilters {
 }
 
 export interface ScreeningWritePayload {
-  proposal: string | number;
+  proposal?: string | number;
   status: ScreeningStatus;
   decision_remarks?: string;
 }
@@ -439,7 +439,18 @@ export async function createScreening(
   payload: ScreeningWritePayload,
 ): Promise<Screening> {
   const res = await apiClient.post(API_ENDPOINTS.SCREENINGS.LIST, payload);
-  return ScreeningSchema.parse(res.data?.data ?? res.data);
+  const raw = res.data?.data ?? res.data;
+  const parsed = ScreeningSchema.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("createScreening safeParse warning:", parsed.error);
+  return {
+    ...raw,
+    id: String(raw.id ?? raw.pk),
+    decisionRemarks: raw.decisionRemarks ?? raw.decision_remarks ?? "",
+    status: raw.status,
+  } as any;
 }
 
 export async function updateScreening(
@@ -450,7 +461,18 @@ export async function updateScreening(
     API_ENDPOINTS.SCREENINGS.DETAIL(id),
     payload,
   );
-  return ScreeningSchema.parse(res.data?.data ?? res.data);
+  const raw = res.data?.data ?? res.data;
+  const parsed = ScreeningSchema.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("updateScreening safeParse warning:", parsed.error);
+  return {
+    ...raw,
+    id: String(raw.id ?? raw.pk ?? id),
+    decisionRemarks: raw.decisionRemarks ?? raw.decision_remarks ?? "",
+    status: raw.status,
+  } as any;
 }
 
 export async function ensureScreeningForProposal(

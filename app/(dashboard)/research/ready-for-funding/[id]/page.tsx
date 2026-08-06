@@ -458,11 +458,14 @@ export default function ReadyForFundingDetailPage() {
           | "deferred",
       };
 
-      if (screening?.fundingStatus?.id) {
-        await readyForFundingService.updateDecision(screeningId, payload);
-      } else {
-        await readyForFundingService.createDecision(screeningId, payload);
-      }
+      const result = screening?.fundingStatus?.id
+        ? await readyForFundingService.updateDecision(screeningId, payload)
+        : await readyForFundingService.createDecision(screeningId, payload);
+
+      const decisionId =
+        (result?.data?.id as number | undefined) ??
+        (result?.id as number | undefined) ??
+        screening?.fundingStatus?.id;
 
       setScreening((current) =>
         current
@@ -470,6 +473,7 @@ export default function ReadyForFundingDetailPage() {
             ...current,
             fundingStatus: {
               ...current.fundingStatus,
+              id: decisionId,
               decision: validation.data.fundingDecision,
               remark: validation.data.committeeRemarks,
               needIrbEthicalClearance: needIrb,
