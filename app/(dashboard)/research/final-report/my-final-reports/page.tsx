@@ -18,6 +18,7 @@ import {
   FilePlus2,
   Sparkles,
   Globe,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -420,23 +421,40 @@ export default function MyFinalReportsPage() {
         header: () => <div className="text-right">Actions</div>,
         cell: ({ row }) => {
           const item = row.original;
-          const isDraft = item.status.toLowerCase() === "draft";
+          const statusKey = item.status.toLowerCase();
+          const isDraft = statusKey === "draft";
           const isRejected =
-            item.status.toLowerCase() === "rejected" ||
-            item.status.toLowerCase() === "revision_requested";
+            statusKey === "rejected" || statusKey === "revision_requested";
+          const isApproved =
+            statusKey === "approved" ||
+            statusKey === "completed" ||
+            statusKey === "graded_for_repository";
 
           return (
             <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <Link href={`/research/final-report/new?resubmit_id=${item.id}`}>
+              {isApproved ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-xs font-semibold gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
+                  disabled
+                  title="This final report has been approved and can no longer be edited."
+                  className="h-7 text-xs font-semibold gap-1 border-muted-foreground/30 text-muted-foreground cursor-not-allowed"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  {isDraft ? "Resume Draft" : isRejected ? "Resubmit" : "Edit / Update"}
+                  <Lock className="w-3 h-3" />
+                  Approved — Locked
                 </Button>
-              </Link>
+              ) : (
+                <Link href={`/research/final-report/new?resubmit_id=${item.id}`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs font-semibold gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    {isDraft ? "Resume Draft" : isRejected ? "Resubmit" : "Edit / Update"}
+                  </Button>
+                </Link>
+              )}
             </div>
           );
         },

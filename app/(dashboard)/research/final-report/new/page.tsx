@@ -16,6 +16,7 @@ import {
   FileText,
   Globe,
   Loader2,
+  Lock,
   Paperclip,
   RotateCcw,
   Save,
@@ -150,6 +151,17 @@ function NewTerminalReportForm() {
   const reportSyncKey = reportId
     ? `${reportId}_${terminalReportTypes.length}_${dataCenters.length}`
     : null;
+
+  const reportStatusKey = (
+    existingReport?.status ||
+    existingReport?.general_status ||
+    ""
+  ).toLowerCase();
+  const reportLocked = !!existingReport && (
+    reportStatusKey === "approved" ||
+    reportStatusKey === "completed" ||
+    reportStatusKey === "graded_for_repository"
+  );
 
   // Sync existing report values if editing/resubmitting (Guarded against infinite re-renders)
   useEffect(() => {
@@ -488,6 +500,11 @@ function NewTerminalReportForm() {
   const handleSaveDraft = async (e: React.MouseEvent) => {
     e.preventDefault();
 
+    if (reportLocked) {
+      toast.error("This final report has been approved and can no longer be edited.");
+      return;
+    }
+
     if (!selectedTrackingId) {
       toast.error("Please select a proposal project before saving a draft.");
       return;
@@ -555,6 +572,11 @@ function NewTerminalReportForm() {
   // Full Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (reportLocked) {
+      toast.error("This final report has been approved and can no longer be edited.");
+      return;
+    }
 
     if (!selectedTrackingId) {
       toast.error("Please select an eligible proposal project.");
@@ -663,7 +685,7 @@ function NewTerminalReportForm() {
             type="button"
             variant="outline"
             size="sm"
-            disabled={isSavingDraft || isSubmitting}
+            disabled={isSavingDraft || isSubmitting || reportLocked}
             onClick={handleSaveDraft}
             className="h-9 text-xs font-semibold gap-2 border-border text-foreground hover:bg-accent shadow-2xs"
           >
@@ -678,22 +700,25 @@ function NewTerminalReportForm() {
             type="submit"
             form="terminal-report-form"
             size="sm"
-            disabled={isSavingDraft || isSubmitting}
+            disabled={isSavingDraft || isSubmitting || reportLocked}
+            title={reportLocked ? "This final report has been approved and can no longer be edited." : undefined}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-2 h-9 shadow-2xs"
           >
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : reportLocked ? (
+              <Lock className="w-4 h-4" />
             ) : (
               <Send className="w-4 h-4" />
             )}
-            {existingReport ? "Resubmit Final Report" : "Submit Final Report"}
+            {existingReport ? (reportLocked ? "Approved — Locked" : "Resubmit Final Report") : "Submit Final Report"}
           </Button>
         </div>
       }
     >
       <div className="w-full max-w-full space-y-6">
         {/* Reviewer Modification Feedback Banner (if resubmitting) */}
-        {existingReport?.reviewer_comments && (
+        {!reportLocked && existingReport?.reviewer_comments && (
           <Card className="border-rose-200 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/30">
             <CardContent className="p-4 space-y-1 text-xs text-rose-900 dark:text-rose-200">
               <div className="flex items-center gap-2 font-bold text-rose-800 dark:text-rose-300">
@@ -707,7 +732,27 @@ function NewTerminalReportForm() {
           </Card>
         )}
 
+        {reportLocked && (
+          <Card className="border-l-4 border-l-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30">
+            <CardContent className="p-4 flex items-start gap-3 text-xs text-emerald-900 dark:text-emerald-200">
+              <Lock className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-emerald-800 dark:text-emerald-300">
+                  Final Report Approved — Editing Locked
+                </p>
+                <p className="leading-relaxed pl-0 text-emerald-800 dark:text-emerald-300">
+                  This final report has been reviewed, graded, and officially approved. It can no longer be edited or resubmitted. Contact the research committee if you need to request a change.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <form id="terminal-report-form" onSubmit={handleSubmit}>
+          <fieldset
+            disabled={reportLocked}
+            className={cn("contents", reportLocked && "pointer-events-none select-none")}
+          >
           {/* Main Proposal Creation Grid (Left minmax(0,1fr), Right 360px) */}
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] items-start">
 
@@ -1214,6 +1259,7 @@ function NewTerminalReportForm() {
             </div>
 
           </div>
+          </fieldset>
         </form>
       </div>
     </PageContainer>

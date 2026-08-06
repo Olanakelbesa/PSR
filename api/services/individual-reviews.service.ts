@@ -125,6 +125,8 @@ const IndividualReviewDetailSchema = z
       .optional()
       .default(0),
     reviewStatus: z.string().optional().default("pending_review"),
+    fundingDecisionStatus: z.string().nullable().optional(),
+    isReviewLocked: z.boolean().optional().default(false),
   })
   .passthrough();
 
@@ -148,6 +150,8 @@ const IndividualReviewSchema = z
     comments: z.string().optional().default(""),
     attachment: z.string().nullable().optional(),
     totalScore: z.number().optional().default(0),
+    fundingDecisionStatus: z.string().nullable().optional(),
+    isReviewLocked: z.boolean().optional().default(false),
   })
   .passthrough();
 
@@ -247,6 +251,9 @@ export async function getIndividualReviewById(
 
   const safe = {
     ...raw,
+    isReviewLocked: raw.is_review_locked ?? raw.isReviewLocked ?? false,
+    fundingDecisionStatus:
+      raw.funding_decision_status ?? raw.fundingDecisionStatus ?? null,
     responses: (raw.responses ?? []).map((r: any) => ({
       id: r.id,
       question: r.question,

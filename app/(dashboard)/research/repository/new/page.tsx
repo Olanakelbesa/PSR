@@ -195,6 +195,9 @@ export default function NewRepositorySubmissionPage() {
     searchParams?.get("tracking_id") ||
     searchParams?.get("funded_proposal_id");
 
+  const initialExternalResearchParam =
+    searchParams?.get("external_research_id");
+
   const [sourceType, setSourceType] = useState<"proposal" | "external_research">("proposal");
   const [form, setForm] = useState(initialForm);
   const [files, setFiles] = useState({
@@ -512,6 +515,28 @@ export default function NewRepositorySubmissionPage() {
       void handleFundedProposalChange(targetVal);
     }
   }, [initialProposalParam, gradedProposals, isEditMode]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+    if (
+      initialExternalResearchParam &&
+      approvedExternalResearches.length > 0 &&
+      !form.external_research
+    ) {
+      const matched = approvedExternalResearches.find(
+        (item: any) =>
+          String(item.external_research_id || item.id) ===
+          initialExternalResearchParam,
+      );
+
+      const targetVal = matched
+        ? String(matched.external_research_id || matched.id)
+        : initialExternalResearchParam;
+
+      setSourceType("external_research");
+      void handleExternalResearchChange(targetVal);
+    }
+  }, [initialExternalResearchParam, approvedExternalResearches, isEditMode]);
 
   useEffect(() => {
     if (!existingSubmission || !isEditMode) return;

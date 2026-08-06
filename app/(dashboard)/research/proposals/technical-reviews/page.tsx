@@ -21,6 +21,7 @@ import {
   Check,
   Tag,
   Building2,
+  Lock,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -182,6 +183,8 @@ function ReferenceCell({ refNum, id }: { refNum: string; id: string }) {
 type ReviewRow = IndividualReview & {
   thematicAreaLabel: string;
   scorePct: number | null;
+  isReviewLocked: boolean;
+  fundingDecisionStatus?: string | null;
 };
 
 // ── Score Color Badge Helper ──────────────────────────────────────────────────
@@ -271,19 +274,31 @@ const columns: ColumnDef<ReviewRow>[] = [
       };
       const Icon = config.icon;
       return (
-        <Badge
-          variant={config.variant}
-          className={cn(
-            "gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase",
-            row.original.reviewStatus === "reviewed" &&
-              "bg-green-100 text-green-700 border-green-200",
-            row.original.reviewStatus === "pending_review" &&
-              "bg-amber-50 text-amber-600 border-amber-200",
-          )}
-        >
-          <Icon className="h-3 w-3" />
-          {config.label}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            variant={config.variant}
+            className={cn(
+              "gap-1.5 px-2 py-0.5 text-[10px] font-bold uppercase",
+              row.original.reviewStatus === "reviewed" &&
+                "bg-green-100 text-green-700 border-green-200",
+              row.original.reviewStatus === "pending_review" &&
+                "bg-amber-50 text-amber-600 border-amber-200",
+            )}
+          >
+            <Icon className="h-3 w-3" />
+            {config.label}
+          </Badge>
+          {row.original.isReviewLocked ? (
+            <Badge
+              variant="outline"
+              className="gap-1 px-2 py-0.5 text-[10px] font-bold uppercase border-slate-300 bg-slate-100 text-slate-600"
+              title="A funding decision has been made; this review can no longer be edited."
+            >
+              <Lock className="h-3 w-3" />
+              Locked
+            </Badge>
+          ) : null}
+        </div>
       );
     },
   },
@@ -355,15 +370,22 @@ const columns: ColumnDef<ReviewRow>[] = [
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link
-                href={`/research/proposals/technical-reviews/${row.original.id}/review`}
-                className="text-primary font-medium"
-              >
-                <ClipboardList className="h-4 w-4 mr-2" />
-                Technical Review
-              </Link>
-            </DropdownMenuItem>
+            {row.original.isReviewLocked ? (
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                <Lock className="h-4 w-4 mr-2" />
+                Review Locked
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem asChild>
+                <Link
+                  href={`/research/proposals/technical-reviews/${row.original.id}/review`}
+                  className="text-primary font-medium"
+                >
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Technical Review
+                </Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -417,10 +439,19 @@ export default function TechnicalReviewsPage() {
       );
     }
 
+    const fundingDecisionStatus =
+      raw.funding_decision_status ?? raw.fundingDecisionStatus ?? null;
+    const isReviewLocked =
+      raw.is_review_locked ??
+      raw.isReviewLocked ??
+      Boolean(fundingDecisionStatus && fundingDecisionStatus !== "pending");
+
     return {
       ...review,
       thematicAreaLabel,
       scorePct,
+      fundingDecisionStatus,
+      isReviewLocked,
     };
   };
 

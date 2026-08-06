@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   ChevronDown,
   AlertCircle,
+  Lock,
 } from "lucide-react";
 import { z } from "zod";
 import { useForm, useWatch } from "react-hook-form";
@@ -127,10 +128,12 @@ function ReviewQuestionRow({
   question,
   index,
   control,
+  disabled,
 }: {
   question: FormattedQuestion;
   index: number;
   control: ReturnType<typeof useForm<FormValues>>["control"];
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-4 border-b border-border/60 p-5 last:border-b-0">
@@ -169,7 +172,8 @@ function ReviewQuestionRow({
                     type="number"
                     min={0}
                     max={question.maxPoints}
-                    className="h-9 w-20 border-0 bg-transparent px-0 text-right font-semibold shadow-none focus-visible:ring-0"
+                    disabled={disabled}
+                    className="h-9 w-20 border-0 bg-transparent px-0 text-right font-semibold shadow-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
                     value={field.value ?? ""}
                     onChange={(event) => {
                       const value = event.target.value;
@@ -204,6 +208,8 @@ export default function TechnicalReviewPage() {
   const { data: questionsRes, isLoading: qLoading } = useReviewQuestions();
   const { data: existingReview } = useIndividualReview(id as string);
   const review = useUpdateIndividualReview();
+
+  const reviewLocked = existingReview?.isReviewLocked ?? false;
 
   const rawQuestions = questionsRes?.data ?? [];
   const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
@@ -347,6 +353,7 @@ export default function TechnicalReviewPage() {
 
   function onSubmit(data: FormValues) {
     if (!id) return;
+    if (reviewLocked) return;
 
     const unanswered = questions.filter(
       (question) => !hasScore(data.responses, question.id),
@@ -418,6 +425,18 @@ export default function TechnicalReviewPage() {
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {reviewLocked ? (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-300">
+              <Lock className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">Review Locked</p>
+                <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+                  A funding decision has already been made for this proposal.
+                  The technical review is locked and can no longer be edited.
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="grid items-start gap-6 lg:grid-cols-4">
             <div className="space-y-6 lg:col-span-3">
               <Card>
@@ -560,6 +579,7 @@ export default function TechnicalReviewPage() {
                                   question={question}
                                   index={index}
                                   control={form.control}
+                                  disabled={reviewLocked}
                                 />
                               ))}
                             </CollapsibleContent>
@@ -586,7 +606,8 @@ export default function TechnicalReviewPage() {
                     <FormControl>
                       <Textarea
                         {...field}
-                        className="min-h-[150px]"
+                        disabled={reviewLocked}
+                        className="min-h-[150px] disabled:cursor-not-allowed disabled:opacity-60"
                         placeholder="Write your technical review..."
                       />
                     </FormControl>
@@ -654,11 +675,22 @@ export default function TechnicalReviewPage() {
                 <CardFooter className="p-4 pt-0">
                   <Button
                     type="submit"
-                    disabled={review.isPending || questions.length === 0}
+                    disabled={reviewLocked || review.isPending || questions.length === 0}
                     className="h-12 w-full text-md font-semibold"
                   >
-                    <Send className="mr-2 h-4 w-4" />
-                    {review.isPending ? "Submitting..." : "Submit Review"}
+                    {reviewLocked ? (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        Review Locked
+                      </>
+                    ) : review.isPending ? (
+                      "Submitting..."
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Submit Review
+                      </>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>

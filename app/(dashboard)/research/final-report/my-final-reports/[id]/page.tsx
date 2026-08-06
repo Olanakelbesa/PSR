@@ -21,6 +21,7 @@ import {
   FileText,
   FolderOpen,
   Info,
+  Lock,
   Mail,
   MessageSquare,
   Paperclip,
@@ -284,6 +285,10 @@ export default function MyFinalReportDetailPage() {
   const isDraft = statusKey === "draft";
   const isRejectedOrRevision =
     statusKey === "rejected" || statusKey === "revision_requested";
+  const isApproved =
+    statusKey === "approved" ||
+    statusKey === "completed" ||
+    statusKey === "graded_for_repository";
 
   const rawTeamMembers = report?.team_members || (projectTracking as any)?.team_members || (projectTracking as any)?.teamMembers || [];
   const teamMembers: TerminalReportTeamMember[] = useMemo(() => {
@@ -432,7 +437,17 @@ export default function MyFinalReportDetailPage() {
             </Button>
           )}
 
-          {isDraft ? (
+          {isApproved ? (
+            <Button
+              size="sm"
+              disabled
+              title="This final report has been approved and can no longer be edited."
+              className="shadow-2xs text-xs font-bold gap-1.5 text-muted-foreground cursor-not-allowed"
+            >
+              <Lock className="h-4 w-4" />
+              Approved — Locked
+            </Button>
+          ) : isDraft ? (
             <Link href={`/research/final-report/new?resubmit_id=${reportId}`}>
               <Button
                 size="sm"
@@ -509,6 +524,22 @@ export default function MyFinalReportDetailPage() {
                 Resubmit Report
               </Button>
             </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {isApproved && (
+        <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 shadow-xs mb-6">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Lock className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-sm text-emerald-900 dark:text-emerald-200">
+                Final Report Approved — Editing Locked
+              </h3>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5">
+                This final report has been reviewed, graded, and officially approved. It can no longer be edited or resubmitted. Contact the research committee if you need to request a change.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

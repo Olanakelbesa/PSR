@@ -20,6 +20,7 @@ import {
   ExternalLink,
   FileText,
   Layers,
+  Lock,
   MessageSquare,
   Paperclip,
   RefreshCw,
@@ -385,13 +386,24 @@ export default function TechnicalReviewDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to List
           </Button>
-          <Button className="bg-primary hover:bg-primary/90" asChild>
-            <Link href={`/research/proposals/technical-reviews/${id}/review`}>
-              <ClipboardList className="mr-2 h-4 w-4" />
-              Open Review Form
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          {(review as any)?.isReviewLocked ? (
+            <Button
+              variant="outline"
+              disabled
+              title="A funding decision has already been made for this proposal. The technical review is locked and cannot be edited."
+            >
+              <Lock className="mr-2 h-4 w-4" />
+              Review Locked
+            </Button>
+          ) : (
+            <Button className="bg-primary hover:bg-primary/90" asChild>
+              <Link href={`/research/proposals/technical-reviews/${id}/review`}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Open Review Form
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          )}
         </div>
       }
     >
