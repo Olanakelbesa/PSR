@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env
+.env.example
+.env.local
+.env.production
+.env.*
+*.local
+**/__tests__
+**/*.test.*
+**/*.spec.*
+README.md
+.dockerignore
+Dockerfile
+docker-compose*.yml

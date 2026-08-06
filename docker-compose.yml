@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    image: psr-frontend:latest
+    restart: unless-stopped
+    env_file:
+      - ./${ENV_FILE:-.env.production}
+    environment:
+      NODE_ENV: production
+      HOSTNAME: "0.0.0.0"
+      PORT: 3000
+    ports:
+      - "${FRONTEND_PORT:-8089}:3000"
