@@ -222,11 +222,30 @@ export default function NewRepositorySubmissionPage() {
 
   const gradedItems = gradedRepositoryQuery.data ?? [];
   const gradedProposals = useMemo(
-    () => gradedItems.filter((it: any) => it.source_type === "proposal" || (!it.source_type && (it.proposal_id || it.proposalId))),
+    () =>
+      gradedItems.filter((it: any) => {
+        const isExt =
+          it.source_type === "external_research" ||
+          !!it.external_research_id ||
+          !!it.externalResearchId;
+        return (
+          !isExt &&
+          (it.source_type === "proposal" ||
+            !!it.proposal_id ||
+            !!it.proposalId)
+        );
+      }),
     [gradedItems]
   );
   const approvedExternalResearches = useMemo(
-    () => gradedItems.filter((it: any) => it.source_type === "external_research" || it.external_research_id),
+    () =>
+      gradedItems.filter((it: any) => {
+        return (
+          it.source_type === "external_research" ||
+          !!it.external_research_id ||
+          !!it.externalResearchId
+        );
+      }),
     [gradedItems]
   );
   const outputTypes = outputTypesQuery.data?.data ?? [];
@@ -1417,53 +1436,6 @@ export default function NewRepositorySubmissionPage() {
                 );
               })()}
 
-              {/* Attach Additional Files — collapsible */}
-              <details className="group">
-                <summary className="flex cursor-pointer items-center gap-2 rounded-xl px-1 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none">
-                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-                  {isEditMode
-                    ? (files.full_report || files.policy_brief || files.supplementary_document
-                      ? "Replace or Add Files (optional)"
-                      : "Upload New Files (optional)")
-                    : "Attach Additional Files (optional)"}
-                </summary>
-                <div className="mt-3 space-y-4 rounded-2xl border border-dashed border-muted-foreground/15 bg-slate-50/40 dark:bg-slate-900/20 p-4">
-                  <FileField
-                    id="full_report"
-                    label="Full Report"
-                    helperText={isEditMode ? "Upload a new report document to replace the current file." : "Upload a report document to supplement or override the terminal report file."}
-                    file={files.full_report}
-                    existingUrl={isEditMode ? existingSubmission?.full_report ?? null : null}
-                    onFileChange={(file) =>
-                      setFiles((prev) => ({ ...prev, full_report: file }))
-                    }
-                  />
-                  <FileField
-                    id="policy_brief"
-                    label="Policy Brief"
-                    helperText="Attach a policy brief or executive brief."
-                    file={files.policy_brief}
-                    existingUrl={isEditMode ? existingSubmission?.policy_brief ?? null : undefined}
-                    onFileChange={(file) =>
-                      setFiles((prev) => ({ ...prev, policy_brief: file }))
-                    }
-                  />
-                  <FileField
-                    id="supplementary_document"
-                    label="Supplementary Document"
-                    helperText="Attach any supplementary material or annex."
-                    file={files.supplementary_document}
-                    existingUrl={isEditMode ? existingSubmission?.supplementary_document ?? null : undefined}
-                    onFileChange={(file) =>
-                      setFiles((prev) => ({
-                        ...prev,
-                        supplementary_document: file,
-                      }))
-                    }
-                  />
-                </div>
-              </details>
-
               <Separator />
 
               <div className="grid gap-5 sm:grid-cols-2">
@@ -1618,8 +1590,8 @@ export default function NewRepositorySubmissionPage() {
                 <div
                   key={item.key}
                   className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${item.done
-                      ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
-                      : "border-muted-foreground/10"
+                    ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                    : "border-muted-foreground/10"
                     }`}
                 >
                   <div

@@ -295,6 +295,7 @@ export const API_ENDPOINTS = {
     LIST: "/v1/notifications/",
     MARK_READ: (id: string | number) => `/v1/notifications/${id}/mark-read/`,
     MARK_UNREAD: (id: string | number) => `/v1/notifications/${id}/mark-unread/`,
+    MARK_ALL_READ: "/v1/notifications/mark-all-read/",
     DELETE: (id: string | number) => `/v1/notifications/${id}/`,
     CLEAR: "/v1/notifications/clear/",
   },

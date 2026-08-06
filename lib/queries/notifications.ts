@@ -117,8 +117,8 @@ export function useNotifications(userId?: string) {
       return unwrapNotificationList(data).map(normalizeNotification);
     },
     enabled: !!userId,
-    staleTime: 1000 * 30,
-    refetchInterval: 60_000,
+    staleTime: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
@@ -156,9 +156,7 @@ export function useMarkAllNotificationsRead() {
     { previous: ReturnType<QueryClient["getQueriesData"]> }
   >({
     mutationFn: async (ids: string[]) => {
-      await Promise.all(
-        ids.map((id) => api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id))),
-      );
+      await api.post(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ);
     },
     onMutate: async (ids) => {
       await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });

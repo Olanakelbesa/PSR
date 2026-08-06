@@ -967,15 +967,22 @@ export const terminalReportsService = {
         }
         : null;
 
+      const isExternal =
+        item.source_type === "external_research" ||
+        !!item.external_research_id ||
+        !!item.externalResearchId;
+
       return {
         ...item,
-        source_type: item.source_type || (item.external_research_id ? "external_research" : "proposal"),
-        external_research_id: item.external_research_id ?? item.externalResearchId,
+        source_type: isExternal ? "external_research" : "proposal",
+        external_research_id: isExternal
+          ? (item.external_research_id ?? item.externalResearchId ?? item.id)
+          : undefined,
         authors: item.authors,
         institution: item.institution,
         year: item.year,
-        proposalId: item.proposalId ?? item.proposal_id,
-        proposal_id: item.proposalId ?? item.proposal_id,
+        proposalId: isExternal ? undefined : (item.proposalId ?? item.proposal_id ?? item.id),
+        proposal_id: isExternal ? undefined : (item.proposalId ?? item.proposal_id ?? item.id),
         projectTrackingId: item.projectTrackingId ?? item.project_tracking_id,
         project_tracking_id: item.projectTrackingId ?? item.project_tracking_id,
         title: item.title,

@@ -862,51 +862,6 @@ export default function EditRepositorySubmissionPage() {
                 </div>
               )}
 
-              {/* Attach Additional Files — collapsible */}
-              <details className="group">
-                <summary className="flex cursor-pointer items-center gap-2 rounded-xl px-1 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none">
-                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-                  {files.full_report || files.policy_brief || files.supplementary_document
-                    ? "Replace or Add Files (optional)"
-                    : "Upload New Files (optional)"}
-                </summary>
-                <div className="mt-3 space-y-4 rounded-2xl border border-dashed border-muted-foreground/15 bg-slate-50/40 dark:bg-slate-900/20 p-4">
-                  <FileField
-                    id="full_report"
-                    label="Full Report"
-                    helperText="Upload a new report document to replace the current file."
-                    file={files.full_report}
-                    existingUrl={submission.full_report}
-                    onFileChange={(file) =>
-                      setFiles((prev) => ({ ...prev, full_report: file }))
-                    }
-                  />
-                  <FileField
-                    id="policy_brief"
-                    label="Policy Brief"
-                    helperText="Upload a new policy brief to replace the current file."
-                    file={files.policy_brief}
-                    existingUrl={submission.policy_brief}
-                    onFileChange={(file) =>
-                      setFiles((prev) => ({ ...prev, policy_brief: file }))
-                    }
-                  />
-                  <FileField
-                    id="supplementary_document"
-                    label="Supplementary Document"
-                    helperText="Upload new supplementary material to replace the current file."
-                    file={files.supplementary_document}
-                    existingUrl={submission.supplementary_document}
-                    onFileChange={(file) =>
-                      setFiles((prev) => ({
-                        ...prev,
-                        supplementary_document: file,
-                      }))
-                    }
-                  />
-                </div>
-              </details>
-
               <Separator />
 
               <div className="grid gap-5 sm:grid-cols-2">
@@ -1024,8 +979,8 @@ export default function EditRepositorySubmissionPage() {
                 <div
                   key={item.key}
                   className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${item.done
-                      ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
-                      : "border-muted-foreground/10"
+                    ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                    : "border-muted-foreground/10"
                     }`}
                 >
                   <div
