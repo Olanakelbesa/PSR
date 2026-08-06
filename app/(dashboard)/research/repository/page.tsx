@@ -293,10 +293,10 @@ export default function ResearchRepositoryPage() {
         item.external_research
           ? `EXT-${item.external_research}`
           : item.fundedproposal_detail?.reference_number ||
-            item.fundedproposal_detail?.proposal_id ||
-            item.fundedproposal_detail?.funding_recommendation_id ||
-            item.fundedproposal ||
-            item.id;
+          item.fundedproposal_detail?.proposal_id ||
+          item.fundedproposal_detail?.funding_recommendation_id ||
+          item.fundedproposal ||
+          item.id;
 
       if (!seenProposalKeys.has(proposalKey)) {
         seenProposalKeys.add(proposalKey);
@@ -505,9 +505,6 @@ export default function ResearchRepositoryPage() {
               <div className="max-w-[240px] space-y-0.5">
                 <p className="line-clamp-2 text-sm font-semibold text-foreground/90">
                   {ext?.title || item.title}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {ext?.authors || "External Authors"} {ext?.institution ? `(${ext.institution})` : ""}
                 </p>
               </div>
             );

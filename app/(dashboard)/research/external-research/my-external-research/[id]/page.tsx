@@ -17,6 +17,7 @@ import {
   FileCheck,
   FileText,
   FolderOpen,
+  Lock,
   Mail,
   MessageSquare,
   Paperclip,
@@ -39,7 +40,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PdfViewer } from "@/components/shared/pdf-viewer";
 import { WordViewer } from "@/components/shared/word-viewer";
 import { PdfViewerDialog } from "@/components/shared/pdf-viewer-dialog";
-import { useExternalResearch } from "@/hooks/useExternalResearch";
+import { useExternalResearch, useRecordExternalResearchDownload } from "@/hooks/useExternalResearch";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import { getConceptNoteAttachmentKind, downloadConceptNoteAttachment } from "@/lib/utils/concept-note-attachments";
 import { cn } from "@/lib/utils";
@@ -110,7 +111,77 @@ function getInitials(name?: string | null, fallback = "U"): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function EmbeddedViewer({ url, title }: { url: string; title: string }) {
+function renderAuthorsList(authorsStr?: string | null) {
+  if (!authorsStr || !authorsStr.trim()) {
+    return <span className="text-xs text-muted-foreground italic">No authors listed</span>;
+  }
+
+  let cleanStr = authorsStr.trim();
+  if (/^authors\s*:/i.test(cleanStr)) {
+    cleanStr = cleanStr.replace(/^authors\s*:/i, "").trim();
+  }
+
+  const authorList = cleanStr
+    .split(/[,;\n]/)
+    .map((a) => a.trim())
+    .filter(Boolean);
+
+  if (authorList.length === 0) {
+    return <span className="text-xs font-bold text-foreground">{authorsStr}</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1">
+      {authorList.map((name, idx) => (
+        <Badge
+          key={idx}
+          variant="secondary"
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 gap-1.5 shadow-2xs hover:bg-primary/15 transition-colors"
+        >
+          <UserIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span>{name}</span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function renderKeywordsBadges(keywordsStr?: string | null) {
+  if (!keywordsStr || !keywordsStr.trim()) {
+    return <span className="text-xs text-muted-foreground italic">No keywords provided</span>;
+  }
+
+  let cleanStr = keywordsStr.trim();
+  if (/^keywords\s*:/i.test(cleanStr)) {
+    cleanStr = cleanStr.replace(/^keywords\s*:/i, "").trim();
+  }
+
+  const kwList = cleanStr
+    .split(/[,;\n]/)
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  if (kwList.length === 0) {
+    return <span className="text-xs font-medium text-foreground">{keywordsStr}</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {kwList.map((kw, idx) => (
+        <Badge
+          key={idx}
+          variant="outline"
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 gap-1.5 shadow-2xs hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+        >
+          <Tag className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{kw}</span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function EmbeddedViewer({ url, title, onDownload }: { url: string; title: string; onDownload?: () => void }) {
   if (!url) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center bg-card">
@@ -152,7 +223,10 @@ function EmbeddedViewer({ url, title }: { url: string; title: string }) {
         variant="outline"
         size="sm"
         className="text-xs font-semibold gap-1.5"
-        onClick={() => downloadConceptNoteAttachment(resolvedUrl, title)}
+        onClick={() => {
+          if (onDownload) onDownload();
+          downloadConceptNoteAttachment(resolvedUrl, title);
+        }}
       >
         <Download className="h-3.5 w-3.5" />
         Download File
@@ -167,6 +241,7 @@ export default function MyExternalResearchDetailPage() {
   const researchId = params?.id as string;
 
   const { data: research, isLoading } = useExternalResearch(researchId);
+  const downloadDownloadMutation = useRecordExternalResearchDownload();
 
   const [copiedRef, setCopiedRef] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -187,6 +262,9 @@ export default function MyExternalResearchDetailPage() {
 
   const isDraft = statusKey === "draft";
   const isRejectedOrRevision = statusKey === "rejected" || statusKey === "revision_requested";
+  const isApproved = statusKey === "approved";
+  const isUnderReview = statusKey === "submitted" || statusKey === "under_review" || statusKey === "pending";
+  const researchLocked = isApproved || isUnderReview;
 
   const handleCopyRef = () => {
     navigator.clipboard.writeText(refNum);
@@ -331,6 +409,10 @@ export default function MyExternalResearchDetailPage() {
               {cfg.label}
             </Badge>
           )}
+          <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wide px-2.5 py-0.5 border border-primary/20 gap-1.5 shadow-2xs">
+            <Download className="h-3 w-3 text-primary" />
+            {research?.download_count ?? 0} Downloads
+          </Badge>
         </div>
       }
       actions={
@@ -342,7 +424,17 @@ export default function MyExternalResearchDetailPage() {
             </Link>
           </Button>
 
-          {isDraft ? (
+          {researchLocked ? (
+            <Button
+              size="sm"
+              disabled
+              className="shadow-2xs text-xs font-bold gap-1.5 cursor-not-allowed"
+              title={isApproved ? "This entry has been approved and can no longer be edited." : "This entry is under review and cannot be edited."}
+            >
+              <Lock className="h-4 w-4" />
+              {isApproved ? "Approved — Locked" : "Under Review — Locked"}
+            </Button>
+          ) : isDraft ? (
             <Link href={`/research/external-research/my-external-research/add?edit_id=${researchId}`}>
               <Button
                 size="sm"
@@ -377,6 +469,22 @@ export default function MyExternalResearchDetailPage() {
         pdfUrl={previewUrl}
         title={previewTitle}
       />
+
+      {researchLocked && (
+        <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 shadow-xs mb-6">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Lock className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-sm text-emerald-900 dark:text-emerald-200">
+                External Research Approved — Editing Locked
+              </h3>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5">
+                This external research entry has been reviewed and officially approved. It can no longer be edited or resubmitted. Contact the research committee if you need to request a change.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Layout Grid */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -453,17 +561,20 @@ export default function MyExternalResearchDetailPage() {
                   )}
 
                   {(research.keywords || research.doi) && (
-                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t text-xs">
-                      {research.doi && (
-                        <div className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-lg border">
-                          <span className="font-bold text-foreground">DOI:</span>
-                          <span className="font-mono text-muted-foreground">{research.doi}</span>
+                    <div className="space-y-3 pt-3 border-t">
+                      {research.keywords && (
+                        <div className="p-4 rounded-xl border border-emerald-200/80 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/50 space-y-1.5">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                            <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            Keywords & Subject Topics
+                          </h4>
+                          {renderKeywordsBadges(research.keywords)}
                         </div>
                       )}
-                      {research.keywords && (
-                        <div className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-lg border">
-                          <span className="font-bold text-foreground">Keywords:</span>
-                          <span className="text-muted-foreground">{research.keywords}</span>
+                      {research.doi && (
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-bold text-foreground">DOI Identifier:</span>
+                          <span className="font-mono bg-muted px-2.5 py-1 rounded-md border text-muted-foreground">{research.doi}</span>
                         </div>
                       )}
                     </div>
@@ -496,7 +607,13 @@ export default function MyExternalResearchDetailPage() {
                   </div>
 
                   {activeDoc?.url && (
-                    <EmbeddedViewer url={activeDoc.url} title={activeDoc.label} />
+                    <EmbeddedViewer
+                      url={activeDoc.url}
+                      title={activeDoc.label}
+                      onDownload={() => {
+                        if (researchId) downloadDownloadMutation.mutate({ id: researchId });
+                      }}
+                    />
                   )}
                 </div>
               )}
@@ -513,17 +630,19 @@ export default function MyExternalResearchDetailPage() {
                 </CardHeader>
                 <CardContent className="pt-5 space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
+                    <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1 sm:col-span-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Title</p>
                       <p className="text-sm font-bold text-foreground leading-snug">{title}</p>
+                    </div>
+                    <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1 sm:col-span-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <UserIcon className="h-3.5 w-3.5 text-primary" /> Authors
+                      </p>
+                      {renderAuthorsList(authors)}
                     </div>
                     <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Institution & Department</p>
                       <p className="text-xs font-bold text-foreground">{institution} {research.department ? `(${research.department})` : ""}</p>
-                    </div>
-                    <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Authors</p>
-                      <p className="text-xs font-bold text-foreground">{authors}</p>
                     </div>
                     <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Publication Year</p>
@@ -534,11 +653,25 @@ export default function MyExternalResearchDetailPage() {
                       <p className="text-xs font-bold text-foreground">{dataCenter}</p>
                     </div>
                     <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Download className="h-3.5 w-3.5 text-primary" /> Total Downloads
+                      </p>
+                      <p className="text-xs font-bold text-primary tabular-nums">{research.download_count ?? 0}</p>
+                    </div>
+                    <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Evidence Tier</p>
                       <Badge variant="secondary" className="font-bold text-[10px] uppercase">
                         {research.graded_evidence ? research.graded_evidence.replace("_", " ") : "NOT GRADED"}
                       </Badge>
                     </div>
+                    {research.keywords && (
+                      <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1.5 sm:col-span-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          <Tag className="h-3.5 w-3.5 text-emerald-600" /> Keywords & Research Subjects
+                        </p>
+                        {renderKeywordsBadges(research.keywords)}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -38,7 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useExternalResearch } from "@/hooks/useExternalResearch";
+import { useExternalResearch, useRecordExternalResearchDownload } from "@/hooks/useExternalResearch";
 import { cn } from "@/lib/utils";
 import { resolveFileUrl } from "@/lib/utils/resolve-file-url";
 import {
@@ -186,6 +186,76 @@ function DecisionBadge({ decision, isPublished }: { decision: string; isPublishe
   );
 }
 
+function renderAuthorsList(authorsStr?: string | null) {
+  if (!authorsStr || !authorsStr.trim()) {
+    return <span className="text-xs text-muted-foreground italic">No authors listed</span>;
+  }
+
+  let cleanStr = authorsStr.trim();
+  if (/^authors\s*:/i.test(cleanStr)) {
+    cleanStr = cleanStr.replace(/^authors\s*:/i, "").trim();
+  }
+
+  const authorList = cleanStr
+    .split(/[,;\n]/)
+    .map((a) => a.trim())
+    .filter(Boolean);
+
+  if (authorList.length === 0) {
+    return <span className="text-xs font-bold text-foreground">{authorsStr}</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1">
+      {authorList.map((name, idx) => (
+        <Badge
+          key={idx}
+          variant="secondary"
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 gap-1.5 shadow-2xs hover:bg-primary/15 transition-colors"
+        >
+          <User className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span>{name}</span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function renderKeywordsBadges(keywordsStr?: string | null) {
+  if (!keywordsStr || !keywordsStr.trim()) {
+    return <span className="text-xs text-muted-foreground italic">No keywords provided</span>;
+  }
+
+  let cleanStr = keywordsStr.trim();
+  if (/^keywords\s*:/i.test(cleanStr)) {
+    cleanStr = cleanStr.replace(/^keywords\s*:/i, "").trim();
+  }
+
+  const kwList = cleanStr
+    .split(/[,;\n]/)
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  if (kwList.length === 0) {
+    return <span className="text-xs font-medium text-foreground">{keywordsStr}</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {kwList.map((kw, idx) => (
+        <Badge
+          key={idx}
+          variant="outline"
+          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 gap-1.5 shadow-2xs hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+        >
+          <Tag className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{kw}</span>
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 // ─── Page Component ───────────────────────────────────────────────────────────
 
 export default function ExternalResearchApprovalDetailPage() {
@@ -198,6 +268,7 @@ export default function ExternalResearchApprovalDetailPage() {
   }, [params]);
 
   const { data: research, isLoading } = useExternalResearch(researchId);
+  const downloadMutation = useRecordExternalResearchDownload();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [previewTitle, setPreviewTitle] = useState<string>("");
@@ -359,6 +430,10 @@ export default function ExternalResearchApprovalDetailPage() {
                 </Badge>
               )
             )}
+            <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wide px-2.5 py-0.5 border border-primary/20 gap-1.5 shadow-2xs">
+              <Download className="h-3 w-3 text-primary" />
+              {research?.download_count ?? 0} Downloads
+            </Badge>
           </div>
         }
         actions={
@@ -443,21 +518,22 @@ export default function ExternalResearchApprovalDetailPage() {
                   </div>
                 )}
                 {(keywords || doi) && (
-                  <div className="flex flex-wrap items-center gap-3 pt-2 border-t text-xs">
-                    {doi && (
-                      <div className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-lg border">
-                        <span className="font-bold text-foreground">DOI:</span>
-                        <span className="font-mono text-muted-foreground">
-                          {doi}
-                        </span>
+                  <div className="space-y-3 pt-3 border-t">
+                    {keywords && (
+                      <div className="p-4 rounded-xl border border-emerald-200/80 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-900/50 space-y-1.5">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          Keywords & Subject Topics
+                        </h4>
+                        {renderKeywordsBadges(keywords)}
                       </div>
                     )}
-                    {keywords && (
-                      <div className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-lg border">
-                        <span className="font-bold text-foreground">
-                          Keywords:
+                    {doi && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-bold text-foreground">DOI Identifier:</span>
+                        <span className="font-mono bg-muted px-2.5 py-1 rounded-md border text-muted-foreground">
+                          {doi}
                         </span>
-                        <span className="text-muted-foreground">{keywords}</span>
                       </div>
                     )}
                   </div>
@@ -475,13 +551,19 @@ export default function ExternalResearchApprovalDetailPage() {
               </CardHeader>
               <CardContent className="p-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
+                  <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1 sm:col-span-2">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       Title
                     </p>
                     <p className="text-sm font-bold text-foreground leading-snug">
                       {title}
                     </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1 sm:col-span-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <User className="h-3.5 w-3.5 text-primary" /> Authors
+                    </p>
+                    {renderAuthorsList(authors)}
                   </div>
                   <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -490,14 +572,6 @@ export default function ExternalResearchApprovalDetailPage() {
                     <p className="text-xs font-bold text-foreground">
                       {institution}{" "}
                       {department ? `(${department})` : ""}
-                    </p>
-                  </div>
-                  <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Authors
-                    </p>
-                    <p className="text-xs font-bold text-foreground">
-                      {authors}
                     </p>
                   </div>
                   <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
@@ -518,40 +592,6 @@ export default function ExternalResearchApprovalDetailPage() {
                   </div>
                   <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Output Types
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {outputTypesDetail.length > 0
-                        ? outputTypesDetail.map((ot: any) => (
-                            <Badge
-                              key={ot.id}
-                              variant="secondary"
-                              className="text-[10px] font-bold"
-                            >
-                              {ot.name}
-                            </Badge>
-                          ))
-                        : items.length > 0
-                        ? items.map((it: any, idx: number) => (
-                            <Badge
-                              key={it.id || idx}
-                              variant="secondary"
-                              className="text-[10px] font-bold"
-                            >
-                              {it.output_type_name ||
-                                it.outputTypeName ||
-                                `Item #${idx + 1}`}
-                            </Badge>
-                          ))
-                        : (
-                            <span className="text-xs text-muted-foreground">
-                              N/A
-                            </span>
-                          )}
-                    </div>
-                  </div>
-                  <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       Evidence Tier
                     </p>
                     <Badge
@@ -563,6 +603,14 @@ export default function ExternalResearchApprovalDetailPage() {
                         : "Not Graded"}
                     </Badge>
                   </div>
+                  {keywords && (
+                    <div className="p-3.5 rounded-xl border border-border/50 bg-card space-y-1.5 sm:col-span-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                        <Tag className="h-3.5 w-3.5 text-emerald-600" /> Keywords & Research Subjects
+                      </p>
+                      {renderKeywordsBadges(keywords)}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -651,12 +699,13 @@ export default function ExternalResearchApprovalDetailPage() {
                                 <Button
                                   variant="secondary"
                                   size="sm"
-                                  onClick={() =>
+                                  onClick={() => {
+                                    if (researchId) downloadMutation.mutate({ id: researchId });
                                     downloadConceptNoteAttachment(
                                       fileUrl,
                                       typeName
-                                    )
-                                  }
+                                    );
+                                  }}
                                   className="h-7 text-[11px] font-semibold gap-1"
                                 >
                                   <Download className="w-3 h-3" /> Download

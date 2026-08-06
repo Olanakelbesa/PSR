@@ -574,14 +574,14 @@ export default function PremiumSearchPage() {
                           </p>
 
                           {/* Matched Vector Paragraph Context Card */}
-                          {item.matched_chunk_text && (
+                          {(item.matched_chunk_text || item.snippet) && (
                             <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 space-y-1">
                               <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                                 <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
                                 RPDMS AI Context
                               </p>
                               <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-mono italic">
-                                <HighlightedText text={item.matched_chunk_text} query={clean_query_terms(querySearch)} />
+                                <HighlightedText text={item.matched_chunk_text || item.snippet} query={clean_query_terms(querySearch)} />
                               </p>
                             </div>
                           )}

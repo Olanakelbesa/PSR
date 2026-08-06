@@ -17,6 +17,7 @@ import {
   Check,
   FilePlus2,
   Globe,
+  Lock,
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -216,6 +217,7 @@ export default function MyExternalResearchPage() {
         dataCenterName: dataCenter,
         status: r.approval_status || "pending",
         isPublished: r.is_published ?? true,
+        downloadCount: r.download_count ?? (r as any).downloadCount ?? 0,
         submittedAt: r.uploaded_at || "",
       };
     });
@@ -305,6 +307,16 @@ export default function MyExternalResearchPage() {
         cell: ({ row }) => getStatusBadge(row.original.status, row.original.isPublished),
       },
       {
+        accessorKey: "downloadCount",
+        header: "Downloads",
+        cell: ({ row }) => (
+          <Badge variant="secondary" className="font-mono text-xs font-bold gap-1 bg-muted/80 text-foreground">
+            <Download className="w-3 h-3 text-primary" />
+            {(row.original as any).downloadCount ?? 0}
+          </Badge>
+        ),
+      },
+      {
         accessorKey: "submittedAt",
         header: "Submitted Date",
         cell: ({ row }) => (
@@ -317,11 +329,28 @@ export default function MyExternalResearchPage() {
         id: "actions",
         header: () => <div className="text-right">Actions</div>,
         cell: ({ row }) => {
-          const item = row.original;
-          const isDraft = item.status.toLowerCase() === "draft";
-          const isRejected =
-            item.status.toLowerCase() === "rejected" ||
-            item.status.toLowerCase() === "revision_requested";
+          const statusLower = item.status.toLowerCase();
+          const isDraft = statusLower === "draft";
+          const isApproved = statusLower === "approved";
+          const isUnderReview = statusLower === "submitted" || statusLower === "under_review" || statusLower === "pending";
+          const isRejected = statusLower === "rejected" || statusLower === "revision_requested";
+
+          if (isApproved || isUnderReview) {
+            return (
+              <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  className="h-7 text-xs font-semibold gap-1 border-muted text-muted-foreground cursor-not-allowed"
+                  title={isApproved ? "This entry has been approved and can no longer be edited." : "This entry is currently under review and cannot be edited."}
+                >
+                  <Lock className="w-3 h-3" />
+                  {isApproved ? "Approved — Locked" : "Under Review — Locked"}
+                </Button>
+              </div>
+            );
+          }
 
           return (
             <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>

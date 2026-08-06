@@ -24,6 +24,7 @@ import {
   Upload,
   User,
   Link2,
+  Lock,
   Tag,
   ExternalLink,
 } from "lucide-react";
@@ -79,6 +80,22 @@ function AddExternalResearchForm() {
   const { data: existingResearch } = useExternalResearch(editId || undefined);
   const createMutation = useCreateExternalResearch();
   const updateMutation = useUpdateExternalResearch();
+
+  const statusLower = (
+    existingResearch?.approval_status ||
+    (existingResearch as any)?.approvalStatus ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  const isApproved = statusLower === "approved";
+  const isUnderReviewOrSubmitted =
+    statusLower === "submitted" ||
+    statusLower === "under_review" ||
+    statusLower === "pending";
+
+  const researchLocked = !!existingResearch && (isApproved || isUnderReviewOrSubmitted);
 
   const dataCentersQuery = useDataCenters();
   const dataCenters = dataCentersQuery.data?.data ?? [];
@@ -156,6 +173,7 @@ function AddExternalResearchForm() {
 
   // Toggle selection for an output type checkbox matching final-report/new pattern EXACTLY
   const handleTypeToggle = (typeId: number, name: string) => {
+    if (researchLocked) return;
     const isChecked = selectedTypeIds.some((id) => Number(id) === Number(typeId));
     if (isChecked) {
       setSelectedTypeIds((prev) => prev.filter((id) => Number(id) !== Number(typeId)));
@@ -184,6 +202,7 @@ function AddExternalResearchForm() {
     typeId: number,
     updates: Partial<OutputTypeItemConfig>
   ) => {
+    if (researchLocked) return;
     setTypeConfigs((prev) => ({
       ...prev,
       [typeId]: {
@@ -493,6 +512,11 @@ function AddExternalResearchForm() {
   const handleSaveDraft = async (e: React.MouseEvent) => {
     e.preventDefault();
 
+    if (researchLocked) {
+      toast.error("This external research entry has been approved and can no longer be edited.");
+      return;
+    }
+
     if (!title.trim()) {
       toast.error("Please enter a research title before saving a draft.");
       return;
@@ -525,6 +549,11 @@ function AddExternalResearchForm() {
   // Submit action
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (researchLocked) {
+      toast.error("This external research entry has been approved and can no longer be edited.");
+      return;
+    }
 
     if (!title.trim()) {
       toast.error("Please enter a research title.");
@@ -598,11 +627,14 @@ function AddExternalResearchForm() {
             type="button"
             variant="outline"
             size="sm"
-            disabled={isSavingDraft || isSubmitting}
+            disabled={isSavingDraft || isSubmitting || researchLocked}
             onClick={handleSaveDraft}
             className="h-9 text-xs font-semibold gap-2 border-border text-foreground hover:bg-accent shadow-2xs"
+            title={researchLocked ? "This entry is locked and can no longer be edited." : undefined}
           >
-            {isSavingDraft ? (
+            {researchLocked ? (
+              <Lock className="w-4 h-4 text-muted-foreground" />
+            ) : isSavingDraft ? (
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
             ) : (
               <Save className="w-4 h-4 text-muted-foreground" />
@@ -613,22 +645,50 @@ function AddExternalResearchForm() {
             type="submit"
             form="external-research-form"
             size="sm"
-            disabled={isSavingDraft || isSubmitting}
+            disabled={isSavingDraft || isSubmitting || researchLocked}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs gap-2 h-9 shadow-2xs"
+            title={researchLocked ? "This entry is locked and can no longer be edited." : undefined}
           >
-            {isSubmitting ? (
+            {researchLocked ? (
+              <Lock className="w-4 h-4" />
+            ) : isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
             )}
-            {editId ? "Resubmit Entry" : "Submit Entry"}
+            {researchLocked ? (isApproved ? "Approved — Locked" : "Submitted — Locked") : editId ? "Resubmit Entry" : "Submit Entry"}
           </Button>
         </div>
       }
     >
       <div className="w-full max-w-full space-y-6">
+        {researchLocked && (
+          <Card className={cn(
+            "border-l-4 shadow-xs",
+            isApproved
+              ? "border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
+              : "border-l-blue-500 bg-blue-50 dark:bg-blue-950/20"
+          )}>
+            <CardContent className="p-4 flex items-start gap-3">
+              <Lock className={cn("h-5 w-5 shrink-0 mt-0.5", isApproved ? "text-emerald-600" : "text-blue-600")} />
+              <div className="flex-1 min-w-0">
+                <h3 className={cn("font-bold text-sm", isApproved ? "text-emerald-900 dark:text-emerald-200" : "text-blue-900 dark:text-blue-200")}>
+                  {isApproved
+                    ? "External Research Approved — Editing Locked"
+                    : "External Research Under Review — Editing Locked"}
+                </h3>
+                <p className={cn("text-xs mt-0.5", isApproved ? "text-emerald-800 dark:text-emerald-300" : "text-blue-800 dark:text-blue-300")}>
+                  {isApproved
+                    ? "This external research entry has been reviewed and officially approved. It can no longer be edited or resubmitted. Contact the research committee if you need to request a change."
+                    : "This external research entry has been submitted and is currently undergoing committee review. Editing is disabled until evaluation completes."}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <form id="external-research-form" onSubmit={handleSubmit}>
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] items-start">
+          <fieldset disabled={researchLocked} className={cn("contents", researchLocked && "pointer-events-none select-none")}>
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] items-start">
             {/* LEFT COLUMN */}
             <div className="space-y-6 min-w-0">
               {/* STEP 1: Metadata Card */}
@@ -646,6 +706,7 @@ function AddExternalResearchForm() {
                       placeholder="Enter research paper or output title..."
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
+                      disabled={researchLocked}
                       className="text-xs h-9 bg-background"
                       required
                     />
@@ -658,6 +719,7 @@ function AddExternalResearchForm() {
                         placeholder="List of authors (comma-separated)..."
                         value={authors}
                         onChange={(e) => setAuthors(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                         required
                       />
@@ -668,6 +730,7 @@ function AddExternalResearchForm() {
                         placeholder="Publishing institution name..."
                         value={institution}
                         onChange={(e) => setInstitution(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                         required
                       />
@@ -681,6 +744,7 @@ function AddExternalResearchForm() {
                         placeholder="Department name (optional)..."
                         value={department}
                         onChange={(e) => setDepartment(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                       />
                     </div>
@@ -691,13 +755,14 @@ function AddExternalResearchForm() {
                         placeholder="Year (e.g. 2026)"
                         value={year}
                         onChange={(e) => setYear(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-semibold">Evidence Tier Grade</Label>
-                      <Select value={gradedEvidence} onValueChange={setGradedEvidence}>
-                        <SelectTrigger className="h-9 text-xs bg-background">
+                      <Select value={gradedEvidence} onValueChange={setGradedEvidence} disabled={researchLocked}>
+                        <SelectTrigger className="h-9 text-xs bg-background" disabled={researchLocked}>
                           <SelectValue placeholder="Evidence Tier" />
                         </SelectTrigger>
                         <SelectContent>
@@ -717,6 +782,7 @@ function AddExternalResearchForm() {
                       placeholder="Abstract or summary of the research paper..."
                       value={abstract}
                       onChange={(e) => setAbstract(e.target.value)}
+                      disabled={researchLocked}
                       className="text-xs"
                     />
                   </div>
@@ -728,6 +794,7 @@ function AddExternalResearchForm() {
                       placeholder="Policy-focused executive summary..."
                       value={executiveSummary}
                       onChange={(e) => setExecutiveSummary(e.target.value)}
+                      disabled={researchLocked}
                       className="text-xs"
                     />
                   </div>
@@ -739,6 +806,7 @@ function AddExternalResearchForm() {
                         placeholder="e.g. 10.1000/182"
                         value={doi}
                         onChange={(e) => setDoi(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                       />
                     </div>
@@ -748,6 +816,7 @@ function AddExternalResearchForm() {
                         placeholder="https://..."
                         value={externalLink}
                         onChange={(e) => setExternalLink(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                       />
                     </div>
@@ -757,6 +826,7 @@ function AddExternalResearchForm() {
                         placeholder="e.g. IoT, Agriculture, Ethiopia"
                         value={keywords}
                         onChange={(e) => setKeywords(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                       />
                     </div>
@@ -801,12 +871,13 @@ function AddExternalResearchForm() {
                             <div
                               key={type.key || `ot-item-${typeId}-${idx}`}
                               className={cn(
-                                "flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none",
+                                "flex items-center gap-3 p-3 rounded-xl border transition-all select-none",
+                                researchLocked ? "cursor-not-allowed opacity-60 bg-muted/40" : "cursor-pointer",
                                 isChecked
                                   ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-2xs"
                                   : "border-border/60 hover:border-border hover:bg-muted/30"
                               )}
-                              onClick={() => handleTypeToggle(typeId, type.name)}
+                              onClick={() => !researchLocked && handleTypeToggle(typeId, type.name)}
                             >
                               <div
                                 className={cn(
@@ -852,13 +923,16 @@ function AddExternalResearchForm() {
                                     <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border">
                                       <button
                                         type="button"
+                                        disabled={researchLocked}
                                         onClick={() =>
+                                          !researchLocked &&
                                           handleItemConfigChange(typeId, {
                                             upload_mode: "file",
                                           })
                                         }
                                         className={cn(
                                           "px-3 py-1 text-[10px] font-bold rounded-md transition-all gap-1 inline-flex items-center cursor-pointer",
+                                          researchLocked && "cursor-not-allowed opacity-60",
                                           config.upload_mode === "file"
                                             ? "bg-background text-primary shadow-2xs"
                                             : "text-muted-foreground hover:text-foreground"
@@ -869,13 +943,16 @@ function AddExternalResearchForm() {
                                       </button>
                                       <button
                                         type="button"
+                                        disabled={researchLocked}
                                         onClick={() =>
+                                          !researchLocked &&
                                           handleItemConfigChange(typeId, {
                                             upload_mode: "link",
                                           })
                                         }
                                         className={cn(
                                           "px-3 py-1 text-[10px] font-bold rounded-md transition-all gap-1 inline-flex items-center cursor-pointer",
+                                          researchLocked && "cursor-not-allowed opacity-60",
                                           config.upload_mode === "link"
                                             ? "bg-background text-primary shadow-2xs"
                                             : "text-muted-foreground hover:text-foreground"
@@ -895,8 +972,10 @@ function AddExternalResearchForm() {
                                           id={`file-input-${typeId}`}
                                           type="file"
                                           accept=".pdf,.doc,.docx,.zip,.tar.gz"
+                                          disabled={researchLocked}
                                           className="hidden"
                                           onChange={(e) => {
+                                            if (researchLocked) return;
                                             const file = e.target.files?.[0] || null;
                                             handleItemConfigChange(typeId, { file });
                                           }}
@@ -944,8 +1023,9 @@ function AddExternalResearchForm() {
                                             {config.file && config.existing_file_url && (
                                               <button
                                                 type="button"
-                                                onClick={() => handleItemConfigChange(typeId, { file: null })}
-                                                className="text-[10px] font-semibold text-muted-foreground hover:text-destructive underline block pt-0.5 cursor-pointer"
+                                                disabled={researchLocked}
+                                                onClick={() => !researchLocked && handleItemConfigChange(typeId, { file: null })}
+                                                className="text-[10px] font-semibold text-muted-foreground hover:text-destructive underline block pt-0.5 cursor-pointer disabled:cursor-not-allowed"
                                               >
                                                 Undo replacement & keep existing file
                                               </button>
@@ -956,7 +1036,9 @@ function AddExternalResearchForm() {
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            disabled={researchLocked}
                                             onClick={() => {
+                                              if (researchLocked) return;
                                               document.getElementById(`file-input-${typeId}`)?.click();
                                             }}
                                             className="h-8 text-xs font-bold gap-1.5 shrink-0 shadow-2xs"
@@ -976,6 +1058,7 @@ function AddExternalResearchForm() {
                                       <Input
                                         placeholder="https://example.org/publication-or-data..."
                                         value={config.external_link || ""}
+                                        disabled={researchLocked}
                                         onChange={(e) =>
                                           handleItemConfigChange(typeId, {
                                             external_link: e.target.value,
@@ -1014,7 +1097,7 @@ function AddExternalResearchForm() {
                       placeholder="Search and choose repository data center..."
                       searchPlaceholder="Search data centers..."
                       emptyMessage="No data centers available"
-                      disabled={dataCentersQuery.isLoading}
+                      disabled={dataCentersQuery.isLoading || researchLocked}
                     />
                   </div>
 
@@ -1025,6 +1108,7 @@ function AddExternalResearchForm() {
                         placeholder="Enter custom data center repository name..."
                         value={customDataCenter}
                         onChange={(e) => setCustomDataCenter(e.target.value)}
+                        disabled={researchLocked}
                         className="text-xs h-9 bg-background"
                         required
                       />
@@ -1046,6 +1130,7 @@ function AddExternalResearchForm() {
                     <Checkbox
                       id="data-sharing-checklist"
                       checked={checklistCompleted}
+                      disabled={researchLocked}
                       onCheckedChange={(c) => setChecklistCompleted(Boolean(c))}
                       className="mt-0.5"
                     />
@@ -1104,25 +1189,31 @@ function AddExternalResearchForm() {
                   <div className="space-y-2">
                     <Button
                       type="submit"
-                      disabled={isSavingDraft || isSubmitting}
+                      disabled={isSavingDraft || isSubmitting || researchLocked}
                       className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 gap-2 shadow-2xs"
+                      title={researchLocked ? "This entry has been approved and can no longer be edited." : undefined}
                     >
-                      {isSubmitting ? (
+                      {researchLocked ? (
+                        <Lock className="w-4 h-4" />
+                      ) : isSubmitting ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Send className="w-4 h-4" />
                       )}
-                      {editId ? "Resubmit Entry" : "Submit Entry"}
+                      {researchLocked ? (isApproved ? "Approved — Locked" : "Submitted — Locked") : editId ? "Resubmit Entry" : "Submit Entry"}
                     </Button>
 
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={isSavingDraft || isSubmitting}
+                      disabled={isSavingDraft || isSubmitting || researchLocked}
                       onClick={handleSaveDraft}
                       className="w-full h-9 text-xs font-semibold gap-2 border-border text-foreground hover:bg-accent shadow-2xs"
+                      title={researchLocked ? "This entry has been approved and can no longer be edited." : undefined}
                     >
-                      {isSavingDraft ? (
+                      {researchLocked ? (
+                        <Lock className="w-4 h-4 text-muted-foreground" />
+                      ) : isSavingDraft ? (
                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground text-xs" />
                       ) : (
                         <Save className="w-4 h-4 text-muted-foreground" />
@@ -1134,6 +1225,7 @@ function AddExternalResearchForm() {
               </Card>
             </div>
           </div>
+          </fieldset>
         </form>
       </div>
     </PageContainer>

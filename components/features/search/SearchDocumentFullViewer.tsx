@@ -325,9 +325,12 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
       const token = tokenStorage.get();
       const headers: HeadersInit = { "Content-Type": "application/json", accept: "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const url = document.source === "policy_repository"
-        ? `/bff/v1/policy-repository/${document.id}/download/`
-        : `/bff/v1/final-submissions/${document.id}/download/`;
+      let url = `/bff/v1/final-submissions/${document.id}/download/`;
+      if (document.source === "policy_repository") {
+        url = `/bff/v1/policy-repository/${document.id}/download/`;
+      } else if (document.source === "external_research") {
+        url = `/bff/v1/external-research/${document.id}/download/`;
+      }
       const res = await fetch(url, { method: "POST", headers });
       if (res.ok) {
         const json = await res.json();
@@ -372,6 +375,8 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
 
       queryClient.invalidateQueries({ queryKey: ["public-overview"] });
       queryClient.invalidateQueries({ queryKey: ["unified-search"] });
+      queryClient.invalidateQueries({ queryKey: ["external-research"] });
+      queryClient.invalidateQueries({ queryKey: ["final-submissions"] });
     } catch {
       setLocalDownloadCount((prev) => prev + 1);
     }
@@ -623,7 +628,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
               )}
 
               {/* AI-matched chunk teaser */}
-              {document.matched_chunk_text && (
+              {(document.matched_chunk_text || document.executive_summary || document.abstract || document.snippet) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -634,7 +639,7 @@ export function SearchDocumentFullViewer({ document, onClose }: SearchDocumentFu
                     RPDMS AI Context
                   </p>
                   <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 font-mono leading-relaxed italic line-clamp-3">
-                    "{document.matched_chunk_text}"
+                    "{document.matched_chunk_text || document.executive_summary || document.abstract || document.snippet}"
                   </p>
                 </motion.div>
               )}

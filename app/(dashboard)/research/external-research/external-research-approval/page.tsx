@@ -430,6 +430,16 @@ export default function ExternalResearchApprovalPage() {
       },
     },
     {
+      accessorKey: "download_count",
+      header: "Downloads",
+      cell: ({ row }: any) => (
+        <Badge variant="secondary" className="font-mono text-xs font-bold gap-1 bg-muted/80 text-foreground">
+          <Download className="w-3 h-3 text-primary" />
+          {row.original.download_count ?? row.original.downloadCount ?? 0}
+        </Badge>
+      ),
+    },
+    {
       accessorKey: "uploaded_at",
       header: "Submitted At",
       cell: ({ row }: any) => (
