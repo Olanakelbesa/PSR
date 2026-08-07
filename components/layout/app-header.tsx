@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMarkAllNotificationsRead, useClearAllNotifications, useNotifications } from "@/lib/queries/notifications";
 import { useNotificationNavigation } from "@/hooks/useNotificationNavigation";
 import { getCategoryIcon, getPriorityStyles, formatRelativeTime } from "@/lib/notification-helpers";
+import { CommandPalette } from "@/components/layout/command-palette";
 import { cn } from "@/lib/utils";
 
 export function AppHeader() {
@@ -48,6 +49,8 @@ export function AppHeader() {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
   };
 
+  const [commandOpen, setCommandOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-4 border-b bg-card px-6 w-full max-w-full">
       <Button
@@ -65,15 +68,20 @@ export function AppHeader() {
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
 
-      {/* Search */}
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search policies, proposals, documents..."
-          className="w-full pl-9 h-10 bg-muted/50 border-0 focus-visible:ring-1"
-        />
-      </div>
+      {/* Search Command Palette Trigger */}
+      <button
+        type="button"
+        onClick={() => setCommandOpen(true)}
+        className="relative flex-1 max-w-md flex items-center gap-2 px-3 h-9 text-xs text-muted-foreground bg-muted/50 hover:bg-muted/80 border border-border/60 rounded-xl transition-colors cursor-pointer text-left"
+      >
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">Search policies, proposals, settings...</span>
+        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-0.5 rounded border bg-card px-1.5 font-mono text-[10px] font-bold text-muted-foreground shadow-2xs">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </button>
+
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
 
       <div className="ml-auto flex items-center gap-2">
         <Button

@@ -90,20 +90,29 @@ function isSubItemMatch(sub: SubNavItem, pathname: string): boolean {
   return false;
 }
 
-interface NavItem {
+export interface SubNavItem {
+  label: string;
+  href: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  permissions?: PermissionValue[];
+  matchPrefixes?: string[];
+}
+
+export interface NavItem {
   label: string;
   href?: string;
   icon?: React.ComponentType<{ className?: string }>;
   permissions?: PermissionValue[];
   subItems?: SubNavItem[];
+  matchPrefixes?: string[];
 }
 
-interface NavGroup {
+export interface NavGroup {
   label: string;
   items: NavItem[];
 }
 
-const navigationGroups: NavGroup[] = [
+export const navigationGroups: NavGroup[] = [
   {
     label: "",
     items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
