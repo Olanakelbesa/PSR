@@ -32,6 +32,8 @@ import {
   FileUp,
   Lightbulb,
   Database,
+  Award,
+  Paperclip,
 } from "lucide-react";
 
 import {
@@ -399,6 +401,30 @@ const navigationGroups: NavGroup[] = [
             label: "Taxonomy",
             href: "/settings/taxonomy",
             icon: Tags,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+          },
+          {
+            label: "Checklists",
+            href: "/settings/checklists",
+            icon: FileCheck,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+          },
+          {
+            label: "Review Rubrics",
+            href: "/settings/review-rubrics",
+            icon: Award,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+          },
+          {
+            label: "Attachments",
+            href: "/settings/document-templates",
+            icon: Paperclip,
+            permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
+          },
+          {
+            label: "Data Centers",
+            href: "/settings/data-centers",
+            icon: Building2,
             permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
           },
         ],
