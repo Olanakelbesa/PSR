@@ -272,11 +272,12 @@ export function SearchableSelect<T = any>({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        onWheel={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.stopPropagation()}
-        className={cn("w-[var(--radix-popover-trigger-width)] min-w-[320px] max-w-[calc(100vw-2rem)] sm:max-w-2xl p-0 shadow-xl z-50 rounded-xl overflow-hidden border-border/80", className)}
+        className={cn(
+          "w-[var(--radix-popover-trigger-width)] min-w-[320px] max-w-[calc(100vw-2rem)] sm:max-w-2xl p-0 shadow-xl z-50 rounded-xl overflow-hidden border-border/80",
+          className,
+        )}
       >
-        <Command shouldFilter={false} className="max-h-[380px]" onWheel={(e) => e.stopPropagation()}>
+        <Command shouldFilter={false} className="max-h-[380px]">
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchQuery}
@@ -285,7 +286,7 @@ export function SearchableSelect<T = any>({
           <CommandList
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
-            className="max-h-[300px] overflow-y-auto pointer-events-auto touch-auto scrollbar-thin p-1 space-y-0.5"
+            className="max-h-[300px] overflow-y-auto overflow-x-hidden p-1 space-y-0.5 scrollbar-thin pointer-events-auto touch-auto"
           >
             {isLoading ? (
               <div className="p-4 text-center text-xs text-muted-foreground">

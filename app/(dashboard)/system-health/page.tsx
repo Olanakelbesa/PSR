@@ -1,5 +1,5 @@
-import AdminHealthPage from "../admin/health/page";
+import SystemHealthPage from "../settings/system-health/page";
 
 export default function SystemHealthAliasPage() {
-  return <AdminHealthPage />;
+  return <SystemHealthPage />;
 }

@@ -377,17 +377,17 @@ const navigationGroups: NavGroup[] = [
           },
           {
             label: "System Health",
-            href: "/admin/health",
+            href: "/settings/system-health",
             icon: Activity,
             permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
-            matchPrefixes: ["/system-health"],
+            matchPrefixes: ["/system-health", "/settings/health"],
           },
           {
             label: "System Backup",
-            href: "/admin/backup",
+            href: "/settings/backup",
             icon: Database,
             permissions: [...PERMISSION_GROUPS.SETTINGS_ACCESS],
-            matchPrefixes: ["/settings/backup"],
+            matchPrefixes: ["/settings/system-backup"],
           },
           {
             label: "Audit Logs",

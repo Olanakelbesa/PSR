@@ -501,7 +501,7 @@ export function InternalMembersSection({
                             emptyMessage="No roles available"
                             noResultsMessage="No roles found"
                             loadingMessage="Loading roles..."
-                            limit={5}
+                            limit={100}
                             error={!!fieldState.error}
                             triggerClassName={cn(
                               fieldState.error &&

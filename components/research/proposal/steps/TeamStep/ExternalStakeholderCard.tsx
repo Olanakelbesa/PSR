@@ -29,7 +29,8 @@ import type { ProposalFormInput } from "@/lib/validators/proposal.schema";
 import { X, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PhoneInput from "react-phone-number-input";
-import "react-phone-number-input/style.css";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import type { TeamMemberRole } from "@/types/team-member-role";
 import { useTeamMemberRoles } from "@/lib/queries/team-member-role";
 import {
   deleteProposalTeamMember,
@@ -356,28 +357,27 @@ export function ExternalStakeholderCard({
             render={({ field, fieldState }) => (
               <FormItem>
                 <FormLabel className="flex items-center gap-2">Role</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value || ""}
-                >
-                  <FormControl>
-                    <SelectTrigger
-                      className={cn(
-                        fieldState.error &&
-                          "border-destructive focus:border-destructive focus:ring-destructive",
-                      )}
-                    >
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {roleOptions.map((role: any) => (
-                      <SelectItem key={role.id} value={String(role.id)}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <SearchableSelect<TeamMemberRole>
+                    value={field.value || ""}
+                    onValueChange={field.onChange}
+                    useQueryHook={useTeamMemberRoles}
+                    extractData={(response) => response ?? []}
+                    getOptionValue={(role) => String(role.id)}
+                    getOptionLabel={(role) => role.name}
+                    placeholder="Select role"
+                    searchPlaceholder="Search roles..."
+                    emptyMessage="No roles available"
+                    noResultsMessage="No roles found"
+                    loadingMessage="Loading roles..."
+                    limit={100}
+                    error={!!fieldState.error}
+                    triggerClassName={cn(
+                      fieldState.error &&
+                        "border-destructive focus:border-destructive focus:ring-destructive",
+                    )}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
